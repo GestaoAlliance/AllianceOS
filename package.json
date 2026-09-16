@@ -1,0 +1,11 @@
+{
+  "name": "allianceos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0"
+  }
+}
