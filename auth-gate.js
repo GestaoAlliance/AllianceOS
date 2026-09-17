@@ -19,6 +19,14 @@
     return data;
   }
 
+  async function inviteFor(email) {
+    const data = await call('/rest/v1/rpc/convite_de', {
+      method: 'POST',
+      body: JSON.stringify({ p_email: email })
+    });
+    return data && typeof data === 'object' ? data : {};
+  }
+
   async function getUser(token) {
     const r = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}` }, cache: 'no-store' });
     if (!r.ok) return null;
@@ -91,7 +99,7 @@
     return `<div class="auth-form-wrap" data-mode="${signup?'signup':'login'}">
       <div class="auth-brand"><span>✱</span><strong>AllianceOS</strong></div>
       <div class="auth-form-card">
-        <div class="auth-form-head"><h1>${signup?'Crie sua conta':'Bem-vindo de volta.'}</h1><p>${signup?'Use seu e-mail corporativo para entrar no espaço da Alliance.':'Entre para continuar no AllianceOS.'}</p></div>
+        <div class="auth-form-head"><h1>${signup?'Crie sua conta':'Bem-vindo de volta.'}</h1><p>${signup?'Use o e-mail que foi convidado para o AllianceOS.':'Entre para continuar no AllianceOS.'}</p></div>
         <form id="allianceAuthForm" autocomplete="on">
           ${signup?`<div class="auth-two"><label>Nome<input name="first_name" autocomplete="given-name" required placeholder="Seu nome"></label><label>Sobrenome<input name="last_name" autocomplete="family-name" required placeholder="Seu sobrenome"></label></div>`:''}
           <label>E-mail<input type="email" name="email" autocomplete="email" required placeholder="seu@email.com"></label>
@@ -126,6 +134,9 @@
       try {
         let data;
         if (mode === 'signup') {
+          const invite = await inviteFor(email);
+          if (!invite?.convidado) throw new Error('Esse e-mail ainda não foi convidado para o AllianceOS.');
+          if (invite?.ja_tem_conta) throw new Error('Esse e-mail já tem conta. Volte para Entrar.');
           const first=String(fd.get('first_name')||'').trim(), last=String(fd.get('last_name')||'').trim();
           data = await call('/auth/v1/signup', { method:'POST', body:JSON.stringify({ email, password, data:{ nome:`${first} ${last}`.trim(), full_name:`${first} ${last}`.trim() } }) });
           if (!data?.access_token) { msg.textContent='Conta criada. Confira seu e-mail para confirmar o cadastro e depois entre.'; return; }
