@@ -3,7 +3,10 @@
   const SB_URL = '__SUPABASE_URL__';
   const SB_ANON = '__SUPABASE_ANON__';
   const SESSION_KEY = 'allianceos.auth.session';
+  const LOGGED_OUT_KEY = 'allianceos.auth.logged_out';
   let current = null;
+  let currentUser = null;
+  let currentProfile = null;
   let readyResolve;
   window.ALLIANCE_AUTH_READY = new Promise((resolve) => { readyResolve = resolve; });
 
@@ -52,10 +55,12 @@
 
   function release(session, user, profile) {
     current = session;
+    currentUser = user || session?.user || null;
+    currentProfile = profile || null;
     document.documentElement.classList.remove('alliance-auth-locked');
     document.getElementById('alliance-auth-root')?.remove();
     document.body?.classList.remove('alliance-auth-open');
-    const payload = { accessToken: session?.access_token || '', refreshToken: session?.refresh_token || '', user: user || null, profile: profile || null };
+    const payload = { accessToken: session?.access_token || '', refreshToken: session?.refresh_token || '', user: currentUser, profile: currentProfile };
     if (readyResolve) { readyResolve(payload); readyResolve = null; }
     window.dispatchEvent(new CustomEvent('alliance-auth-ready', { detail: payload }));
   }
@@ -65,19 +70,38 @@
     if (!user) throw new Error('Sessão inválida. Entre novamente.');
     const profile = await getProfile(user.id, session.access_token);
     if (!profile?.ativo) throw new Error('Sua conta ainda não foi liberada para o AllianceOS. Peça acesso ao administrador.');
-    save(session); release(session, user, profile); return true;
+    const nextSession = { ...session, user };
+    save(nextSession); release(nextSession, user, profile); return true;
+  }
+
+  function consumeLoggedOutFlag() {
+    try {
+      const shouldReload = sessionStorage.getItem(LOGGED_OUT_KEY) === '1';
+      if (shouldReload) sessionStorage.removeItem(LOGGED_OUT_KEY);
+      return shouldReload;
+    } catch { return false; }
   }
 
   function logout() {
     const token = current?.access_token;
-    if (token) fetch(`${SB_URL}/auth/v1/logout`, { method:'POST', headers:{ apikey:SB_ANON, Authorization:`Bearer ${token}` } }).catch(()=>{});
-    save(null); location.reload();
+    if (token) fetch(`${SB_URL}/auth/v1/logout`, { method:'POST', headers:{ apikey:SB_ANON, Authorization:`Bearer ${token}` }, keepalive:true }).catch(()=>{});
+    save(null);
+    currentUser = null;
+    currentProfile = null;
+    try { sessionStorage.setItem(LOGGED_OUT_KEY, '1'); } catch {}
+    try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+    document.getElementById('allianceProfileModal')?.classList.remove('open');
+    show('signup');
   }
 
   window.ALLIANCE_AUTH = {
+    url: SB_URL,
     anonKey: SB_ANON,
     getAccessToken: () => current?.access_token || '',
     getSession: () => current,
+    getUser: () => currentUser || current?.user || null,
+    getProfile: () => currentProfile,
+    setProfile: (profile) => { currentProfile = profile || null; },
     logout,
   };
 
@@ -160,6 +184,7 @@
         }
         const session = { ...data, expires_at: Math.floor(Date.now()/1000) + Number(data.expires_in || 3600) };
         await authorize(session, data.user || null);
+        if (consumeLoggedOutFlag()) location.reload();
       } catch (err) { save(null); msg.textContent = err?.message || 'Não foi possível entrar.'; }
       finally { btn.disabled=false; btn.textContent=mode==='signup'?'Criar conta':'Entrar'; }
     });
@@ -174,10 +199,30 @@
     let session = load();
     if (session?.expires_at && session.expires_at < Math.floor(Date.now()/1000)+30) session = await refresh(session);
     if (session?.access_token) {
-      try { await authorize(session); return; } catch { save(null); }
+      try {
+        await authorize(session);
+        if (consumeLoggedOutFlag()) location.reload();
+        return;
+      } catch { save(null); }
     }
     show('signup');
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true }); else init();
+  let initStarted = false;
+  const startInit = () => {
+    if (initStarted || !document.body) return;
+    initStarted = true;
+    init();
+  };
+
+  if (document.body) startInit();
+  else {
+    const observer = new MutationObserver(() => {
+      if (!document.body) return;
+      observer.disconnect();
+      startInit();
+    });
+    observer.observe(document.documentElement, { childList:true, subtree:true });
+    document.addEventListener('DOMContentLoaded', () => { observer.disconnect(); startInit(); }, { once:true });
+  }
 })();
