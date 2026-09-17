@@ -4,6 +4,7 @@
   const SB_ANON = '__SUPABASE_ANON__';
   const SESSION_KEY = 'allianceos.auth.session';
   const LOGGED_OUT_KEY = 'allianceos.auth.logged_out';
+  const FETCH_TIMEOUT_MS = 10000;
   let current = null;
   let currentUser = null;
   let currentProfile = null;
@@ -14,9 +15,22 @@
   const save = (s) => { current = s; if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s)); else localStorage.removeItem(SESSION_KEY); };
   const load = () => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; } };
 
+  async function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...opts, signal: controller.signal });
+    } catch (err) {
+      if (err?.name === 'AbortError') throw new Error('A conexão demorou mais que o esperado. Tente novamente.');
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function call(path, opts = {}) {
     const headers = { apikey: SB_ANON, 'Content-Type': 'application/json', ...(opts.headers || {}) };
-    const r = await fetch(`${SB_URL}${path}`, { ...opts, headers, cache: 'no-store' });
+    const r = await fetchWithTimeout(`${SB_URL}${path}`, { ...opts, headers, cache: 'no-store' });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data?.msg || data?.error_description || data?.error || `HTTP ${r.status}`);
     return data;
@@ -31,14 +45,14 @@
   }
 
   async function getUser(token) {
-    const r = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    const r = await fetchWithTimeout(`${SB_URL}/auth/v1/user`, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}` }, cache: 'no-store' });
     if (!r.ok) return null;
     return r.json();
   }
 
   async function getProfile(userId, token) {
     const url = `${SB_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,papel,ativo,nome`;
-    const r = await fetch(url, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
+    const r = await fetchWithTimeout(url, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
     if (!r.ok) return null;
     const rows = await r.json().catch(() => []);
     return Array.isArray(rows) ? rows[0] || null : null;
@@ -184,7 +198,7 @@
         }
         const session = { ...data, expires_at: Math.floor(Date.now()/1000) + Number(data.expires_in || 3600) };
         await authorize(session, data.user || null);
-        if (consumeLoggedOutFlag()) location.reload();
+        consumeLoggedOutFlag();
       } catch (err) { save(null); msg.textContent = err?.message || 'Não foi possível entrar.'; }
       finally { btn.disabled=false; btn.textContent=mode==='signup'?'Criar conta':'Entrar'; }
     });
@@ -201,7 +215,7 @@
     if (session?.access_token) {
       try {
         await authorize(session);
-        if (consumeLoggedOutFlag()) location.reload();
+        consumeLoggedOutFlag();
         return;
       } catch { save(null); }
     }
@@ -212,7 +226,10 @@
   const startInit = () => {
     if (initStarted || !document.body) return;
     initStarted = true;
-    init();
+    init().catch(() => {
+      save(null);
+      show('signup');
+    });
   };
 
   if (document.body) startInit();
