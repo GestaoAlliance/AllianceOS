@@ -4,6 +4,7 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "ignoreCommand": "node -e \"process.exit((process.env.VERCEL_PROJECT_PRODUCTION_URL||'').startsWith('alliance-os')?0:1)\"",
   "git": {
     "deploymentEnabled": true
   }
