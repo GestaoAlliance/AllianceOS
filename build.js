@@ -34,16 +34,31 @@ async function main() {
       else if (textual.has(path.extname(ent.name))) {
         let s = fs.readFileSync(p, 'utf8');
 
-        // Identidade visual/produto. Os nomes internos `central.*`,
-        // `central_*` e globals `Central*` ficam intactos de propósito:
-        // eles são o contrato de compatibilidade com o banco legado.
+        // No modo aberto, Agenda e Drive continuam usando as mesmas APIs,
+        // mas não podem abortar só porque não existe sessão Supabase.
+        if (ent.name === 'agenda.js' || ent.name === 'drive.js') {
+          s = s.replace("    if (!t) throw new Error('sem sessão');\n", '');
+        }
+
+        // O Drive antigo gravava a pasta usando window.CentralDB, que nasce
+        // dentro da camada de login. No modo aberto a gravação passa pela API
+        // do servidor, sem entregar credencial administrativa ao navegador.
+        if (ent.name === 'drive.js') {
+          const inicio = s.indexOf('  async function ligarPasta(marca, id) {');
+          const fim = s.indexOf('\n  /* ---------- a lista, que é a mesma em todo lugar ---------- */', inicio);
+          if (inicio >= 0 && fim > inicio) {
+            const nova = `  async function ligarPasta(marca, id) {\n    const limpo = String(id || '').trim()\n      .replace(/^https?:\\/\\/drive\\.google\\.com\\/drive\\/(u\\/\\d+\\/)?folders\\//, '')\n      .split(/[?#]/)[0].trim();\n    if (!/^[A-Za-z0-9_-]{10,}$/.test(limpo)) throw new Error('esse id não parece um id de pasta do Drive');\n    const r = await fetch('/api/drive', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ marca, drive_pasta: limpo }),\n    });\n    const corpo = await r.json().catch(() => ({}));\n    if (!r.ok) throw new Error(corpo.erro || ('HTTP ' + r.status));\n    cache.clear();\n    return limpo;\n  }\n`;
+            s = s.slice(0, inicio) + nova + s.slice(fim);
+          }
+        }
+
+        // Identidade visual/produto. O backend de persistência aceita tanto
+        // central.* quanto allianceos.* para preservar compatibilidade.
         s = s.replaceAll('Central', 'AllianceOS');
         s = s.replaceAll('Revitta Derma', 'Revita');
         s = s.replaceAll("['Botanika', 'VermeFree']", "['Botanika', 'Revita', 'VermeFree', 'Shoty']");
         s = s.replaceAll('"name": "operacional"', '"name": "allianceos"');
 
-        // O app publicado usa o Supabase novo da Alliance. Mantemos somente
-        // a troca de endpoint/chave pública; nenhuma chave privada vai ao Git.
         s = s.replaceAll(SB_URL_OLD, SB_URL);
         s = s.replaceAll(SB_REF_OLD, SB_REF);
         s = s.replace(jwt, SB_KEY);
@@ -72,7 +87,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (aberto + Supabase compartilhado + compatibilidade Central)');
+  console.log('AllianceOS pronto em dist/index.html (aberto + Supabase compartilhado + APIs sem login)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
