@@ -7,12 +7,15 @@ const REPO = 'https://github.com/BotanikaBrasil/vitor.git';
 const BRANCH = 'claude/shared-conversation-bmyuw6';
 const CONFIG_URL = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
 const PUBLIC_SYNC = path.join(__dirname, 'public-sync.js');
+const AUTH_JS = path.join(__dirname, 'auth-gate.js');
+const AUTH_CSS = path.join(__dirname, 'auth-gate.css');
+const SHELL_CSS = path.join(__dirname, 'alliance-shell-v10.css');
 const TASK_V3_JS = path.join(__dirname, 'task-system-v3.js');
 const TASK_V3_CSS = path.join(__dirname, 'task-system-v3.css');
 const TASK_V5_JS = path.join(__dirname, 'task-system-v5-flow.js');
 const TASK_V5_CSS = path.join(__dirname, 'task-system-v5-flow.css');
 const TASK_FOCUS_JS = path.join(__dirname, 'task-system-v7-focus.js');
-const TASK_DESIGN_CSS = path.join(__dirname, 'task-design-v9-cilo-glass.css');
+const TASK_DESIGN_CSS = path.join(__dirname, 'task-design-v10-reference.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -30,6 +33,8 @@ async function main() {
   const taskV5Css = fs.readFileSync(TASK_V5_CSS, 'utf8');
   const taskFocusJs = fs.readFileSync(TASK_FOCUS_JS, 'utf8');
   const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
+  const authCss = fs.readFileSync(AUTH_CSS, 'utf8');
+  const shellCss = fs.readFileSync(SHELL_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -65,8 +70,8 @@ async function main() {
           s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskFocusJs}\n\n${taskAnchor}`);
 
           const styleClose = s.lastIndexOf('</style>');
-          if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n` + s.slice(styleClose);
+          if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar o design');
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n` + s.slice(styleClose);
         }
 
         if (ent.name === 'conferencia.js') {
@@ -95,6 +100,7 @@ async function main() {
   }
   walk(op);
 
+  // O login legado é substituído pelo Auth Gate do AllianceOS.
   fs.rmSync(path.join(op, 'src', 'supabase.js'), { force: true });
 
   execFileSync(process.execPath, [path.join(op, 'build.js')], {
@@ -104,14 +110,17 @@ async function main() {
   });
 
   let html = fs.readFileSync(path.join(op, 'dist', 'index.html'), 'utf8');
+  const auth = fs.readFileSync(AUTH_JS, 'utf8')
+    .replaceAll('__SUPABASE_URL__', SB_URL)
+    .replaceAll('__SUPABASE_ANON__', SB_KEY);
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
-  html = html.replace('</head>', () => `<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</head>', () => `<script>\n${auth}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (tarefas Cilo/Liquid Glass + aberto + Supabase compartilhado + APIs sem login)');
+  console.log('AllianceOS pronto em dist/index.html (Auth + Cilo reference tasks + neutral shell + shared Supabase)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
