@@ -11,6 +11,8 @@ const AUTH_JS = path.join(__dirname, 'auth-gate.js');
 const AUTH_CSS = path.join(__dirname, 'auth-gate.css');
 const AUTH_HERO_JS = path.join(__dirname, 'auth-hero-v2.js');
 const AUTH_HERO_CSS = path.join(__dirname, 'auth-hero-v2.css');
+const AUTH_SHOWCASE_JS = path.join(__dirname, 'auth-showcase-v2.js');
+const AUTH_SHOWCASE_CSS = path.join(__dirname, 'auth-showcase-v2.css');
 const PROFILE_JS = path.join(__dirname, 'profile-settings.js');
 const PROFILE_CSS = path.join(__dirname, 'profile-settings.css');
 const SHELL_CSS = path.join(__dirname, 'alliance-shell-v10.css');
@@ -39,6 +41,7 @@ async function main() {
   const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
   const authCss = fs.readFileSync(AUTH_CSS, 'utf8');
   const authHeroCss = fs.readFileSync(AUTH_HERO_CSS, 'utf8');
+  const authShowcaseCss = fs.readFileSync(AUTH_SHOWCASE_CSS, 'utf8');
   const profileCss = fs.readFileSync(PROFILE_CSS, 'utf8');
   const shellCss = fs.readFileSync(SHELL_CSS, 'utf8');
 
@@ -77,7 +80,7 @@ async function main() {
 
           const styleClose = s.lastIndexOf('</style>');
           if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar o design');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n\n${authHeroCss}\n\n${profileCss}\n` + s.slice(styleClose);
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n\n${authHeroCss}\n\n${authShowcaseCss}\n\n${profileCss}\n` + s.slice(styleClose);
         }
 
         if (ent.name === 'conferencia.js') {
@@ -120,16 +123,17 @@ async function main() {
     .replaceAll('__SUPABASE_URL__', SB_URL)
     .replaceAll('__SUPABASE_ANON__', SB_KEY);
   const authHero = fs.readFileSync(AUTH_HERO_JS, 'utf8');
+  const authShowcase = fs.readFileSync(AUTH_SHOWCASE_JS, 'utf8');
   const profile = fs.readFileSync(PROFILE_JS, 'utf8');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
   const authBridge = `if(window.ALLIANCE_AUTH){window.ALLIANCE_AUTH.url=${JSON.stringify(SB_URL)};window.ALLIANCE_AUTH.getUser=()=>window.ALLIANCE_AUTH.getSession?.()?.user||null;}`;
-  html = html.replace('</head>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</head>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (Auth + perfil + Cilo reference tasks + neutral shell + shared Supabase)');
+  console.log('AllianceOS pronto em dist/index.html (Auth + showcase + perfil + Cilo reference tasks + neutral shell + shared Supabase)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
