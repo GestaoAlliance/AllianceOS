@@ -23,6 +23,7 @@ export default async function handler(req,res){try{
   if(req.method!=='GET')return send(res,405,{erro:'método não permitido'});
   const q=Object.fromEntries(new URL(req.url,'http://x').searchParams),nome=q.marca||'Botanika',m=await marca(nome);
   if(!m.ativo)return send(res,404,{erro:`marca sem ficha ativa: ${nome}`});
+  if(q.diagnostico==='1')return send(res,200,{marca:m.marca,conta_servico_configurada:!!conta(),pasta_configurada:!!m.drive_pasta});
   if(!m.drive_pasta)return send(res,200,{ligado:false,marca:m.marca,erro:`A ${m.marca} ainda não tem pasta do Drive ligada.`});
   if(!conta())return send(res,200,{ligado:false,semChave:true,marca:m.marca,erro:'A AllianceOS ainda não tem a chave da conta de serviço do Google.'});
   const raiz=m.drive_pasta,pasta=q.pasta&&q.pasta!==raiz?q.pasta:raiz;
