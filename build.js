@@ -9,6 +9,8 @@ const CONFIG_URL = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public
 const PUBLIC_SYNC = path.join(__dirname, 'public-sync.js');
 const AUTH_JS = path.join(__dirname, 'auth-gate.js');
 const AUTH_CSS = path.join(__dirname, 'auth-gate.css');
+const PROFILE_JS = path.join(__dirname, 'profile-settings.js');
+const PROFILE_CSS = path.join(__dirname, 'profile-settings.css');
 const SHELL_CSS = path.join(__dirname, 'alliance-shell-v10.css');
 const TASK_V3_JS = path.join(__dirname, 'task-system-v3.js');
 const TASK_V3_CSS = path.join(__dirname, 'task-system-v3.css');
@@ -34,6 +36,7 @@ async function main() {
   const taskFocusJs = fs.readFileSync(TASK_FOCUS_JS, 'utf8');
   const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
   const authCss = fs.readFileSync(AUTH_CSS, 'utf8');
+  const profileCss = fs.readFileSync(PROFILE_CSS, 'utf8');
   const shellCss = fs.readFileSync(SHELL_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
@@ -71,7 +74,7 @@ async function main() {
 
           const styleClose = s.lastIndexOf('</style>');
           if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar o design');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n` + s.slice(styleClose);
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n\n${profileCss}\n` + s.slice(styleClose);
         }
 
         if (ent.name === 'conferencia.js') {
@@ -113,14 +116,16 @@ async function main() {
   const auth = fs.readFileSync(AUTH_JS, 'utf8')
     .replaceAll('__SUPABASE_URL__', SB_URL)
     .replaceAll('__SUPABASE_ANON__', SB_KEY);
+  const profile = fs.readFileSync(PROFILE_JS, 'utf8');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
-  html = html.replace('</head>', () => `<script>\n${auth}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
+  const authBridge = `if(window.ALLIANCE_AUTH){window.ALLIANCE_AUTH.url=${JSON.stringify(SB_URL)};window.ALLIANCE_AUTH.getUser=()=>window.ALLIANCE_AUTH.getSession?.()?.user||null;}`;
+  html = html.replace('</head>', () => `<script>\n${auth}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (Auth + Cilo reference tasks + neutral shell + shared Supabase)');
+  console.log('AllianceOS pronto em dist/index.html (Auth + perfil + Cilo reference tasks + neutral shell + shared Supabase)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
