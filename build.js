@@ -10,6 +10,8 @@ const PUBLIC_SYNC = path.join(__dirname, 'public-sync.js');
 const TASK_V3_JS = path.join(__dirname, 'task-system-v3.js');
 const TASK_V3_CSS = path.join(__dirname, 'task-system-v3.css');
 const TASK_V4_CSS = path.join(__dirname, 'task-layout-v4.css');
+const TASK_V5_JS = path.join(__dirname, 'task-system-v5-flow.js');
+const TASK_V5_CSS = path.join(__dirname, 'task-system-v5-flow.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -24,6 +26,8 @@ async function main() {
   const taskV3Js = fs.readFileSync(TASK_V3_JS, 'utf8');
   const taskV3Css = fs.readFileSync(TASK_V3_CSS, 'utf8');
   const taskV4Css = fs.readFileSync(TASK_V4_CSS, 'utf8');
+  const taskV5Js = fs.readFileSync(TASK_V5_JS, 'utf8');
+  const taskV5Css = fs.readFileSync(TASK_V5_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -58,17 +62,17 @@ async function main() {
           }
         }
 
-        // TAREFAS V3: o código legado ainda é a base do app, mas o fluxo de
-        // tarefas é substituído dentro do mesmo escopo para preservar os dados
-        // já existentes e permitir dependências reais entre pessoas/etapas.
+        // TAREFAS V3/V5: a base legada permanece como fonte de dados e eventos,
+        // mas a experiencia visual/operacional e substituida mantendo a mesma
+        // persistencia. O V5 adiciona entrega obrigatoria e arvore de etapas.
         if (ent.name === 'base.html') {
           const taskAnchor = '  function showHome(){';
-          if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas V3');
-          s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskAnchor}`);
+          if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas');
+          s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskAnchor}`);
 
           const styleClose = s.lastIndexOf('</style>');
-          if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas V3/V4');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV4Css}\n` + s.slice(styleClose);
+          if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas V3/V4/V5');
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV4Css}\n\n${taskV5Css}\n` + s.slice(styleClose);
         }
 
         // A conferência continua existindo no nível de campanha/protocolo,
@@ -121,7 +125,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (tarefas V4 + aberto + Supabase compartilhado + APIs sem login)');
+  console.log('AllianceOS pronto em dist/index.html (tarefas V5 + aberto + Supabase compartilhado + APIs sem login)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
