@@ -23,9 +23,6 @@
   const serialize = (value) => JSON.stringify(value);
   const equalRaw = (a, b) => String(a ?? '') === String(b ?? '');
 
-  // Builds publicados nas primeiras horas do AllianceOS usaram allianceos.*.
-  // O banco legado usa central.*. Copiamos localmente apenas quando a chave
-  // canônica ainda não existe, para não perder nada criado antes da correção.
   function migrateLocalAliases() {
     const copies = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -38,8 +35,22 @@
   }
   migrateLocalAliases();
 
+  async function getAuthHeaders() {
+    const auth = await (window.ALLIANCE_AUTH_READY || Promise.resolve(null));
+    const token = auth?.accessToken || window.ALLIANCE_AUTH?.getAccessToken?.() || '';
+    const anon = window.ALLIANCE_AUTH?.anonKey || '';
+    if (!token) throw new Error('Sessão necessária');
+    return { Authorization: `Bearer ${token}`, ...(anon ? { apikey: anon } : {}) };
+  }
+
   async function request(options = {}) {
-    const res = await fetch(ENDPOINT, { cache: 'no-store', ...options });
+    const authHeaders = await getAuthHeaders();
+    const res = await fetch(ENDPOINT, {
+      cache: 'no-store',
+      ...options,
+      headers: { ...authHeaders, ...(options.headers || {}) },
+    });
+    if (res.status === 401 || res.status === 403) throw new Error('Sessão sem acesso ao estado compartilhado');
     if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
     const data = await res.json();
     if (data?.error) throw new Error(data.error);
@@ -117,8 +128,6 @@
       }
     }
 
-    // Se existe uma cópia transitória remota allianceos.X e não existe a
-    // canônica central.X, cria a canônica no navegador e a envia ao banco.
     for (const [key, value] of remote) {
       if (!key.startsWith('allianceos.')) continue;
       const canonical = 'central.' + key.slice('allianceos.'.length);
@@ -187,7 +196,7 @@
   hydrate().catch((e) => {
     ready = true;
     pending.clear();
-    console.error('[AllianceOS sync] Supabase indisponivel; usando apenas este navegador', e);
+    console.error('[AllianceOS sync] estado compartilhado indisponível', e);
   });
 
   setInterval(checkRemote, 20000);
