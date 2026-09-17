@@ -9,11 +9,33 @@
   let currentUser = null;
   let currentProfile = null;
   let readyResolve;
+  let readySettled = false;
   window.ALLIANCE_AUTH_READY = new Promise((resolve) => { readyResolve = resolve; });
 
   const q = (s, root = document) => root.querySelector(s);
   const save = (s) => { current = s; if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s)); else localStorage.removeItem(SESSION_KEY); };
   const load = () => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; } };
+  const authPayload = (session = current, user = currentUser, profile = currentProfile) => ({
+    accessToken: session?.access_token || '',
+    refreshToken: session?.refresh_token || '',
+    user: user || session?.user || null,
+    profile: profile || null,
+  });
+
+  function settleReady(payload = authPayload()) {
+    if (!readySettled && readyResolve) {
+      readySettled = true;
+      readyResolve(payload);
+      readyResolve = null;
+    }
+    return payload;
+  }
+
+  function emitAuthReady(payload = authPayload()) {
+    settleReady(payload);
+    window.dispatchEvent(new CustomEvent('alliance-auth-ready', { detail: payload }));
+    return payload;
+  }
 
   async function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
     const controller = new AbortController();
@@ -52,7 +74,7 @@
 
   async function getProfile(userId, token) {
     const url = `${SB_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,papel,ativo,nome`;
-    const r = await fetchWithTimeout(url, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
+    const r = await fetchWithTimeout(url, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}` }, cache: 'no-store' });
     if (!r.ok) return null;
     const rows = await r.json().catch(() => []);
     return Array.isArray(rows) ? rows[0] || null : null;
@@ -74,9 +96,7 @@
     document.documentElement.classList.remove('alliance-auth-locked');
     document.getElementById('alliance-auth-root')?.remove();
     document.body?.classList.remove('alliance-auth-open');
-    const payload = { accessToken: session?.access_token || '', refreshToken: session?.refresh_token || '', user: currentUser, profile: currentProfile };
-    if (readyResolve) { readyResolve(payload); readyResolve = null; }
-    window.dispatchEvent(new CustomEvent('alliance-auth-ready', { detail: payload }));
+    emitAuthReady(authPayload(session, currentUser, currentProfile));
   }
 
   async function authorize(session, fallbackUser = null) {
@@ -105,6 +125,7 @@
     try { sessionStorage.setItem(LOGGED_OUT_KEY, '1'); } catch {}
     try { history.replaceState(null, '', location.pathname + location.search); } catch {}
     document.getElementById('allianceProfileModal')?.classList.remove('open');
+    emitAuthReady(authPayload(null, null, null));
     show('signup');
   }
 
@@ -168,6 +189,7 @@
   }
 
   function show(mode = 'signup') {
+    settleReady(authPayload(null, null, null));
     document.documentElement.classList.add('alliance-auth-locked');
     document.body?.classList.add('alliance-auth-open');
     let root = document.getElementById('alliance-auth-root');
@@ -228,6 +250,7 @@
     initStarted = true;
     init().catch(() => {
       save(null);
+      settleReady(authPayload(null, null, null));
       show('signup');
     });
   };
