@@ -22,6 +22,8 @@ const TASK_V5_JS = path.join(__dirname, 'task-system-v5-flow.js');
 const TASK_V5_CSS = path.join(__dirname, 'task-system-v5-flow.css');
 const TASK_FOCUS_JS = path.join(__dirname, 'task-system-v7-focus.js');
 const TASK_DESIGN_CSS = path.join(__dirname, 'task-design-v10-reference.css');
+const TASK_REFERENCE_JS = path.join(__dirname, 'task-reference-v11.js');
+const TASK_REFERENCE_CSS = path.join(__dirname, 'task-reference-v11.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -39,6 +41,8 @@ async function main() {
   const taskV5Css = fs.readFileSync(TASK_V5_CSS, 'utf8');
   const taskFocusJs = fs.readFileSync(TASK_FOCUS_JS, 'utf8');
   const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
+  const taskReferenceJs = fs.readFileSync(TASK_REFERENCE_JS, 'utf8');
+  const taskReferenceCss = fs.readFileSync(TASK_REFERENCE_CSS, 'utf8');
   const authCss = fs.readFileSync(AUTH_CSS, 'utf8');
   const authHeroCss = fs.readFileSync(AUTH_HERO_CSS, 'utf8');
   const authShowcaseCss = fs.readFileSync(AUTH_SHOWCASE_CSS, 'utf8');
@@ -76,11 +80,11 @@ async function main() {
         if (ent.name === 'base.html') {
           const taskAnchor = '  function showHome(){';
           if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas');
-          s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskFocusJs}\n\n${taskAnchor}`);
+          s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskFocusJs}\n\n${taskReferenceJs}\n\n${taskAnchor}`);
 
           const styleClose = s.lastIndexOf('</style>');
           if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar o design');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n\n${authHeroCss}\n\n${authShowcaseCss}\n\n${profileCss}\n` + s.slice(styleClose);
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n\n${authHeroCss}\n\n${authShowcaseCss}\n\n${profileCss}\n\n${taskReferenceCss}\n` + s.slice(styleClose);
         }
 
         if (ent.name === 'conferencia.js') {
@@ -133,7 +137,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (Auth + showcase + perfil + Cilo reference tasks + neutral shell + shared Supabase)');
+  console.log('AllianceOS pronto em dist/index.html (Auth + perfil + workspace de campanha/tarefas V11 + shared Supabase)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
