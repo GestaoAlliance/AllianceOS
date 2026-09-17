@@ -1,0 +1,91 @@
+/* AllianceOS · Tarefas V7 — ficha simples para colaborador */
+
+/* O colaborador vê contexto operacional; fluxo completo fica recolhido. */
+#taskDetailDrawer .v7-advanced-flow{display:none!important}
+#taskDetailDrawer .tdetail-main.v7-flow-open .v7-advanced-flow{display:block!important}
+
+#taskDetailDrawer .v7-flow-summary{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:14px 16px;margin:14px 0 18px;border:1px solid #e2e5e7;border-radius:14px;background:#fafafa;
+}
+#taskDetailDrawer .v7-flow-summary.blocked{background:#fff7f3;border-color:#f0d3c9}
+#taskDetailDrawer .v7-flow-summary>div{min-width:0}
+#taskDetailDrawer .v7-flow-summary strong{display:block;font-size:13px;line-height:1.35;color:#202326}
+#taskDetailDrawer .v7-flow-summary span{display:block;margin-top:4px;font-size:11px;line-height:1.5;color:#7d848a}
+#taskDetailDrawer .v7-view-flow{flex:0 0 auto;height:38px;padding:0 13px;border:1px solid #d8dbde;border-radius:10px;background:#fff;font-size:11px;font-weight:700;color:#282c2f;cursor:pointer}
+
+/* Briefing vira a primeira coisa realmente importante. */
+#taskDetailDrawer .tdetail-main .description-area{min-height:140px!important}
+
+/* Entrega ganha destaque visual e fica perto do briefing. */
+#taskDetailDrawer .v5-delivery-section{border:1.5px solid #d8dcdf!important;background:#fff!important}
+#taskDetailDrawer .v5-delivery-section .tsection-head{background:#fafafa!important}
+#taskDetailDrawer .v5-delivery-section .tsection-head strong{font-size:16px!important}
+#taskDetailDrawer .v5-delivery-section .tsection-head>div>span{font-size:12px!important}
+#taskDetailDrawer .v5-delivery-compose{padding:18px!important}
+#taskDetailDrawer .v5-compose-grid input,#taskDetailDrawer .v5-compose-grid textarea{font-size:13px!important}
+#taskDetailDrawer .v5-delivery-actions button{min-height:44px!important;font-size:12px!important;padding:0 16px!important}
+#taskDetailDrawer .v5-delivery-actions button.primary{min-width:160px!important}
+
+/* Conclusão sem entrega obrigatória: uma única ação clara. */
+#taskDetailDrawer .v7-simple-action{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  margin-top:18px;padding:18px;border:1px solid #dfe3e5;border-radius:15px;background:#f8faf9;
+}
+#taskDetailDrawer .v7-simple-action.blocked{background:#fff8f5;border-color:#efd8cf}
+#taskDetailDrawer .v7-simple-action strong{display:block;font-size:15px;line-height:1.35}
+#taskDetailDrawer .v7-simple-action span{display:block;margin-top:5px;font-size:11.5px;line-height:1.5;color:#7c8388}
+#taskDetailDrawer .v7-complete-proxy{flex:0 0 auto;min-height:44px;padding:0 18px;border:0;border-radius:11px;background:#151719;color:#fff;font-size:12px;font-weight:750;cursor:pointer}
+#taskDetailDrawer .v7-complete-proxy:disabled{opacity:.4;cursor:not-allowed}
+
+/* A antiga continuidade continua no DOM apenas para manter seus handlers. */
+#taskDetailDrawer .v7-engine-only{display:none!important}
+
+/* Sidebar: resumo primeiro, configurações só quando necessário. */
+#taskDetailDrawer .tdetail-layout.v3-detail-layout{grid-template-columns:minmax(0,1fr) minmax(330px,360px)!important}
+#taskDetailDrawer .tdetail-side{padding:28px 26px 80px!important;background:#fbfbfb!important}
+#taskDetailDrawer .v3-side-title{margin-bottom:16px!important;padding-bottom:16px!important}
+#taskDetailDrawer .v3-side-title strong{font-size:20px!important}
+#taskDetailDrawer .v3-side-title span{font-size:12px!important}
+
+#taskDetailDrawer .v7-side-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+#taskDetailDrawer .v7-side-summary-item{min-width:0;padding:12px 13px;border:1px solid #e1e4e6;border-radius:12px;background:#fff}
+#taskDetailDrawer .v7-side-summary-item.wide{grid-column:1/-1}
+#taskDetailDrawer .v7-side-summary-item span{display:block;font-size:10px;line-height:1.3;color:#90969b;text-transform:uppercase;letter-spacing:.035em}
+#taskDetailDrawer .v7-side-summary-item strong{display:block;margin-top:5px;font-size:13px;line-height:1.4;color:#25282a;white-space:normal;overflow-wrap:anywhere}
+
+#taskDetailDrawer .v7-side-details{border:1px solid #dde1e3;border-radius:13px;background:#fff;overflow:hidden}
+#taskDetailDrawer .v7-side-details>summary{list-style:none;display:flex;flex-direction:column;gap:4px;padding:14px 15px;cursor:pointer;position:relative}
+#taskDetailDrawer .v7-side-details>summary::-webkit-details-marker{display:none}
+#taskDetailDrawer .v7-side-details>summary:after{content:'▾';position:absolute;right:14px;top:17px;font-size:12px;color:#737a80;transition:.15s}
+#taskDetailDrawer .v7-side-details[open]>summary:after{transform:rotate(180deg)}
+#taskDetailDrawer .v7-side-details>summary span{font-size:13px;font-weight:750;color:#282b2e;padding-right:24px}
+#taskDetailDrawer .v7-side-details>summary small{font-size:10.5px;line-height:1.4;color:#91979c;padding-right:24px}
+#taskDetailDrawer .v7-side-details-body{border-top:1px solid #eceeef;padding:16px}
+#taskDetailDrawer .v7-side-details-body .tdetail-grid{display:block!important}
+#taskDetailDrawer .v7-side-details-body .tfield{margin-bottom:16px!important;padding-bottom:16px!important}
+#taskDetailDrawer .v7-side-details-body .tfield label{font-size:12px!important}
+#taskDetailDrawer .v7-side-details-body .tfield select,#taskDetailDrawer .v7-side-details-body .tfield input{height:46px!important;font-size:13px!important}
+#taskDetailDrawer .v7-side-details-body .v5-delivery-rule{margin-top:0!important}
+
+/* O bloco "Contexto da tarefa" duplicado dentro das configurações perde prioridade visual. */
+#taskDetailDrawer .v7-side-details-body .v3-context-block,
+#taskDetailDrawer .v7-side-details-body .v3-context-head{opacity:.8}
+
+@media(max-width:1050px){
+  #taskDetailDrawer .tdetail-layout.v3-detail-layout{grid-template-columns:minmax(0,1fr) 320px!important}
+  #taskDetailDrawer .v7-side-summary{grid-template-columns:1fr}
+  #taskDetailDrawer .v7-side-summary-item.wide{grid-column:auto}
+}
+@media(max-width:900px){
+  #taskDetailDrawer .tdetail-layout.v3-detail-layout{display:block!important}
+  #taskDetailDrawer .tdetail-side{padding:22px 18px 60px!important}
+  #taskDetailDrawer .v7-side-summary{grid-template-columns:1fr 1fr}
+  #taskDetailDrawer .v7-side-summary-item.wide{grid-column:1/-1}
+}
+@media(max-width:640px){
+  #taskDetailDrawer .v7-flow-summary,#taskDetailDrawer .v7-simple-action{align-items:stretch;flex-direction:column}
+  #taskDetailDrawer .v7-view-flow,#taskDetailDrawer .v7-complete-proxy{width:100%}
+  #taskDetailDrawer .v7-side-summary{grid-template-columns:1fr}
+  #taskDetailDrawer .v7-side-summary-item.wide{grid-column:auto}
+}
