@@ -84,27 +84,42 @@
   function artPanel() {
     return `<aside class="auth-art" aria-hidden="true">
       <div class="auth-art-grid"></div>
-      <div class="auth-art-copy"><div class="auth-art-mark">✱</div><span>AllianceOS</span></div>
-      <div class="auth-quote">“Operação, marketing e dados em um único lugar — com clareza para decidir e velocidade para executar.”</div>
+      <div class="auth-quote">“O AllianceOS transforma operação, pessoas e dados em uma rotina simples, conectada e fácil de executar.”</div>
+      <div class="auth-person">
+        <div class="auth-person-avatar">VG</div>
+        <div class="auth-person-copy">
+          <strong class="auth-person-name">Vitor Gutierrez</strong>
+          <span class="auth-person-role">Gestor de Operações</span>
+        </div>
+      </div>
       <div class="auth-preview">
-        <div class="auth-preview-top"><span class="auth-preview-logo">✱</span><span class="auth-preview-search">Buscar…</span><span class="auth-preview-avatar"></span></div>
-        <div class="auth-preview-kicker">Visão da operação</div><div class="auth-preview-title">Alliance Overview</div>
-        <div class="auth-preview-cards"><i></i><i></i><i></i></div><div class="auth-preview-chart"><b></b><b></b><b></b><b></b><b></b></div>
+        <div class="auth-preview-top">
+          <span class="auth-preview-logo">✱</span>
+          <span class="auth-preview-search">⌕ &nbsp; Buscar tarefa, campanha, entrega…</span>
+          <span class="auth-preview-team"><i></i><i></i><i></i><b>+2</b></span>
+        </div>
+        <div class="auth-preview-kicker">👋 Bom dia, Vitor</div>
+        <div class="auth-preview-title">Alliance Overview</div>
+        <div class="auth-preview-cards"><i></i><i></i><i></i></div>
+        <div class="auth-preview-chart"><b></b><b></b><b></b><b></b><b></b></div>
       </div>
     </aside>`;
   }
 
-  function form(mode = 'login') {
+  function form(mode = 'signup') {
     const signup = mode === 'signup';
     return `<div class="auth-form-wrap" data-mode="${signup?'signup':'login'}">
       <div class="auth-brand"><span>✱</span><strong>AllianceOS</strong></div>
       <div class="auth-form-card">
-        <div class="auth-form-head"><h1>${signup?'Crie sua conta':'Bem-vindo de volta.'}</h1><p>${signup?'Use o e-mail que foi convidado para o AllianceOS.':'Entre para continuar no AllianceOS.'}</p></div>
+        <div class="auth-form-head">
+          <h1>${signup?'👋 Bem-vindo ao AllianceOS':'Bem-vindo de volta.'}</h1>
+          <p>${signup?'Vamos começar. Use o e-mail que recebeu acesso ao AllianceOS.':'Entre para continuar no seu workspace.'}</p>
+        </div>
         <form id="allianceAuthForm" autocomplete="on">
           ${signup?`<div class="auth-two"><label>Nome<input name="first_name" autocomplete="given-name" required placeholder="Seu nome"></label><label>Sobrenome<input name="last_name" autocomplete="family-name" required placeholder="Seu sobrenome"></label></div>`:''}
           <label>E-mail<input type="email" name="email" autocomplete="email" required placeholder="seu@email.com"></label>
           <label>Senha<div class="auth-password"><input type="password" name="password" minlength="8" autocomplete="${signup?'new-password':'current-password'}" required placeholder="${signup?'Crie uma senha':'Sua senha'}"><button type="button" id="authTogglePassword" aria-label="Mostrar senha">◉</button></div></label>
-          ${signup?`<label class="auth-terms"><input type="checkbox" required><span>Eu concordo com os termos de uso e a política de privacidade.</span></label>`:''}
+          ${signup?`<label class="auth-terms"><input type="checkbox" required><span>Concordo com os termos de uso e a política de privacidade.</span></label>`:''}
           <button class="auth-primary" type="submit">${signup?'Criar conta':'Entrar'}</button>
           <button class="auth-google" type="button" id="authGoogle"><span>G</span> Continuar com Google</button>
           <div id="authMessage" class="auth-message" role="status"></div>
@@ -114,7 +129,7 @@
     </div>`;
   }
 
-  function show(mode = 'login') {
+  function show(mode = 'signup') {
     document.documentElement.classList.add('alliance-auth-locked');
     document.body?.classList.add('alliance-auth-open');
     let root = document.getElementById('alliance-auth-root');
@@ -161,7 +176,7 @@
     if (session?.access_token) {
       try { await authorize(session); return; } catch { save(null); }
     }
-    show('login');
+    show('signup');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true }); else init();
