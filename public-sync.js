@@ -2,11 +2,11 @@
   'use strict';
 
   const ENDPOINT = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-state';
-  const PREFIX = 'allianceos.';
+  const PREFIXES = ['central.', 'allianceos.'];
   const LOCAL_ONLY = new Set([
-    'allianceos.theme',
-    'allianceos.__public_sync_reload',
-    'allianceos.__public_sync_ready'
+    'central.theme', 'allianceos.theme',
+    'central.__public_sync_reload', 'allianceos.__public_sync_reload',
+    'central.__public_sync_ready', 'allianceos.__public_sync_ready'
   ]);
 
   const rawSet = Storage.prototype.setItem;
@@ -17,12 +17,26 @@
   let ready = false;
   let checking = false;
 
-  const belongs = (key) => typeof key === 'string' && key.startsWith(PREFIX) && !LOCAL_ONLY.has(key) && !key.startsWith('allianceos.__');
-  const parseValue = (text) => {
-    try { return JSON.parse(text); } catch { return text; }
-  };
+  const hasPrefix = (key) => typeof key === 'string' && PREFIXES.some((p) => key.startsWith(p));
+  const belongs = (key) => hasPrefix(key) && !LOCAL_ONLY.has(key) && !String(key).includes('.__');
+  const parseValue = (text) => { try { return JSON.parse(text); } catch { return text; } };
   const serialize = (value) => JSON.stringify(value);
   const equalRaw = (a, b) => String(a ?? '') === String(b ?? '');
+
+  // Builds publicados nas primeiras horas do AllianceOS usaram allianceos.*.
+  // O banco legado usa central.*. Copiamos localmente apenas quando a chave
+  // canônica ainda não existe, para não perder nada criado antes da correção.
+  function migrateLocalAliases() {
+    const copies = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('allianceos.')) continue;
+      const canonical = 'central.' + key.slice('allianceos.'.length);
+      if (localStorage.getItem(canonical) == null) copies.push([canonical, localStorage.getItem(key)]);
+    }
+    for (const [key, value] of copies) if (value != null) rawSet.call(localStorage, key, value);
+  }
+  migrateLocalAliases();
 
   async function request(options = {}) {
     const res = await fetch(ENDPOINT, { cache: 'no-store', ...options });
@@ -45,16 +59,8 @@
 
   async function saveKey(key, rawValue) {
     if (!belongs(key)) return;
-    const payload = {
-      chave: key,
-      valor: parseValue(rawValue),
-      base: base.has(key) ? base.get(key) : undefined,
-    };
-    const data = await request({
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const payload = { chave: key, valor: parseValue(rawValue), base: base.has(key) ? base.get(key) : undefined };
+    const data = await request({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (data?.item) {
       base.set(key, data.item.valor);
       const mergedRaw = serialize(data.item.valor);
@@ -76,11 +82,7 @@
 
   async function deleteKey(key) {
     if (!belongs(key)) return;
-    await request({
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chave: key, deleted: true, base: base.get(key) }),
-    });
+    await request({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chave: key, deleted: true, base: base.get(key) }) });
     base.delete(key);
   }
 
@@ -115,12 +117,20 @@
       }
     }
 
-    ready = true;
-    rawSet.call(sessionStorage, 'allianceos.__public_sync_ready', '1');
+    // Se existe uma cópia transitória remota allianceos.X e não existe a
+    // canônica central.X, cria a canônica no navegador e a envia ao banco.
+    for (const [key, value] of remote) {
+      if (!key.startsWith('allianceos.')) continue;
+      const canonical = 'central.' + key.slice('allianceos.'.length);
+      if (!remote.has(canonical) && localStorage.getItem(canonical) == null) {
+        rawSet.call(localStorage, canonical, serialize(value));
+        pending.add(canonical);
+      }
+    }
 
-    // Primeiro acesso ao modo compartilhado: qualquer estado local que ainda
-    // nao exista no Supabase vira a semente central, preservando o que ja
-    // estava sendo usado no navegador atual.
+    ready = true;
+    rawSet.call(sessionStorage, 'central.__public_sync_ready', '1');
+
     const seed = new Set(pending);
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -133,11 +143,11 @@
       if (value != null) scheduleSave(key, value);
     }
 
-    if (changed && sessionStorage.getItem('allianceos.__public_sync_reload') !== '1') {
-      sessionStorage.setItem('allianceos.__public_sync_reload', '1');
+    if (changed && sessionStorage.getItem('central.__public_sync_reload') !== '1') {
+      sessionStorage.setItem('central.__public_sync_reload', '1');
       setTimeout(() => location.reload(), 30);
     } else {
-      sessionStorage.removeItem('allianceos.__public_sync_reload');
+      sessionStorage.removeItem('central.__public_sync_reload');
     }
   }
 
@@ -171,9 +181,7 @@
       if (changed) showUpdateNotice();
     } catch (e) {
       console.warn('[AllianceOS sync] falha ao verificar atualizacoes', e);
-    } finally {
-      checking = false;
-    }
+    } finally { checking = false; }
   }
 
   hydrate().catch((e) => {
