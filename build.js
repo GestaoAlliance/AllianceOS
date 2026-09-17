@@ -49,6 +49,13 @@ async function main() {
   }
   walk(op);
 
+  // MODO ABERTO TEMPORARIO:
+  // O arquivo supabase.js e a camada que bloqueia o app ate existir uma sessao.
+  // Removendo-o apenas no build publicado, o AllianceOS abre diretamente para
+  // qualquer pessoa com o link. O arquivo original continua preservado no
+  // repositorio legado, portanto reativar o login depois e uma mudanca simples.
+  fs.rmSync(path.join(op, 'src', 'supabase.js'), { force: true });
+
   execFileSync(process.execPath, [path.join(op, 'build.js')], {
     cwd: op,
     stdio: 'inherit',
@@ -59,7 +66,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.copyFileSync(path.join(op, 'dist', 'index.html'), path.join(out, 'index.html'));
-  console.log('AllianceOS pronto em dist/index.html');
+  console.log('AllianceOS pronto em dist/index.html (modo aberto temporario)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
