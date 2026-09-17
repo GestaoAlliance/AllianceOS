@@ -12,6 +12,7 @@ const TASK_V3_CSS = path.join(__dirname, 'task-system-v3.css');
 const TASK_V4_CSS = path.join(__dirname, 'task-layout-v4.css');
 const TASK_V5_JS = path.join(__dirname, 'task-system-v5-flow.js');
 const TASK_V5_CSS = path.join(__dirname, 'task-system-v5-flow.css');
+const TASK_V6_CSS = path.join(__dirname, 'task-layout-v6-scroll.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -28,6 +29,7 @@ async function main() {
   const taskV4Css = fs.readFileSync(TASK_V4_CSS, 'utf8');
   const taskV5Js = fs.readFileSync(TASK_V5_JS, 'utf8');
   const taskV5Css = fs.readFileSync(TASK_V5_CSS, 'utf8');
+  const taskV6Css = fs.readFileSync(TASK_V6_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -44,15 +46,10 @@ async function main() {
       else if (textual.has(path.extname(ent.name))) {
         let s = fs.readFileSync(p, 'utf8');
 
-        // No modo aberto, Agenda e Drive continuam usando as mesmas APIs,
-        // mas não podem abortar só porque não existe sessão Supabase.
         if (ent.name === 'agenda.js' || ent.name === 'drive.js') {
           s = s.replace("    if (!t) throw new Error('sem sessão');\n", '');
         }
 
-        // O Drive antigo gravava a pasta usando window.CentralDB, que nasce
-        // dentro da camada de login. No modo aberto a gravação passa pela API
-        // do servidor, sem entregar credencial administrativa ao navegador.
         if (ent.name === 'drive.js') {
           const inicio = s.indexOf('  async function ligarPasta(marca, id) {');
           const fim = s.indexOf('\n  /* ---------- a lista, que é a mesma em todo lugar ---------- */', inicio);
@@ -62,22 +59,16 @@ async function main() {
           }
         }
 
-        // TAREFAS V3/V5: a base legada permanece como fonte de dados e eventos,
-        // mas a experiencia visual/operacional e substituida mantendo a mesma
-        // persistencia. O V5 adiciona entrega obrigatoria e arvore de etapas.
         if (ent.name === 'base.html') {
           const taskAnchor = '  function showHome(){';
           if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas');
           s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskAnchor}`);
 
           const styleClose = s.lastIndexOf('</style>');
-          if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas V3/V4/V5');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV4Css}\n\n${taskV5Css}\n` + s.slice(styleClose);
+          if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas V3/V4/V5/V6');
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV4Css}\n\n${taskV5Css}\n\n${taskV6Css}\n` + s.slice(styleClose);
         }
 
-        // A conferência continua existindo no nível de campanha/protocolo,
-        // mas sai da ficha da tarefa. A conclusão da tarefa passa a ser
-        // governada pelas dependências de execução do novo fluxo.
         if (ent.name === 'conferencia.js') {
           const travaAntiga = '  const faltamTotal = (t) => travas(t).reduce((n, x) => n + x.falta, 0);';
           if (!s.includes(travaAntiga)) throw new Error('Não encontrei a trava de conferência das tarefas');
@@ -90,8 +81,6 @@ async function main() {
           s = s.slice(0, confStart) + semConferenciaNaFicha + s.slice(confEnd);
         }
 
-        // Identidade visual/produto. O backend de persistência aceita tanto
-        // central.* quanto allianceos.* para preservar compatibilidade.
         s = s.replaceAll('Central', 'AllianceOS');
         s = s.replaceAll('Revitta Derma', 'Revita');
         s = s.replaceAll("['Botanika', 'VermeFree']", "['Botanika', 'Revita', 'VermeFree', 'Shoty']");
@@ -106,9 +95,6 @@ async function main() {
   }
   walk(op);
 
-  // MODO ABERTO TEMPORARIO: removemos somente a tela/sessao de login.
-  // A persistencia compartilhada entra por public-sync.js, que fala com uma
-  // Edge Function do Supabase sem expor credencial administrativa no browser.
   fs.rmSync(path.join(op, 'src', 'supabase.js'), { force: true });
 
   execFileSync(process.execPath, [path.join(op, 'build.js')], {
@@ -125,7 +111,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (tarefas V5 + aberto + Supabase compartilhado + APIs sem login)');
+  console.log('AllianceOS pronto em dist/index.html (tarefas V6 + aberto + Supabase compartilhado + APIs sem login)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
