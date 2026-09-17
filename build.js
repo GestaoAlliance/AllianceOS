@@ -6,6 +6,7 @@ const LEGACY = path.join(__dirname, '.legacy');
 const REPO = 'https://github.com/BotanikaBrasil/vitor.git';
 const BRANCH = 'claude/shared-conversation-bmyuw6';
 const CONFIG_URL = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
+const PUBLIC_SYNC = path.join(__dirname, 'public-sync.js');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -49,11 +50,9 @@ async function main() {
   }
   walk(op);
 
-  // MODO ABERTO TEMPORARIO:
-  // O arquivo supabase.js e a camada que bloqueia o app ate existir uma sessao.
-  // Removendo-o apenas no build publicado, o AllianceOS abre diretamente para
-  // qualquer pessoa com o link. O arquivo original continua preservado no
-  // repositorio legado, portanto reativar o login depois e uma mudanca simples.
+  // MODO ABERTO TEMPORARIO: removemos somente a tela/sessao de login.
+  // A persistencia compartilhada volta por public-sync.js, que fala com uma
+  // Edge Function do Supabase sem expor a chave administrativa no navegador.
   fs.rmSync(path.join(op, 'src', 'supabase.js'), { force: true });
 
   execFileSync(process.execPath, [path.join(op, 'build.js')], {
@@ -62,11 +61,15 @@ async function main() {
     env: { ...process.env, SUPABASE_ANON_KEY: SB_KEY }
   });
 
+  let html = fs.readFileSync(path.join(op, 'dist', 'index.html'), 'utf8');
+  const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
+  html = html.replace('</head>', () => `<script>\n${sync}\n</script>\n</head>`);
+
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
-  fs.copyFileSync(path.join(op, 'dist', 'index.html'), path.join(out, 'index.html'));
-  console.log('AllianceOS pronto em dist/index.html (modo aberto temporario)');
+  fs.writeFileSync(path.join(out, 'index.html'), html);
+  console.log('AllianceOS pronto em dist/index.html (aberto + Supabase compartilhado)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
