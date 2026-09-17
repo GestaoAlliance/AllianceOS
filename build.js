@@ -7,6 +7,8 @@ const REPO = 'https://github.com/BotanikaBrasil/vitor.git';
 const BRANCH = 'claude/shared-conversation-bmyuw6';
 const CONFIG_URL = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
 const PUBLIC_SYNC = path.join(__dirname, 'public-sync.js');
+const TASK_V3_JS = path.join(__dirname, 'task-system-v3.js');
+const TASK_V3_CSS = path.join(__dirname, 'task-system-v3.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -18,6 +20,8 @@ async function main() {
   const SB_URL = cfg.url;
   const SB_KEY = cfg.anon;
   const SB_REF = new URL(SB_URL).hostname.split('.')[0];
+  const taskV3Js = fs.readFileSync(TASK_V3_JS, 'utf8');
+  const taskV3Css = fs.readFileSync(TASK_V3_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -50,6 +54,34 @@ async function main() {
             const nova = `  async function ligarPasta(marca, id) {\n    const limpo = String(id || '').trim()\n      .replace(/^https?:\\/\\/drive\\.google\\.com\\/drive\\/(u\\/\\d+\\/)?folders\\//, '')\n      .split(/[?#]/)[0].trim();\n    if (!/^[A-Za-z0-9_-]{10,}$/.test(limpo)) throw new Error('esse id não parece um id de pasta do Drive');\n    const r = await fetch('/api/drive', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ marca, drive_pasta: limpo }),\n    });\n    const corpo = await r.json().catch(() => ({}));\n    if (!r.ok) throw new Error(corpo.erro || ('HTTP ' + r.status));\n    cache.clear();\n    return limpo;\n  }\n`;
             s = s.slice(0, inicio) + nova + s.slice(fim);
           }
+        }
+
+        // TAREFAS V3: o código legado ainda é a base do app, mas o fluxo de
+        // tarefas é substituído dentro do mesmo escopo para preservar os dados
+        // já existentes e permitir dependências reais entre pessoas/etapas.
+        if (ent.name === 'base.html') {
+          const taskAnchor = '  function showHome(){';
+          if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas V3');
+          s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskAnchor}`);
+
+          const styleClose = s.lastIndexOf('</style>');
+          if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas V3');
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n` + s.slice(styleClose);
+        }
+
+        // A conferência continua existindo no nível de campanha/protocolo,
+        // mas sai da ficha da tarefa. A conclusão da tarefa passa a ser
+        // governada pelas dependências de execução do novo fluxo.
+        if (ent.name === 'conferencia.js') {
+          const travaAntiga = '  const faltamTotal = (t) => travas(t).reduce((n, x) => n + x.falta, 0);';
+          if (!s.includes(travaAntiga)) throw new Error('Não encontrei a trava de conferência das tarefas');
+          s = s.replace(travaAntiga, '  const faltamTotal = () => 0;');
+
+          const confStart = s.indexOf('  function porFicha() {');
+          const confEnd = s.indexOf('\n  /* O campo de status', confStart);
+          if (confStart < 0 || confEnd < 0) throw new Error('Não encontrei o bloco de conferência da ficha da tarefa');
+          const semConferenciaNaFicha = `  function porFicha() {\n    const dr = document.getElementById('taskDetailDrawer');\n    if (!dr) return;\n    dr.querySelector('.cf-secao')?.remove();\n  }\n`;
+          s = s.slice(0, confStart) + semConferenciaNaFicha + s.slice(confEnd);
         }
 
         // Identidade visual/produto. O backend de persistência aceita tanto
@@ -87,7 +119,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (aberto + Supabase compartilhado + APIs sem login)');
+  console.log('AllianceOS pronto em dist/index.html (tarefas V3 + aberto + Supabase compartilhado + APIs sem login)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
