@@ -1,4 +1,4 @@
-const ENDPOINT='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-panel';
+const ENDPOINT='https://sjkuysdmixfzeerxuudn.supabase.co/functions/v1/alliance-panel';
 function send(res,status,body){res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');return res.status(status).send(body)}
 export default async function handler(req,res){
   try{
