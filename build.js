@@ -9,13 +9,10 @@ const CONFIG_URL = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public
 const PUBLIC_SYNC = path.join(__dirname, 'public-sync.js');
 const TASK_V3_JS = path.join(__dirname, 'task-system-v3.js');
 const TASK_V3_CSS = path.join(__dirname, 'task-system-v3.css');
-const TASK_V4_CSS = path.join(__dirname, 'task-layout-v4.css');
 const TASK_V5_JS = path.join(__dirname, 'task-system-v5-flow.js');
 const TASK_V5_CSS = path.join(__dirname, 'task-system-v5-flow.css');
-const TASK_V6_CSS = path.join(__dirname, 'task-layout-v6-scroll.css');
-const TASK_V7_CSS = path.join(__dirname, 'task-layout-v7-sidebar.css');
 const TASK_FOCUS_JS = path.join(__dirname, 'task-system-v7-focus.js');
-const TASK_FOCUS_CSS = path.join(__dirname, 'task-layout-v7-focus.css');
+const TASK_DESIGN_CSS = path.join(__dirname, 'task-design-v9-cilo-glass.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -29,13 +26,10 @@ async function main() {
   const SB_REF = new URL(SB_URL).hostname.split('.')[0];
   const taskV3Js = fs.readFileSync(TASK_V3_JS, 'utf8');
   const taskV3Css = fs.readFileSync(TASK_V3_CSS, 'utf8');
-  const taskV4Css = fs.readFileSync(TASK_V4_CSS, 'utf8');
   const taskV5Js = fs.readFileSync(TASK_V5_JS, 'utf8');
   const taskV5Css = fs.readFileSync(TASK_V5_CSS, 'utf8');
-  const taskV6Css = fs.readFileSync(TASK_V6_CSS, 'utf8');
-  const taskV7Css = fs.readFileSync(TASK_V7_CSS, 'utf8');
   const taskFocusJs = fs.readFileSync(TASK_FOCUS_JS, 'utf8');
-  const taskFocusCss = fs.readFileSync(TASK_FOCUS_CSS, 'utf8');
+  const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -72,7 +66,7 @@ async function main() {
 
           const styleClose = s.lastIndexOf('</style>');
           if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV4Css}\n\n${taskV5Css}\n\n${taskV6Css}\n\n${taskV7Css}\n\n${taskFocusCss}\n` + s.slice(styleClose);
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n` + s.slice(styleClose);
         }
 
         if (ent.name === 'conferencia.js') {
@@ -117,7 +111,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (tarefas focadas + aberto + Supabase compartilhado + APIs sem login)');
+  console.log('AllianceOS pronto em dist/index.html (tarefas Cilo/Liquid Glass + aberto + Supabase compartilhado + APIs sem login)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
