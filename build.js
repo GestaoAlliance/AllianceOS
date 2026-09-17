@@ -5,7 +5,11 @@ const { execFileSync } = require('child_process');
 const LEGACY = path.join(__dirname, '.legacy');
 const REPO = 'https://github.com/BotanikaBrasil/vitor.git';
 const BRANCH = 'claude/shared-conversation-bmyuw6';
+const LEGACY_COMMIT = '1392860bdce80dbf7d8ade96c6f24766e7d43742';
 const CONFIG_URL = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
+const CONFIG_TIMEOUT_MS = 10000;
+const GIT_TIMEOUT_MS = 45000;
+const LEGACY_BUILD_TIMEOUT_MS = 120000;
 const PUBLIC_SYNC = path.join(__dirname, 'public-sync.js');
 const AUTH_JS = path.join(__dirname, 'auth-gate.js');
 const AUTH_CSS = path.join(__dirname, 'auth-gate.css');
@@ -27,10 +31,38 @@ const TASK_REFERENCE_CSS = path.join(__dirname, 'task-reference-v11.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
+async function fetchJsonWithTimeout(url, timeoutMs = CONFIG_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new Error(`Timeout ao carregar ${url} após ${timeoutMs}ms`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function clonePinnedLegacy() {
+  fs.rmSync(LEGACY, { recursive: true, force: true });
+  execFileSync('git', ['clone', '--depth=1', '--no-tags', '--branch', BRANCH, REPO, LEGACY], {
+    stdio: 'inherit',
+    timeout: GIT_TIMEOUT_MS,
+  });
+  const head = execFileSync('git', ['-C', LEGACY, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+    timeout: 5000,
+  }).trim();
+  if (head !== LEGACY_COMMIT) {
+    throw new Error(`A base legada mudou. Esperado ${LEGACY_COMMIT}, recebido ${head}. Atualize o pin conscientemente antes de publicar.`);
+  }
+}
+
 async function main() {
-  const cfgRes = await fetch(CONFIG_URL);
-  if (!cfgRes.ok) throw new Error(`Falha ao carregar configuracao publica do Supabase: ${cfgRes.status}`);
-  const cfg = await cfgRes.json();
+  const cfg = await fetchJsonWithTimeout(CONFIG_URL);
   if (!cfg.url || !cfg.anon) throw new Error('Configuracao publica do Supabase incompleta');
   const SB_URL = cfg.url;
   const SB_KEY = cfg.anon;
@@ -49,10 +81,10 @@ async function main() {
   const profileCss = fs.readFileSync(PROFILE_CSS, 'utf8');
   const shellCss = fs.readFileSync(SHELL_CSS, 'utf8');
 
-  fs.rmSync(LEGACY, { recursive: true, force: true });
-  execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
+  clonePinnedLegacy();
 
   const op = path.join(LEGACY, 'operacional');
+  if (!fs.existsSync(op)) throw new Error('A base legada não contém a pasta operacional esperada');
   const textual = new Set(['.js','.mjs','.html','.css','.json','.md','.sql']);
   const jwt = /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
 
@@ -119,6 +151,7 @@ async function main() {
   execFileSync(process.execPath, [path.join(op, 'build.js')], {
     cwd: op,
     stdio: 'inherit',
+    timeout: LEGACY_BUILD_TIMEOUT_MS,
     env: { ...process.env, SUPABASE_ANON_KEY: SB_KEY }
   });
 
@@ -131,13 +164,14 @@ async function main() {
   const profile = fs.readFileSync(PROFILE_JS, 'utf8');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
   const authBridge = `if(window.ALLIANCE_AUTH){window.ALLIANCE_AUTH.url=${JSON.stringify(SB_URL)};window.ALLIANCE_AUTH.getUser=()=>window.ALLIANCE_AUTH.getSession?.()?.user||null;}`;
-  html = html.replace('</head>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
+  const sourceSha = String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local').slice(0, 40);
+  html = html.replace('</head>', () => `<meta name="allianceos-source" content="${sourceSha}">\n<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (Auth + perfil + workspace de campanha/tarefas V11 + shared Supabase)');
+  console.log(`AllianceOS pronto em dist/index.html (source ${sourceSha}, legacy ${LEGACY_COMMIT})`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
