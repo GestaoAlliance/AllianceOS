@@ -1,0 +1,247 @@
+/* AllianceOS · Tarefas V4 — hotfix estrutural da ficha
+   Objetivo: eliminar textos espremidos/cortados e tornar a ficha realmente legível. */
+
+/* Modal centralizado e usando a tela inteira com margem segura */
+.tdrawer-panel{
+  left:50%!important;
+  right:auto!important;
+  top:16px!important;
+  bottom:16px!important;
+  width:min(1480px,calc(100vw - 40px))!important;
+  height:auto!important;
+  transform:translateX(-50%)!important;
+  border-radius:24px!important;
+  overflow:hidden!important;
+}
+.tdrawer-head{
+  min-height:94px!important;
+  padding:20px 26px!important;
+  gap:18px!important;
+  align-items:center!important;
+}
+.tdrawer-titlewrap{min-width:0!important;flex:1!important}
+.tdrawer-kicker{
+  font-size:11px!important;
+  line-height:1.45!important;
+  margin-bottom:5px!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+.tdrawer-title{
+  width:100%!important;
+  font-size:31px!important;
+  line-height:1.12!important;
+  letter-spacing:-.035em!important;
+  min-width:0!important;
+}
+.tdrawer-close{width:46px!important;height:46px!important;flex:0 0 46px!important}
+.tdrawer-save{height:46px!important;min-width:92px!important;font-size:12px!important;flex:0 0 auto!important}
+.tdrawer-body{
+  height:calc(100% - 94px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+}
+
+/* Duas colunas de verdade: conteúdo amplo + contexto lateral estável */
+.tdetail-layout.v3-detail-layout{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(330px,370px)!important;
+  align-items:start!important;
+  min-height:100%!important;
+}
+.tdetail-main{
+  min-width:0!important;
+  padding:28px 30px 64px!important;
+}
+.tdetail-side{
+  min-width:0!important;
+  padding:26px 24px 54px!important;
+  border-left:1px solid #e7e7e7!important;
+  background:#fafafa!important;
+}
+
+/* Cabeçalhos das seções: título e explicação nunca mais na mesma linha esmagada */
+.tsection.v3-section{
+  margin-top:22px!important;
+  border-radius:17px!important;
+  overflow:hidden!important;
+}
+.tsection-head{
+  min-height:auto!important;
+  padding:16px 18px!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  column-gap:18px!important;
+  row-gap:4px!important;
+  align-items:start!important;
+}
+.tsection-head>div{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:5px!important;
+}
+.tsection-head strong{
+  display:block!important;
+  width:100%!important;
+  font-size:15px!important;
+  line-height:1.3!important;
+  font-weight:680!important;
+  letter-spacing:-.015em!important;
+  white-space:normal!important;
+}
+.tsection-head div>span{
+  display:block!important;
+  width:100%!important;
+  max-width:780px!important;
+  margin:0!important;
+  font-size:11.5px!important;
+  line-height:1.5!important;
+  color:#858b90!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+.tsection-head>span{
+  margin:2px 0 0!important;
+  font-size:10.5px!important;
+  line-height:1.4!important;
+  color:#8e9499!important;
+  white-space:nowrap!important;
+}
+
+/* Briefing */
+.description-area{
+  min-height:190px!important;
+  padding:18px!important;
+  font-size:14px!important;
+  line-height:1.65!important;
+  white-space:pre-wrap!important;
+}
+
+/* Estado da tarefa */
+.v3-ready-banner,.v3-block-banner{
+  min-height:70px!important;
+  padding:16px 18px!important;
+  gap:13px!important;
+}
+.v3-ready-banner strong,.v3-block-banner strong{font-size:14px!important;line-height:1.35!important}
+.v3-ready-banner small,.v3-block-banner span{font-size:11.5px!important;line-height:1.45!important}
+
+/* Fluxo/dependências com espaço real */
+.v3-flow-grid{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:0!important;
+}
+.v3-flow-col{min-width:0!important;padding:18px!important}
+.v3-flow-col+.v3-flow-col{border-left:1px solid #ececec!important}
+.v3-flow-label{margin-bottom:12px!important;gap:10px!important}
+.v3-flow-label b{font-size:12.5px!important;line-height:1.35!important}
+.v3-flow-label span{font-size:10px!important}
+.v3-flow-task{
+  grid-template-columns:36px minmax(0,1fr) auto!important;
+  gap:10px!important;
+  padding:11px 12px!important;
+  border-radius:12px!important;
+}
+.v3-flow-task b{font-size:12px!important;line-height:1.35!important;white-space:normal!important}
+.v3-flow-task small{font-size:10px!important;line-height:1.4!important;white-space:normal!important}
+.v3-flow-empty{padding:16px!important;font-size:11px!important;line-height:1.5!important}
+.v3-flow-add{grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important}
+.v3-flow-add select,.v3-flow-add button,.v3-create-step{height:44px!important;font-size:11.5px!important}
+.v3-parent-link{padding:14px 18px!important;gap:5px 14px!important}
+.v3-parent-link span{font-size:10.5px!important}.v3-parent-link b{font-size:12.5px!important}.v3-parent-link button{font-size:10.5px!important}
+
+/* Checklist, anexos, comentários */
+.check-row{padding:13px 18px!important;grid-template-columns:24px minmax(0,1fr) 28px!important}
+.check-row span{font-size:12.5px!important;line-height:1.45!important}
+.addline{padding:14px 18px!important;gap:10px!important}
+.addline input{height:46px!important;font-size:12.5px!important;padding:0 13px!important}
+.addline button{height:46px!important;font-size:11.5px!important;padding:0 16px!important}
+.v3-attachment-drop{min-height:86px!important;margin:16px 18px!important;font-size:12px!important}
+.file-pill{padding:12px 18px!important}.file-pill b{font-size:12px!important}.file-pill small{font-size:10.5px!important}
+.comment{padding:12px 18px!important}.comment-body b{font-size:11.5px!important}.comment-body p{font-size:12px!important;line-height:1.55!important}.comment-body small{font-size:9.5px!important}
+.activity{padding:10px 18px!important}.activity b{font-size:10px!important}.activity p{font-size:11px!important;line-height:1.5!important}
+.v3-continuity-note{font-size:12px!important;line-height:1.55!important;padding:14px 16px!important;margin:16px 18px 0!important}
+.v3-complete-btn{min-height:46px!important;font-size:12px!important;margin:12px 18px 18px!important;padding:0 18px!important}
+
+/* Coluna de contexto legível */
+.v3-side-title{padding:0 0 18px!important;margin:0 0 18px!important}
+.v3-side-title strong{font-size:17px!important;line-height:1.3!important}
+.v3-side-title span{font-size:12px!important;line-height:1.45!important;margin-top:5px!important}
+.tdetail-side .tdetail-grid{display:block!important}
+.tfield{
+  padding:0 0 18px!important;
+  margin:0 0 18px!important;
+}
+.tfield label{
+  display:block!important;
+  margin:0 0 9px!important;
+  font-size:11.5px!important;
+  line-height:1.35!important;
+  font-weight:650!important;
+  color:#666d72!important;
+  white-space:normal!important;
+}
+.tfield select,.tfield input{
+  width:100%!important;
+  height:46px!important;
+  padding:0 13px!important;
+  font-size:13.5px!important;
+  line-height:1!important;
+  border-radius:12px!important;
+}
+.v3-field-help{margin-top:7px!important;font-size:10.5px!important;line-height:1.45!important;white-space:normal!important}
+.v3-support-list{gap:7px!important;margin-bottom:9px!important}.v3-support-list>span{font-size:11px!important;padding:6px 8px!important}.v3-support-list>small{font-size:11px!important;line-height:1.4!important}
+#detailAddAssignee{height:42px!important;font-size:11px!important}
+.v3-brand-context{padding:15px!important}.v3-brand-context span{font-size:10.5px!important}.v3-brand-context strong{font-size:14px!important}.v3-brand-context small{font-size:10.5px!important;line-height:1.45!important}
+
+/* Evita qualquer clipping herdado */
+.tdetail-main,.tdetail-side,.v3-flow-col,.tsection-head,.tsection-head>div,.tfield{overflow:visible!important}
+.tdetail-main *,.tdetail-side *{box-sizing:border-box!important}
+
+/* Laptop: ainda mantém duas colunas, mas o contexto encolhe com limite seguro */
+@media(max-width:1180px){
+  .tdrawer-panel{width:calc(100vw - 24px)!important;top:12px!important;bottom:12px!important}
+  .tdetail-layout.v3-detail-layout{grid-template-columns:minmax(0,1fr) 320px!important}
+  .tdetail-main{padding:22px 22px 54px!important}
+  .tdetail-side{padding:22px 18px 48px!important}
+  .tsection-head{padding:15px 16px!important}
+  .v3-flow-col{padding:15px!important}
+}
+
+/* Tablet: contexto vira bloco abaixo, sem esmagar conteúdo */
+@media(max-width:900px){
+  .tdrawer-panel{inset:8px!important;left:8px!important;right:8px!important;top:8px!important;bottom:8px!important;width:auto!important;transform:none!important;border-radius:20px!important}
+  .tdrawer-head{min-height:84px!important;padding:16px 18px!important}
+  .tdrawer-body{height:calc(100% - 84px)!important}
+  .tdrawer-title{font-size:26px!important}
+  .tdetail-layout.v3-detail-layout{display:block!important;min-height:auto!important}
+  .tdetail-main{padding:20px 18px 36px!important}
+  .tdetail-side{padding:22px 18px 36px!important;border-left:0!important;border-top:1px solid #e6e6e6!important}
+  .v3-flow-grid{grid-template-columns:1fr!important}
+  .v3-flow-col+.v3-flow-col{border-left:0!important;border-top:1px solid #ececec!important}
+}
+
+/* Celular: ficha em tela inteira e tipografia ainda confortável */
+@media(max-width:640px){
+  .tdrawer-panel{inset:0!important;left:0!important;right:0!important;top:0!important;bottom:0!important;width:100vw!important;height:100vh!important;border:0!important;border-radius:0!important;transform:none!important}
+  .tdrawer-head{min-height:78px!important;padding:12px 14px!important;gap:10px!important}
+  .tdrawer-body{height:calc(100vh - 78px)!important}
+  .tdrawer-close{width:42px!important;height:42px!important;flex-basis:42px!important}
+  .tdrawer-save{height:42px!important;min-width:74px!important;padding:0 12px!important}
+  .tdrawer-kicker{font-size:9.5px!important}
+  .tdrawer-title{font-size:22px!important}
+  .tdetail-main,.tdetail-side{padding-left:14px!important;padding-right:14px!important}
+  .tsection.v3-section{border-radius:14px!important;margin-top:16px!important}
+  .tsection-head{grid-template-columns:minmax(0,1fr) auto!important;padding:14px!important}
+  .tsection-head strong{font-size:14px!important}
+  .tsection-head div>span{font-size:11px!important}
+  .description-area{min-height:150px!important;padding:14px!important;font-size:13.5px!important}
+  .v3-flow-col{padding:14px!important}
+  .v3-flow-add{grid-template-columns:1fr!important}.v3-flow-add button{width:100%!important}
+  .addline{grid-template-columns:1fr!important}.addline button{width:100%!important}
+  .tfield label{font-size:11px!important}.tfield select,.tfield input{font-size:13px!important}
+}
