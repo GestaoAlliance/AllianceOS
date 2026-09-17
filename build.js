@@ -33,14 +33,17 @@ async function main() {
       if (ent.isDirectory()) walk(p);
       else if (textual.has(path.extname(ent.name))) {
         let s = fs.readFileSync(p, 'utf8');
+
+        // Identidade visual/produto. Os nomes internos `central.*`,
+        // `central_*` e globals `Central*` ficam intactos de propósito:
+        // eles são o contrato de compatibilidade com o banco legado.
         s = s.replaceAll('Central', 'AllianceOS');
-        s = s.replaceAll('central.', 'allianceos.');
         s = s.replaceAll('Revitta Derma', 'Revita');
         s = s.replaceAll("['Botanika', 'VermeFree']", "['Botanika', 'Revita', 'VermeFree', 'Shoty']");
-        s = s.replaceAll('central-delivery-files', 'allianceos-delivery-files');
-        s = s.replaceAll('central-novidade', 'allianceos-novidade');
-        s = s.replaceAll("'central-'+Date.now()", "'allianceos-'+Date.now()");
         s = s.replaceAll('"name": "operacional"', '"name": "allianceos"');
+
+        // O app publicado usa o Supabase novo da Alliance. Mantemos somente
+        // a troca de endpoint/chave pública; nenhuma chave privada vai ao Git.
         s = s.replaceAll(SB_URL_OLD, SB_URL);
         s = s.replaceAll(SB_REF_OLD, SB_REF);
         s = s.replace(jwt, SB_KEY);
@@ -51,8 +54,8 @@ async function main() {
   walk(op);
 
   // MODO ABERTO TEMPORARIO: removemos somente a tela/sessao de login.
-  // A persistencia compartilhada volta por public-sync.js, que fala com uma
-  // Edge Function do Supabase sem expor a chave administrativa no navegador.
+  // A persistencia compartilhada entra por public-sync.js, que fala com uma
+  // Edge Function do Supabase sem expor credencial administrativa no browser.
   fs.rmSync(path.join(op, 'src', 'supabase.js'), { force: true });
 
   execFileSync(process.execPath, [path.join(op, 'build.js')], {
@@ -69,7 +72,7 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (aberto + Supabase compartilhado)');
+  console.log('AllianceOS pronto em dist/index.html (aberto + Supabase compartilhado + compatibilidade Central)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
