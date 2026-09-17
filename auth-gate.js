@@ -8,7 +8,6 @@
   window.ALLIANCE_AUTH_READY = new Promise((resolve) => { readyResolve = resolve; });
 
   const q = (s, root = document) => root.querySelector(s);
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const save = (s) => { current = s; if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s)); else localStorage.removeItem(SESSION_KEY); };
   const load = () => { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; } };
 
@@ -26,6 +25,14 @@
     return r.json();
   }
 
+  async function getProfile(userId, token) {
+    const url = `${SB_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,papel,ativo,nome`;
+    const r = await fetch(url, { headers: { apikey: SB_ANON, Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
+    if (!r.ok) return null;
+    const rows = await r.json().catch(() => []);
+    return Array.isArray(rows) ? rows[0] || null : null;
+  }
+
   async function refresh(session) {
     if (!session?.refresh_token) return null;
     try {
@@ -35,21 +42,28 @@
     } catch { save(null); return null; }
   }
 
-  function release(session, user) {
+  function release(session, user, profile) {
     current = session;
     document.documentElement.classList.remove('alliance-auth-locked');
     document.getElementById('alliance-auth-root')?.remove();
     document.body?.classList.remove('alliance-auth-open');
-    const payload = { accessToken: session?.access_token || '', refreshToken: session?.refresh_token || '', user: user || null };
+    const payload = { accessToken: session?.access_token || '', refreshToken: session?.refresh_token || '', user: user || null, profile: profile || null };
     if (readyResolve) { readyResolve(payload); readyResolve = null; }
     window.dispatchEvent(new CustomEvent('alliance-auth-ready', { detail: payload }));
+  }
+
+  async function authorize(session, fallbackUser = null) {
+    const user = fallbackUser || await getUser(session?.access_token || '');
+    if (!user) throw new Error('Sessão inválida. Entre novamente.');
+    const profile = await getProfile(user.id, session.access_token);
+    if (!profile?.ativo) throw new Error('Sua conta ainda não foi liberada para o AllianceOS. Peça acesso ao administrador.');
+    save(session); release(session, user, profile); return true;
   }
 
   function logout() {
     const token = current?.access_token;
     if (token) fetch(`${SB_URL}/auth/v1/logout`, { method:'POST', headers:{ apikey:SB_ANON, Authorization:`Bearer ${token}` } }).catch(()=>{});
-    save(null);
-    location.reload();
+    save(null); location.reload();
   }
 
   window.ALLIANCE_AUTH = {
@@ -66,10 +80,8 @@
       <div class="auth-quote">“Operação, marketing e dados em um único lugar — com clareza para decidir e velocidade para executar.”</div>
       <div class="auth-preview">
         <div class="auth-preview-top"><span class="auth-preview-logo">✱</span><span class="auth-preview-search">Buscar…</span><span class="auth-preview-avatar"></span></div>
-        <div class="auth-preview-kicker">Visão da operação</div>
-        <div class="auth-preview-title">Alliance Overview</div>
-        <div class="auth-preview-cards"><i></i><i></i><i></i></div>
-        <div class="auth-preview-chart"><b></b><b></b><b></b><b></b><b></b></div>
+        <div class="auth-preview-kicker">Visão da operação</div><div class="auth-preview-title">Alliance Overview</div>
+        <div class="auth-preview-cards"><i></i><i></i><i></i></div><div class="auth-preview-chart"><b></b><b></b><b></b><b></b><b></b></div>
       </div>
     </aside>`;
   }
@@ -121,9 +133,8 @@
           data = await call('/auth/v1/token?grant_type=password', { method:'POST', body:JSON.stringify({ email, password }) });
         }
         const session = { ...data, expires_at: Math.floor(Date.now()/1000) + Number(data.expires_in || 3600) };
-        const user = data.user || await getUser(session.access_token);
-        save(session); release(session,user);
-      } catch (err) { msg.textContent = err?.message || 'Não foi possível entrar.'; }
+        await authorize(session, data.user || null);
+      } catch (err) { save(null); msg.textContent = err?.message || 'Não foi possível entrar.'; }
       finally { btn.disabled=false; btn.textContent=mode==='signup'?'Criar conta':'Entrar'; }
     });
   }
@@ -137,10 +148,9 @@
     let session = load();
     if (session?.expires_at && session.expires_at < Math.floor(Date.now()/1000)+30) session = await refresh(session);
     if (session?.access_token) {
-      const user = await getUser(session.access_token);
-      if (user) { save(session); release(session,user); return; }
+      try { await authorize(session); return; } catch { save(null); }
     }
-    save(null); show('login');
+    show('login');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true }); else init();
