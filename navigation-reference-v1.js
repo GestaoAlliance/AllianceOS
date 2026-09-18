@@ -1,6 +1,117 @@
 
 (() => {
   'use strict';
+
+  /* AllianceOS OAuth consent screen
+     Isolated from the normal app: only runs on /oauth/consent. */
+  async function renderOAuthConsent(){
+    const authorizationId=new URLSearchParams(location.search).get('authorization_id');
+    document.documentElement.style.background='#f4f6f8';
+    document.body.innerHTML=`
+      <main id="oauthConsentRoot" style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f6f8;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#15191d">
+        <section style="width:min(520px,100%);background:#fff;border:1px solid #e3e8eb;border-radius:22px;box-shadow:0 18px 60px rgba(25,32,38,.08);padding:30px">
+          <div style="display:flex;align-items:center;gap:13px;margin-bottom:24px">
+            <div style="width:46px;height:46px;border-radius:13px;background:#111519;color:#fff;display:grid;place-items:center;font-size:23px">✱</div>
+            <div><strong style="display:block;font-size:20px;letter-spacing:-.03em">AllianceOS</strong><span style="font-size:12px;color:#8a939b">Conectar aplicativo</span></div>
+          </div>
+          <div id="oauthStatus" style="font-size:13px;color:#69737b">Carregando solicitação de acesso…</div>
+          <div id="oauthLogin" hidden>
+            <h1 style="font-size:24px;letter-spacing:-.04em;margin:0 0 8px">Entrar para autorizar</h1>
+            <p style="font-size:13px;line-height:1.5;color:#747e86;margin:0 0 18px">Entre com sua conta do AllianceOS. Esta tela existe apenas para autorizações OAuth.</p>
+            <label style="display:block;font-size:11px;font-weight:700;margin-bottom:6px">E-mail</label>
+            <input id="oauthEmail" type="email" autocomplete="email" style="box-sizing:border-box;width:100%;height:46px;border:1px solid #dce2e6;border-radius:11px;padding:0 12px;margin-bottom:12px;font:inherit">
+            <label style="display:block;font-size:11px;font-weight:700;margin-bottom:6px">Senha</label>
+            <input id="oauthPassword" type="password" autocomplete="current-password" style="box-sizing:border-box;width:100%;height:46px;border:1px solid #dce2e6;border-radius:11px;padding:0 12px;margin-bottom:14px;font:inherit">
+            <button id="oauthSignIn" type="button" style="width:100%;height:46px;border:0;border-radius:11px;background:#111519;color:#fff;font-weight:750;cursor:pointer">Entrar</button>
+            <button id="oauthMagic" type="button" style="width:100%;height:42px;margin-top:9px;border:1px solid #dce2e6;border-radius:11px;background:#fff;color:#343b41;font-weight:650;cursor:pointer">Enviar link mágico por e-mail</button>
+            <p id="oauthLoginMsg" style="min-height:18px;font-size:11px;color:#7a848c;margin:10px 0 0"></p>
+          </div>
+          <div id="oauthDecision" hidden>
+            <h1 style="font-size:24px;letter-spacing:-.04em;margin:0 0 8px">Autorizar acesso?</h1>
+            <p style="font-size:13px;line-height:1.5;color:#747e86;margin:0 0 18px"><strong id="oauthClientName" style="color:#242a2f"></strong> quer acessar o AllianceOS em seu nome.</p>
+            <div style="border:1px solid #e3e8eb;border-radius:13px;padding:14px;margin-bottom:18px;background:#fafbfc">
+              <div style="font-size:10px;font-weight:800;color:#89929a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Permissões solicitadas</div>
+              <div id="oauthScopes" style="font-size:12px;line-height:1.6;color:#3b4349"></div>
+            </div>
+            <p style="font-size:11px;line-height:1.5;color:#858e96;margin:0 0 18px">O aplicativo terá somente as permissões que sua conta já possui. As políticas de acesso do AllianceOS continuam valendo.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <button id="oauthDeny" type="button" style="height:46px;border:1px solid #dce2e6;border-radius:11px;background:#fff;color:#343b41;font-weight:700;cursor:pointer">Negar</button>
+              <button id="oauthApprove" type="button" style="height:46px;border:0;border-radius:11px;background:#111519;color:#fff;font-weight:750;cursor:pointer">Autorizar</button>
+            </div>
+            <button id="oauthSignOut" type="button" style="display:block;margin:14px auto 0;border:0;background:transparent;color:#8a939b;font-size:11px;cursor:pointer">Sair desta conta</button>
+          </div>
+          <div id="oauthError" hidden style="padding:13px;border-radius:10px;background:#fff2f2;color:#a73a43;font-size:12px;line-height:1.5"></div>
+        </section>
+      </main>`;
+
+    const status=document.getElementById('oauthStatus');
+    const login=document.getElementById('oauthLogin');
+    const decision=document.getElementById('oauthDecision');
+    const errorBox=document.getElementById('oauthError');
+    const showError=(msg)=>{status.hidden=true;login.hidden=true;decision.hidden=true;errorBox.hidden=false;errorBox.textContent=msg};
+
+    if(!authorizationId){showError('Solicitação OAuth inválida: authorization_id ausente.');return}
+
+    try{
+      const cfgRes=await fetch('https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config');
+      if(!cfgRes.ok)throw new Error('Não foi possível carregar a configuração pública do Supabase.');
+      const cfg=await cfgRes.json();
+      const mod=await import('https://esm.sh/@supabase/supabase-js@2.116.0');
+      const sb=mod.createClient(cfg.url,cfg.anon,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+
+      async function loadConsent(){
+        status.hidden=false;status.textContent='Verificando sua sessão…';login.hidden=true;decision.hidden=true;errorBox.hidden=true;
+        const {data:{session}}=await sb.auth.getSession();
+        if(!session){
+          status.hidden=true;login.hidden=false;
+          return;
+        }
+        const {data,error}=await sb.auth.oauth.getAuthorizationDetails(authorizationId);
+        if(error)throw error;
+        if(data && !('authorization_id' in data) && data.redirect_url){location.assign(data.redirect_url);return}
+        const client=data?.client||data?.oauth_client||{};
+        document.getElementById('oauthClientName').textContent=client.name||client.client_name||'Um aplicativo MCP';
+        const scope=String(data?.scope||'').trim();
+        document.getElementById('oauthScopes').textContent=scope?scope.split(/\s+/).join(' · '):'Acesso à conta conforme suas permissões atuais';
+        status.hidden=true;decision.hidden=false;
+      }
+
+      document.getElementById('oauthSignIn').onclick=async()=>{
+        const msg=document.getElementById('oauthLoginMsg');msg.textContent='Entrando…';
+        const email=document.getElementById('oauthEmail').value.trim();
+        const password=document.getElementById('oauthPassword').value;
+        const {error}=await sb.auth.signInWithPassword({email,password});
+        if(error){msg.textContent=error.message;return}
+        msg.textContent='';await loadConsent();
+      };
+      document.getElementById('oauthMagic').onclick=async()=>{
+        const msg=document.getElementById('oauthLoginMsg');
+        const email=document.getElementById('oauthEmail').value.trim();
+        if(!email){msg.textContent='Digite seu e-mail primeiro.';return}
+        msg.textContent='Enviando…';
+        const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});
+        msg.textContent=error?error.message:'Link enviado. Abra o e-mail neste navegador para continuar.';
+      };
+      document.getElementById('oauthApprove').onclick=async()=>{
+        const btn=document.getElementById('oauthApprove');btn.disabled=true;btn.textContent='Autorizando…';
+        const {data,error}=await sb.auth.oauth.approveAuthorization(authorizationId);
+        if(error){btn.disabled=false;btn.textContent='Autorizar';showError(error.message);return}
+        location.assign(data.redirect_url);
+      };
+      document.getElementById('oauthDeny').onclick=async()=>{
+        const {data,error}=await sb.auth.oauth.denyAuthorization(authorizationId);
+        if(error){showError(error.message);return}
+        location.assign(data.redirect_url);
+      };
+      document.getElementById('oauthSignOut').onclick=async()=>{await sb.auth.signOut();await loadConsent()};
+      await loadConsent();
+    }catch(err){showError(err?.message||String(err))}
+  }
+
+  if(location.pathname==='/oauth/consent'){
+    renderOAuthConsent();
+    return;
+  }
   const q=(s,r=document)=>r.querySelector(s);
   const byId=(id)=>document.getElementById(id);
   const svg=(body)=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+body+'</svg>';
@@ -311,5 +422,17 @@
     };
 
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
+  function openTaskDeepLink(){
+    const id=new URLSearchParams(location.search).get('task');
+    if(!id)return;
+    setTimeout(()=>{
+      window.__centralShowTasks?.();
+      setTimeout(()=>window.openTaskDetail?.(id),120);
+    },160);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>{setup();openTaskDeepLink()},{once:true});
+  }else{
+    setup();openTaskDeepLink();
+  }
 })();
