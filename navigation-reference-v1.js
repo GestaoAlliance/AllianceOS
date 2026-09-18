@@ -103,10 +103,17 @@
       ensureBrands(brand);
       brand.className='ref2-brand-select';
       brandWrap.appendChild(brand);
+      const caret=document.createElement('span');caret.className='ref2-brand-caret';
+      caret.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>';
+      brandWrap.appendChild(caret);
       const syncWorkspace=()=>{const s=q('.ref2-workspace-copy strong');if(s)s.textContent=/todas/i.test(brand.value)?'Todas as marcas':brand.value};
       brand.addEventListener('change',syncWorkspace);syncWorkspace();
       workspace.addEventListener('click',()=>brand.focus());
     }
+
+    const team=document.createElement('button');team.type='button';team.className='ref2-team';team.setAttribute('aria-label','Equipe Botanika · 6 membros');
+    team.innerHTML='<span class="ref2-team-avatar">PL</span><span class="ref2-team-avatar">SN</span><span class="ref2-team-avatar more">+4</span>';
+    team.addEventListener('click',()=>toast('Equipe Botanika · 6 membros'));
 
     const searchWrap=document.createElement('label');searchWrap.className='ref2-search';
     searchWrap.innerHTML=ICONS.search;
@@ -125,7 +132,7 @@
     profile.addEventListener('click',()=>toast('Vitor Gutierrez'));
     actions.append(bell,profile);
 
-    toolbar.append(topLogo,brandWrap,searchWrap,actions);
+    toolbar.append(topLogo,brandWrap,team,searchWrap,actions);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })();
