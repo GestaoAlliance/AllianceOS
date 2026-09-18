@@ -148,6 +148,8 @@
     state.lists=(listsR.data||[]).map(l=>({...l,marca:brandMap.get(String(l.brand_id))?.nome||'',arquivada:!!l.arquivado_em}));
     window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands};
     window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
+    renderDirectoryChrome();
+    installNav();
   }
 
   async function loadNotifications(){
@@ -188,11 +190,42 @@
   function closeModal(){$('#allianceAdminModal')?.classList.remove('open');}
 
   function installNav(){
-    if($('#allianceAdminNav'))return;
-    const nav=$('.nav')||$('.sidebar');
-    if(!nav)return;
-    const b=document.createElement('button');b.type='button';b.id='allianceAdminNav';b.className='navitem aa-navitem';b.innerHTML='<span class="icon">⚙</span><span>Equipe & listas</span>';
-    b.addEventListener('click',openModal);nav.appendChild(b);
+    const legacyNav=$('.nav')||$('.sidebar');
+    if(legacyNav&&!$('#allianceAdminNav')){
+      const b=document.createElement('button');
+      b.type='button';b.id='allianceAdminNav';b.className='navitem aa-navitem';
+      b.innerHTML='<span class="icon">⚙</span><span>Equipe & listas</span>';
+      b.addEventListener('click',openModal);legacyNav.appendChild(b);
+    }
+
+    const bindCapture=(el,key,handler)=>{
+      if(!el||el.dataset[key])return;
+      el.dataset[key]='1';
+      el.addEventListener('click',e=>{
+        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();handler(e);
+      },true);
+    };
+    bindCapture($('.ref2-nav-btn[data-key="settings"]'),'aaAdminBound',()=>openModal());
+    bindCapture($('.ref2-team'),'aaAdminBound',()=>openModal());
+    bindCapture($('.ref2-nav-btn[data-key="notifications"]'),'aaNotifBound',e=>state.user?openNotifications(e):openModal());
+  }
+
+  function renderDirectoryChrome(){
+    const real=state.members.filter(m=>m.tipo==='usuario');
+    const count=real.length;
+    $$('.ref2-workspace-copy span').forEach(el=>el.textContent=count+' membro'+(count===1?'':'s'));
+    const team=$('.ref2-team');
+    if(team){
+      team.setAttribute('aria-label','Equipe Alliance · '+count+' membro'+(count===1?'':'s'));
+      const shown=real.slice(0,2);
+      team.innerHTML=shown.map(m=>'<span class="ref2-team-avatar">'+esc((String(m.nome||'').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]||'').join('')||'—').toUpperCase())+'</span>').join('')+
+        (count>2?'<span class="ref2-team-avatar more">+'+(count-2)+'</span>':'');
+    }
+    if(state.profile){
+      const av=$('.ref2-avatar');
+      if(av)av.textContent=(String(state.profile.nome||'').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]||'').join('')||'—').toUpperCase();
+      const profileBtn=$('.ref2-profile');if(profileBtn)profileBtn.setAttribute('aria-label',state.profile.nome||'Perfil');
+    }
   }
 
   function loginView(){
@@ -272,24 +305,18 @@
       }catch(err){toast(err.message||String(err));}
     });
     $$('[data-aa-migrate]').forEach(btn=>btn.addEventListener('click',async()=>{
-      const legacy=btn.dataset.aaMigrate,select=$('[data-aa-migrate-select="'+CSS.escape(legacy)+'"]'),profileId=select?.value;if(!profileId){toast('Escolha um usuário real.');return;}
+      const legacy=btn.dataset.aaMigrate,select=$('[data-aa-migrate-select="'+CSS.escape(legacy)+'"]'),profileId=select?.value;
+      if(!profileId){toast('Escolha um usuário real.');return;}
+      if(!confirm('Migrar todas as tarefas de "'+legacy+'" para o usuário escolhido?'))return;
+      btn.disabled=true;
       try{
-        const profile=state.members.find(m=>m.id===profileId&&m.tipo==='usuario');if(!profile)throw new Error('Usuário real não encontrado.');
-        let count=0;
-        for(const t of state.tasks){
-          const ass=Array.isArray(t.assignees)?t.assignees:[];
-          if(!ass.some(n=>norm(n)===norm(legacy)))continue;
-          t.assignees=[...new Set(ass.map(n=>norm(n)===norm(legacy)?profile.nome:n))];
-          t.assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[];
-          if(!t.assigneeIds.includes(profileId))t.assigneeIds.push(profileId);
-          t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:new Date().toISOString(),text:'Responsável legado "'+legacy+'" vinculado a '+profile.nome+'.'});count++;
-        }
-        if(count)await writeTasks(state.tasks);
-        const {error}=await state.sb.from('legacy_member_links').upsert({legacy_name:legacy,profile_id:profileId,migrado_por:state.user.id,migrado_em:new Date().toISOString(),tarefas_migradas:count},{onConflict:'legacy_name'});if(error)throw error;
-        await notify([profileId],'legacy_migration','Tarefas migradas para sua conta',String(count)+' tarefa(s) foram vinculadas à sua conta.',null);
-        await audit('migrar_responsavel_legado','membro',profileId,{legacy,tarefas_migradas:count});
-        localStorage.setItem(TASKS_KEY,JSON.stringify(state.tasks));toast(count+' tarefa(s) migradas');await refreshAll();
-      }catch(err){toast(err.message||String(err));}
+        const {data,error}=await state.sb.rpc('migrar_responsavel_legado',{p_legacy_name:legacy,p_profile_id:profileId});
+        if(error)throw error;
+        const count=Number(data?.tarefas_migradas||0);
+        toast(count+' tarefa(s) migrada(s) com histórico preservado.');
+        await refreshAll();
+        setTimeout(()=>location.reload(),450);
+      }catch(err){toast(err.message||String(err));btn.disabled=false;}
     }));
   }
 
@@ -321,22 +348,30 @@
 
   function bindCleanup(){
     $$('[data-aa-clean]').forEach(btn=>btn.addEventListener('click',async()=>{
-      const sourceId=btn.dataset.aaClean,targetId=$('[data-aa-clean-target="'+sourceId+'"]')?.value;if(!targetId){toast('Escolha a lista destino.');return;}
-      const src=state.lists.find(x=>String(x.id)===String(sourceId)),dst=state.lists.find(x=>String(x.id)===String(targetId));if(!src||!dst)return;
+      const sourceId=btn.dataset.aaClean,targetId=$('[data-aa-clean-target="'+sourceId+'"]')?.value;
+      if(!targetId){toast('Escolha a lista destino.');return;}
+      const src=state.lists.find(x=>String(x.id)===String(sourceId)),dst=state.lists.find(x=>String(x.id)===String(targetId));
+      if(!src||!dst)return;
       const matches=state.tasks.filter(t=>String(t.listId||'')===String(sourceId)||(!t.listId&&norm(t.brand)===norm(src.marca)&&norm(t.project||'Operação')===norm(src.nome)));
       if(matches.length!==1){toast('A lista não possui exatamente uma tarefa; nada foi alterado.');return;}
       if(!confirm('Mover "'+matches[0].title+'" para "'+dst.nome+'" e arquivar a lista "'+src.nome+'"?'))return;
+      btn.disabled=true;
       try{
-        const t=matches[0];t.listId=dst.id;t.project=dst.nome;t.brand=dst.marca;t.campaignId=dst.campanha_id||null;t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:new Date().toISOString(),text:'Tarefa movida de "'+src.nome+'" para "'+dst.nome+'" durante limpeza administrativa.'});
-        await writeTasks(state.tasks);
-        const {error}=await state.sb.from('task_lists').update({arquivado_em:new Date().toISOString(),arquivado_por:state.user.id}).eq('id',sourceId);if(error)throw error;
-        localStorage.setItem(TASKS_KEY,JSON.stringify(state.tasks));await audit('limpar_lista_individual','lista',sourceId,{tarefa_id:t.id,destino:dst.id});toast('Lista convertida e arquivada');await refreshAll();
-      }catch(err){toast(err.message||String(err));}
+        const {data,error}=await state.sb.rpc('consolidar_lista_em_destino',{p_source_list:sourceId,p_dest_list:targetId});
+        if(error)throw error;
+        toast(Number(data?.tarefas_movidas||0)+' tarefa(s) movida(s); lista de origem arquivada.');
+        await refreshAll();
+        setTimeout(()=>location.reload(),450);
+      }catch(err){toast(err.message||String(err));btn.disabled=false;}
     }));
   }
 
   function renderBell(){
-    const badge=$('.ref2-top-badge');if(badge){const n=state.notifications.filter(x=>!x.read_at).length;badge.textContent=String(n);badge.style.display=n?'grid':'none';}
+    const n=state.notifications.filter(x=>!x.read_at).length;
+    $$('.ref2-top-badge,.ref2-nav-badge').forEach(badge=>{
+      badge.textContent=String(n);
+      badge.style.display=n?'grid':'none';
+    });
   }
 
   function openNotifications(e){
@@ -356,6 +391,8 @@
   function installBell(){
     const bell=$('.ref2-top-bell');if(!bell||bell.dataset.aaBound)return;bell.dataset.aaBound='1';bell.addEventListener('click',openNotifications,true);
   }
+
+  window.AllianceOSAdmin={open:openModal,refresh:refreshAll};
 
   async function boot(){
     try{
