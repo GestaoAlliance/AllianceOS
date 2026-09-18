@@ -459,9 +459,9 @@
   renderTaskDetailBody = function(t){
     v3NormalizeTask(t);
     const body=document.getElementById('taskDetailBody');
-    const deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t), parent=v3Parent(t), completed=(t.checklist||[]).filter(x=>x.done).length, candidates=v3DependencyCandidates(t);
+    const deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t), parent=v3Parent(t), completed=(t.checklist||[]).filter(x=>x.done).length, candidates=v3DependencyCandidates(t), completionProblem=v3CompletionProblem(t), recurrenceSpec=v3RecurrenceSpec(t);
     body.innerHTML=`<div class="tdetail-layout v3-detail-layout"><main class="tdetail-main">
-      ${blockers.length?`<div class="v3-block-banner"><div><strong>Esta tarefa está bloqueada</strong><span>Conclua ${blockers.length===1?'a tarefa abaixo':'as tarefas abaixo'} antes de finalizar esta.</span></div><span>${blockers.length} pendente${blockers.length>1?'s':''}</span></div>`:`<div class="v3-ready-banner"><span>✓</span><div><strong>Pronta para executar</strong><small>${deps.length?'Todas as dependências foram concluídas.':'Não há dependências pendentes.'}</small></div></div>`}
+      ${t.status==='bloqueado'?`<div class="v3-block-banner"><div><strong>Tarefa bloqueada</strong><span>${esc(t.blockedReason||'Motivo não informado')}</span></div><span>bloqueada</span></div>`:blockers.length?`<div class="v3-block-banner"><div><strong>Esta tarefa está bloqueada por dependências</strong><span>Conclua ${blockers.length===1?'a tarefa abaixo':'as tarefas abaixo'} antes de finalizar esta.</span></div><span>${blockers.length} pendente${blockers.length>1?'s':''}</span></div>`:`<div class="v3-ready-banner"><span>✓</span><div><strong>Pronta para executar</strong><small>${deps.length?'Todas as dependências foram concluídas.':'Não há dependências pendentes.'}</small></div></div>`}
       <section class="tsection v3-section" style="margin-top:0"><div class="tsection-head"><div><strong>Briefing e resultado esperado</strong><span>O que precisa ficar pronto, contexto, links e critério de aceite.</span></div></div><textarea class="description-area" id="detailDescription" placeholder="Descreva o resultado esperado desta tarefa, o contexto necessário para executar e como saber que ficou pronto.">${esc(t.description||'')}</textarea></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Fluxo e dependências</strong><span>As etapas são tarefas normais e aparecem para cada responsável na lista, quadro e semana.</span></div></div>
         ${parent?`<div class="v3-parent-link" data-flow-open="${esc(parent.id)}"><span>Esta tarefa é uma etapa de</span><b>${esc(parent.title)}</b><button type="button">Abrir principal ↗</button></div>`:''}
@@ -473,15 +473,19 @@
       <section class="tsection v3-section v3-continuity"><div class="tsection-head"><div><strong>Conclusão e continuidade</strong><span>O fluxo libera automaticamente as próximas tarefas. Não é necessário escolher “próxima tarefa”.</span></div></div>${blockers.length?`<div class="v3-continuity-note blocked">Ainda faltam ${blockers.length} dependência${blockers.length>1?'s':''}: ${blockers.slice(0,3).map(x=>esc(x.title)).join(', ')}.</div>`:`<div class="v3-continuity-note">${next.length?`Ao concluir, ${next.length===1?`“${esc(next[0].title)}” será liberada`:`${next.length} tarefas serão liberadas`} automaticamente.`:'Esta é a última etapa conhecida deste fluxo.'}</div>`}<button type="button" id="v3CompleteTaskBtn" class="v3-complete-btn ${t.status==='feito'?'secondary':''}" ${blockers.length&&t.status!=='feito'?'disabled':''}>${t.status==='feito'?'Reabrir tarefa':next.length?'Concluir e liberar próximas':'Concluir tarefa'}</button></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Comentários e atividade</strong><span>Decisões e mudanças importantes ficam registradas aqui.</span></div><span>${(t.comments||[]).length} comentário(s)</span></div><div class="addline v3-comment-add"><input id="newCommentText" placeholder="Escreva um comentário"><button type="button" id="addCommentBtn">Comentar</button></div><div id="commentList">${(t.comments||[]).map(c=>`<div class="comment"><div class="cav">${initials(c.author)}</div><div class="comment-body"><b>${esc(c.author)}</b><p>${esc(c.text)}</p><small>${esc(c.at)}</small></div></div>`).join('')}</div><div class="v3-history">${(t.history||[]).map(h=>`<div class="activity"><b>${esc(h.at)}</b><p>${esc(h.text)}</p></div>`).join('')}</div></section>
     </main><aside class="tdetail-side"><div class="v3-side-title"><strong>Contexto da tarefa</strong><span>${esc(t.brand||'')} · ${esc(t.project||'Operação')}</span></div><div class="tdetail-grid">
-      <div class="tfield"><label>Status</label><select id="detailStatus">${TASK_STATUSES.map(s=>`<option value="${s}" ${s===t.status?'selected':''} ${s==='feito'&&blockers.length&&t.status!=='feito'?'disabled':''}>${s}${s==='feito'&&blockers.length?' · bloqueada':''}</option>`).join('')}</select></div>
+      <div class="tfield"><label>Status</label><select id="detailStatus">${TASK_STATUSES.map(st=>`<option value="${st}" ${st===t.status?'selected':''} ${st==='feito'&&completionProblem&&t.status!=='feito'?'disabled':''}>${st}${st==='feito'&&completionProblem?' · com trava':''}</option>`).join('')}</select></div>
+      <div class="tfield" id="detailBlockedReasonField"><label>Motivo do bloqueio</label><input id="detailBlockedReason" value="${esc(t.blockedReason||'')}" placeholder="Ex.: aguardando terceiro"><small>Obrigatório quando o status é bloqueado.</small></div>
       <div class="tfield"><label>Responsável pela execução</label><select id="detailPrimaryAssignee">${v3AssigneeOptions(t.assignees[0]||'')}</select></div>
       <div class="tfield"><label>Apoio / colaboradores</label><div class="v3-support-list">${t.assignees.slice(1).map(a=>`<span>${esc(v3Short(a))}<button type="button" data-remove-assignee="${esc(a)}">×</button></span>`).join('')||'<small>Ninguém adicionado</small>'}</div><select id="detailAddAssignee"><option value="">+ adicionar colaborador</option>${v3TeamUsers().filter(x=>!t.assignees.includes(x)).map(x=>`<option value="${esc(x)}">${esc(v3Short(x))}</option>`).join('')}</select></div>
       <div class="tfield"><label>Prioridade</label><select id="detailPriority">${Object.entries(PRIORITY_LABEL).map(([v,l])=>`<option value="${v}" ${v===t.priority?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="tfield"><label>Data de início</label><input type="date" id="detailStart" value="${t.start||''}"></div>
-      <div class="tfield"><label>Prazo</label><input type="date" id="detailDue" value="${t.due||''}"></div>
+      <div class="tfield"><label>Prazo com horário</label><input type="datetime-local" id="detailDue" value="${v3ToLocalInput(t.dueAt,t.due)}"><small>${esc(v3DueLabel(t))}</small></div>
       <div class="tfield"><label>Campanha / planejamento</label>${v3DetailCampaign(t)}<small class="v3-field-help">Lista ligada às campanhas da ${esc(t.brand||'marca')}.</small></div>
-      <div class="tfield"><label>Recorrência</label><select id="detailRecurrence"><option value="none" ${t.recurrence==='none'?'selected':''}>Não repetir</option><option value="daily" ${t.recurrence==='daily'?'selected':''}>Diária</option><option value="weekly" ${t.recurrence==='weekly'?'selected':''}>Semanal</option><option value="monthly" ${t.recurrence==='monthly'?'selected':''}>Mensal</option></select></div>
+      <div class="tfield"><label>Recorrência</label><select id="detailRecurrence"><option value="nenhuma" ${recurrenceSpec.tipo==='nenhuma'?'selected':''}>Não repetir</option><option value="semanal" ${recurrenceSpec.tipo==='semanal'?'selected':''}>Semanal</option><option value="quinzenal" ${recurrenceSpec.tipo==='quinzenal'?'selected':''}>Quinzenal</option><option value="mensal" ${recurrenceSpec.tipo==='mensal'?'selected':''}>Mensal</option><option value="dias_semana" ${recurrenceSpec.tipo==='dias_semana'?'selected':''}>Dias específicos</option></select></div>
+      <div class="tfield" id="detailRecurrenceDays" ${recurrenceSpec.tipo==='dias_semana'?'':'hidden'}><label>Dias da semana</label><div class="v3-weekday-picks">${[['1','Seg'],['2','Ter'],['3','Qua'],['4','Qui'],['5','Sex'],['6','Sáb'],['7','Dom']].map(([v,l])=>`<label><input type="checkbox" value="${v}" ${recurrenceSpec.dias_semana.includes(Number(v))?'checked':''}>${l}</label>`).join('')}</div></div>
+      <div class="tfield"><label class="v3-conference-toggle"><span><b>Entrega obrigatória</b><small>trava conclusão</small></span><input id="detailDeliveryRequired" type="checkbox" ${t.deliveryRequired?'checked':''}><i></i></label></div>
       <div class="v3-brand-context"><span>Marca</span><strong>${esc(t.brand||'—')}</strong><small>A marca vem do perfil em que a tarefa foi criada.</small></div>
+      <button type="button" id="archiveTaskBtn" class="v3-archive-btn">${t.archivedAt?'Desarquivar tarefa':'Arquivar tarefa'}</button>
     </div></aside></div>`;
     bindDetailInteractions(t);
   };
@@ -489,10 +493,18 @@
   syncDetailDraft = function(t){
     const get=id=>document.getElementById(id);
     if(get('detailStatus')) t.status=get('detailStatus').value;
+    if(get('detailBlockedReason')) t.blockedReason=get('detailBlockedReason').value.trim()||null;
     if(get('detailPriority')) t.priority=get('detailPriority').value;
-    if(get('detailRecurrence')) t.recurrence=get('detailRecurrence').value;
+    if(get('detailRecurrence')){
+      const days=[...document.querySelectorAll('#detailRecurrenceDays input:checked')].map(x=>Number(x.value));
+      v3ApplyRecurrence(t,get('detailRecurrence').value,days);
+    }
+    if(get('detailDeliveryRequired')) t.deliveryRequired=!!get('detailDeliveryRequired').checked;
     if(get('detailStart')) t.start=get('detailStart').value||null;
-    if(get('detailDue')) t.due=get('detailDue').value||null;
+    if(get('detailDue')){
+      t.dueAt=v3FromLocalInput(get('detailDue').value);
+      t.due=t.dueAt?String(t.dueAt).slice(0,10):null;
+    }
     if(get('detailDescription')) t.description=get('detailDescription').value;
     if(get('detailPrimaryAssignee')) {
       const primary=get('detailPrimaryAssignee').value;
@@ -507,6 +519,9 @@
   };
 
   bindDetailInteractions = function(t){
+    document.getElementById('detailRecurrence')?.addEventListener('change',e=>{const box=document.getElementById('detailRecurrenceDays');if(box)box.hidden=e.target.value!=='dias_semana';});
+    document.getElementById('detailStatus')?.addEventListener('change',e=>{if(e.target.value==='bloqueado')document.getElementById('detailBlockedReason')?.focus();});
+    document.getElementById('archiveTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);t.archivedAt=t.archivedAt?null:new Date().toISOString();t.archivedBy=t.archivedAt?(v3CurrentNames()[0]||'Equipe'):null;t.history.unshift({at:'Agora',text:t.archivedAt?'Tarefa arquivada.':'Tarefa desarquivada.'});v3Persist(true);closeTaskDetail();showToast(t.archivedAt?'Tarefa arquivada':'Tarefa desarquivada');});
     document.getElementById('detailAddAssignee')?.addEventListener('change',e=>{if(e.target.value&&!t.assignees.includes(e.target.value)){syncDetailDraft(t);t.assignees.push(e.target.value);t.history.unshift({at:'Agora',text:`${v3Short(e.target.value)} foi adicionado como colaborador.`});renderTaskDetailBody(t)}});
     document.querySelectorAll('[data-remove-assignee]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.assignees=t.assignees.filter(x=>x!==b.dataset.removeAssignee);renderTaskDetailBody(t)}));
     document.querySelectorAll('[data-check-id]').forEach(c=>c.addEventListener('change',()=>{const x=t.checklist.find(y=>String(y.id)===String(c.dataset.checkId));if(x)x.done=c.checked;syncDetailDraft(t);v3Persist(false);renderTaskDetailBody(t)}));
