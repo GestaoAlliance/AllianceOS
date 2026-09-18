@@ -243,11 +243,21 @@
     return '<option value="">Sem responsável</option>'+v3TeamUsers().map(n=>`<option value="${esc(n)}" ${n===selected?'selected':''}>${esc(v3Short(n))}</option>`).join('');
   }
 
-  isOverdue = function(t){ return t.status!=='feito' && !!t.due && String(t.due)<v3TodayIso(); };
+  isOverdue = function(t){
+    if(t.status==='feito'||t.archivedAt)return false;
+    const raw=t.dueAt||t.due;if(!raw)return false;
+    if(t.dueAt)return new Date(t.dueAt).getTime()<Date.now();
+    return String(t.due)<v3TodayIso();
+  };
   dateBr = function(d){
-    if(!d) return 'Sem prazo';
-    const p=String(d).split('-');
-    return p.length===3?`${p[2]}/${p[1]}`:String(d);
+    if(!d)return 'Sem prazo';
+    const str=String(d);
+    if(str.includes('T')){
+      const dt=new Date(str);
+      if(!Number.isNaN(dt.getTime()))return `${v3Pad(dt.getDate())}/${v3Pad(dt.getMonth()+1)} · ${v3Pad(dt.getHours())}:${v3Pad(dt.getMinutes())}`;
+    }
+    const p=str.slice(0,10).split('-');
+    return p.length===3?`${p[2]}/${p[1]}`:str;
   };
   saveTasks = function(){ v3Persist(true); };
 
@@ -261,6 +271,7 @@
     const meus=v3CurrentNames();
     return taskData.filter(t=>{
       v3NormalizeTask(t);
+      if(t.archivedAt)return false;
       if(brand&&t.brand!==brand)return false;
       if(taskState.onlyMe&&!t.assignees.some(a=>meus.some(m=>v3Short(a)===v3Short(m))))return false;
       if(ass&&!t.assignees.includes(ass))return false;
@@ -294,7 +305,8 @@
     const parent=v3Parent(t), deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t);
     const out=[];
     if(parent) out.push(`<span class="flow-pill linked">Etapa de: ${esc(parent.title)}</span>`);
-    if(blockers.length) out.push(`<span class="flow-pill blocked">Bloqueada por ${blockers.length}</span>`);
+    if(t.status==='bloqueado') out.push(`<span class="flow-pill blocked">Bloqueada · ${esc(t.blockedReason||'sem motivo')}</span>`);
+    else if(blockers.length) out.push(`<span class="flow-pill blocked">Bloqueada por ${blockers.length}</span>`);
     else if(deps.length) out.push('<span class="flow-pill ready">Dependências concluídas</span>');
     if(next.length) out.push(`<span class="flow-pill next">Libera ${next.length}</span>`);
     return out.join('');
@@ -312,7 +324,7 @@
 
   renderListRow = function(t){
     const blockers=v3Blockers(t);
-    return `<div class="cu-row ${blockers.length?'is-blocked':''}" data-task-id="${esc(t.id)}">
+    return `<div class="cu-row ${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
       <div class="cu-row-title"><button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button><div class="cu-titletext"><div class="task-title-line"><b>${esc(t.title)}</b>${v3FlowBadges(t)}</div><small>${esc(t.description||t.project||'Sem descrição')}</small></div></div>
       <div>${avatarStack(t.assignees)}</div>
       <div><span class="pri ${t.priority}">${PRIORITY_LABEL[t.priority]||'Normal'}</span></div>
@@ -334,7 +346,7 @@
   renderBoard = function(canvas,data){
     canvas.innerHTML=`<div class="cu-board">${TASK_STATUSES.map(status=>{
       const rows=data.filter(t=>t.status===status);
-      return `<section class="cu-column" data-v3-drop-status="${status}"><div class="cu-colhead" style="--status-color:${STATUS_COLORS[status]}"><span class="bar"></span><b>${status}</b><span>${rows.length}</span></div>${rows.map(t=>`<article class="cu-card ${v3Blockers(t).length?'is-blocked':''}" draggable="true" data-drag-id="${esc(t.id)}" data-task-id="${esc(t.id)}"><div class="cu-card-project">${esc(t.project||'Operação')}</div><div class="cu-card-title">${esc(t.title)}</div><div class="cu-card-flow">${v3FlowBadges(t)}</div><div class="cu-card-foot">${avatarStack(t.assignees)}<span class="pri ${t.priority}" title="${PRIORITY_LABEL[t.priority]}"></span><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div></article>`).join('')}</section>`;
+      return `<section class="cu-column" data-v3-drop-status="${status}"><div class="cu-colhead" style="--status-color:${STATUS_COLORS[status]}"><span class="bar"></span><b>${status}</b><span>${rows.length}</span></div>${rows.map(t=>`<article class="cu-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" draggable="true" data-drag-id="${esc(t.id)}" data-task-id="${esc(t.id)}"><div class="cu-card-project">${esc(t.project||'Operação')}</div><div class="cu-card-title">${esc(t.title)}</div><div class="cu-card-flow">${v3FlowBadges(t)}</div><div class="cu-card-foot">${avatarStack(t.assignees)}<span class="pri ${t.priority}" title="${PRIORITY_LABEL[t.priority]}"></span><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div></article>`).join('')}</section>`;
     }).join('')}</div>`;
     bindTaskElements();bindDrag();
   };
@@ -343,7 +355,7 @@
     const groups=[...new Set(data.map(t=>t.project||'Operação'))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     canvas.innerHTML=`<div class="cu-campaigns-grid">${groups.map(g=>{
       const rows=data.filter(t=>(t.project||'Operação')===g), done=rows.filter(t=>t.status==='feito').length;
-      return `<section class="cu-campaign-box"><div class="cu-campaign-head"><div><strong>${esc(g)}</strong><span>${rows[0]?.brand||''} · ${done}/${rows.length} concluídas</span></div><span class="count">${rows.length}</span></div>${rows.map(t=>`<div class="cu-campaign-row ${v3Blockers(t).length?'is-blocked':''}" data-task-id="${esc(t.id)}"><div><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${t.assignees.map(v3Short).join(', ')||'Sem responsável'}</small></div><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div>`).join('')}</section>`;
+      return `<section class="cu-campaign-box"><div class="cu-campaign-head"><div><strong>${esc(g)}</strong><span>${rows[0]?.brand||''} · ${done}/${rows.length} concluídas</span></div><span class="count">${rows.length}</span></div>${rows.map(t=>`<div class="cu-campaign-row ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><div><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${t.assignees.map(v3Short).join(', ')||'Sem responsável'}</small></div><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div>`).join('')}</section>`;
     }).join('')}</div>`;bindTaskElements();
   };
 
@@ -351,7 +363,7 @@
     const names=[...new Set(data.flatMap(t=>t.assignees.length?t.assignees:['Sem responsável']))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
     canvas.innerHTML=`<div class="cu-people">${names.map(n=>{
       const rows=data.filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n));
-      return `<section class="cu-person"><div class="cu-person-head"><div class="bigav">${n==='Sem responsável'?'—':initials(v3Short(n))}</div><div><b>${esc(v3Short(n))}</b><span>${rows.filter(t=>t.status!=='feito').length} abertas · ${rows.filter(isOverdue).length} vencidas</span></div></div>${rows.map(t=>`<div class="cu-person-task ${v3Blockers(t).length?'is-blocked':''}" data-task-id="${esc(t.id)}"><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${dateBr(t.due)} · ${esc(t.project)}</small></div>`).join('')}</section>`;
+      return `<section class="cu-person"><div class="cu-person-head"><div class="bigav">${n==='Sem responsável'?'—':initials(v3Short(n))}</div><div><b>${esc(v3Short(n))}</b><span>${rows.filter(t=>t.status!=='feito').length} abertas · ${rows.filter(isOverdue).length} vencidas</span></div></div>${rows.map(t=>`<div class="cu-person-task ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${dateBr(t.due)} · ${esc(t.project)}</small></div>`).join('')}</section>`;
     }).join('')}</div>`;bindTaskElements();
   };
 
@@ -364,7 +376,7 @@
     const overdue=data.filter(t=>isOverdue(t));
     const unscheduled=data.filter(t=>t.status!=='feito'&&!t.due);
     const names=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
-    canvas.innerHTML=`<div class="v3-week-head"><div><button type="button" data-week-shift="-1">‹</button><button type="button" data-week-today>Esta semana</button><button type="button" data-week-shift="1">›</button></div><strong>${dateBr(firstIso)} — ${dateBr(lastIso)}</strong><span>${unscheduled.length} sem prazo</span></div>${overdue.length?`<div class="cu-week-overdue"><b>${overdue.length} tarefa${overdue.length>1?'s':''} vencida${overdue.length>1?'s':''}</b><span>continua${overdue.length>1?'m':''} aberta${overdue.length>1?'s':''}</span><button type="button" id="showOverdueWeek">Ver na Lista</button></div>`:''}<div class="cu-week-wrap"><div class="cu-week">${days.map((d,i)=>{const iso=v3Iso(d), rows=data.filter(t=>t.due===iso);return `<section class="cu-day ${iso===today?'today':''}"><div class="cu-day-head"><div><b>${names[i]}</b><span>${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</span></div>${iso===today?'<em>Hoje</em>':''}</div>${rows.length?rows.map(t=>`<div class="cu-week-card ${v3Blockers(t).length?'is-blocked':''}" data-task-id="${esc(t.id)}"><div class="week-card-top"><b>${esc(t.title)}</b>${v3Blockers(t).length?'<span>bloqueada</span>':''}</div><small>${esc(t.project)} · ${t.assignees.map(v3Short).join(', ')||'Sem responsável'}</small></div>`).join(''):'<div class="v3-day-empty">Nenhuma tarefa com prazo</div>'}</section>`}).join('')}</div></div>`;
+    canvas.innerHTML=`<div class="v3-week-head"><div><button type="button" data-week-shift="-1">‹</button><button type="button" data-week-today>Esta semana</button><button type="button" data-week-shift="1">›</button></div><strong>${dateBr(firstIso)} — ${dateBr(lastIso)}</strong><span>${unscheduled.length} sem prazo</span></div>${overdue.length?`<div class="cu-week-overdue"><b>${overdue.length} tarefa${overdue.length>1?'s':''} vencida${overdue.length>1?'s':''}</b><span>continua${overdue.length>1?'m':''} aberta${overdue.length>1?'s':''}</span><button type="button" id="showOverdueWeek">Ver na Lista</button></div>`:''}<div class="cu-week-wrap"><div class="cu-week">${days.map((d,i)=>{const iso=v3Iso(d), rows=data.filter(t=>t.due===iso);return `<section class="cu-day ${iso===today?'today':''}"><div class="cu-day-head"><div><b>${names[i]}</b><span>${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</span></div>${iso===today?'<em>Hoje</em>':''}</div>${rows.length?rows.map(t=>`<div class="cu-week-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><div class="week-card-top"><b>${esc(t.title)}</b>${v3Blockers(t).length?'<span>bloqueada</span>':''}</div><small>${esc(t.project)} · ${t.assignees.map(v3Short).join(', ')||'Sem responsável'}</small></div>`).join(''):'<div class="v3-day-empty">Nenhuma tarefa com prazo</div>'}</section>`}).join('')}</div></div>`;
     bindTaskElements();
     document.querySelectorAll('[data-week-shift]').forEach(b=>b.addEventListener('click',()=>{v3WeekOffset+=Number(b.dataset.weekShift||0);renderTasks()}));
     document.querySelector('[data-week-today]')?.addEventListener('click',()=>{v3WeekOffset=0;renderTasks()});
