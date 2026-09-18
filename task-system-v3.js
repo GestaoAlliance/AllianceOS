@@ -81,7 +81,7 @@
       const local=new Date(parts[0],parts[1]-1,parts[2],old.getHours(),old.getMinutes(),old.getSeconds());
       nextDueAt=v3FromLocalInput(`${parts[0]}-${v3Pad(parts[1])}-${v3Pad(parts[2])}T${v3Pad(local.getHours())}:${v3Pad(local.getMinutes())}`);
     }
-    const next=v3NormalizeTask({...t,id:v3Id('rec'),status:'a fazer',blockedReason:null,due:nextDate,dueAt:nextDueAt,comments:[],deliveries:[],archivedAt:null,archivedBy:null,parentTaskId:null,dependencies:[],recurrenceSeriesId:t.recurrenceSeriesId||t.id,recurrenceGeneratedFrom:t.id,history:[{at:'Agora',text:`Ocorrência recorrente criada automaticamente a partir de “${t.title}”.`}],checklist:(t.checklist||[]).map(x=>({...x,done:false})),source:'allianceos'});
+    const next=v3NormalizeTask({...t,id:v3Id('rec'),status:'a fazer',blockedReason:null,due:nextDate,dueAt:nextDueAt,comments:[],deliveries:[],archivedAt:null,archivedBy:null,parentTaskId:null,dependencies:[],recurrenceSeriesId:t.recurrenceSeriesId||t.id,recurrenceGeneratedFrom:t.id,history:[{at:'Agora',text:`Ocorrência recorrente criada automaticamente a partir de “${t.title}”.`}],checklist:(t.checklist||[]).map(x=>({...x,done:false})),source:'interface-generated'});
     taskData.unshift(next);return next;
   };
 
@@ -692,8 +692,8 @@
       due:dueAt?String(dueAt).slice(0,10):null,dueAt,start:document.getElementById('newStart').value||null,
       brand,project:campaign?.name||v3NewPreset.project||'Operação',listId:campaign?.listId||null,campaignId:campaign?._structured?(campaign.campaignId||null):(campaign?.id||v3NewPreset.campaignId||null),
       priority:document.getElementById('newPriority').value,description:document.getElementById('newDescription').value.trim(),
-      checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:'Agora',text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
-      recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'allianceos',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null,deliveryRequired:!!document.getElementById('newDeliveryRequired')?.checked,archivedAt:null
+      checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada via interface por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:'Agora',text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
+      recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'interface',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null,deliveryRequired:!!document.getElementById('newDeliveryRequired')?.checked,archivedAt:null
     });
     v3ApplyRecurrence(t,recurrenceTipo,recurrenceDays);
     taskData.unshift(t);
