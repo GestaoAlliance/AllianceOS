@@ -119,6 +119,17 @@ async function main() {
           s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${shellCss}\n\n${authCss}\n\n${authHeroCss}\n\n${authShowcaseCss}\n\n${profileCss}\n\n${taskReferenceCss}\n` + s.slice(styleClose);
         }
 
+        if (ent.name === 'cilo-design-v6.js') {
+          s = s.replace("  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});", "  // AllianceOS: o observer global de classes disparava o próprio render em loop.\\n  // O render inicial continua pelo schedule() acima; mudanças explícitas continuam pelos eventos do app.\\n  // observer global desativado propositalmente.");
+        }
+
+        if (ent.name === 'inicio.js' || ent.name === 'home.js') {
+          s = s.replace(
+            "    olho.observe(document.body, { childList: true, subtree: true });",
+            "    // AllianceOS: observer global removido para evitar redraw auto-recursivo."
+          );
+        }
+
         if (ent.name === 'conferencia.js') {
           const travaAntiga = '  const faltamTotal = (t) => travas(t).reduce((n, x) => n + x.falta, 0);';
           if (!s.includes(travaAntiga)) throw new Error('Não encontrei a trava de conferência das tarefas');
@@ -165,7 +176,8 @@ async function main() {
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
   const authBridge = `if(window.ALLIANCE_AUTH){window.ALLIANCE_AUTH.url=${JSON.stringify(SB_URL)};window.ALLIANCE_AUTH.getUser=()=>window.ALLIANCE_AUTH.getSession?.()?.user||null;}`;
   const sourceSha = String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local').slice(0, 40);
-  html = html.replace('</head>', () => `<meta name="allianceos-source" content="${sourceSha}">\n<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</head>', () => `<meta name="allianceos-source" content="${sourceSha}">\n</head>`);
+  html = html.replace('</body>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
