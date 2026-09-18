@@ -54,7 +54,7 @@
     }
     return rows.slice().sort((a,b)=>depth(a)-depth(b)||String(a.due||'9999').localeCompare(String(b.due||'9999'))||String(a.title||'').localeCompare(String(b.title||''),'pt-BR'));
   }
-  const r10Status = t => t.status==='feito'?'Concluída':r10Deps(t).some(x=>x.status!=='feito')?'Bloqueada':(t.status==='fazendo'||t.status==='em andamento')?'Em andamento':'Pendente';
+  const r10Status = t => t.status==='feito'?'Concluída':t.status==='bloqueado'?'Bloqueada':r10Deps(t).some(x=>x.status!=='feito')?'Bloqueada':t.status==='em revisão'?'Em revisão':(t.status==='fazendo'||t.status==='em andamento')?'Em andamento':'Pendente';
   const r10Priority = t => ({urgent:'Urgente',high:'Alta',alta:'Alta',normal:'Normal',low:'Baixa',baixa:'Baixa'}[String(t.priority||'').toLowerCase()]||String(t.priority||'Normal'));
 
   function r10FlowHtml(t,rows){
