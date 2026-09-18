@@ -285,7 +285,7 @@
   }
 
   function bindTeam(){
-    $('[data-aa-save-member]').forEach(btn=>btn.addEventListener('click',async()=>{
+    $$('[data-aa-save-member]').forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.dataset.aaSaveMember,cargo=$('[data-aa-member-cargo="'+id+'"]')?.value.trim()||null,papel=$('[data-aa-member-role="'+id+'"]')?.value||'membro';
       try{
         if(id===state.user.id&&state.profile?.papel==='admin'&&papel!=='admin'&&state.members.filter(m=>m.tipo==='usuario'&&m.papel==='admin').length<=1)throw new Error('Não é possível remover o último administrador.');
