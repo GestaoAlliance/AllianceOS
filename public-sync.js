@@ -17,11 +17,10 @@
       return parsed?.access_token||parsed?.currentSession?.access_token||'';
     }catch{return ''}
   }
-  // Tarefas não podem continuar visíveis em cache para um navegador sem sessão.
-  if(!authToken()) for(const key of RLS_KEYS) rawRemove.call(localStorage,key);
-
   const rawSet = Storage.prototype.setItem;
   const rawRemove = Storage.prototype.removeItem;
+  // Tarefas não podem continuar visíveis em cache para um navegador sem sessão.
+  if(!authToken()) for(const key of RLS_KEYS) rawRemove.call(localStorage,key);
   const pending = new Set();
   const timers = new Map();
   const base = new Map();
