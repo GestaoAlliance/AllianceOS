@@ -5,6 +5,7 @@
 {
   let v3WeekOffset = 0;
   let v3NewPreset = {};
+  window.AllianceOSDirectory=window.AllianceOSDirectory||{members:[],lists:[],brands:[]};
 
   // AllianceOS V2: status operacionais, horário, recorrência e arquivamento.
   if(Array.isArray(TASK_STATUSES)){
@@ -116,16 +117,12 @@
     return raw && raw!=='Todas as marcas' ? raw : '';
   };
   const v3TeamUsers = () => {
-    const live=(window.AllianceOSDirectory?.members||[]).filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false).map(x=>x.nome).filter(Boolean);
-    if(live.length)return [...new Set(live)].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
-    const names=[];
-    try {
-      for(const p of (window.Acessos?.equipe?.()||[])) {
-        if(p?.tipo==='legado'||p?.ativo===false)continue;
-        if(p?.nome) names.push(p.nome);
-      }
-    } catch {}
-    return [...new Set(names.filter(Boolean))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
+    const directory=window.AllianceOSDirectory;
+    if(directory&&Array.isArray(directory.members)){
+      const live=directory.members.filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false).map(x=>x.nome).filter(Boolean);
+      return [...new Set(live)].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
+    }
+    return [];
   };
   const v3CurrentNames = () => {
     const out=[];
@@ -684,9 +681,12 @@
     if(recurrenceTipo==='dias_semana'&&!recurrenceDays.length){showToast('Escolha pelo menos um dia da semana.');return;}
     const localDue=document.getElementById('newDue').value||'';
     const dueAt=v3FromLocalInput(localDue);
+    const selectedAssignee=document.getElementById('newAssignee').value||'';
+    const selectedMember=(window.AllianceOSDirectory?.members||[]).find(m=>m.tipo==='usuario'&&m.atribuivel!==false&&m.nome===selectedAssignee);
+    if(selectedAssignee&&!selectedMember){showToast('Escolha um usuário real para a atribuição.');return;}
     const id=v3Id('task');
     const t=v3NormalizeTask({
-      id,title,status,blockedReason:status==='bloqueado'?blockedReason:null,assignees:[document.getElementById('newAssignee').value].filter(Boolean),assigneeIds:[document.getElementById('newAssignee').value].map(name=>(window.AllianceOSDirectory?.members||[]).find(m=>m.tipo==='usuario'&&m.nome===name)?.id).filter(Boolean),
+      id,title,status,blockedReason:status==='bloqueado'?blockedReason:null,assignees:[selectedAssignee].filter(Boolean),assigneeIds:selectedMember?[selectedMember.id]:[],
       due:dueAt?String(dueAt).slice(0,10):null,dueAt,start:document.getElementById('newStart').value||null,
       brand,project:campaign?.name||v3NewPreset.project||'Operação',listId:campaign?.listId||null,campaignId:campaign?._structured?(campaign.campaignId||null):(campaign?.id||v3NewPreset.campaignId||null),
       priority:document.getElementById('newPriority').value,description:document.getElementById('newDescription').value.trim(),
@@ -702,6 +702,13 @@
     const createdAsStep=!!v3NewPreset.blocksTaskId;v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('criar_tarefa',t,{status:t.status,prazo:t.dueAt||t.due});closeNewTask();showToast(createdAsStep?'Etapa criada e vinculada':'Nova tarefa criada');
   };
 
+  window.addEventListener('allianceos:directory',()=>{
+    try{
+      populateFilters();
+      renderTasks();
+      if(document.getElementById('newTaskModal')?.classList.contains('open'))v3PopulateNewTaskForm(document.getElementById('newStatus')?.value||'a fazer');
+    }catch(e){console.warn('[AllianceOS directory refresh]',e);}
+  });
   v3RebuildNewTaskForm();
   v3MigrateLegacySubtasks();
 }
