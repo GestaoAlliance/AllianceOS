@@ -241,7 +241,9 @@
   }
 
   function v3AssigneeOptions(selected=''){
-    return '<option value="">Sem responsável</option>'+v3TeamUsers().map(n=>`<option value="${esc(n)}" ${n===selected?'selected':''}>${esc(v3Short(n))}</option>`).join('');
+    const real=v3TeamUsers();
+    const legacySelected=selected&&!real.includes(selected)?`<option value="${esc(selected)}" selected disabled>${esc(v3Short(selected))} · legado (migre na Administração)</option>`:'';
+    return '<option value="">Sem responsável</option>'+legacySelected+real.map(n=>`<option value="${esc(n)}" ${n===selected?'selected':''}>${esc(v3Short(n))}</option>`).join('');
   }
 
   isOverdue = function(t){
