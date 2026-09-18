@@ -109,3 +109,213 @@
   #taskDetailDrawer .r10-workspace{display:block!important;overflow-y:auto!important}
   #taskDetailDrawer .r10-flow,#taskDetailDrawer .r10-main,#taskDetailDrawer .r10-side{height:auto!important;overflow:visible!important;border:0!important;border-bottom:1px solid #e5e9ec!important}
 }
+
+
+/* ===== Task Reference V10 · alignment polish ===== */
+@media (min-width:901px){
+  #taskDetailDrawer .r10-svg{
+    width:16px!important;
+    height:16px!important;
+    display:block!important;
+    flex:0 0 16px!important;
+    fill:none!important;
+    stroke:currentColor!important;
+    stroke-width:1.8!important;
+    stroke-linecap:round!important;
+    stroke-linejoin:round!important;
+    vector-effect:non-scaling-stroke!important;
+  }
+
+  #taskDetailDrawer .r10-flow-head{
+    align-items:center!important;
+  }
+  #taskDetailDrawer .r10-flow-icon,
+  #taskDetailDrawer .r10-step-icon,
+  #taskDetailDrawer .r10-side-card-icon{
+    line-height:1!important;
+    font-size:0!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-flow-icon .r10-svg{
+    width:18px!important;height:18px!important;flex-basis:18px!important;
+  }
+  #taskDetailDrawer .r10-step-icon .r10-svg{
+    width:16px!important;height:16px!important;flex-basis:16px!important;
+  }
+  #taskDetailDrawer .r10-side-card-icon .r10-svg{
+    width:15px!important;height:15px!important;flex-basis:15px!important;
+  }
+
+  #taskDetailDrawer .r10-flow-head-copy{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+  }
+  #taskDetailDrawer .r10-flow-head-copy strong,
+  #taskDetailDrawer .r10-flow-head-copy span{
+    line-height:1.15!important;
+  }
+
+  #taskDetailDrawer .r10-step{
+    align-items:center!important;
+  }
+  #taskDetailDrawer .r10-step-copy{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+  }
+  #taskDetailDrawer .r10-step-copy b{
+    line-height:1.2!important;
+  }
+  #taskDetailDrawer .r10-step-copy span{
+    line-height:1!important;
+    align-self:flex-start!important;
+  }
+  #taskDetailDrawer .r10-step-avatar{
+    align-self:center!important;
+    line-height:1!important;
+  }
+
+  #taskDetailDrawer .r10-main .tsection-head{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+  }
+  #taskDetailDrawer .r10-main .tsection-head>div{
+    min-width:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    gap:3px!important;
+  }
+  #taskDetailDrawer .r10-main .tsection-head strong{
+    display:flex!important;
+    align-items:center!important;
+    min-height:16px!important;
+    line-height:1.15!important;
+    margin:0!important;
+  }
+  #taskDetailDrawer .r10-main .tsection-head span{
+    display:flex!important;
+    align-items:center!important;
+    line-height:1.15!important;
+    margin:0!important;
+  }
+  #taskDetailDrawer .r10-main .tsection-head>span{
+    align-self:center!important;
+    white-space:nowrap!important;
+  }
+
+  #taskDetailDrawer .r10-kicker{
+    min-height:18px!important;
+    line-height:1!important;
+  }
+  #taskDetailDrawer .r10-kicker .r10-svg{
+    width:13px!important;height:13px!important;flex-basis:13px!important;
+  }
+
+  #taskDetailDrawer .r10-side-card-head{
+    height:50px!important;
+    min-height:50px!important;
+    align-items:center!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+  }
+  #taskDetailDrawer .r10-side-card-head strong{
+    display:flex!important;
+    align-items:center!important;
+    min-height:28px!important;
+    margin:0!important;
+    line-height:1.1!important;
+  }
+
+  #taskDetailDrawer .r10-side .tfield{
+    min-height:50px!important;
+    align-items:center!important;
+    padding:6px 0!important;
+  }
+  #taskDetailDrawer .r10-side .tfield>label{
+    min-height:36px!important;
+    display:flex!important;
+    align-items:center!important;
+    margin:0!important;
+    line-height:1.15!important;
+  }
+  #taskDetailDrawer .r10-side .tfield select,
+  #taskDetailDrawer .r10-side .tfield input{
+    box-sizing:border-box!important;
+    line-height:1.15!important;
+    vertical-align:middle!important;
+  }
+
+  #taskDetailDrawer .r10-context-row{
+    min-height:50px!important;
+    align-items:center!important;
+    padding:6px 0!important;
+  }
+  #taskDetailDrawer .r10-context-row>span:first-child{
+    min-height:36px!important;
+    display:flex!important;
+    align-items:center!important;
+    line-height:1.15!important;
+  }
+  #taskDetailDrawer .r10-context-value{
+    box-sizing:border-box!important;
+    align-items:center!important;
+    line-height:1.15!important;
+  }
+
+  #taskDetailDrawer .r10-tags{
+    align-items:center!important;
+  }
+  #taskDetailDrawer .r10-tag{
+    display:inline-flex!important;
+    align-items:center!important;
+    min-height:26px!important;
+    line-height:1!important;
+  }
+
+  #taskDetailDrawer .r10-dep-row{
+    min-height:48px!important;
+    align-items:center!important;
+  }
+  #taskDetailDrawer .r10-dep-dot{
+    align-self:center!important;
+    line-height:1!important;
+    font-size:0!important;
+  }
+  #taskDetailDrawer .r10-dep-dot .r10-svg{
+    width:12px!important;height:12px!important;flex-basis:12px!important;
+  }
+  #taskDetailDrawer .r10-dep-row>span:last-child{
+    min-width:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+  }
+  #taskDetailDrawer .r10-dep-row b{
+    line-height:1.15!important;
+  }
+  #taskDetailDrawer .r10-dep-row span span{
+    line-height:1.1!important;
+  }
+
+  #taskDetailDrawer .r10-side .v3-comment-add{
+    align-items:center!important;
+  }
+  #taskDetailDrawer .r10-side #newCommentText,
+  #taskDetailDrawer .r10-side #addCommentBtn{
+    box-sizing:border-box!important;
+    line-height:1.15!important;
+  }
+
+  #taskDetailDrawer .r10-more>summary{
+    min-height:44px!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:center!important;
+    line-height:1.1!important;
+    list-style-position:inside!important;
+  }
+}

@@ -3,6 +3,24 @@
 {
   const r10BaseRenderDetail = renderTaskDetailBody;
   const r10Esc = v => String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});
+
+  const r10Icon = name => {
+    const paths={
+      campaign:'<rect x="4" y="4" width="6" height="6" rx="1.3"/><rect x="14" y="4" width="6" height="6" rx="1.3"/><rect x="4" y="14" width="6" height="6" rx="1.3"/><path d="M17 14v6M14 17h6"/>',
+      task:'<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+      done:'<path d="m6 12 4 4 8-8"/>',
+      pending:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 12h6"/>',
+      status:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/>',
+      context:'<path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2M8 11h8M8 15h5"/>',
+      tag:'<path d="M4 12 12 4h6l2 2v6l-8 8-8-8Z"/><circle cx="16" cy="8" r="1"/>',
+      dependency:'<circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 7h4a4 4 0 0 1 4 4v4M15 17h-4a4 4 0 0 1-4-4V9"/>',
+      comment:'<path d="M5 5h14v11H9l-4 3V5Z"/><path d="M8 9h8M8 12h5"/>',
+      alert:'<path d="M12 4v9"/><path d="M12 17h.01"/>',
+      next:'<path d="m9 6 6 6-6 6"/>'
+    };
+    return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
+  };
+
   const r10Short = v => String(v||'').split('|')[0].trim();
   const r10Initials = v => {
     const p=r10Short(v).split(/\s+/).filter(Boolean);
@@ -30,10 +48,10 @@
 
   function r10FlowHtml(t,rows){
     const done=rows.filter(x=>x.status==='feito').length, pct=rows.length?Math.round(done/rows.length*100):0;
-    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">⌘</span><div class="r10-flow-head-copy"><strong>Execução da Campanha</strong><span>'+r10Esc(t.project||'Operação')+'</span></div></div><span class="r10-flow-state">Em andamento</span><div class="r10-progress-copy"><b>'+done+' de '+rows.length+' tarefas concluídas</b><span>'+pct+'%</span></div><div class="r10-progress"><i style="width:'+pct+'%"></i></div><div class="r10-flow-list">';
+    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">'+r10Icon('campaign')+'</span><div class="r10-flow-head-copy"><strong>Execução da Campanha</strong><span>'+r10Esc(t.project||'Operação')+'</span></div></div><span class="r10-flow-state">Em andamento</span><div class="r10-progress-copy"><b>'+done+' de '+rows.length+' tarefas concluídas</b><span>'+pct+'%</span></div><div class="r10-progress"><i style="width:'+pct+'%"></i></div><div class="r10-flow-list">';
     rows.forEach(function(x,i){
       const cl=(x.status==='feito'?' done':'')+(String(x.id)===String(t.id)?' current':'');
-      const icon=x.status==='feito'?'✓':String(x.id)===String(t.id)?'▣':'◫';
+      const icon=x.status==='feito'?r10Icon('done'):String(x.id)===String(t.id)?r10Icon('task'):r10Icon('pending');
       html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+icon+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b><span>'+r10Esc(r10Status(x))+'</span></span><span class="r10-step-avatar">'+r10Esc(r10Initials((x.assignees||[])[0]||''))+'</span></button>';
     });
     return html+'</div></aside>';
@@ -64,22 +82,22 @@
     const workspace=document.createElement('div');workspace.className='r10-workspace';workspace.insertAdjacentHTML('beforeend',r10FlowHtml(t,rows));
 
     const center=document.createElement('main');center.className='r10-main';
-    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back>←</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more>•••</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev>‹</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next>›</button></div></div><header class="r10-task-head"><span class="r10-kicker">▣ &nbsp; TAREFA</span><h1 class="r10-title">'+r10Esc(t.title||'Tarefa')+'</h1><p class="r10-subtitle">Execução vinculada a '+r10Esc(t.project||'Operação')+'.</p><div class="r10-pills"><span class="r10-pill">'+r10Esc(t.brand||'Marca')+'</span><span class="r10-pill">'+r10Esc(t.project||'Operação')+'</span><span class="r10-pill priority">'+r10Esc(r10Priority(t))+'</span></div></header><div class="r10-center-stack"></div>';
+    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back>←</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more>•••</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev>‹</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next>›</button></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><h1 class="r10-title">'+r10Esc(t.title||'Tarefa')+'</h1><p class="r10-subtitle">Execução vinculada a '+r10Esc(t.project||'Operação')+'.</p><div class="r10-pills"><span class="r10-pill">'+r10Esc(t.brand||'Marca')+'</span><span class="r10-pill">'+r10Esc(t.project||'Operação')+'</span><span class="r10-pill priority">'+r10Esc(r10Priority(t))+'</span></div></header><div class="r10-center-stack"></div>';
     const centerStack=center.querySelector('.r10-center-stack');[briefing,incoming,attachments,delivery,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
-    const info=document.createElement('section');info.className='r10-side-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">◉</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
+    const info=document.createElement('section');info.className='r10-side-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('status')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
 
-    const context=document.createElement('section');context.className='r10-side-card';context.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">▣</span><strong>Contexto da campanha</strong></div><div class="r10-side-card-body"></div>';const cb=context.querySelector('.r10-side-card-body');if(campaignField)cb.appendChild(campaignField);cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Marca</span><span class="r10-context-value">'+r10Esc(t.brand||'—')+'</span></div><div class="r10-context-row"><span>Projeto</span><span class="r10-context-value">'+r10Esc(t.project||'Operação')+'</span></div>');stack.appendChild(context);
+    const context=document.createElement('section');context.className='r10-side-card';context.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('context')+'</span><strong>Contexto da campanha</strong></div><div class="r10-side-card-body"></div>';const cb=context.querySelector('.r10-side-card-body');if(campaignField)cb.appendChild(campaignField);cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Marca</span><span class="r10-context-value">'+r10Esc(t.brand||'—')+'</span></div><div class="r10-context-row"><span>Projeto</span><span class="r10-context-value">'+r10Esc(t.project||'Operação')+'</span></div>');stack.appendChild(context);
 
-    const tags=(t.tags||[]).filter(Boolean);const tagList=(tags.length?tags:[t.brand||'Operação',r10Priority(t)]).map(x=>'<span class="r10-tag">'+r10Esc(x)+'</span>').join('');stack.insertAdjacentHTML('beforeend',r10Card('Sinais e tags','◇','<div class="r10-tags">'+tagList+'</div>'));
+    const tags=(t.tags||[]).filter(Boolean);const tagList=(tags.length?tags:[t.brand||'Operação',r10Priority(t)]).map(x=>'<span class="r10-tag">'+r10Esc(x)+'</span>').join('');stack.insertAdjacentHTML('beforeend',r10Card('Sinais e tags',r10Icon('tag'),'<div class="r10-tags">'+tagList+'</div>'));
 
     const deps=r10Deps(t), dependents=r10Dependents(t);let depHtml='';
     if(deps.length){depHtml+='<div class="r10-context-row"><span>Depende de</span><div>';deps.forEach(x=>{depHtml+='<button type="button" class="r10-dep-row '+(x.status==='feito'?'':'blocked')+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-dot">'+(x.status==='feito'?'✓':'!')+'</span><span><b>'+r10Esc(x.title)+'</b><span>'+r10Esc(r10Status(x))+'</span></span></button>'});depHtml+='</div></div>'}
     if(dependents.length){depHtml+='<div class="r10-context-row"><span>Desbloqueia</span><div>';dependents.forEach(x=>{depHtml+='<button type="button" class="r10-dep-row '+(r10Status(x)==='Bloqueada'?'blocked':'')+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-dot">→</span><span><b>'+r10Esc(x.title)+'</b><span>'+r10Esc(r10Status(x))+'</span></span></button>'});depHtml+='</div></div>'}
-    if(!depHtml)depHtml='<div style="font-size:9px;color:#8e979f">Sem dependências vinculadas.</div>';stack.insertAdjacentHTML('beforeend',r10Card('Dependências','⌘',depHtml));
+    if(!depHtml)depHtml='<div style="font-size:9px;color:#8e979f">Sem dependências vinculadas.</div>';stack.insertAdjacentHTML('beforeend',r10Card('Dependências',r10Icon('dependency'),depHtml));
 
-    if(comments){const card=document.createElement('section');card.className='r10-side-card';card.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">▤</span><strong>Observações</strong></div><div class="r10-side-card-body"></div>';const cc=card.querySelector('.r10-side-card-body');[comments.querySelector('.v3-comment-add'),comments.querySelector('#commentList'),comments.querySelector('.v3-history')].filter(Boolean).forEach(x=>cc.appendChild(x));stack.appendChild(card)}
+    if(comments){const card=document.createElement('section');card.className='r10-side-card';card.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('comment')+'</span><strong>Observações</strong></div><div class="r10-side-card-body"></div>';const cc=card.querySelector('.r10-side-card-body');[comments.querySelector('.v3-comment-add'),comments.querySelector('#commentList'),comments.querySelector('.v3-history')].filter(Boolean).forEach(x=>cc.appendChild(x));stack.appendChild(card)}
 
     const extra=document.createElement('details');extra.className='r10-side-card r10-more';extra.innerHTML='<summary>Mais opções da tarefa</summary><div class="r10-more-body"></div>';const eb=extra.querySelector('.r10-more-body');[startField,supportField,recurrenceField].filter(Boolean).forEach(x=>eb.appendChild(x));if(eb.children.length)stack.appendChild(extra);
     workspace.appendChild(side);oldLayout.replaceWith(workspace);
