@@ -25,7 +25,14 @@
     state.sb=mod.createClient(cfg.url,cfg.anon,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
     const {data:{session}}=await state.sb.auth.getSession();
     state.user=session?.user||null;
-    state.sb.auth.onAuthStateChange((_event,session)=>{state.user=session?.user||null;setTimeout(refreshAll,20);});
+    window.AllianceOSSession={user:state.user};
+    state.sb.auth.onAuthStateChange((_event,session)=>{
+      const before=state.user?.id||null;
+      state.user=session?.user||null;
+      window.AllianceOSSession={user:state.user};
+      if(before!==state.user?.id)sessionStorage.removeItem('allianceos.rls_tasks_hydrated');
+      setTimeout(refreshAll,20);
+    });
   }
 
   async function audit(action,entityType,entityId,details={}){
@@ -89,7 +96,13 @@
   }
 
   async function loadDirectory(){
-    if(!state.user){state.members=[];state.lists=[];state.brands=[];state.tasks=[];window.AllianceOSDirectory={members:[],lists:[],brands:[]};return;}
+    if(!state.user){
+      state.members=[];state.lists=[];state.brands=[];state.tasks=[];
+      localStorage.removeItem(TASKS_KEY);
+      sessionStorage.removeItem('allianceos.rls_tasks_hydrated');
+      window.AllianceOSDirectory={members:[],lists:[],brands:[]};
+      return;
+    }
     const [profileR,profilesR,brandsR,listsR,linksR,invitesR,tasks]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,papel,cargo,ativo').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,papel,cargo,ativo').eq('ativo',true).order('nome'),
@@ -104,6 +117,20 @@
     state.links=linksR.data||[];
     state.invites=invitesR.data||[];
     state.tasks=tasks;
+    const remoteTasks=JSON.stringify(tasks);
+    const localTasks=localStorage.getItem(TASKS_KEY);
+    if(localTasks!==remoteTasks){
+      localStorage.setItem(TASKS_KEY,remoteTasks);
+      const hydratedKey='allianceos.rls_tasks_hydrated';
+      if(sessionStorage.getItem(hydratedKey)!==String(state.user.id)){
+        sessionStorage.setItem(hydratedKey,String(state.user.id));
+        setTimeout(()=>location.reload(),60);
+      }else{
+        toast('Tarefas atualizadas pelo servidor.');
+      }
+    }else{
+      sessionStorage.setItem('allianceos.rls_tasks_hydrated',String(state.user.id));
+    }
     const linked=new Set(state.links.map(x=>norm(x.legacy_name)));
     state.members=(profilesR.data||[]).map(p=>({...p,tipo:'usuario',atribuivel:true}));
     const known=new Set(state.members.map(x=>norm(x.nome)));
