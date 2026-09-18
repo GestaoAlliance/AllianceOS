@@ -520,7 +520,7 @@
     const dependencyId=document.getElementById('newDependency')?.value||'';
     const conferenceRequired=!!document.getElementById('newConferenceRequired')?.checked;
     if(conferenceRequired && !v3NewConferenceDraft.length){showToast('Adicione pelo menos um item à lista de conferência.');document.getElementById('newConferenceItem')?.focus();return;}
-    const conferenceChecklist=conferenceRequired?v3NewConferenceDraft.map(text=>({id:v3Id('check'),text,done:false}):[];
+    const conferenceChecklist=conferenceRequired?v3NewConferenceDraft.map(text=>({id:v3Id('check'),text,done:false})):[];
     const id=v3Id('task');
     const t=v3NormalizeTask({
       id,title,status:document.getElementById('newStatus').value,assignees:[document.getElementById('newAssignee').value].filter(Boolean),
