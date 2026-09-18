@@ -444,3 +444,81 @@
     font-size:8px!important;
   }
 }
+
+
+/* ===== Reference V2 · hard contain top actions ===== */
+@media (min-width:901px){
+  html body .global-toolbar{
+    box-sizing:border-box!important;
+    display:grid!important;
+    grid-template-columns:minmax(150px,210px) minmax(140px,190px) minmax(180px,1fr) 136px!important;
+    column-gap:16px!important;
+    align-items:center!important;
+    overflow:hidden!important;
+  }
+  .ref2-top-logo{
+    width:auto!important;
+    min-width:0!important;
+    max-width:210px!important;
+    flex:none!important;
+  }
+  .ref2-brand-wrap{
+    width:100%!important;
+    min-width:0!important;
+    max-width:190px!important;
+    flex:none!important;
+  }
+  .ref2-search{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    flex:none!important;
+    overflow:hidden!important;
+  }
+  #globalSearch.ref2-search-input{
+    min-width:0!important;
+    width:100%!important;
+  }
+  .ref2-top-actions{
+    width:136px!important;
+    min-width:136px!important;
+    max-width:136px!important;
+    display:grid!important;
+    grid-template-columns:50px 78px!important;
+    gap:8px!important;
+    align-items:center!important;
+    justify-content:end!important;
+    overflow:visible!important;
+    flex:none!important;
+  }
+  .ref2-top-bell{
+    width:50px!important;
+    min-width:50px!important;
+    height:50px!important;
+  }
+  .ref2-profile{
+    box-sizing:border-box!important;
+    width:78px!important;
+    min-width:78px!important;
+    max-width:78px!important;
+    height:50px!important;
+    padding:5px 7px!important;
+    display:grid!important;
+    grid-template-columns:36px 14px!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:6px!important;
+    overflow:hidden!important;
+  }
+  .ref2-avatar{
+    width:36px!important;
+    min-width:36px!important;
+    height:36px!important;
+  }
+  .ref2-chevron{
+    width:14px!important;
+    min-width:14px!important;
+    height:14px!important;
+    margin:0!important;
+  }
+}
