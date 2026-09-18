@@ -175,9 +175,70 @@ async function main() {
   const profile = fs.readFileSync(PROFILE_JS, 'utf8');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
   const authBridge = `if(window.ALLIANCE_AUTH){window.ALLIANCE_AUTH.url=${JSON.stringify(SB_URL)};window.ALLIANCE_AUTH.getUser=()=>window.ALLIANCE_AUTH.getSession?.()?.user||null;}`;
+
+  const FINAL_UI_CSS = `
+/* AllianceOS final shell guard — MUST be last */
+@media (min-width:901px){
+  html body .app{display:grid!important;grid-template-columns:220px minmax(0,1fr)!important;background:#f4f6f8!important}
+  html body .sidebar{
+    position:sticky!important;inset:auto!important;top:0!important;transform:none!important;
+    width:220px!important;height:100vh!important;min-height:100vh!important;
+    padding:18px 14px 14px!important;background:#fbfcfd!important;border:0!important;
+    border-right:1px solid #e2e7eb!important;border-radius:0!important;box-shadow:none!important;
+    display:flex!important;flex-direction:column!important;align-items:stretch!important;overflow:hidden!important
+  }
+  .sidebar .brandbox{display:block!important;width:100%!important;padding:0 4px 16px!important}
+  .sidebar .brandrow{display:flex!important;align-items:center!important;width:100%!important}
+  .sidebar .brandtitle{display:block!important;min-width:0!important}
+  .sidebar .brandtitle strong{display:block!important;font-size:15px!important;color:#111418!important}
+  .sidebar .brandtitle span{display:block!important;font-size:9px!important;color:#8d969e!important}
+  .sidebar .side-select{display:block!important;width:100%!important;height:42px!important}
+  .sidebar .nav{display:flex!important;flex-direction:column!important;width:100%!important;height:auto!important;gap:5px!important;overflow:auto!important}
+  .sidebar .navitem{
+    display:flex!important;align-items:center!important;width:100%!important;min-width:0!important;
+    height:46px!important;min-height:46px!important;flex:0 0 46px!important;padding:0 10px!important;
+    gap:10px!important;border-radius:11px!important;white-space:nowrap!important;overflow:visible!important;
+    font-size:11px!important;text-align:left!important
+  }
+  .sidebar .navitem .icon{display:grid!important;flex:0 0 30px!important;width:30px!important;height:30px!important}
+  .sidebar .profile{display:flex!important;width:100%!important;margin-top:auto!important}
+  html body .main{min-width:0!important;margin:0!important;padding:16px 18px 24px!important;border:0!important;border-radius:0!important;background:#f4f6f8!important}
+}
+.v11-hidden-nav,#v11ClientsNav{display:none!important}
+#notificationsBtn .navcount{display:none!important}
+#notificationsBtn .v11-notification-badge{
+  display:grid!important;margin-left:auto!important;min-width:22px!important;height:22px!important;padding:0 6px!important;
+  border-radius:999px!important;background:#ef3f49!important;color:#fff!important;font-size:9px!important;font-weight:800!important;place-items:center!important
+}
+`;
+
   const sourceSha = String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local').slice(0, 40);
-  html = html.replace('</head>', () => `<meta name="allianceos-source" content="${sourceSha}">\n</head>`);
-  html = html.replace('</body>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n</body>`);
+  // The legacy build appends CSS after our source injection, so V11 must be appended to the FINAL html.
+  // Remove the only external render-blocking stylesheet; system fonts keep the UI stable and stop stale loading indicators.
+  html = html.replace(/<link[^>]+cdn\.jsdelivr\.net\/npm\/@fontsource-variable\/geist[^>]*>/gi, '');
+  html = html.replace('</head>', () => `<meta name="allianceos-source" content="${sourceSha}">\n<style id="allianceos-v11-final">\n${taskReferenceCss}\n${FINAL_UI_CSS}\n</style>\n</head>`);
+  const currentWeekScript = `
+<script>
+(() => {
+  const ptMonth = new Intl.DateTimeFormat('pt-BR',{month:'long'});
+  const now = new Date();
+  const day = now.getDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now); monday.setHours(12,0,0,0); monday.setDate(now.getDate()+delta);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  const dd = d => String(d.getDate()).padStart(2,'0');
+  const title = document.querySelector('.timeline-head strong');
+  if (title) title.textContent = 'Esta semana · ' + dd(monday) + ' — ' + dd(sunday) + ' de ' + ptMonth.format(sunday);
+  const names=['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
+  document.querySelectorAll('.timeline .milestone').forEach((m,i)=>{
+    const d=new Date(monday);d.setDate(monday.getDate()+i);
+    const b=m.querySelector('.milestone-date b'); const s=m.querySelector('.milestone-date span');
+    if(b)b.textContent=dd(d); if(s)s.textContent=names[i];
+    m.classList.toggle('current', d.toDateString()===now.toDateString());
+  });
+})();
+</script>`;
+  html = html.replace('</body>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n${currentWeekScript}\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
