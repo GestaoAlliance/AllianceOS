@@ -390,7 +390,7 @@
   renderTasks = function(){
     populateFilters();
     const data=filteredTasks();
-    const overdue=data.filter(isOverdue).length, open=data.filter(t=>t.status!=='feito').length, blocked=data.filter(t=>v3Blockers(t).length).length;
+    const overdue=data.filter(isOverdue).length, open=data.filter(t=>t.status!=='feito').length, blocked=data.filter(t=>t.status==='bloqueado'||v3Blockers(t).length).length;
     const sum=document.getElementById('taskSummary'); if(sum)sum.innerHTML=`${open} abertas · <b>${overdue} vencidas</b> · ${blocked} bloqueadas`;
     document.querySelectorAll('.cu-view').forEach(b=>b.classList.toggle('active',b.dataset.view===taskState.view));
     const canvas=document.getElementById('tasksCanvas'); if(!canvas)return;
