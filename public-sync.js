@@ -3,11 +3,8 @@
 
   const ENDPOINT = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-state';
   const PREFIXES = ['central.', 'allianceos.'];
-  const AUTH_WAIT_MS = 12000;
-  const REQUEST_TIMEOUT_MS = 10000;
   const LOCAL_ONLY = new Set([
     'central.theme', 'allianceos.theme',
-    'central.auth.session', 'allianceos.auth.session',
     'central.__public_sync_reload', 'allianceos.__public_sync_reload',
     'central.__public_sync_ready', 'allianceos.__public_sync_ready'
   ]);
@@ -19,7 +16,6 @@
   const base = new Map();
   let ready = false;
   let checking = false;
-  let hydrating = false;
 
   const hasPrefix = (key) => typeof key === 'string' && PREFIXES.some((p) => key.startsWith(p));
   const belongs = (key) => hasPrefix(key) && !LOCAL_ONLY.has(key) && !String(key).includes('.__');
@@ -27,6 +23,9 @@
   const serialize = (value) => JSON.stringify(value);
   const equalRaw = (a, b) => String(a ?? '') === String(b ?? '');
 
+  // Builds publicados nas primeiras horas do AllianceOS usaram allianceos.*.
+  // O banco legado usa central.*. Copiamos localmente apenas quando a chave
+  // canônica ainda não existe, para não perder nada criado antes da correção.
   function migrateLocalAliases() {
     const copies = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -39,50 +38,12 @@
   }
   migrateLocalAliases();
 
-  async function waitForAuthReady() {
-    const authReady = window.ALLIANCE_AUTH_READY;
-    if (!authReady || typeof authReady.then !== 'function') return null;
-    let timer;
-    try {
-      return await Promise.race([
-        authReady,
-        new Promise((resolve) => { timer = setTimeout(() => resolve(null), AUTH_WAIT_MS); })
-      ]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-
-  async function getAuthHeaders() {
-    const auth = await waitForAuthReady();
-    const token = auth?.accessToken || window.ALLIANCE_AUTH?.getAccessToken?.() || '';
-    const anon = window.ALLIANCE_AUTH?.anonKey || '';
-    if (!token) throw new Error('Sessão necessária');
-    return { Authorization: `Bearer ${token}`, ...(anon ? { apikey: anon } : {}) };
-  }
-
   async function request(options = {}) {
-    const authHeaders = await getAuthHeaders();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    try {
-      const res = await fetch(ENDPOINT, {
-        cache: 'no-store',
-        ...options,
-        headers: { ...authHeaders, ...(options.headers || {}) },
-        signal: controller.signal,
-      });
-      if (res.status === 401 || res.status === 403) throw new Error('Sessão sem acesso ao estado compartilhado');
-      if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
-      const data = await res.json();
-      if (data?.error) throw new Error(data.error);
-      return data;
-    } catch (err) {
-      if (err?.name === 'AbortError') throw new Error('A sincronização com o Supabase excedeu o tempo limite');
-      throw err;
-    } finally {
-      clearTimeout(timer);
-    }
+    const res = await fetch(ENDPOINT, { cache: 'no-store', ...options });
+    if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
+    const data = await res.json();
+    if (data?.error) throw new Error(data.error);
+    return data;
   }
 
   function showUpdateNotice() {
@@ -141,62 +102,57 @@
   };
 
   async function hydrate() {
-    if (hydrating) return;
-    hydrating = true;
-    try {
-      const data = await request();
-      const rows = Array.isArray(data?.items) ? data.items : [];
-      const remote = new Map(rows.map((row) => [row.chave, row.valor]));
-      let changed = false;
+    const data = await request();
+    const rows = Array.isArray(data?.items) ? data.items : [];
+    const remote = new Map(rows.map((row) => [row.chave, row.valor]));
+    let changed = false;
 
-      for (const [key, value] of remote) {
-        if (!belongs(key)) continue;
-        base.set(key, value);
-        const wanted = serialize(value);
-        if (!equalRaw(localStorage.getItem(key), wanted)) {
-          rawSet.call(localStorage, key, wanted);
-          changed = true;
-        }
+    for (const [key, value] of remote) {
+      if (!belongs(key)) continue;
+      base.set(key, value);
+      const wanted = serialize(value);
+      if (!equalRaw(localStorage.getItem(key), wanted)) {
+        rawSet.call(localStorage, key, wanted);
+        changed = true;
       }
+    }
 
-      for (const [key, value] of remote) {
-        if (!key.startsWith('allianceos.')) continue;
-        const canonical = 'central.' + key.slice('allianceos.'.length);
-        if (!remote.has(canonical) && localStorage.getItem(canonical) == null) {
-          rawSet.call(localStorage, canonical, serialize(value));
-          pending.add(canonical);
-        }
+    // Se existe uma cópia transitória remota allianceos.X e não existe a
+    // canônica central.X, cria a canônica no navegador e a envia ao banco.
+    for (const [key, value] of remote) {
+      if (!key.startsWith('allianceos.')) continue;
+      const canonical = 'central.' + key.slice('allianceos.'.length);
+      if (!remote.has(canonical) && localStorage.getItem(canonical) == null) {
+        rawSet.call(localStorage, canonical, serialize(value));
+        pending.add(canonical);
       }
+    }
 
-      ready = true;
-      rawSet.call(sessionStorage, 'central.__public_sync_ready', '1');
+    ready = true;
+    rawSet.call(sessionStorage, 'central.__public_sync_ready', '1');
 
-      const seed = new Set(pending);
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (belongs(key) && !remote.has(key)) seed.add(key);
-      }
-      pending.clear();
-      for (const key of seed) {
-        if (remote.has(key)) continue;
-        const value = localStorage.getItem(key);
-        if (value != null) scheduleSave(key, value);
-      }
+    const seed = new Set(pending);
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (belongs(key) && !remote.has(key)) seed.add(key);
+    }
+    pending.clear();
+    for (const key of seed) {
+      if (remote.has(key)) continue;
+      const value = localStorage.getItem(key);
+      if (value != null) scheduleSave(key, value);
+    }
 
-      if (changed && sessionStorage.getItem('central.__public_sync_reload') !== '1') {
-        sessionStorage.setItem('central.__public_sync_reload', '1');
-        setTimeout(() => location.reload(), 30);
-      } else {
-        sessionStorage.removeItem('central.__public_sync_reload');
-      }
-    } finally {
-      hydrating = false;
+    if (changed && sessionStorage.getItem('central.__public_sync_reload') !== '1') {
+      sessionStorage.setItem('central.__public_sync_reload', '1');
+      setTimeout(() => location.reload(), 30);
+    } else {
+      sessionStorage.removeItem('central.__public_sync_reload');
     }
   }
 
   async function checkRemote() {
     if (!ready || checking || document.hidden) return;
-    if (!window.ALLIANCE_AUTH?.getAccessToken?.()) return;
     checking = true;
     try {
       const data = await request();
@@ -228,21 +184,12 @@
     } finally { checking = false; }
   }
 
-  function recoverHydration(source) {
-    hydrate().catch((e) => {
-      ready = true;
-      if (source === 'boot') pending.clear();
-      console.warn('[AllianceOS sync] estado compartilhado indisponível', e);
-    });
-  }
-
-  recoverHydration('boot');
-
-  addEventListener('alliance-auth-ready', (event) => {
-    const token = event?.detail?.accessToken || window.ALLIANCE_AUTH?.getAccessToken?.() || '';
-    if (!token) return;
-    recoverHydration('auth');
+  hydrate().catch((e) => {
+    ready = true;
+    pending.clear();
+    console.error('[AllianceOS sync] Supabase indisponivel; usando apenas este navegador', e);
   });
+
   setInterval(checkRemote, 20000);
   addEventListener('focus', checkRemote);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRemote(); });

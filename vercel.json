@@ -1,11 +1,6 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "cleanUrls": true,
-  "trailingSlash": false,
-  "ignoreCommand": "node -e \"process.exit((process.env.VERCEL_PROJECT_PRODUCTION_URL||'').startsWith('allianceos')?0:1)\"",
-  "git": {
-    "deploymentEnabled": true
-  }
+  "trailingSlash": false
 }
