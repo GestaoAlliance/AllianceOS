@@ -664,3 +664,67 @@
 @media (min-width:901px){
   .ref2-brand-wrap::after{content:none!important;display:none!important}
 }
+
+
+/* ===== Unified strategy navigation ===== */
+.ref-strategy-legacy{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  overflow:hidden!important;
+  clip:rect(0 0 0 0)!important;
+  clip-path:inset(50%)!important;
+  white-space:nowrap!important;
+  pointer-events:none!important;
+  opacity:0!important;
+}
+#planningView .ref-strategy-tabs,
+#campaignsView .ref-strategy-tabs{
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  width:max-content!important;
+  margin-top:20px!important;
+  margin-bottom:12px!important;
+  padding:0!important;
+}
+#campaignsView .ref-strategy-tabs{
+  margin-left:0!important;
+}
+#planningView .ref-strategy-tabs .plan-tab,
+#campaignsView .ref-strategy-tabs .plan-tab{
+  height:38px!important;
+  min-width:auto!important;
+  padding:0 14px!important;
+  border:1.5px solid #dfdfdf!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:#676c74!important;
+  font-size:10px!important;
+  font-weight:650!important;
+  line-height:1!important;
+  box-shadow:none!important;
+}
+#planningView .ref-strategy-tabs .plan-tab.active,
+#campaignsView .ref-strategy-tabs .plan-tab.active{
+  background:#121415!important;
+  border-color:#121415!important;
+  color:#fff!important;
+}
+#planningView .ref-strategy-tabs .plan-tab:after,
+#campaignsView .ref-strategy-tabs .plan-tab:after{
+  display:none!important;
+}
+#campaignsView .camp-toolbar{
+  margin-top:0!important;
+}
+@media(max-width:900px){
+  #planningView .ref-strategy-tabs,
+  #campaignsView .ref-strategy-tabs{
+    max-width:100%!important;
+    overflow-x:auto!important;
+    scrollbar-width:none!important;
+  }
+  #planningView .ref-strategy-tabs::-webkit-scrollbar,
+  #campaignsView .ref-strategy-tabs::-webkit-scrollbar{display:none!important}
+}

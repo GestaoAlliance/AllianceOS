@@ -187,18 +187,111 @@
       },60);
     }
 
-    function installCampaignStrategyTab(){
-      const tabs=document.querySelector('#campaignsView .camp-tabs');
-      if(!tabs||tabs.querySelector('[data-ref-strategy-map]'))return;
-      const b=document.createElement('button');
-      b.type='button';b.className='camp-tab';b.dataset.refStrategyMap='1';b.textContent='Mapa mental';
-      b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();openStrategyMap()});
-      tabs.appendChild(b);
+    /* Unified strategy navigation
+       One hierarchy: Mapa mental -> Campanhas -> Mês -> Semana.
+       Campaign details remain the dedicated workspace already used by the app. */
+    function strategyButtons(active){
+      const defs=[
+        ['mind','Mapa mental'],
+        ['campaigns','Campanhas'],
+        ['month','Mês'],
+        ['week','Semana']
+      ];
+      const wrap=document.createElement('div');
+      wrap.className='plan-tabs ref-strategy-tabs';
+      wrap.setAttribute('aria-label','Navegação da estratégia');
+      for(const [key,label] of defs){
+        const b=document.createElement('button');
+        b.type='button';
+        b.className='plan-tab'+(key===active?' active':'');
+        b.dataset.strategyTab=key;
+        b.textContent=label;
+        b.addEventListener('click',()=>{
+          if(key==='campaigns'){
+            syncTaskCampaignIds();
+            window.__centralShowCampaigns?.();
+            setActive('campaigns');
+            setTimeout(()=>installUnifiedStrategyNav('campaigns'),30);
+            return;
+          }
+          if(targets.planning)targets.planning.click();
+          else window.__centralShowPlanning?.();
+          setActive('campaigns');
+          setTimeout(()=>{
+            const legacy=document.querySelector('#planningView [data-plan-tab="'+key+'"]');
+            if(legacy)legacy.click();
+            if(key==='mind'){
+              window.MapaMental?.recarregar?.();
+              setTimeout(syncCampaignNodesIntoOpenMap,80);
+            }
+            installUnifiedStrategyNav(key);
+          },45);
+        });
+        wrap.appendChild(b);
+      }
+      return wrap;
     }
 
-    installCampaignStrategyTab();
+    function installUnifiedStrategyNav(active){
+      const planning=document.getElementById('planningView');
+      const campaignsView=document.getElementById('campaignsView');
+
+      // Planning already owns the map/month/week panes. Replace its visible
+      // tabs with the canonical four-item strategy order, while keeping the
+      // original buttons hidden so their existing render handlers remain alive.
+      if(planning){
+        const old=planning.querySelector('.plan-tabs:not(.ref-strategy-tabs)');
+        if(old)old.classList.add('ref-strategy-legacy');
+        let nav=planning.querySelector('.ref-strategy-tabs');
+        if(!nav && old){
+          nav=strategyButtons(active==='campaigns'?'mind':active||'mind');
+          old.insertAdjacentElement('afterend',nav);
+        }
+        if(nav){
+          nav.querySelectorAll('[data-strategy-tab]').forEach(b=>b.classList.toggle('active',b.dataset.strategyTab===(active||'mind')));
+        }
+      }
+
+      // Campaigns is the list/directory. Its old "Visão geral / Calendário"
+      // toggle is redundant with Campanhas / Mês, so keep it functional but hidden.
+      if(campaignsView){
+        const toolbar=campaignsView.querySelector('.camp-toolbar');
+        const oldTabs=campaignsView.querySelector('.camp-tabs');
+        if(oldTabs)oldTabs.classList.add('ref-strategy-legacy');
+        let nav=campaignsView.querySelector('.ref-strategy-tabs');
+        if(!nav && toolbar){
+          nav=strategyButtons(active||'campaigns');
+          toolbar.insertAdjacentElement('beforebegin',nav);
+        }
+        if(nav){
+          nav.querySelectorAll('[data-strategy-tab]').forEach(b=>b.classList.toggle('active',b.dataset.strategyTab===(active||'campaigns')));
+        }
+      }
+    }
+
+    function openStrategyMap(){
+      syncTaskCampaignIds();
+      if(targets.planning)targets.planning.click();
+      else window.__centralShowPlanning?.();
+      setActive('campaigns');
+      setTimeout(()=>{
+        document.querySelector('#planningView [data-plan-tab="mind"]')?.click();
+        window.MapaMental?.recarregar?.();
+        setTimeout(syncCampaignNodesIntoOpenMap,80);
+        installUnifiedStrategyNav('mind');
+      },60);
+    }
+
+    installUnifiedStrategyNav(
+      document.getElementById('planningView')?.classList.contains('active')?'mind':
+      document.getElementById('campaignsView')?.classList.contains('active')?'campaigns':'mind'
+    );
+
+    targets.planning?.addEventListener('click',()=>{
+      setTimeout(()=>installUnifiedStrategyNav('mind'),35);
+    });
     targets.campaigns?.addEventListener('click',()=>{
-      setTimeout(()=>{installCampaignStrategyTab();syncTaskCampaignIds()},40);
+      setTimeout(()=>{syncTaskCampaignIds();installUnifiedStrategyNav('campaigns')},40);
     });
     brand?.addEventListener('change',()=>{
       if(document.getElementById('planningView')?.classList.contains('active')){
@@ -208,6 +301,14 @@
     document.getElementById('campaignForm')?.addEventListener('submit',()=>{
       setTimeout(syncTaskCampaignIds,120);
     });
+
+    // Expose the root flow for any future breadcrumb/back buttons.
+    window.AllianceOSStrategy={
+      mapa:openStrategyMap,
+      campanhas:()=>{window.__centralShowCampaigns?.();setTimeout(()=>installUnifiedStrategyNav('campaigns'),30)},
+      mes:()=>document.querySelector('.ref-strategy-tabs [data-strategy-tab="month"]')?.click(),
+      semana:()=>document.querySelector('.ref-strategy-tabs [data-strategy-tab="week"]')?.click()
+    };
 
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
