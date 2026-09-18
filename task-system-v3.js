@@ -394,13 +394,27 @@
     if(taskState.view==='board')renderBoard(canvas,data);else if(taskState.view==='campaign')renderCampaign(canvas,data);else if(taskState.view==='people')renderPeople(canvas,data);else if(taskState.view==='week')renderWeek(canvas,data);else renderList(canvas,data);
   };
 
+  function v3CompletionProblem(t){
+    const blockers=v3Blockers(t);
+    if(blockers.length)return `Conclua antes: ${blockers.slice(0,3).map(x=>x.title).join(', ')}${blockers.length>3?'…':''}`;
+    if(t.conferenceRequired){
+      const pending=(t.checklist||[]).filter(x=>!x.done);
+      if(!(t.checklist||[]).length)return 'A lista de conferência obrigatória está sem itens.';
+      if(pending.length)return `Confira os ${pending.length} item(ns) obrigatórios da lista de conferência.`;
+    }
+    if(t.deliveryRequired&&!(t.deliveries||[]).length)return 'Esta tarefa exige uma entrega antes da conclusão.';
+    return '';
+  }
+
   function v3Complete(t,done=true){
     if(done){
-      const blockers=v3Blockers(t);
-      if(blockers.length){showToast(`Conclua antes: ${blockers.slice(0,2).map(x=>x.title).join(', ')}${blockers.length>2?'…':''}`);return false;}
+      const problem=v3CompletionProblem(t);
+      if(problem){showToast(problem);return false;}
       if(t.status!=='feito'){
         const old=t.status;t.status='feito';t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “feito”.`});
         for(const next of v3Dependents(t)) next.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`});
+        const recurring=v3GenerateNextOccurrence(t);
+        if(recurring)t.history.unshift({at:'Agora',text:`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`});
       }
     } else if(t.status==='feito') {
       t.status='a fazer';t.history.unshift({at:'Agora',text:'Tarefa reaberta.'});
@@ -416,7 +430,7 @@
 
   bindDrag = function(){
     document.querySelectorAll('[data-drag-id]').forEach(card=>{card.addEventListener('dragstart',e=>{card.classList.add('dragging');e.dataTransfer.setData('text/plain',card.dataset.dragId)});card.addEventListener('dragend',()=>card.classList.remove('dragging'))});
-    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v3Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'&&v3Blockers(t).length){showToast('Esta tarefa ainda depende de outra etapa.');return;}const old=t.status;t.status=next;t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “${next}”.`});if(next==='feito')for(const x of v3Dependents(t))x.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”.`});v3Persist(true)})});
+    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v3Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'){const problem=v3CompletionProblem(t);if(problem){showToast(problem);return;}}if(next==='bloqueado'&&!t.blockedReason){t.blockedReason='Bloqueada manualmente no quadro';}const old=t.status;t.status=next;t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “${next}”.`});if(next!=='bloqueado'&&old==='bloqueado'&&t.blockedReason){t.history.unshift({at:'Agora',text:`Bloqueio encerrado. Motivo anterior: ${t.blockedReason}`});t.blockedReason=null;}if(next==='feito'){for(const x of v3Dependents(t))x.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”.`});v3GenerateNextOccurrence(t);}v3Persist(true)})});
   };
 
   function v3FlowTaskRow(x,relation){
