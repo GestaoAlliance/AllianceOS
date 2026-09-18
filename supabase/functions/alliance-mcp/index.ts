@@ -469,6 +469,50 @@ const protectedHandler = withOAuthProtectedResource(
       })
 
       
+
+      server.registerTool('consolidar_lista', {
+        description: 'Admin: move todas as tarefas de uma lista importada para uma lista destino e arquiva a lista de origem. Não exclui dados.',
+        inputSchema: z.object({
+          lista_origem: z.string().min(1),
+          lista_destino: z.string().min(1),
+        }),
+      }, async (args:AnyRow) => {
+        const who=await requireAdmin(supabase)
+        const source=await resolveList(supabase,args.lista_origem,true)
+        const dest=await resolveList(supabase,args.lista_destino,false)
+        if(String(source.id)===String(dest.id)) throw new Error('A lista de origem e a lista de destino devem ser diferentes.')
+        if(source.arquivada) throw new Error('A lista de origem já está arquivada.')
+
+        const tasks=await readState(supabase,TASKS_KEY)
+        let count=0
+        for(const t of tasks){
+          const matches=String(t.listId||'')===String(source.id)
+            ||(!t.listId&&norm(t.brand)===norm(source.marca)&&norm(t.project||'Operação')===norm(source.nome))
+          if(!matches) continue
+          t.listId=String(dest.id)
+          t.project=dest.nome
+          t.brand=dest.marca
+          t.campaignId=dest.campanha_id||null
+          t.history=Array.isArray(t.history)?t.history:[]
+          t.history.unshift({at:nowIso(),text:'Tarefa movida da lista "'+source.nome+'" para "'+dest.nome+'" via MCP por '+who.nome+'.'})
+          count++
+        }
+        if(!count) throw new Error('Nenhuma tarefa foi encontrada na lista de origem.')
+        await writeTasks(supabase,tasks)
+        const {error}=await supabase.from('task_lists').update({
+          arquivado_em:nowIso(),arquivado_por:who.id
+        }).eq('id',source.id)
+        if(error) throw new Error('As tarefas foram movidas, mas não foi possível arquivar a lista de origem: '+error.message)
+        await audit(supabase,who,'consolidar_lista','lista',String(source.id),{
+          lista_origem:source.nome,lista_destino_id:dest.id,lista_destino:dest.nome,tarefas_movidas:count
+        })
+        return toolText({
+          lista_origem:{id:source.id,nome:source.nome,arquivada:true},
+          lista_destino:{id:dest.id,nome:dest.nome,marca:dest.marca},
+          tarefas_movidas:count
+        })
+      })
+
       server.registerTool('listar_membros', {
         description: 'Lista usuários reais, convites pendentes e nomes legados. Só registros tipo usuario com atribuivel=true podem receber novas tarefas.',
         inputSchema: z.object({}),
@@ -961,7 +1005,7 @@ Deno.serve(async (req: Request) => {
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
       oauth_discovery_status,
-      tools: ['listar_listas','listar_membros','buscar_tarefas','obter_tarefa','criar_tarefa','atualizar_tarefa','comentar_tarefa'],
+      tools: ['listar_marcas','listar_listas','criar_lista','atualizar_lista','consolidar_lista','listar_membros','convidar_membro','migrar_responsavel_legado','buscar_tarefas','obter_tarefa','criar_tarefa','atualizar_tarefa','definir_dependencia','remover_dependencia','definir_checklist','marcar_item_checklist','registrar_entrega','comentar_tarefa','listar_notificacoes','marcar_notificacao_lida'],
       deletion_tool: false,
     })
   }
