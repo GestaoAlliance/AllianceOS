@@ -13,6 +13,8 @@ const TASK_V5_JS = path.join(__dirname, 'task-system-v5-flow.js');
 const TASK_V5_CSS = path.join(__dirname, 'task-system-v5-flow.css');
 const TASK_FOCUS_JS = path.join(__dirname, 'task-system-v7-focus.js');
 const TASK_DESIGN_CSS = path.join(__dirname, 'task-design-v9-cilo-glass.css');
+const NAV_REFERENCE_CSS = path.join(__dirname, 'navigation-reference-v1.css');
+const NAV_REFERENCE_JS = path.join(__dirname, 'navigation-reference-v1.js');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -30,6 +32,8 @@ async function main() {
   const taskV5Css = fs.readFileSync(TASK_V5_CSS, 'utf8');
   const taskFocusJs = fs.readFileSync(TASK_FOCUS_JS, 'utf8');
   const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
+  const navReferenceCss = fs.readFileSync(NAV_REFERENCE_CSS, 'utf8');
+  const navReferenceJs = fs.readFileSync(NAV_REFERENCE_JS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -105,7 +109,8 @@ async function main() {
 
   let html = fs.readFileSync(path.join(op, 'dist', 'index.html'), 'utf8');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
-  html = html.replace('</head>', () => `<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</head>', () => `<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
