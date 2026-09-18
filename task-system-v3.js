@@ -218,6 +218,10 @@
   }
 
   function v3CampaignRows(brand){
+    const structured=(window.AllianceOSDirectory?.lists||[])
+      .filter(l=>!l.arquivada&&(!brand||!l.marca||l.marca===brand))
+      .map(l=>({id:l.id,name:l.nome,brand:l.marca,listId:l.id,campaignId:l.campanha_id||null,_structured:true}));
+    if(structured.length)return structured.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
     return v3Campaigns().filter(c=>!brand||!c.brand||c.brand===brand).slice().sort((a,b)=>String(b.start||'').localeCompare(String(a.start||'')) || String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
   }
   function v3CampaignLabel(c){
@@ -443,7 +447,7 @@
   }
 
   function v3DetailCampaign(t){
-    const selected=t.campaignId||'';
+    const selected=t.listId||t.campaignId||'';
     return `<select id="detailCampaign">${v3CampaignOptions(t.brand,selected,t.project)}</select>`;
   }
 
@@ -513,9 +517,11 @@
     }
     if(get('detailCampaign')) {
       const c=v3FindCampaign(get('detailCampaign').value,t.brand);
-      t.campaignId=c?.id||null;
+      t.listId=c?.listId||t.listId||null;
+      t.campaignId=c?._structured?(c.campaignId||null):(c?.id||null);
       t.project=c?.name||'Operação';
     }
+    t.assigneeIds=(t.assignees||[]).map(name=>(window.AllianceOSDirectory?.members||[]).find(m=>m.tipo==='usuario'&&m.nome===name)?.id).filter(Boolean);
   };
 
   bindDetailInteractions = function(t){
@@ -677,9 +683,9 @@
     const dueAt=v3FromLocalInput(localDue);
     const id=v3Id('task');
     const t=v3NormalizeTask({
-      id,title,status,blockedReason:status==='bloqueado'?blockedReason:null,assignees:[document.getElementById('newAssignee').value].filter(Boolean),
+      id,title,status,blockedReason:status==='bloqueado'?blockedReason:null,assignees:[document.getElementById('newAssignee').value].filter(Boolean),assigneeIds:[document.getElementById('newAssignee').value].map(name=>(window.AllianceOSDirectory?.members||[]).find(m=>m.tipo==='usuario'&&m.nome===name)?.id).filter(Boolean),
       due:dueAt?String(dueAt).slice(0,10):null,dueAt,start:document.getElementById('newStart').value||null,
-      brand,project:campaign?.name||v3NewPreset.project||'Operação',campaignId:campaign?.id||v3NewPreset.campaignId||null,
+      brand,project:campaign?.name||v3NewPreset.project||'Operação',listId:campaign?.listId||null,campaignId:campaign?._structured?(campaign.campaignId||null):(campaign?.id||v3NewPreset.campaignId||null),
       priority:document.getElementById('newPriority').value,description:document.getElementById('newDescription').value.trim(),
       checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:'Agora',text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
       recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'allianceos',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null,deliveryRequired:!!document.getElementById('newDeliveryRequired')?.checked,archivedAt:null
