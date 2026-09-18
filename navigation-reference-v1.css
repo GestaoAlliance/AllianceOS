@@ -295,3 +295,152 @@
   .ref2-brand-wrap{flex-basis:190px!important;width:190px!important}
   html body .global-toolbar{gap:16px!important;padding-left:18px!important;padding-right:18px!important}
 }
+
+
+/* ===== Reference V2 · notebook fit fixes ===== */
+@media (min-width:901px) and (max-width:1250px){
+  html body .global-toolbar{
+    overflow:hidden!important;
+    gap:10px!important;
+    padding-left:14px!important;
+    padding-right:14px!important;
+  }
+  .ref2-top-logo{
+    flex:0 0 160px!important;
+    min-width:160px!important;
+    gap:9px!important;
+  }
+  .ref2-top-logo-icon{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    border-radius:12px!important;
+    font-size:21px!important;
+  }
+  .ref2-top-logo-name{
+    font-size:18px!important;
+    letter-spacing:-.035em!important;
+  }
+  .ref2-brand-wrap{
+    flex:0 0 145px!important;
+    width:145px!important;
+  }
+  #brandSelect.ref2-brand-select{
+    padding-left:14px!important;
+    padding-right:34px!important;
+    font-size:12px!important;
+  }
+  .ref2-search{
+    flex:1 1 auto!important;
+    min-width:180px!important;
+    padding-left:14px!important;
+    padding-right:72px!important;
+  }
+  .ref2-search-input{
+    min-width:0!important;
+    font-size:12px!important;
+  }
+  .ref2-top-actions{
+    flex:0 0 138px!important;
+    width:138px!important;
+    gap:8px!important;
+  }
+  .ref2-top-bell{
+    width:50px!important;
+    height:50px!important;
+    min-width:50px!important;
+  }
+  .ref2-profile{
+    flex:0 0 80px!important;
+    width:80px!important;
+    min-width:80px!important;
+    height:50px!important;
+    padding:5px 7px!important;
+    gap:6px!important;
+    overflow:hidden!important;
+  }
+  .ref2-avatar{
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+  }
+  .ref2-chevron{
+    width:14px!important;
+    height:14px!important;
+    min-width:14px!important;
+  }
+}
+
+/* The reference sidebar must also fit short laptop viewports. */
+@media (min-width:901px) and (max-height:800px){
+  html body .sidebar{
+    top:8px!important;
+    height:calc(100vh - 16px)!important;
+    margin-top:0!important;
+    margin-bottom:8px!important;
+    padding:10px 12px 10px!important;
+  }
+  .ref2-sidebar-head{
+    gap:10px!important;
+    padding:0 6px 10px!important;
+  }
+  .ref2-sidebar-logo{
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    border-radius:12px!important;
+    font-size:20px!important;
+  }
+  .ref2-sidebar-name{
+    font-size:16px!important;
+  }
+  .ref2-nav{
+    padding-top:9px!important;
+    gap:2px!important;
+  }
+  .ref2-nav-btn{
+    height:43px!important;
+    min-height:43px!important;
+    padding:3px 8px!important;
+    gap:10px!important;
+    font-size:12.5px!important;
+  }
+  .ref2-nav-icon{
+    width:34px!important;
+    height:34px!important;
+    min-width:34px!important;
+    flex-basis:34px!important;
+    border-radius:10px!important;
+  }
+  .ref2-nav-icon svg{
+    width:17px!important;
+    height:17px!important;
+  }
+  .ref2-nav-badge{
+    right:5px!important;
+    top:1px!important;
+    min-width:22px!important;
+    height:22px!important;
+    font-size:9px!important;
+  }
+  .ref2-sidebar-space{
+    min-height:6px!important;
+  }
+  .ref2-workspace{
+    min-height:54px!important;
+    padding:7px 8px!important;
+    grid-template-columns:32px minmax(0,1fr) 16px!important;
+    gap:8px!important;
+  }
+  .ref2-workspace-icon{
+    width:32px!important;
+    height:32px!important;
+  }
+  .ref2-workspace-copy strong{
+    font-size:10px!important;
+  }
+  .ref2-workspace-copy span{
+    margin-top:3px!important;
+    font-size:8px!important;
+  }
+}
