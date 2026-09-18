@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/oauth/consent",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ]
 }
