@@ -375,8 +375,8 @@
   }
 
   function openNotifications(e){
-    if(!state.user)return;
-    e?.preventDefault();e?.stopPropagation();
+    e?.preventDefault();e?.stopPropagation();e?.stopImmediatePropagation?.();
+    if(!state.user){openModal();return;}
     let panel=$('#allianceNotifications');
     if(panel){panel.remove();return;}
     panel=document.createElement('div');panel.id='allianceNotifications';
