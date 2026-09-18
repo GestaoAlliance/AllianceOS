@@ -72,6 +72,7 @@
     if(!Array.isArray(t.history)) t.history=[];
     if(!Array.isArray(t.tags)) t.tags=[];
     if(!Array.isArray(t.subtasks)) t.subtasks=[];
+    if(typeof t.conferenceRequired!=='boolean') t.conferenceRequired=false;
     if(t.parentTaskId===undefined) t.parentTaskId=null;
     if(t.campaignId===undefined) t.campaignId=null;
     if(!t.project) t.project='Operação';
@@ -354,7 +355,7 @@
         <div class="v3-flow-grid"><div class="v3-flow-col"><div class="v3-flow-label"><b>Precisa acontecer antes</b><span>${deps.length} tarefa${deps.length!==1?'s':''}</span></div>${deps.length?deps.map(x=>v3FlowTaskRow(x,'before')).join(''):'<div class="v3-flow-empty">Nenhuma dependência. Esta tarefa pode começar agora.</div>'}<div class="v3-flow-add"><select id="detailAddDependency"><option value="">Vincular tarefa existente…</option>${candidates.slice(0,80).map(x=>`<option value="${esc(x.id)}">${esc(x.title)} · ${esc(v3Short(x.assignees[0]||'sem responsável'))}</option>`).join('')}</select><button type="button" id="linkDependencyBtn">Vincular</button></div><button class="v3-create-step" type="button" id="createPreviousTaskBtn">+ Criar etapa anterior</button></div>
         <div class="v3-flow-col"><div class="v3-flow-label"><b>Depois desta tarefa</b><span>${next.length} tarefa${next.length!==1?'s':''}</span></div>${next.length?next.map(x=>v3FlowTaskRow(x,'after')).join(''):'<div class="v3-flow-empty">Nenhuma tarefa depende desta ainda.</div>'}</div></div>
       </section>
-      <section class="tsection v3-section"><div class="tsection-head"><div><strong>Checklist interno</strong><span>Use só para itens pequenos da mesma execução. Se outra pessoa for responsável, crie uma tarefa no fluxo acima.</span></div><span>${completed}/${(t.checklist||[]).length}</span></div><div id="detailChecklist">${(t.checklist||[]).map(c=>`<label class="check-row ${c.done?'done':''}"><input type="checkbox" data-check-id="${esc(c.id)}" ${c.done?'checked':''}><span>${esc(c.text)}</span><button type="button" data-remove-check="${esc(c.id)}">×</button></label>`).join('')}</div><div class="addline"><input id="newCheckText" placeholder="Adicionar item pequeno desta mesma tarefa"><button type="button" id="addCheckBtn">Adicionar</button></div></section>
+      <section class="tsection v3-section ${t.conferenceRequired?'v3-conference-required':''}"><div class="tsection-head"><div><strong>${t.conferenceRequired?'Lista de conferência':'Checklist interno'}</strong><span>${t.conferenceRequired?'Obrigatória: confira todos os itens antes de enviar a entrega ou concluir a tarefa.':'Use para itens pequenos da mesma execução.'}</span></div><span>${completed}/${(t.checklist||[]).length}</span></div><div id="detailChecklist">${(t.checklist||[]).map(c=>`<label class="check-row ${c.done?'done':''}"><input type="checkbox" data-check-id="${esc(c.id)}" ${c.done?'checked':''}><span>${esc(c.text)}</span><button type="button" data-remove-check="${esc(c.id)}">×</button></label>`).join('')}</div><div class="addline"><input id="newCheckText" placeholder="Adicionar item pequeno desta mesma tarefa"><button type="button" id="addCheckBtn">Adicionar</button></div></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Anexos</strong><span>Arquivos e referências usados nesta execução.</span></div><span>${(t.attachments||[]).length}</span></div><label class="attachment-drop v3-attachment-drop">Adicionar arquivos<input type="file" id="attachmentInput" multiple></label><div id="attachmentList">${(t.attachments||[]).map((f,i)=>`<div class="file-pill"><span>◫</span><b>${esc(f.name)}</b><small>${esc(f.size||'')}</small><button type="button" data-remove-attachment="${i}">×</button></div>`).join('')}</div></section>
       <section class="tsection v3-section v3-continuity"><div class="tsection-head"><div><strong>Conclusão e continuidade</strong><span>O fluxo libera automaticamente as próximas tarefas. Não é necessário escolher “próxima tarefa”.</span></div></div>${blockers.length?`<div class="v3-continuity-note blocked">Ainda faltam ${blockers.length} dependência${blockers.length>1?'s':''}: ${blockers.slice(0,3).map(x=>esc(x.title)).join(', ')}.</div>`:`<div class="v3-continuity-note">${next.length?`Ao concluir, ${next.length===1?`“${esc(next[0].title)}” será liberada`:`${next.length} tarefas serão liberadas`} automaticamente.`:'Esta é a última etapa conhecida deste fluxo.'}</div>`}<button type="button" id="v3CompleteTaskBtn" class="v3-complete-btn ${t.status==='feito'?'secondary':''}" ${blockers.length&&t.status!=='feito'?'disabled':''}>${t.status==='feito'?'Reabrir tarefa':next.length?'Concluir e liberar próximas':'Concluir tarefa'}</button></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Comentários e atividade</strong><span>Decisões e mudanças importantes ficam registradas aqui.</span></div><span>${(t.comments||[]).length} comentário(s)</span></div><div class="addline v3-comment-add"><input id="newCommentText" placeholder="Escreva um comentário"><button type="button" id="addCommentBtn">Comentar</button></div><div id="commentList">${(t.comments||[]).map(c=>`<div class="comment"><div class="cav">${initials(c.author)}</div><div class="comment-body"><b>${esc(c.author)}</b><p>${esc(c.text)}</p><small>${esc(c.at)}</small></div></div>`).join('')}</div><div class="v3-history">${(t.history||[]).map(h=>`<div class="activity"><b>${esc(h.at)}</b><p>${esc(h.text)}</p></div>`).join('')}</div></section>
@@ -427,6 +428,31 @@
     v3Persist(true);showToast('Tarefa salva');closeTaskDetail();
   };
 
+  let v3NewConferenceDraft=[];
+
+  function v3RenderNewConferenceDraft(){
+    const enabled=!!document.getElementById('newConferenceRequired')?.checked;
+    const box=document.getElementById('newConferenceBuilder');
+    const list=document.getElementById('newConferenceList');
+    if(box)box.hidden=!enabled;
+    if(!list)return;
+    list.innerHTML=v3NewConferenceDraft.map((text,i)=>`<div class="v3-new-conference-row"><span class="v3-new-conference-check">✓</span><span>${esc(text)}</span><button type="button" data-remove-new-conference="${i}" aria-label="Remover item">×</button></div>`).join('');
+    list.querySelectorAll('[data-remove-new-conference]').forEach(btn=>btn.addEventListener('click',()=>{
+      v3NewConferenceDraft.splice(Number(btn.dataset.removeNewConference),1);
+      v3RenderNewConferenceDraft();
+    }));
+  }
+
+  function v3AddNewConferenceItem(){
+    const input=document.getElementById('newConferenceItem');
+    const text=input?.value.trim()||'';
+    if(!text)return;
+    v3NewConferenceDraft.push(text);
+    input.value='';
+    v3RenderNewConferenceDraft();
+    input.focus();
+  }
+
   function v3RebuildNewTaskForm(){
     const form=document.getElementById('newTaskForm');if(!form)return;
     form.innerHTML=`<div class="v3-new-head"><div><h2>Nova tarefa</h2><p>Crie uma execução clara, com responsável, prazo e vínculo com o planejamento.</p></div></div><div class="newgrid v3-new-grid">
@@ -440,7 +466,19 @@
       <div class="newfield full"><label>Depende de outra tarefa? <span>opcional</span></label><select id="newDependency"></select><small>Use quando esta tarefa só pode começar depois de outra.</small></div>
       <div class="newfield full v3-brand-field" id="newBrandField"><label>Marca</label><select id="newBrand"></select></div>
       <div class="newfield full"><label>Briefing / resultado esperado</label><textarea id="newDescription" placeholder="O que precisa ficar pronto? Inclua contexto, links e o critério para considerar esta tarefa bem executada."></textarea></div>
+      <div class="newfield full v3-new-conference">
+        <label class="v3-conference-toggle"><span><b>Lista de conferência</b><small>opcional</small></span><input id="newConferenceRequired" type="checkbox"><i></i></label>
+        <small>Ative quando o executor precisar conferir itens obrigatórios antes de enviar a entrega ou concluir a tarefa.</small>
+        <div id="newConferenceBuilder" class="v3-new-conference-builder" hidden>
+          <div id="newConferenceList" class="v3-new-conference-list"></div>
+          <div class="v3-new-conference-add"><input id="newConferenceItem" type="text" placeholder="Ex.: Conferir preço, cupom e condições da oferta"><button id="addNewConferenceItem" type="button">+ Adicionar item</button></div>
+          <small>Todos os itens desta lista precisarão estar marcados como conferidos.</small>
+        </div>
+      </div>
     </div><div class="new-actions"><button type="button" id="cancelNewTask">Cancelar</button><button class="primary" type="submit">Criar tarefa</button></div>`;
+    document.getElementById('newConferenceRequired')?.addEventListener('change',v3RenderNewConferenceDraft);
+    document.getElementById('addNewConferenceItem')?.addEventListener('click',v3AddNewConferenceItem);
+    document.getElementById('newConferenceItem')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();v3AddNewConferenceItem();}});
   }
 
   function v3PopulateNewTaskForm(status='a fazer'){
@@ -464,7 +502,11 @@
 
   openNewTask = function(status='a fazer',preset={}){
     v3NewPreset={...preset};
+    v3NewConferenceDraft=[];
     v3PopulateNewTaskForm(status);
+    const conferenceToggle=document.getElementById('newConferenceRequired');
+    if(conferenceToggle)conferenceToggle.checked=false;
+    v3RenderNewConferenceDraft();
     document.getElementById('newTaskModal').classList.add('open');
     setTimeout(()=>document.getElementById('newTitle')?.focus(),20);
   };
@@ -476,13 +518,16 @@
     const brand=v3NewPreset.brand||v3ActiveBrand()||document.getElementById('newBrand')?.value||v3Brands()[0];
     const campaign=v3FindCampaign(document.getElementById('newCampaign')?.value,brand);
     const dependencyId=document.getElementById('newDependency')?.value||'';
+    const conferenceRequired=!!document.getElementById('newConferenceRequired')?.checked;
+    if(conferenceRequired && !v3NewConferenceDraft.length){showToast('Adicione pelo menos um item à lista de conferência.');document.getElementById('newConferenceItem')?.focus();return;}
+    const conferenceChecklist=conferenceRequired?v3NewConferenceDraft.map(text=>({id:v3Id('check'),text,done:false}):[];
     const id=v3Id('task');
     const t=v3NormalizeTask({
       id,title,status:document.getElementById('newStatus').value,assignees:[document.getElementById('newAssignee').value].filter(Boolean),
       due:document.getElementById('newDue').value||null,start:document.getElementById('newStart').value||null,
       brand,project:campaign?.name||v3NewPreset.project||'Operação',campaignId:campaign?.id||v3NewPreset.campaignId||null,
       priority:document.getElementById('newPriority').value,description:document.getElementById('newDescription').value.trim(),
-      checklist:[],subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`}],
+      checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:'Agora',text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
       recurrence:'none',tags:[],source:'allianceos',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null
     });
     taskData.unshift(t);

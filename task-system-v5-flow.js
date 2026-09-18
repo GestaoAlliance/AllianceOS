@@ -35,9 +35,20 @@
     if(render) renderTasks();
   }
 
+  function v5ConferenceProblem(t){
+    v5Normalize(t);
+    if(!t.conferenceRequired)return '';
+    const items=t.checklist||[];
+    if(!items.length)return 'A lista de conferência obrigatória está sem itens.';
+    const pending=items.filter(x=>!x.done);
+    return pending.length?`Confira todos os itens da lista antes de continuar (${pending.length} pendente${pending.length>1?'s':''}).`:'';
+  }
+
   function v5CompletionProblem(t){
     const blockers=v5Blockers(t);
     if(blockers.length) return `Conclua antes: ${blockers.slice(0,2).map(x=>x.title).join(', ')}${blockers.length>2?'…':''}`;
+    const conferenceProblem=v5ConferenceProblem(t);
+    if(conferenceProblem)return conferenceProblem;
     if(v5NeedsDelivery(t) && !v5HasDelivery(t)) return 'Envie a entrega desta etapa antes de concluir.';
     return '';
   }
@@ -192,15 +203,16 @@
     }
 
     const doneOption=[...(document.getElementById('detailStatus')?.options||[])].find(o=>o.value==='feito');
-    if(doneOption && t.status!=='feito' && v5NeedsDelivery(t) && !v5HasDelivery(t)){
-      doneOption.disabled=true;doneOption.textContent='feito · requer entrega';
+    const conferenceProblem=v5ConferenceProblem(t);
+    if(doneOption && t.status!=='feito' && (conferenceProblem || (v5NeedsDelivery(t) && !v5HasDelivery(t)))){
+      doneOption.disabled=true;doneOption.textContent=conferenceProblem?'feito · requer conferência':'feito · requer entrega';
     }
 
     const oldComplete=document.getElementById('v3CompleteTaskBtn');
     if(oldComplete){
       const btn=oldComplete.cloneNode(true);oldComplete.replaceWith(btn);
       const problem=v5CompletionProblem(t);
-      if(t.status!=='feito'&&problem){btn.disabled=true;btn.textContent=v5NeedsDelivery(t)&&!v5HasDelivery(t)&&!v5Blockers(t).length?'Envie a entrega para concluir':'Conclua as etapas anteriores';}
+      if(t.status!=='feito'&&problem){btn.disabled=true;btn.textContent=v5ConferenceProblem(t)?'Conclua a lista de conferência':v5NeedsDelivery(t)&&!v5HasDelivery(t)&&!v5Blockers(t).length?'Envie a entrega para concluir':'Conclua as etapas anteriores';}
       else{btn.disabled=false;btn.textContent=t.status==='feito'?'Reabrir tarefa':v5Dependents(t).length?'Concluir e liberar próximas':'Concluir tarefa';}
       btn.addEventListener('click',()=>{if(t.status==='feito')v5Complete(t,false);else if(v5Complete(t,true))closeTaskDetail()});
     }
