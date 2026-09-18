@@ -12,6 +12,8 @@ const TASK_V3_CSS = path.join(__dirname, 'task-system-v3.css');
 const TASK_V5_JS = path.join(__dirname, 'task-system-v5-flow.js');
 const TASK_V5_CSS = path.join(__dirname, 'task-system-v5-flow.css');
 const TASK_FOCUS_JS = path.join(__dirname, 'task-system-v7-focus.js');
+const TASK_REFERENCE_V10_JS = path.join(__dirname, 'task-reference-v10.js');
+const TASK_REFERENCE_V10_CSS = path.join(__dirname, 'task-reference-v10.css');
 const TASK_DESIGN_CSS = path.join(__dirname, 'task-design-v9-cilo-glass.css');
 const NAV_REFERENCE_CSS = path.join(__dirname, 'navigation-reference-v1.css');
 const NAV_REFERENCE_JS = path.join(__dirname, 'navigation-reference-v1.js');
@@ -31,6 +33,8 @@ async function main() {
   const taskV5Js = fs.readFileSync(TASK_V5_JS, 'utf8');
   const taskV5Css = fs.readFileSync(TASK_V5_CSS, 'utf8');
   const taskFocusJs = fs.readFileSync(TASK_FOCUS_JS, 'utf8');
+  const taskReferenceV10Js = fs.readFileSync(TASK_REFERENCE_V10_JS, 'utf8');
+  const taskReferenceV10Css = fs.readFileSync(TASK_REFERENCE_V10_CSS, 'utf8');
   const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
   const navReferenceCss = fs.readFileSync(NAV_REFERENCE_CSS, 'utf8');
   const navReferenceJs = fs.readFileSync(NAV_REFERENCE_JS, 'utf8');
@@ -66,11 +70,11 @@ async function main() {
         if (ent.name === 'base.html') {
           const taskAnchor = '  function showHome(){';
           if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas');
-          s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskFocusJs}\n\n${taskAnchor}`);
+          s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskFocusJs}\n\n${taskReferenceV10Js}\n\n${taskAnchor}`);
 
           const styleClose = s.lastIndexOf('</style>');
           if (styleClose < 0) throw new Error('Não encontrei o fechamento de estilo para injetar tarefas');
-          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n` + s.slice(styleClose);
+          s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${taskReferenceV10Css}\n` + s.slice(styleClose);
         }
 
         if (ent.name === 'conferencia.js') {
