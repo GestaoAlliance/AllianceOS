@@ -171,7 +171,7 @@
       }
       nav.appendChild(b); return b;
     };
-    proxy('v11ClientsNav','Clientes','clientes',()=>showToast('Clientes · módulo visual pronto para a próxima conexão de dados.'));
+    document.getElementById('v11ClientsNav')?.remove();
     proxy('v11AutomationsNav','Automações','automacoes',()=>showToast('Automações · área preparada no novo padrão AllianceOS.'));
     const notif=document.getElementById('notificationsBtn'); if(notif) nav.appendChild(notif);
     proxy('v11ReportsNav','Relatórios','relatorios',()=>document.getElementById('painelNav')?.click());
