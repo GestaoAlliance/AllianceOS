@@ -539,18 +539,29 @@
 
   saveCurrentTask = function(){
     const t=v3Task(taskState.selected);if(!t)return;
-    const oldStatus=t.status;
+    const oldStatus=t.status, oldBlocked=t.blockedReason;
     const wanted=document.getElementById('detailStatus')?.value||t.status;
     syncDetailDraft(t);
     t.title=document.getElementById('taskTitleInput').value.trim()||t.title;
+    if(wanted==='bloqueado'&&!String(t.blockedReason||'').trim()){
+      t.status=oldStatus;t.blockedReason=oldBlocked;showToast('Informe o motivo do bloqueio.');renderTaskDetailBody(t);return;
+    }
     if(wanted==='feito'&&oldStatus!=='feito'){
-      const blockers=v3Blockers(t);
-      if(blockers.length){t.status=oldStatus;showToast(`Conclua antes: ${blockers.slice(0,2).map(x=>x.title).join(', ')}`);renderTaskDetailBody(t);return;}
+      const problem=v3CompletionProblem(t);
+      if(problem){t.status=oldStatus;showToast(problem);renderTaskDetailBody(t);return;}
     }
     t.status=wanted;
     if(oldStatus!==t.status){
+      if(oldStatus==='bloqueado'&&t.status!=='bloqueado'&&oldBlocked){
+        t.history.unshift({at:'Agora',text:`Bloqueio encerrado. Motivo anterior: ${oldBlocked}`});
+        t.blockedReason=null;
+      }
       t.history.unshift({at:'Agora',text:`Status alterado de “${oldStatus}” para “${t.status}”.`});
-      if(t.status==='feito')for(const x of v3Dependents(t))x.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”. Esta tarefa está liberada.`});
+      if(t.status==='feito'){
+        for(const x of v3Dependents(t))x.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”. Esta tarefa está liberada.`});
+        const recurring=v3GenerateNextOccurrence(t);
+        if(recurring)t.history.unshift({at:'Agora',text:`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`});
+      }
     }
     t.history.unshift({at:'Agora',text:`${v3CurrentNames()[0]||user.firstName||'Equipe'} salvou alterações na tarefa.`});
     v3Persist(true);showToast('Tarefa salva');closeTaskDetail();
