@@ -7,6 +7,7 @@
   const REQUEST_TIMEOUT_MS = 10000;
   const LOCAL_ONLY = new Set([
     'central.theme', 'allianceos.theme',
+    'central.auth.session', 'allianceos.auth.session',
     'central.__public_sync_reload', 'allianceos.__public_sync_reload',
     'central.__public_sync_ready', 'allianceos.__public_sync_ready'
   ]);
