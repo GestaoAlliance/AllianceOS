@@ -118,6 +118,7 @@ end
 $$;
 
 revoke all on function public.migrar_responsavel_legado(text,uuid) from public;
+revoke execute on function public.migrar_responsavel_legado(text,uuid) from anon;
 grant execute on function public.migrar_responsavel_legado(text,uuid) to authenticated;
 
 create or replace function public.consolidar_lista_em_destino(
@@ -231,4 +232,5 @@ end
 $$;
 
 revoke all on function public.consolidar_lista_em_destino(uuid,uuid) from public;
+revoke execute on function public.consolidar_lista_em_destino(uuid,uuid) from anon;
 grant execute on function public.consolidar_lista_em_destino(uuid,uuid) to authenticated;
