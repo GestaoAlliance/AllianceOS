@@ -131,7 +131,12 @@
       const raw=t.dueAt||t.due;if(!raw)continue;
       const ms=t.dueAt?new Date(t.dueAt).getTime():new Date(String(t.due)+'T18:00:00').getTime();
       if(Number.isNaN(ms)||ms<now||ms>horizon)continue;
-      await notify([state.user.id],'task_due_soon','Prazo próximo: '+(t.title||'Tarefa'),t.dueAt?'Prazo: '+new Date(t.dueAt).toLocaleString('pt-BR'):'Prazo: '+t.due,String(t.id),'due:'+String(t.id)+':'+String(raw));
+      const {error:dueError}=await state.sb.from('notifications').insert({
+        user_id:state.user.id,actor_id:state.user.id,kind:'task_due_soon',title:'Prazo próximo: '+(t.title||'Tarefa'),
+        body:t.dueAt?'Prazo: '+new Date(t.dueAt).toLocaleString('pt-BR'):'Prazo: '+t.due,
+        task_id:String(t.id),event_key:'due:'+String(t.id)+':'+String(raw)
+      });
+      if(dueError&&!String(dueError.message).toLowerCase().includes('duplicate'))console.warn('[AllianceOS due notification]',dueError.message);
     }
     const {data}=await state.sb.from('notifications').select('id,kind,title,body,task_id,created_at,read_at').eq('user_id',state.user.id).order('created_at',{ascending:false}).limit(50);
     state.notifications=data||[];renderBell();
