@@ -8,6 +8,17 @@
     'central.__public_sync_reload', 'allianceos.__public_sync_reload',
     'central.__public_sync_ready', 'allianceos.__public_sync_ready'
   ]);
+  const RLS_KEYS = new Set(['central.tasks.vitor-gutierrez','allianceos.tasks.vitor-gutierrez']);
+  function authToken(){
+    try{
+      const raw=localStorage.getItem('sb-lpnyrzsdiyzjnhovpduk-auth-token');
+      if(!raw)return '';
+      const parsed=JSON.parse(raw);
+      return parsed?.access_token||parsed?.currentSession?.access_token||'';
+    }catch{return ''}
+  }
+  // Tarefas não podem continuar visíveis em cache para um navegador sem sessão.
+  if(!authToken()) for(const key of RLS_KEYS) rawRemove.call(localStorage,key);
 
   const rawSet = Storage.prototype.setItem;
   const rawRemove = Storage.prototype.removeItem;
@@ -39,7 +50,10 @@
   migrateLocalAliases();
 
   async function request(options = {}) {
-    const res = await fetch(ENDPOINT, { cache: 'no-store', ...options });
+    const token=authToken();
+    const headers={...(options.headers||{})};
+    if(token)headers.Authorization='Bearer '+token;
+    const res = await fetch(ENDPOINT, { cache: 'no-store', ...options, headers });
     if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
     const data = await res.json();
     if (data?.error) throw new Error(data.error);
@@ -134,7 +148,7 @@
     const seed = new Set(pending);
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (belongs(key) && !remote.has(key)) seed.add(key);
+      if (belongs(key) && !remote.has(key) && (!RLS_KEYS.has(key) || !!authToken())) seed.add(key);
     }
     pending.clear();
     for (const key of seed) {
