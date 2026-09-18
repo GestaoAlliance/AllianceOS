@@ -47,6 +47,14 @@
   function idsForNames(names=[]){
     return names.map(name=>state.members.find(m=>m.tipo==='usuario'&&norm(m.nome)===norm(name))?.id).filter(Boolean);
   }
+  function idsForMentions(text=''){
+    const n=norm(text);
+    return state.members.filter(m=>{
+      if(m.tipo!=='usuario'||!m.nome)return false;
+      const full=norm(m.nome), first=full.split(/\s+/)[0];
+      return n.includes('@'+full)||n.includes('@'+first);
+    }).map(m=>m.id);
+  }
 
   window.AllianceOSOps={
     audit,
@@ -60,7 +68,8 @@
         await notify(ids,'task_assigned','Nova tarefa atribuída',task.title||'',String(task.id),'ui-assigned:'+String(task.id));
       }
       if(action==='comentar_tarefa'){
-        await notify(idsForNames(task.assignees||[]),'task_comment','Novo comentário: '+(task.title||''),details.comentario||'',String(task.id));
+        const recipients=[...new Set([...idsForNames(task.assignees||[]),...idsForMentions(details.comentario||'')])];
+        await notify(recipients,'task_comment','Novo comentário: '+(task.title||''),details.comentario||'',String(task.id));
       }
       if(action==='atualizar_tarefa'&&details.status){
         await notify(idsForNames(task.assignees||[]),'task_status','Status alterado: '+(task.title||''),'Novo status: '+details.status,String(task.id));
@@ -116,6 +125,14 @@
 
   async function loadNotifications(){
     if(!state.user){state.notifications=[];renderBell();return;}
+    const now=Date.now(), horizon=now+24*60*60*1000;
+    const assigned=state.tasks.filter(t=>!t.archivedAt&&(t.assigneeIds||[]).includes(state.user.id));
+    for(const t of assigned){
+      const raw=t.dueAt||t.due;if(!raw)continue;
+      const ms=t.dueAt?new Date(t.dueAt).getTime():new Date(String(t.due)+'T18:00:00').getTime();
+      if(Number.isNaN(ms)||ms<now||ms>horizon)continue;
+      await notify([state.user.id],'task_due_soon','Prazo próximo: '+(t.title||'Tarefa'),t.dueAt?'Prazo: '+new Date(t.dueAt).toLocaleString('pt-BR'):'Prazo: '+t.due,String(t.id),'due:'+String(t.id)+':'+String(raw));
+    }
     const {data}=await state.sb.from('notifications').select('id,kind,title,body,task_id,created_at,read_at').eq('user_id',state.user.id).order('created_at',{ascending:false}).limit(50);
     state.notifications=data||[];renderBell();
   }
@@ -159,7 +176,7 @@
     const admin=state.profile?.papel==='admin';
     return '<div class="aa-section"><div class="aa-title"><div><h2>Equipe</h2><p>Somente usuários reais recebem novas atribuições e notificações.</p></div><span>'+real.length+' ativos</span></div>'+
       (admin?'<form id="aaInviteForm" class="aa-form"><input id="aaInviteName" placeholder="Nome" required><input id="aaInviteEmail" type="email" placeholder="E-mail" required><input id="aaInviteRoleName" placeholder="Cargo"><select id="aaInviteRole"><option value="membro">Membro</option><option value="admin">Admin</option></select><select id="aaInviteBrand" multiple>'+state.brands.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.nome)+'</option>').join('')+'</select><button class="primary">Convidar por e-mail</button></form>':'')+
-      '<div class="aa-grid-list">'+real.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+(m.cargo?' · '+esc(m.cargo):'')+'</small></div>'+memberBadge(m)+'</article>').join('')+'</div>'+
+      '<div class="aa-grid-list">'+real.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+memberBadge(m)+(admin?'<input class="aa-member-cargo" data-aa-member-cargo="'+esc(m.id)+'" value="'+esc(m.cargo||'')+'" placeholder="Cargo"><select data-aa-member-role="'+esc(m.id)+'"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Admin</option></select><button data-aa-save-member="'+esc(m.id)+'">Salvar</button>':'')+'</article>').join('')+'</div>'+
       (pending.length?'<h3>Convites pendentes</h3><div class="aa-grid-list">'+pending.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+memberBadge(m)+'</article>').join('')+'</div>':'')+
       (legacy.length?'<h3>Responsáveis legados para migrar</h3><div class="aa-grid-list">'+legacy.map(m=>'<article class="aa-legacy"><div><b>'+esc(m.nome)+'</b><small>Nome importado, sem conta real</small></div><select data-aa-migrate-select="'+esc(m.nome)+'"><option value="">Vincular a usuário…</option>'+real.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.nome)+'</option>').join('')+'</select><button data-aa-migrate="'+esc(m.nome)+'" '+(!admin?'disabled':'')+'>Migrar tarefas</button></article>').join('')+'</div>':'<div class="aa-empty">Nenhum responsável legado pendente.</div>')+
       '</div>';
@@ -203,6 +220,14 @@
   }
 
   function bindTeam(){
+    $('[data-aa-save-member]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const id=btn.dataset.aaSaveMember,cargo=$('[data-aa-member-cargo="'+id+'"]')?.value.trim()||null,papel=$('[data-aa-member-role="'+id+'"]')?.value||'membro';
+      try{
+        if(id===state.user.id&&state.profile?.papel==='admin'&&papel!=='admin'&&state.members.filter(m=>m.tipo==='usuario'&&m.papel==='admin').length<=1)throw new Error('Não é possível remover o último administrador.');
+        const {error}=await state.sb.from('profiles').update({cargo,papel}).eq('id',id);if(error)throw error;
+        await audit('atualizar_membro','membro',id,{cargo,papel});toast('Membro atualizado');await refreshAll();
+      }catch(err){toast(err.message||String(err));}
+    }));
     $('#aaInviteForm')?.addEventListener('submit',async e=>{
       e.preventDefault();
       try{
