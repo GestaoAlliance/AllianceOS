@@ -151,6 +151,14 @@
   html body .sidebar .ref-nav-proxy:after{display:none!important}
   html body .sidebar .navitem .icon,
   html body .sidebar .ref-nav-proxy .icon{
+    position:static!important;
+    inset:auto!important;
+    left:auto!important;
+    top:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    transform:none!important;
+    order:1!important;
     width:42px!important;
     height:42px!important;
     min-width:42px!important;
@@ -164,6 +172,17 @@
     background:#fff!important;
     color:#20262b!important;
     box-shadow:0 1px 2px rgba(20,28,34,.02)!important;
+    pointer-events:none!important;
+  }
+  html body .sidebar .ref-nav-label{
+    order:2!important;
+    display:block!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+    text-align:left!important;
   }
   html body .sidebar .navitem.active .icon{
     background:#20262b!important;
@@ -181,7 +200,9 @@
     stroke-linecap:round!important;
     stroke-linejoin:round!important;
   }
-  html body .sidebar .navitem .navcount{display:none!important}
+  html body .sidebar .navitem .navcount,
+  html body .sidebar .navitem .badge,
+  html body .sidebar .ref-nav-proxy .badge{display:none!important}
   html body .sidebar .ref-notification-badge{
     position:absolute!important;
     top:7px!important;
@@ -284,7 +305,8 @@
     font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
   }
   html body .global-toolbar .global-people,
-  html body .global-toolbar #themeToggle{display:none!important}
+  html body .global-toolbar #themeToggle,
+  html body .global-toolbar > .brand-context{display:none!important}
 
   html body .ref-brand-picker{
     flex:0 0 254px!important;

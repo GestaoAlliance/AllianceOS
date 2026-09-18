@@ -51,7 +51,7 @@
     if(tasks){tasks.innerHTML=buttonHTML('tasks','Tarefas');tasks.dataset.label='Tarefas'}
     if(campaigns){campaigns.innerHTML=buttonHTML('campaigns','Campanhas');campaigns.dataset.label='Campanhas'}
     if(deliveries){deliveries.innerHTML=buttonHTML('deliveries','Entregas');deliveries.dataset.label='Entregas'}
-    if(notices){notices.innerHTML=buttonHTML('notifications','Notificações',true);notices.dataset.label='Notificações'}
+    if(notices){notices.innerHTML=buttonHTML('notifications','Notificações',true);notices.dataset.label='Notificações';notices.querySelectorAll('.badge,.navcount').forEach(x=>x.remove())}
     if(reports){reports.innerHTML=buttonHTML('reports','Relatórios');reports.dataset.label='Relatórios'}
     if(settings){settings.innerHTML=buttonHTML('settings','Configurações');settings.dataset.label='Configurações'}
     if(planning)planning.style.display='none';
@@ -71,25 +71,30 @@
   }
   function setupToolbar(){
     const toolbar=q('.global-toolbar'); if(!toolbar)return;
-    const select=byId('brandSelect'); if(select){
-      ensureBrands(select);
-      let wrap=q('.ref-brand-picker',toolbar);
-      if(!wrap){wrap=document.createElement('div');wrap.className='ref-brand-picker';toolbar.insertBefore(wrap,toolbar.firstChild)}
-      if(select.parentNode!==wrap)wrap.appendChild(select);
+    const select=byId('brandSelect');
+    const search=q('.global-search',toolbar)||q('.global-search');
+
+    // Preserve the real controls and remove every legacy wrapper/control from the topbar.
+    if(select){ensureBrands(select);select.remove()}
+    if(search){search.remove();q('.ref-command-hint',search)?.remove()}
+
+    toolbar.replaceChildren();
+
+    if(select){
+      const wrap=document.createElement('div');wrap.className='ref-brand-picker';wrap.appendChild(select);toolbar.appendChild(wrap);
       const updateWorkspace=()=>{
         const strong=q('.ref-workspace-copy strong');
         if(strong)strong.textContent=/todas/i.test(select.value)?'Todas as marcas':select.value;
       };
       select.addEventListener('change',updateWorkspace);updateWorkspace();
     }
-    const search=q('.global-search',toolbar);
+
     if(search){
       const input=q('input',search); if(input)input.placeholder='Buscar tarefas, campanhas, entregas...';
-      if(!q('.ref-command-hint',search)){
-        const h=document.createElement('span');h.className='ref-command-hint';h.innerHTML='<kbd>⌘</kbd><kbd>K</kbd>';search.appendChild(h);
-      }
+      const h=document.createElement('span');h.className='ref-command-hint';h.innerHTML='<kbd>⌘</kbd><kbd>K</kbd>';search.appendChild(h);
+      toolbar.appendChild(search);
     }
-    q('.ref-top-actions',toolbar)?.remove();
+
     const actions=document.createElement('div');actions.className='ref-top-actions';
     const bell=document.createElement('button');bell.type='button';bell.className='ref-top-bell';bell.setAttribute('aria-label','Notificações');
     bell.innerHTML=ICONS.notifications+'<span class="ref-top-badge">37</span>';
