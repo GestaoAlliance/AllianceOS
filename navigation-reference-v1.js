@@ -37,7 +37,7 @@
     // Keep legacy controls alive but visually isolated.
     const targets={
       home:byId('homeNav'), tasks:byId('tasksNav'), campaigns:byId('campaignsNav'),
-      deliveries:byId('deliveriesNav'), notifications:byId('notificationsBtn'),
+      planning:byId('planningNav'), deliveries:byId('deliveriesNav'), notifications:byId('notificationsBtn'),
       reports:byId('painelNav'), settings:byId('customizeSidebarBtn')
     };
 
@@ -75,7 +75,8 @@
       if(target)target.addEventListener('click',()=>setActive(key),true);
       btns.set(key,b);nav.appendChild(b);
     });
-    const initial=[['home',targets.home],['tasks',targets.tasks],['campaigns',targets.campaigns],['deliveries',targets.deliveries],['notifications',targets.notifications],['reports',targets.reports],['settings',targets.settings]]
+    if(targets.planning)targets.planning.addEventListener('click',()=>setActive('campaigns'),true);
+    const initial=[['home',targets.home],['tasks',targets.tasks],['campaigns',targets.campaigns],['campaigns',targets.planning],['deliveries',targets.deliveries],['notifications',targets.notifications],['reports',targets.reports],['settings',targets.settings]]
       .find(([,el])=>el?.classList.contains('active'))?.[0]||'home';
     setActive(initial);
 
@@ -133,6 +134,81 @@
     actions.append(bell,profile);
 
     toolbar.append(topLogo,brandWrap,team,searchWrap,actions);
+
+    /* AllianceOS strategy bridge
+       Mapa mental -> campanha/TAP -> tarefas, usando as mesmas chaves central.* */
+    const uid=()=>window.user?.id||'vitor-gutierrez';
+    const readList=(key)=>{try{const v=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
+    const normalize=(v)=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/campanha\s+/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    const activeBrand=()=>{
+      const v=brand?.value||'';
+      return !v||/todas/i.test(v)?'':v;
+    };
+    const campaigns=()=>readList('central.campaigns.'+uid());
+    const tasks=()=>readList('central.tasks.'+uid());
+
+    function syncTaskCampaignIds(){
+      const cs=campaigns(), ts=tasks();
+      if(!cs.length||!ts.length)return;
+      let changed=false;
+      for(const t of ts){
+        if(t.campaignId)continue;
+        const project=normalize(t.project);
+        if(!project)continue;
+        const c=cs.find(c=>(!t.brand||!c.brand||t.brand===c.brand)&&normalize(c.name)===project);
+        if(c){t.campaignId=c.id;changed=true}
+      }
+      if(changed)localStorage.setItem('central.tasks.'+uid(),JSON.stringify(ts));
+    }
+
+    function syncCampaignNodesIntoOpenMap(){
+      const M=window.MapaMental;
+      if(!M||typeof M.campanhasNoMapa!=='function'||typeof M.virarCampanha!=='function')return;
+      const brandNow=activeBrand();
+      const current=new Set((M.campanhasNoMapa()||[]).map(String));
+      const palette=[0,4,2,6,5,3,1,7];
+      campaigns()
+        .filter(c=>!brandNow||c.brand===brandNow)
+        .forEach((c,i)=>{
+          if(!c?.id||current.has(String(c.id)))return;
+          M.virarCampanha(null,{nome:c.name||'Campanha',cor:palette[i%palette.length],campId:c.id});
+          current.add(String(c.id));
+        });
+    }
+
+    function openStrategyMap(){
+      syncTaskCampaignIds();
+      if(targets.planning)targets.planning.click();
+      else window.__centralShowPlanning?.();
+      setActive('campaigns');
+      setTimeout(()=>{
+        window.MapaMental?.recarregar?.();
+        setTimeout(syncCampaignNodesIntoOpenMap,80);
+      },60);
+    }
+
+    function installCampaignStrategyTab(){
+      const tabs=document.querySelector('#campaignsView .camp-tabs');
+      if(!tabs||tabs.querySelector('[data-ref-strategy-map]'))return;
+      const b=document.createElement('button');
+      b.type='button';b.className='camp-tab';b.dataset.refStrategyMap='1';b.textContent='Mapa mental';
+      b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();openStrategyMap()});
+      tabs.appendChild(b);
+    }
+
+    installCampaignStrategyTab();
+    targets.campaigns?.addEventListener('click',()=>{
+      setTimeout(()=>{installCampaignStrategyTab();syncTaskCampaignIds()},40);
+    });
+    brand?.addEventListener('change',()=>{
+      if(document.getElementById('planningView')?.classList.contains('active')){
+        setTimeout(()=>{window.MapaMental?.recarregar?.();setTimeout(syncCampaignNodesIntoOpenMap,80)},40);
+      }
+    });
+    document.getElementById('campaignForm')?.addEventListener('submit',()=>{
+      setTimeout(syncTaskCampaignIds,120);
+    });
+
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })();
