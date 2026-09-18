@@ -28,6 +28,8 @@ const TASK_FOCUS_JS = path.join(__dirname, 'task-system-v7-focus.js');
 const TASK_DESIGN_CSS = path.join(__dirname, 'task-design-v10-reference.css');
 const TASK_REFERENCE_JS = path.join(__dirname, 'task-reference-v11.js');
 const TASK_REFERENCE_CSS = path.join(__dirname, 'task-reference-v11.css');
+const FINAL_V12_CSS = path.join(__dirname, 'alliance-final-v12.css');
+const FINAL_V12_JS = path.join(__dirname, 'alliance-final-v12.js');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -75,6 +77,8 @@ async function main() {
   const taskDesignCss = fs.readFileSync(TASK_DESIGN_CSS, 'utf8');
   const taskReferenceJs = fs.readFileSync(TASK_REFERENCE_JS, 'utf8');
   const taskReferenceCss = fs.readFileSync(TASK_REFERENCE_CSS, 'utf8');
+  const finalV12Css = fs.readFileSync(FINAL_V12_CSS, 'utf8');
+  const finalV12Js = fs.readFileSync(FINAL_V12_JS, 'utf8');
   const authCss = fs.readFileSync(AUTH_CSS, 'utf8');
   const authHeroCss = fs.readFileSync(AUTH_HERO_CSS, 'utf8');
   const authShowcaseCss = fs.readFileSync(AUTH_SHOWCASE_CSS, 'utf8');
@@ -123,8 +127,8 @@ async function main() {
           s = s.replace("  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});", "  // AllianceOS: o observer global de classes disparava o próprio render em loop.\\n  // O render inicial continua pelo schedule() acima; mudanças explícitas continuam pelos eventos do app.\\n  // observer global desativado propositalmente.");
         }
 
-        if (ent.name === 'inicio.js' || ent.name === 'home.js') {
-          s = s.replace(
+        if (['inicio.js','home.js','conferencia.js','descricao.js'].includes(ent.name)) {
+          s = s.replaceAll(
             "    olho.observe(document.body, { childList: true, subtree: true });",
             "    // AllianceOS: observer global removido para evitar redraw auto-recursivo."
           );
@@ -216,7 +220,7 @@ async function main() {
   // The legacy build appends CSS after our source injection, so V11 must be appended to the FINAL html.
   // Remove the only external render-blocking stylesheet; system fonts keep the UI stable and stop stale loading indicators.
   html = html.replace(/<link[^>]+cdn\.jsdelivr\.net\/npm\/@fontsource-variable\/geist[^>]*>/gi, '');
-  html = html.replace('</head>', () => `<meta name="allianceos-source" content="${sourceSha}">\n<style id="allianceos-v11-final">\n${taskReferenceCss}\n${FINAL_UI_CSS}\n</style>\n</head>`);
+  html = html.replace('</head>', () => `<meta name="allianceos-source" content="${sourceSha}">\n<style id="allianceos-v11-final">\n${taskReferenceCss}\n${FINAL_UI_CSS}\n${finalV12Css}\n</style>\n</head>`);
   const currentWeekScript = `
 <script>
 (() => {
@@ -238,7 +242,7 @@ async function main() {
   });
 })();
 </script>`;
-  html = html.replace('</body>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n${currentWeekScript}\n</body>`);
+  html = html.replace('</body>', () => `<script>\n${auth}\n</script>\n<script>\n${authHero}\n</script>\n<script>\n${authShowcase}\n</script>\n<script>\n${authBridge}\n</script>\n<script>\n${profile}\n</script>\n<script>\n${sync}\n</script>\n${currentWeekScript}\n<script>\n${finalV12Js}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
