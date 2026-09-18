@@ -6,6 +6,84 @@
   let v3WeekOffset = 0;
   let v3NewPreset = {};
 
+  // AllianceOS V2: status operacionais, horário, recorrência e arquivamento.
+  if(Array.isArray(TASK_STATUSES)){
+    TASK_STATUSES.splice(0,TASK_STATUSES.length,'a fazer','fazendo','em revisão','bloqueado','feito');
+  }
+  if(typeof STATUS_COLORS==='object'&&STATUS_COLORS){
+    STATUS_COLORS['em revisão']='#7b61a8';
+    STATUS_COLORS['bloqueado']='#b84b4b';
+  }
+
+  const v3Pad=n=>String(n).padStart(2,'0');
+  const v3ToLocalInput=(iso,dateOnly)=>{
+    if(iso){
+      const d=new Date(iso);
+      if(!Number.isNaN(d.getTime())) return `${d.getFullYear()}-${v3Pad(d.getMonth()+1)}-${v3Pad(d.getDate())}T${v3Pad(d.getHours())}:${v3Pad(d.getMinutes())}`;
+    }
+    return dateOnly?`${dateOnly}T18:00`:'';
+  };
+  const v3FromLocalInput=(value)=>{
+    if(!value)return null;
+    const d=new Date(value);
+    if(Number.isNaN(d.getTime()))return null;
+    const off=-d.getTimezoneOffset(), sign=off>=0?'+':'-', abs=Math.abs(off);
+    return `${value.length===16?value+':00':value}${sign}${v3Pad(Math.floor(abs/60))}:${v3Pad(abs%60)}`;
+  };
+  const v3DueLabel=(t)=>{
+    const raw=t?.dueAt||t?.due;
+    if(!raw)return 'Sem prazo';
+    if(t?.dueAt){
+      const d=new Date(t.dueAt);
+      if(!Number.isNaN(d.getTime()))return `${v3Pad(d.getDate())}/${v3Pad(d.getMonth()+1)} · ${v3Pad(d.getHours())}:${v3Pad(d.getMinutes())}`;
+    }
+    const p=String(raw).slice(0,10).split('-');
+    return p.length===3?`${p[2]}/${p[1]}`:String(raw);
+  };
+  const v3RecurrenceSpec=(t)=>{
+    if(t?.recurrenceRule&&typeof t.recurrenceRule==='object')return {tipo:t.recurrenceRule.tipo||'nenhuma',dias_semana:Array.isArray(t.recurrenceRule.dias_semana)?t.recurrenceRule.dias_semana:[]};
+    if(t?.recurrence==='weekly')return {tipo:'semanal',dias_semana:[]};
+    if(t?.recurrence==='biweekly')return {tipo:'quinzenal',dias_semana:[]};
+    if(t?.recurrence==='monthly')return {tipo:'mensal',dias_semana:[]};
+    if(t?.recurrence==='weekdays')return {tipo:'dias_semana',dias_semana:Array.isArray(t.recurrenceDays)?t.recurrenceDays:[]};
+    return {tipo:'nenhuma',dias_semana:[]};
+  };
+  const v3ApplyRecurrence=(t,tipo,dias=[])=>{
+    const unique=[...new Set((dias||[]).map(Number).filter(x=>x>=1&&x<=7))].sort();
+    t.recurrenceRule={tipo:tipo||'nenhuma',dias_semana:unique};
+    t.recurrence=tipo==='semanal'?'weekly':tipo==='quinzenal'?'biweekly':tipo==='mensal'?'monthly':tipo==='dias_semana'?'weekdays':'none';
+    t.recurrenceDays=unique;
+  };
+  const v3NextRecurringDate=(t)=>{
+    const r=v3RecurrenceSpec(t);if(r.tipo==='nenhuma')return null;
+    const base=String(t.due||t.dueAt||v3TodayIso()).slice(0,10);
+    const [y,m,d]=base.split('-').map(Number), date=new Date(y,m-1,d,12,0,0);
+    if(r.tipo==='semanal')date.setDate(date.getDate()+7);
+    else if(r.tipo==='quinzenal')date.setDate(date.getDate()+14);
+    else if(r.tipo==='mensal')date.setMonth(date.getMonth()+1);
+    else if(r.tipo==='dias_semana'){
+      for(let i=1;i<=14;i++){
+        const c=new Date(date);c.setDate(date.getDate()+i);
+        const wd=c.getDay()===0?7:c.getDay();
+        if(r.dias_semana.includes(wd)){date.setTime(c.getTime());break}
+      }
+    }
+    return `${date.getFullYear()}-${v3Pad(date.getMonth()+1)}-${v3Pad(date.getDate())}`;
+  };
+  const v3GenerateNextOccurrence=(t)=>{
+    const r=v3RecurrenceSpec(t);if(r.tipo==='nenhuma')return null;
+    const existing=taskData.find(x=>String(x.recurrenceGeneratedFrom||'')===String(t.id));if(existing)return existing;
+    const nextDate=v3NextRecurringDate(t);if(!nextDate)return null;
+    let nextDueAt=null;
+    if(t.dueAt){
+      const old=new Date(t.dueAt), parts=nextDate.split('-').map(Number);
+      const local=new Date(parts[0],parts[1]-1,parts[2],old.getHours(),old.getMinutes(),old.getSeconds());
+      nextDueAt=v3FromLocalInput(`${parts[0]}-${v3Pad(parts[1])}-${v3Pad(parts[2])}T${v3Pad(local.getHours())}:${v3Pad(local.getMinutes())}`);
+    }
+    const next=v3NormalizeTask({...t,id:v3Id('rec'),status:'a fazer',blockedReason:null,due:nextDate,dueAt:nextDueAt,comments:[],deliveries:[],archivedAt:null,archivedBy:null,parentTaskId:null,dependencies:[],recurrenceSeriesId:t.recurrenceSeriesId||t.id,recurrenceGeneratedFrom:t.id,history:[{at:'Agora',text:`Ocorrência recorrente criada automaticamente a partir de “${t.title}”.`}],checklist:(t.checklist||[]).map(x=>({...x,done:false})),source:'allianceos'});
+    taskData.unshift(next);return next;
+  };
+
   const v3Id = (p='task') => `${p}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
   const v3TodayIso = () => {
     const d = new Date();
@@ -38,11 +116,13 @@
     return raw && raw!=='Todas as marcas' ? raw : '';
   };
   const v3TeamUsers = () => {
-    const names=[...TASK_USERS];
+    const live=(window.AllianceOSDirectory?.members||[]).filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false).map(x=>x.nome).filter(Boolean);
+    if(live.length)return [...new Set(live)].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
+    const names=[];
     try {
       for(const p of (window.Acessos?.equipe?.()||[])) {
-        if(p?.nomeClickup) names.push(p.nomeClickup);
-        else if(p?.nome) names.push(p.nome);
+        if(p?.tipo==='legado'||p?.ativo===false)continue;
+        if(p?.nome) names.push(p.nome);
       }
     } catch {}
     return [...new Set(names.filter(Boolean))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
@@ -73,8 +153,15 @@
     if(!Array.isArray(t.tags)) t.tags=[];
     if(!Array.isArray(t.subtasks)) t.subtasks=[];
     if(typeof t.conferenceRequired!=='boolean') t.conferenceRequired=false;
+    if(typeof t.deliveryRequired!=='boolean') t.deliveryRequired=false;
     if(t.parentTaskId===undefined) t.parentTaskId=null;
     if(t.campaignId===undefined) t.campaignId=null;
+    if(!Array.isArray(t.assigneeIds)) t.assigneeIds=[];
+    if(t.archivedAt===undefined) t.archivedAt=null;
+    if(t.archivedBy===undefined) t.archivedBy=null;
+    if(t.blockedReason===undefined) t.blockedReason=null;
+    if(t.status==='revisar'||t.status==='revisão') t.status='em revisão';
+    if(t.dueAt&&!t.due)t.due=String(t.dueAt).slice(0,10);
     if(!t.project) t.project='Operação';
     return t;
   }
