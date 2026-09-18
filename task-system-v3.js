@@ -574,7 +574,11 @@
       <div class="newfield"><label>Prioridade</label><select id="newPriority"><option value="urgent">Urgente</option><option value="high">Alta</option><option value="normal" selected>Normal</option><option value="low">Baixa</option></select></div>
       <div class="newfield"><label>Status inicial</label><select id="newStatus">${TASK_STATUSES.filter(x=>x!=='feito').map(x=>`<option>${x}</option>`).join('')}</select></div>
       <div class="newfield"><label>Data de início</label><input id="newStart" type="date"></div>
-      <div class="newfield"><label>Prazo</label><input id="newDue" type="date"></div>
+      <div class="newfield"><label>Prazo com horário</label><input id="newDue" type="datetime-local"><small>O horário faz parte do prazo.</small></div>
+      <div class="newfield"><label>Recorrência</label><select id="newRecurrence"><option value="nenhuma">Não repetir</option><option value="semanal">Semanal</option><option value="quinzenal">Quinzenal</option><option value="mensal">Mensal</option><option value="dias_semana">Dias específicos da semana</option></select></div>
+      <div class="newfield full" id="newRecurrenceDays" hidden><label>Dias da semana</label><div class="v3-weekday-picks"><label><input type="checkbox" value="1">Seg</label><label><input type="checkbox" value="2">Ter</label><label><input type="checkbox" value="3">Qua</label><label><input type="checkbox" value="4">Qui</label><label><input type="checkbox" value="5">Sex</label><label><input type="checkbox" value="6">Sáb</label><label><input type="checkbox" value="7">Dom</label></div></div>
+      <div class="newfield full"><label>Motivo do bloqueio <span>obrigatório se status = bloqueado</span></label><input id="newBlockedReason" placeholder="Ex.: aguardando aprovação da Meta"></div>
+      <div class="newfield full"><label class="v3-conference-toggle"><span><b>Entrega obrigatória</b><small>impede conclusão sem entrega</small></span><input id="newDeliveryRequired" type="checkbox"><i></i></label></div>
       <div class="newfield"><label>Campanha / planejamento</label><select id="newCampaign"></select><small>Somente campanhas cadastradas para esta marca.</small></div>
       <div class="newfield full"><label>Depende de outra tarefa? <span>opcional</span></label><select id="newDependency"></select><small>Use quando esta tarefa só pode começar depois de outra.</small></div>
       <div class="newfield full v3-brand-field" id="newBrandField"><label>Marca</label><select id="newBrand"></select></div>
@@ -592,6 +596,9 @@
     document.getElementById('newConferenceRequired')?.addEventListener('change',v3RenderNewConferenceDraft);
     document.getElementById('addNewConferenceItem')?.addEventListener('click',v3AddNewConferenceItem);
     document.getElementById('newConferenceItem')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();v3AddNewConferenceItem();}});
+    document.getElementById('newRecurrence')?.addEventListener('change',e=>{
+      const days=document.getElementById('newRecurrenceDays');if(days)days.hidden=e.target.value!=='dias_semana';
+    });
   }
 
   function v3PopulateNewTaskForm(status='a fazer'){
@@ -634,15 +641,24 @@
     const conferenceRequired=!!document.getElementById('newConferenceRequired')?.checked;
     if(conferenceRequired && !v3NewConferenceDraft.length){showToast('Adicione pelo menos um item à lista de conferência.');document.getElementById('newConferenceItem')?.focus();return;}
     const conferenceChecklist=conferenceRequired?v3NewConferenceDraft.map(text=>({id:v3Id('check'),text,done:false})):[];
+    const status=document.getElementById('newStatus').value;
+    const blockedReason=document.getElementById('newBlockedReason')?.value.trim()||'';
+    if(status==='bloqueado'&&!blockedReason){showToast('Informe o motivo do bloqueio.');document.getElementById('newBlockedReason')?.focus();return;}
+    const recurrenceTipo=document.getElementById('newRecurrence')?.value||'nenhuma';
+    const recurrenceDays=[...document.querySelectorAll('#newRecurrenceDays input:checked')].map(x=>Number(x.value));
+    if(recurrenceTipo==='dias_semana'&&!recurrenceDays.length){showToast('Escolha pelo menos um dia da semana.');return;}
+    const localDue=document.getElementById('newDue').value||'';
+    const dueAt=v3FromLocalInput(localDue);
     const id=v3Id('task');
     const t=v3NormalizeTask({
-      id,title,status:document.getElementById('newStatus').value,assignees:[document.getElementById('newAssignee').value].filter(Boolean),
-      due:document.getElementById('newDue').value||null,start:document.getElementById('newStart').value||null,
+      id,title,status,blockedReason:status==='bloqueado'?blockedReason:null,assignees:[document.getElementById('newAssignee').value].filter(Boolean),
+      due:dueAt?String(dueAt).slice(0,10):null,dueAt,start:document.getElementById('newStart').value||null,
       brand,project:campaign?.name||v3NewPreset.project||'Operação',campaignId:campaign?.id||v3NewPreset.campaignId||null,
       priority:document.getElementById('newPriority').value,description:document.getElementById('newDescription').value.trim(),
       checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:'Agora',text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
-      recurrence:'none',tags:[],source:'allianceos',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null
+      recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'allianceos',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null,deliveryRequired:!!document.getElementById('newDeliveryRequired')?.checked,archivedAt:null
     });
+    v3ApplyRecurrence(t,recurrenceTipo,recurrenceDays);
     taskData.unshift(t);
     if(v3NewPreset.blocksTaskId){
       const parent=v3Task(v3NewPreset.blocksTaskId);
