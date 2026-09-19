@@ -19,6 +19,7 @@ const NAV_REFERENCE_CSS = path.join(__dirname, 'navigation-reference-v1.css');
 const NAV_REFERENCE_JS = path.join(__dirname, 'navigation-reference-v1.js');
 const ALLIANCE_ADMIN_JS = path.join(__dirname, 'alliance-admin.js');
 const ALLIANCE_ADMIN_CSS = path.join(__dirname, 'alliance-admin.css');
+const FULL_SYSTEM_UI = path.join(__dirname, 'full-system-ui-v1.js');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -42,6 +43,7 @@ async function main() {
   const navReferenceJs = fs.readFileSync(NAV_REFERENCE_JS, 'utf8');
   const allianceAdminJs = fs.readFileSync(ALLIANCE_ADMIN_JS, 'utf8');
   const allianceAdminCss = fs.readFileSync(ALLIANCE_ADMIN_CSS, 'utf8');
+  const fullSystemUi = fs.readFileSync(FULL_SYSTEM_UI, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -81,6 +83,19 @@ async function main() {
           s = s.slice(0, styleClose) + `\n\n${taskV3Css}\n\n${taskV5Css}\n\n${taskDesignCss}\n\n${taskReferenceV10Css}\n` + s.slice(styleClose);
         }
 
+        if (ent.name === 'campanha.js') {
+          // AllianceOS: metas por canal vencem a meta manual.
+          const oldMeta = "    const meta = c.goal || somaMeta;";
+          const oldDiff = "    const difere = somaMeta && Math.abs(somaMeta - meta) > 1;";
+          if (!s.includes(oldMeta) || !s.includes(oldDiff)) throw new Error('Não encontrei a regra canônica de meta da campanha');
+          s = s.replace(oldMeta, "    const metaManual = +c.goal || 0;\n    const meta = somaMeta || metaManual;");
+          s = s.replace(oldDiff, "    const difere = somaMeta && metaManual && Math.abs(somaMeta - metaManual) > 1;");
+          s = s.replace(
+            "          <b>${brl(meta)}</b> — faltam <b>${brl(meta - somaMeta)}</b> distribuídos.</p>",
+            "          <b>${brl(metaManual)}</b>. Para planejamento e relatórios, <b>vale a soma por canal</b>.</p>"
+          );
+        }
+
         if (ent.name === 'conferencia.js') {
           const travaAntiga = '  const faltamTotal = (t) => travas(t).reduce((n, x) => n + x.falta, 0);';
           if (!s.includes(travaAntiga)) throw new Error('Não encontrei a trava de conferência das tarefas');
@@ -118,7 +133,7 @@ async function main() {
   let html = fs.readFileSync(path.join(op, 'dist', 'index.html'), 'utf8');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
   html = html.replace('</head>', () => `<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<script>\n${sync}\n</script>\n</head>`);
-  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n</body>`);
+  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
