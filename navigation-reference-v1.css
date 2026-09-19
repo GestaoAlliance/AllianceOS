@@ -873,12 +873,13 @@
 
   html body .global-toolbar > .ref2-search{
     position:absolute!important;
-    left:202px!important;
+    left:192px!important;
+    right:166px!important;
     top:50%!important;
     transform:translateY(-50%)!important;
-    width:max(220px,min(760px,calc(100% - 360px)))!important;
+    width:auto!important;
     min-width:0!important;
-    max-width:760px!important;
+    max-width:none!important;
     height:46px!important;
     margin:0!important;
     padding:0 82px 0 15px!important;
