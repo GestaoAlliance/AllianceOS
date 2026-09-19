@@ -50,7 +50,11 @@
       close:'<path d="m8 8 8 8M16 8l-8 8"/>',
       uploadCloud:'<path d="M7 18h10a3.5 3.5 0 0 0 .4-6.98A5.5 5.5 0 0 0 6.5 9.5 4 4 0 0 0 7 18Z"/><path d="M12 16V8"/><path d="m8.8 11.2 3.2-3.2 3.2 3.2"/>',
       link:'<path d="M10 13a5 5 0 0 0 7.1.1l1.8-1.8a5 5 0 0 0-7.1-7.1L10.8 5"/><path d="M14 11a5 5 0 0 0-7.1-.1l-1.8 1.8a5 5 0 0 0 7.1 7.1l1-1"/>',
-      arrowUpRight:'<path d="M7 17 17 7"/><path d="M9 7h8v8"/>'
+      arrowUpRight:'<path d="M7 17 17 7"/><path d="M9 7h8v8"/>',
+      videoMedia:'<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',
+      audioMedia:'<path d="M9 18V6l9-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="15.5" cy="16" r="2.5"/>',
+      pencil:'<path d="m4 20 4.2-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m13.8 7.2 3 3"/>',
+      trash:'<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -189,12 +193,23 @@
   };
   const r10AttachmentTone = f => {
     const name=r10Norm(f?.name);
-    if(/\.pdf$/.test(name))return 'pdf';
-    if(/\.(zip|rar|7z)$/.test(name))return 'archive';
-    if(/\.(png|jpg|jpeg|webp|gif|svg)$/.test(name))return 'image';
+    const type=String(f?.type||'').toLowerCase();
+    if(type.startsWith('image/')||/\.(png|jpg|jpeg|webp|gif|svg|heic)$/.test(name))return 'image';
+    if(type.startsWith('video/')||/\.(mp4|mov|webm|mkv|avi|m4v)$/.test(name))return 'video';
+    if(type.startsWith('audio/')||/\.(mp3|wav|m4a|aac|ogg|flac)$/.test(name))return 'audio';
+    if(type==='application/pdf'||/\.pdf$/.test(name))return 'pdf';
+    if(/\.(zip|rar|7z|tar|gz)$/.test(name))return 'archive';
+    if(type.startsWith('text/')||/\.(txt|md|csv|rtf)$/.test(name))return 'textfile';
     return 'file';
   };
-  const r10AttachmentIcon = f => r10Icon(r10AttachmentTone(f)==='archive'?'archiveFile':'fileText');
+  const r10AttachmentIcon = f => {
+    const tone=r10AttachmentTone(f);
+    if(tone==='archive')return r10Icon('archiveFile');
+    if(tone==='image')return r10Icon('image');
+    if(tone==='video')return r10Icon('videoMedia');
+    if(tone==='audio')return r10Icon('audioMedia');
+    return r10Icon('fileText');
+  };
   const r10HeaderPill = (icon,label,kind='',attrs='') => '<span class="r10-head-chip '+kind+'" '+attrs+'><span class="r10-head-chip-icon">'+r10Icon(icon)+'</span><span class="r10-head-chip-label">'+r10Esc(label)+'</span></span>';
   const r10CampaignHeaderPill = label => '<button type="button" class="r10-head-chip campaign r10-campaign-link" data-r10-open-campaign="'+r10Esc(label)+'" title="Abrir campanha"><span class="r10-head-chip-icon">'+r10Icon('folderSolid')+'</span><span class="r10-head-chip-label">'+r10Esc(label)+'</span></button>';
 
@@ -373,30 +388,37 @@
         item.classList.add('r10-delivery-sent-item');
         const nameEl=item.querySelector('b');
         const metaEl=item.querySelector('small');
-        const lead=item.querySelector(':scope > span');
-        const fileName=String(nameEl?.textContent||'').trim();
-        const isLink=item.matches('a[target="_blank"]') || String(metaEl?.textContent||'').trim().toLowerCase()==='link';
-        const tone=isLink?'link':r10AttachmentTone({name:fileName});
-        item.classList.add('type-'+tone);
+        const lead=item.querySelector('.v5-material-icon');
+        const kind=String(item.dataset.v5Kind||'file');
+        item.classList.add('type-'+kind);
 
         if(lead){
           lead.className='r10-delivery-sent-icon';
-          lead.innerHTML=isLink?r10Icon('link'):r10AttachmentIcon({name:fileName});
+          const iconName=kind==='link'?'link':kind==='text'?'document':kind==='image'?'image':kind==='video'?'videoMedia':kind==='audio'?'audioMedia':kind==='archive'?'archiveFile':'fileText';
+          lead.innerHTML=r10Icon(iconName);
         }
         if(nameEl)nameEl.classList.add('r10-delivery-sent-name');
         if(metaEl)metaEl.classList.add('r10-delivery-sent-meta');
 
-        if(item.tagName==='A'){
-          item.classList.add('r10-delivery-sent-downloadable');
-          const action=document.createElement('span');
-          action.className='r10-delivery-sent-action';
-          action.innerHTML=isLink?r10Icon('arrowUpRight'):r10Icon('download');
-          item.appendChild(action);
+        const actions=item.querySelector('.v5-material-actions');
+        if(actions){
+          actions.classList.add('r10-delivery-sent-actions');
+          actions.querySelectorAll('a,button').forEach(action=>{
+            action.classList.add('r10-delivery-sent-action');
+            if(action.hasAttribute('data-v5-delivery-download'))action.innerHTML=r10Icon('download');
+            else if(action.hasAttribute('data-v5-open-link'))action.innerHTML=r10Icon('arrowUpRight');
+            else if(action.matches('[data-v5-edit-note],[data-v5-edit-link],[data-v5-edit-file]'))action.innerHTML=r10Icon('pencil');
+            else if(action.matches('[data-v5-delete-note],[data-v5-delete-link],[data-v5-delete-file]')){action.classList.add('is-delete');action.innerHTML=r10Icon('trash')}
+          });
         }
+      });
+      delivery.querySelectorAll('[data-v5-delete-delivery]').forEach(btn=>{
+        btn.classList.add('r10-delivery-delete');
+        btn.innerHTML=r10Icon('trash');
       });
 
       if(fileInput&&compose){
-        fileInput.setAttribute('accept','image/*,.pdf,.zip,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx');
+        fileInput.setAttribute('accept','image/*,video/*,audio/*,.pdf,.zip,.rar,.7z,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx');
 
         const alternatives=document.createElement('div');
         alternatives.className='r10-delivery-alternatives';
@@ -500,6 +522,15 @@
       }
     }
     const simpleAction=oldMain.querySelector('.v7-simple-action'), comments=oldMain.querySelector('#commentList')&&oldMain.querySelector('#commentList').closest('.v3-section');
+    const legacyCompleteButton=oldMain.querySelector('#v3CompleteTaskBtn');
+    let completionAction=null;
+    if(legacyCompleteButton){
+      completionAction=document.createElement('section');
+      completionAction.className='r10-completion-card';
+      completionAction.innerHTML='<div class="r10-completion-copy"><strong>Conclusão da tarefa</strong><span>Finalize quando a entrega e as conferências estiverem prontas.</span></div><div class="r10-completion-action"></div>';
+      legacyCompleteButton.classList.add('r10-complete-btn');
+      completionAction.querySelector('.r10-completion-action').appendChild(legacyCompleteButton);
+    }
     oldMain.querySelectorAll('.v7-flow-summary,.v9-workspace-title,.v7-advanced-flow,.v3-continuity,.v5-tree-section').forEach(x=>x.classList.add('r10-engine-hidden'));
 
     const statusField=r10MoveField(oldSide,'detailStatus'), ownerField=r10MoveField(oldSide,'detailPrimaryAssignee'), dueField=r10MoveField(oldSide,'detailDue'), priorityField=r10MoveField(oldSide,'detailPriority'), campaignField=r10MoveField(oldSide,'detailCampaign'), startField=r10MoveField(oldSide,'detailStart'), supportField=r10MoveField(oldSide,'detailAddAssignee'), recurrenceField=r10MoveField(oldSide,'detailRecurrence');
@@ -563,7 +594,7 @@
       saveSlot.appendChild(saveButton);
     }
     if(legacySaveButton)legacySaveButton.hidden=true;
-    const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
+    const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,completionAction,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
     const info=document.createElement('section');info.className='r10-side-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('status')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
@@ -1960,7 +1991,7 @@
     min-height:60px!important;
     width:100%!important;
     display:grid!important;
-    grid-template-columns:38px minmax(0,1fr) 32px!important;
+    grid-template-columns:38px minmax(0,1fr) auto!important;
     grid-template-rows:auto auto!important;
     align-items:center!important;
     gap:2px 11px!important;
@@ -1984,73 +2015,48 @@
     background:#eef2f4!important;
     color:#68747d!important;
   }
-  #taskDetailDrawer .r10-delivery-sent-icon .r10-svg{
-    width:18px!important;
-    height:18px!important;
-    stroke-width:1.75!important;
-  }
-  #taskDetailDrawer .r10-delivery-sent-item.type-pdf .r10-delivery-sent-icon{
-    background:#fff0f1!important;
-    color:#ef3f4d!important;
-  }
-  #taskDetailDrawer .r10-delivery-sent-item.type-archive .r10-delivery-sent-icon{
-    background:#fff2df!important;
-    color:#e68a1f!important;
-  }
-  #taskDetailDrawer .r10-delivery-sent-item.type-image .r10-delivery-sent-icon{
-    background:#edf3ff!important;
-    color:#3d73de!important;
-  }
-  #taskDetailDrawer .r10-delivery-sent-item.type-link .r10-delivery-sent-icon{
-    background:#edf3ff!important;
-    color:#3d73de!important;
-  }
+  #taskDetailDrawer .r10-delivery-sent-icon .r10-svg{width:18px!important;height:18px!important;stroke-width:1.75!important}
+  #taskDetailDrawer .r10-delivery-sent-item.type-pdf .r10-delivery-sent-icon{background:#fff0f1!important;color:#ef3f4d!important}
+  #taskDetailDrawer .r10-delivery-sent-item.type-archive .r10-delivery-sent-icon{background:#fff2df!important;color:#e68a1f!important}
+  #taskDetailDrawer .r10-delivery-sent-item.type-image .r10-delivery-sent-icon{background:#edf3ff!important;color:#3d73de!important}
+  #taskDetailDrawer .r10-delivery-sent-item.type-video .r10-delivery-sent-icon{background:#f2efff!important;color:#7158d9!important}
+  #taskDetailDrawer .r10-delivery-sent-item.type-audio .r10-delivery-sent-icon{background:#eaf8f1!important;color:#2a9363!important}
+  #taskDetailDrawer .r10-delivery-sent-item.type-link .r10-delivery-sent-icon{background:#edf3ff!important;color:#3d73de!important}
+  #taskDetailDrawer .r10-delivery-sent-item.type-text .r10-delivery-sent-icon,
+  #taskDetailDrawer .r10-delivery-sent-item.type-textfile .r10-delivery-sent-icon{background:#f1f3f4!important;color:#66727b!important}
   #taskDetailDrawer .r10-delivery-sent-name{
-    grid-column:2!important;
-    grid-row:1!important;
-    align-self:end!important;
-    min-width:0!important;
-    margin:0!important;
-    color:#20272d!important;
-    font-size:14px!important;
-    font-weight:650!important;
-    line-height:1.18!important;
-    white-space:nowrap!important;
-    overflow:hidden!important;
-    text-overflow:ellipsis!important;
+    grid-column:2!important;grid-row:1!important;align-self:end!important;min-width:0!important;margin:0!important;color:#20272d!important;font-size:14px!important;font-weight:650!important;line-height:1.18!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important
   }
   #taskDetailDrawer .r10-delivery-sent-meta{
-    grid-column:2!important;
-    grid-row:2!important;
-    align-self:start!important;
-    margin:0!important;
-    color:#7f8991!important;
-    font-size:12px!important;
-    font-weight:450!important;
-    line-height:1.2!important;
+    grid-column:2!important;grid-row:2!important;align-self:start!important;min-width:0!important;margin:0!important;color:#7f8991!important;font-size:12px!important;font-weight:450!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important
+  }
+  #taskDetailDrawer .r10-delivery-sent-actions{
+    grid-column:3!important;grid-row:1 / 3!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;align-self:center!important
   }
   #taskDetailDrawer .r10-delivery-sent-action{
-    grid-column:3!important;
-    grid-row:1 / 3!important;
-    width:32px!important;
-    height:32px!important;
-    display:grid!important;
-    place-items:center!important;
-    align-self:center!important;
-    border-radius:8px!important;
-    color:#66727b!important;
+    box-sizing:border-box!important;width:31px!important;height:31px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#66727b!important;cursor:pointer!important;text-decoration:none!important
   }
-  #taskDetailDrawer .r10-delivery-sent-action .r10-svg{
-    width:18px!important;
-    height:18px!important;
-    stroke-width:1.85!important;
+  #taskDetailDrawer .r10-delivery-sent-action:hover{background:#f4f6f7!important}
+  #taskDetailDrawer .r10-delivery-sent-action.is-delete:hover{background:#fff1f2!important;color:#df4452!important}
+  #taskDetailDrawer .r10-delivery-sent-action .r10-svg{width:17px!important;height:17px!important;stroke-width:1.8!important}
+  #taskDetailDrawer .r10-delivery-card-head-actions{display:flex!important;align-items:center!important;gap:7px!important}
+  #taskDetailDrawer .r10-delivery-delete{
+    box-sizing:border-box!important;width:28px!important;height:28px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#8a949b!important;cursor:pointer!important
   }
-  #taskDetailDrawer .r10-delivery-sent-downloadable:hover{
-    background:#fbfcfd!important;
+  #taskDetailDrawer .r10-delivery-delete:hover{background:#fff1f2!important;color:#df4452!important}
+  #taskDetailDrawer .r10-delivery-delete .r10-svg{width:15px!important;height:15px!important;stroke-width:1.8!important}
+
+  #taskDetailDrawer .r10-completion-card{
+    box-sizing:border-box!important;min-height:76px!important;margin-top:16px!important;padding:16px 18px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:18px!important;border:1px solid #e2e7ea!important;border-radius:16px!important;background:#fff!important
   }
-  #taskDetailDrawer .r10-delivery-sent-downloadable:hover .r10-delivery-sent-action{
-    background:#f4f6f7!important;
+  #taskDetailDrawer .r10-completion-copy{min-width:0!important;display:flex!important;flex-direction:column!important;gap:4px!important}
+  #taskDetailDrawer .r10-completion-copy strong{color:#151a1e!important;font-size:15px!important;font-weight:700!important;line-height:1.2!important}
+  #taskDetailDrawer .r10-completion-copy span{color:#7f8991!important;font-size:11.5px!important;line-height:1.35!important}
+  #taskDetailDrawer .r10-complete-btn{
+    box-sizing:border-box!important;min-width:150px!important;height:40px!important;margin:0!important;padding:0 15px!important;border:1px solid #171c20!important;border-radius:10px!important;background:#171c20!important;color:#fff!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-size:12px!important;font-weight:650!important;cursor:pointer!important
   }
+  #taskDetailDrawer .r10-complete-btn.secondary{border-color:#d9e0e5!important;background:#fff!important;color:#4f5b64!important}
+  #taskDetailDrawer .r10-complete-btn:disabled{border-color:#e0e5e8!important;background:#e7ebee!important;color:#9aa3aa!important;cursor:not-allowed!important}
   @media(max-width:1050px){
     #taskDetailDrawer .r10-delivery-alt-grid{
       grid-template-columns:1fr!important;

@@ -17,6 +17,14 @@
     if(!Array.isArray(t.deliveries)) t.deliveries=[];
     if(!Array.isArray(t.history)) t.history=[];
     if(!Array.isArray(t.assignees)) t.assignees=[];
+    t.deliveries=t.deliveries.filter(Boolean).map(d=>{
+      if(!d.id)d.id=v5Id('delivery');
+      if(d.text&&!d.note)d.note=d.text;
+      if(!Array.isArray(d.files))d.files=[];
+      if(!Array.isArray(d.links))d.links=[];
+      if(!d.status)d.status='sent';
+      return d;
+    });
     if(setDefault && typeof t.deliveryRequired!=='boolean') t.deliveryRequired=v5Dependents(t).length>0;
     return t;
   }
@@ -166,34 +174,69 @@
     return `<section class="tsection v3-section v5-tree-section"><div class="tsection-head"><div><strong>Fluxo desta execução</strong><span>As etapas continuam sendo tarefas independentes, mas fazem parte do mesmo fluxo.</span></div></div><div class="v5-tree">${v5TreeNode(root,t.id)}</div></section>`;
   }
 
-  function v5FilesHtml(files=[]){
-    return files.map(f=>{
+  function v5FileKind(f){
+    const type=String(f?.type||'').toLowerCase();
+    const name=String(f?.name||'').toLowerCase();
+    if(type.startsWith('image/')||/\.(png|jpg|jpeg|webp|gif|svg|heic)$/.test(name))return 'image';
+    if(type.startsWith('video/')||/\.(mp4|mov|webm|mkv|avi|m4v)$/.test(name))return 'video';
+    if(type.startsWith('audio/')||/\.(mp3|wav|m4a|aac|ogg|flac)$/.test(name))return 'audio';
+    if(type==='application/pdf'||/\.pdf$/.test(name))return 'pdf';
+    if(/\.(zip|rar|7z|tar|gz)$/.test(name))return 'archive';
+    if(type.startsWith('text/')||/\.(txt|md|csv|rtf)$/.test(name))return 'textfile';
+    return 'file';
+  }
+
+  function v5FileMeta(f){
+    const name=String(f?.name||'arquivo');
+    const ext=(name.includes('.')?name.split('.').pop():'ARQ').toUpperCase();
+    const size=String(f?.sizeLabel||f?.size||'').trim();
+    return [ext,size].filter(Boolean).join(' · ');
+  }
+
+  function v5FilesHtml(files=[],deliveryId='',editable=false){
+    return (files||[]).map((f,i)=>{
       const name=esc(f.name||'arquivo');
-      if(f.dataUrl) return `<a class="v5-material" href="${esc(f.dataUrl)}" download="${name}"><span>↓</span><b>${name}</b><small>${esc(f.sizeLabel||'arquivo')}</small></a>`;
-      return `<span class="v5-material"><span>◫</span><b>${name}</b><small>${esc(f.sizeLabel||'arquivo')}</small></span>`;
+      const key=esc(String(deliveryId)+':'+i);
+      const kind=v5FileKind(f);
+      const download=f.dataUrl?'<a href="'+esc(f.dataUrl)+'" download="'+name+'" data-v5-delivery-download="'+key+'" title="Baixar">↓</a>':'';
+      const edit=editable?'<button type="button" data-v5-edit-file="'+key+'" title="Editar nome">✎</button>':'';
+      const del=editable?'<button type="button" data-v5-delete-file="'+key+'" title="Excluir">×</button>':'';
+      return '<div class="v5-material" data-v5-kind="'+kind+'"><span class="v5-material-icon">◫</span><b title="'+name+'">'+name+'</b><small>'+esc(v5FileMeta(f))+'</small><span class="v5-material-actions">'+download+edit+del+'</span></div>';
     }).join('');
   }
 
-  function v5LinksHtml(links=[]){
-    return links.map(l=>`<a class="v5-material" href="${esc(l.url)}" target="_blank" rel="noopener"><span>↗</span><b>${esc(l.label||'Abrir link')}</b><small>link</small></a>`).join('');
+  function v5LinksHtml(links=[],deliveryId='',editable=false){
+    return (links||[]).map((l,i)=>{
+      const key=esc(String(deliveryId)+':'+i);
+      const label=esc(l.label||'Abrir link');
+      const url=esc(l.url||'');
+      const edit=editable?'<button type="button" data-v5-edit-link="'+key+'" title="Editar link">✎</button>':'';
+      const del=editable?'<button type="button" data-v5-delete-link="'+key+'" title="Excluir">×</button>':'';
+      return '<div class="v5-material" data-v5-kind="link"><span class="v5-material-icon">↗</span><b title="'+url+'">'+label+'</b><small>'+url+'</small><span class="v5-material-actions"><a href="'+url+'" target="_blank" rel="noopener" data-v5-open-link="'+key+'" title="Abrir link">↗</a>'+edit+del+'</span></div>';
+    }).join('');
   }
 
-  function v5DeliveryCard(d,sourceTitle=''){
-    return `<article class="v5-delivery-card"><div class="v5-delivery-card-head"><div><strong>${sourceTitle?`Entrega de “${esc(sourceTitle)}”`:'Entrega enviada'}</strong><span>${esc(d.author||'Equipe')} · ${esc(d.at||'Agora')}</span></div><span class="v5-delivery-ok">Enviado</span></div>${d.note?`<p>${esc(d.note)}</p>`:''}<div class="v5-materials">${v5FilesHtml(d.files)}${v5LinksHtml(d.links)}</div></article>`;
+  function v5DeliveryCard(d,sourceTitle='',editable=false){
+    const id=esc(d.id||'');
+    const note=String(d.note||d.text||'').trim();
+    const noteActions=editable?'<span class="v5-material-actions"><button type="button" data-v5-edit-note="'+id+'" title="Editar texto">✎</button><button type="button" data-v5-delete-note="'+id+'" title="Excluir texto">×</button></span>':'';
+    const noteHtml=note?'<div class="v5-material" data-v5-kind="text"><span class="v5-material-icon">T</span><b title="'+esc(note)+'">'+esc(note)+'</b><small>Texto</small>'+noteActions+'</div>':'';
+    const deleteDelivery=editable?'<button type="button" class="v5-delivery-delete" data-v5-delete-delivery="'+id+'" title="Excluir entrega">×</button>':'';
+    return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(d.at||'Agora')+'</span></div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">Enviado</span>'+deleteDelivery+'</span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+'</div></article>';
   }
 
   function v5IncomingHtml(t){
     const incoming=v5Incoming(t);
     if(!incoming.length)return '';
-    return `<section class="tsection v3-section v5-incoming-section"><div class="tsection-head"><div><strong>Materiais recebidos das etapas anteriores</strong><span>O que foi entregue antes já chega nesta tarefa.</span></div><span>${incoming.length}</span></div><div class="v5-delivery-list">${incoming.map(d=>v5DeliveryCard(d,d.sourceTitle)).join('')}</div></section>`;
+    return `<section class="tsection v3-section v5-incoming-section"><div class="tsection-head"><div><strong>Materiais recebidos das etapas anteriores</strong><span>O que foi entregue antes já chega nesta tarefa.</span></div><span>${incoming.length}</span></div><div class="v5-delivery-list">${incoming.map(d=>v5DeliveryCard(d,d.sourceTitle,false)).join('')}</div></section>`;
   }
 
   function v5DeliverySectionHtml(t){
     const sent=v5SentDeliveries(t), required=v5NeedsDelivery(t), blockers=v5Blockers(t);
     return `<section class="tsection v3-section v5-delivery-section"><div class="tsection-head"><div><strong>Entrega desta etapa</strong><span>${required?'Obrigatória para concluir e liberar as próximas tarefas.':'Opcional. Use para registrar o material produzido nesta tarefa.'}</span></div><span class="v5-delivery-state ${sent.length?'sent':required?'pending':''}">${sent.length?'Entrega enviada':required?'Pendente':'Opcional'}</span></div>
-      ${sent.length?`<div class="v5-delivery-list">${sent.slice().reverse().map(d=>v5DeliveryCard(d)).join('')}</div>`:''}
+      ${sent.length?`<div class="v5-delivery-list">${sent.slice().reverse().map(d=>v5DeliveryCard(d,'',true)).join('')}</div>`:''}
       <div class="v5-delivery-compose">
-        <div class="v5-compose-grid"><label class="v5-compose-note">Mensagem da entrega<textarea id="v5DeliveryNote" placeholder="Explique o que está sendo entregue e qualquer orientação para a próxima pessoa."></textarea></label><label>Link do material<input id="v5DeliveryLink" type="url" placeholder="https://drive.google.com/… ou Figma, Docs, etc."></label><label>Nome do link<input id="v5DeliveryLinkLabel" placeholder="Ex.: Copy aprovada"></label><label class="v5-file-field">Arquivo pequeno<input id="v5DeliveryFiles" type="file" multiple accept="image/*,.pdf,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx"><small>Até 1,2 MB no total. Para arquivos grandes, use um link.</small></label></div>
+        <div class="v5-compose-grid"><label class="v5-compose-note">Mensagem da entrega<textarea id="v5DeliveryNote" placeholder="Explique o que está sendo entregue e qualquer orientação para a próxima pessoa."></textarea></label><label>Link do material<input id="v5DeliveryLink" type="url" placeholder="https://drive.google.com/… ou Figma, Docs, etc."></label><label>Nome do link<input id="v5DeliveryLinkLabel" placeholder="Ex.: Copy aprovada"></label><label class="v5-file-field">Arquivo pequeno<input id="v5DeliveryFiles" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.zip,.rar,.7z,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx"><small>Até 1,2 MB no total. Para arquivos grandes, use um link.</small></label></div>
         <div class="v5-delivery-actions"><button type="button" id="v5SendDelivery">Enviar entrega</button><button type="button" class="primary" id="v5SendAndComplete" ${blockers.length?'disabled':''}>Enviar e concluir</button></div>
       </div></section>`;
   }
@@ -204,6 +247,75 @@
 
   function v5ReadFile(file){
     return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve({name:file.name,type:file.type||'',size:file.size,sizeLabel:`${Math.max(1,Math.round(file.size/1024))} KB`,dataUrl:String(r.result||'')});r.onerror=()=>reject(r.error||new Error('Falha ao ler arquivo'));r.readAsDataURL(file)});
+  }
+
+  function v5DeliveryRecord(t,id){
+    v5Normalize(t);
+    return (t.deliveries||[]).find(d=>String(d.id)===String(id))||null;
+  }
+  function v5DeliveryKey(value){
+    const raw=String(value||'');
+    const cut=raw.lastIndexOf(':');
+    return cut<0?{id:raw,index:-1}:{id:raw.slice(0,cut),index:Number(raw.slice(cut+1))};
+  }
+  function v5DeliveryEmpty(d){
+    return !String(d?.note||d?.text||'').trim() && !(d?.files||[]).length && !(d?.links||[]).length;
+  }
+  function v5FinishDeliveryEdit(t,d,message){
+    if(d)v5Normalize(t);
+    if(d&&v5DeliveryEmpty(d))t.deliveries=t.deliveries.filter(x=>String(x.id)!==String(d.id));
+    t.history.unshift({at:'Agora',text:message});
+    v5Persist(false);
+    renderTaskDetailBody(t);
+  }
+  function v5BindDeliveryItemActions(t){
+    document.querySelectorAll('[data-v5-delete-delivery]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const id=btn.dataset.v5DeleteDelivery;
+      if(!confirm('Excluir esta entrega?'))return;
+      t.deliveries=t.deliveries.filter(d=>String(d.id)!==String(id));
+      t.history.unshift({at:'Agora',text:'Entrega excluída.'});
+      v5Persist(false);renderTaskDetailBody(t);showToast('Entrega excluída');
+    }));
+    document.querySelectorAll('[data-v5-edit-note]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const d=v5DeliveryRecord(t,btn.dataset.v5EditNote);if(!d)return;
+      const next=prompt('Editar texto da entrega',String(d.note||d.text||''));if(next===null)return;
+      if(!next.trim()){showToast('O texto não pode ficar vazio.');return;}
+      d.note=next.trim();delete d.text;d.updatedAt=new Date().toISOString();
+      v5FinishDeliveryEdit(t,d,'Texto da entrega editado.');
+    }));
+    document.querySelectorAll('[data-v5-delete-note]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const d=v5DeliveryRecord(t,btn.dataset.v5DeleteNote);if(!d||!confirm('Excluir este texto da entrega?'))return;
+      d.note='';delete d.text;v5FinishDeliveryEdit(t,d,'Texto removido da entrega.');
+    }));
+    document.querySelectorAll('[data-v5-edit-link]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const key=v5DeliveryKey(btn.dataset.v5EditLink),d=v5DeliveryRecord(t,key.id),link=d?.links?.[key.index];if(!link)return;
+      const url=prompt('Editar link',String(link.url||''));if(url===null)return;
+      try{const parsed=new URL(url.trim());if(!/^https?:$/.test(parsed.protocol))throw new Error();}catch{showToast('Use um link válido começando por https://');return;}
+      const label=prompt('Nome do link',String(link.label||'Material da entrega'));if(label===null)return;
+      link.url=url.trim();link.label=label.trim()||'Material da entrega';d.updatedAt=new Date().toISOString();
+      v5FinishDeliveryEdit(t,d,'Link da entrega editado.');
+    }));
+    document.querySelectorAll('[data-v5-delete-link]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const key=v5DeliveryKey(btn.dataset.v5DeleteLink),d=v5DeliveryRecord(t,key.id);if(!d?.links?.[key.index]||!confirm('Excluir este link da entrega?'))return;
+      d.links.splice(key.index,1);v5FinishDeliveryEdit(t,d,'Link removido da entrega.');
+    }));
+    document.querySelectorAll('[data-v5-edit-file]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const key=v5DeliveryKey(btn.dataset.v5EditFile),d=v5DeliveryRecord(t,key.id),file=d?.files?.[key.index];if(!file)return;
+      const name=prompt('Editar nome do arquivo',String(file.name||'arquivo'));if(name===null)return;
+      if(!name.trim()){showToast('O nome do arquivo não pode ficar vazio.');return;}
+      file.name=name.trim();d.updatedAt=new Date().toISOString();v5FinishDeliveryEdit(t,d,'Arquivo da entrega renomeado.');
+    }));
+    document.querySelectorAll('[data-v5-delete-file]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const key=v5DeliveryKey(btn.dataset.v5DeleteFile),d=v5DeliveryRecord(t,key.id);if(!d?.files?.[key.index]||!confirm('Excluir este arquivo da entrega?'))return;
+      d.files.splice(key.index,1);v5FinishDeliveryEdit(t,d,'Arquivo removido da entrega.');
+    }));
   }
 
   async function v5SendDelivery(t,completeAfter=false){
@@ -284,6 +396,7 @@
     document.getElementById('v5DeliveryRequired')?.addEventListener('change',e=>{t.deliveryRequired=e.target.checked;t.history.unshift({at:'Agora',text:e.target.checked?'Entrega obrigatória ativada para esta tarefa.':'Entrega obrigatória desativada para esta tarefa.'});v5Persist(false);renderTaskDetailBody(t)});
     document.getElementById('v5SendDelivery')?.addEventListener('click',()=>v5SendDelivery(t,false));
     document.getElementById('v5SendAndComplete')?.addEventListener('click',()=>v5SendDelivery(t,true));
+    v5BindDeliveryItemActions(t);
     document.querySelectorAll('[data-v5-open-task]').forEach(el=>el.addEventListener('click',()=>openTaskDetail(el.dataset.v5OpenTask)));
   };
 
