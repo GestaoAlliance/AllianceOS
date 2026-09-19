@@ -211,6 +211,11 @@
     topLogo.innerHTML='<div class="ref2-top-logo-icon">✱</div><div class="ref2-top-logo-name">AllianceOS</div>';
 
     const brandWrap=document.createElement('div');brandWrap.className='ref2-brand-wrap';
+    const brandDot=document.createElement('span');brandDot.className='ref2-brand-dot default';brandWrap.appendChild(brandDot);
+    const brandTone=value=>{
+      const n=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      return n.includes('botanika')?'botanika':n.includes('revita')?'revita':n.includes('verme')?'vermefree':n.includes('shoty')?'shoty':'default';
+    };
     if(brand){
       ensureBrands(brand);
       brand.className='ref2-brand-select';
@@ -218,14 +223,14 @@
       const caret=document.createElement('span');caret.className='ref2-brand-caret';
       caret.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>';
       brandWrap.appendChild(caret);
-      const syncWorkspace=()=>{const s=q('.ref2-workspace-copy strong');if(s)s.textContent=/todas/i.test(brand.value)?'Todas as marcas':brand.value};
+      const syncWorkspace=()=>{
+        const value=brand.value;
+        const s=q('.ref2-workspace-copy strong');if(s)s.textContent=/todas/i.test(value)?'Todas as marcas':value;
+        brandDot.className='ref2-brand-dot '+brandTone(value);
+      };
       brand.addEventListener('change',syncWorkspace);syncWorkspace();
       workspace.addEventListener('click',()=>brand.focus());
     }
-
-    const team=document.createElement('button');team.type='button';team.className='ref2-team';team.setAttribute('aria-label','Equipe Botanika · 6 membros');
-    team.innerHTML='<span class="ref2-team-avatar">PL</span><span class="ref2-team-avatar">SN</span><span class="ref2-team-avatar more">+4</span>';
-    team.addEventListener('click',()=>toast('Equipe Botanika · 6 membros'));
 
     const searchWrap=document.createElement('label');searchWrap.className='ref2-search';
     searchWrap.innerHTML=ICONS.search;
@@ -244,7 +249,7 @@
     profile.addEventListener('click',()=>toast('Vitor Gutierrez'));
     actions.append(bell,profile);
 
-    toolbar.append(topLogo,brandWrap,team,searchWrap,actions);
+    toolbar.append(brandWrap,searchWrap,actions);
 
     /* AllianceOS strategy bridge
        Mapa mental -> campanha/TAP -> tarefas, usando as mesmas chaves central.* */

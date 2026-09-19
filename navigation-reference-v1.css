@@ -760,3 +760,40 @@
   border-radius:inherit!important;
   transform:none!important;
 }
+
+
+/* ===== Navigation Reference V3 · lighter topbar matching task reference ===== */
+@media (min-width:901px){
+  html body .global-toolbar{
+    height:66px!important;min-height:66px!important;
+    padding:8px 14px!important;margin:0 0 12px!important;gap:14px!important;
+    border-radius:18px!important;
+  }
+  .ref2-top-logo{display:none!important}
+  .ref2-brand-wrap{flex:0 0 190px!important;width:190px!important;height:46px!important}
+  #brandSelect.ref2-brand-select{
+    height:46px!important;padding:0 38px 0 38px!important;
+    font-weight:540!important;font-size:12px!important;border-radius:11px!important
+  }
+  .ref2-brand-dot{
+    position:absolute!important;left:14px!important;top:50%!important;transform:translateY(-50%)!important;
+    width:9px!important;height:9px!important;border-radius:50%!important;z-index:3!important;pointer-events:none!important;
+    box-shadow:0 0 0 3px #fff!important
+  }
+  .ref2-brand-dot.botanika{background:#69a768!important}
+  .ref2-brand-dot.revita{background:#d28ba3!important}
+  .ref2-brand-dot.vermefree{background:#dda94c!important}
+  .ref2-brand-dot.shoty{background:#827bc9!important}
+  .ref2-brand-dot.default{background:#a3abb1!important}
+  .ref2-search{height:46px!important;min-width:280px!important;padding-left:16px!important;border-radius:11px!important}
+  #globalSearch.ref2-search-input{font-size:12px!important;font-weight:420!important}
+  .ref2-top-actions{gap:8px!important}
+  .ref2-top-bell,.ref2-profile{height:46px!important;border-radius:11px!important}
+  .ref2-top-bell{width:46px!important;min-width:46px!important}
+  .ref2-profile{min-width:76px!important;padding:0 9px!important}
+  .ref2-avatar{width:30px!important;height:30px!important}
+  .ref2-sidebar-name{font-weight:650!important;font-size:17px!important}
+  .ref2-nav-btn{font-weight:470!important;font-size:13px!important}
+  .ref2-workspace-copy strong{font-weight:620!important}
+  html body .main{background:#f5f7f9!important}
+}
