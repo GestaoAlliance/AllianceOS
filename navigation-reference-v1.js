@@ -223,7 +223,8 @@
         const value=brand.value;
         const displayValue=/todas/i.test(value)?'Todas as marcas':value;
         const s=q('.ref2-workspace-copy strong');if(s)s.textContent=displayValue;
-        brandWrap.className='ref2-brand-wrap tone-'+brandTone(value);
+        brandWrap.className='ref2-brand-wrap';
+        brand.className='ref2-brand-select tone-'+brandTone(value);
       };
       brand.addEventListener('change',syncWorkspace);syncWorkspace();
       workspace.addEventListener('click',()=>brand.focus());

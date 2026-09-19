@@ -1001,3 +1001,66 @@
     opacity:1!important;
   }
 }
+
+
+/* ===== Navigation Reference V6 · dot and caret live inside the select ===== */
+@media (min-width:901px){
+  .ref2-brand-wrap::before,
+  .ref2-brand-wrap::after{
+    content:none!important;
+    display:none!important;
+  }
+
+  .ref2-brand-wrap{
+    position:relative!important;
+    flex:0 0 180px!important;
+    width:180px!important;
+    min-width:180px!important;
+    max-width:180px!important;
+    height:46px!important;
+    overflow:hidden!important;
+  }
+
+  #brandSelect.ref2-brand-select{
+    --brand-dot:#a3abb1;
+    position:relative!important;
+    inset:auto!important;
+    display:block!important;
+    width:180px!important;
+    min-width:180px!important;
+    max-width:180px!important;
+    height:46px!important;
+    margin:0!important;
+    padding:0 38px 0 36px!important;
+    opacity:1!important;
+    appearance:none!important;
+    -webkit-appearance:none!important;
+    border:1px solid #dbe1e5!important;
+    border-radius:11px!important;
+    color:#20262b!important;
+    box-sizing:border-box!important;
+    font:560 12px/1 var(--ref-font)!important;
+    text-align:left!important;
+    text-align-last:left!important;
+    cursor:pointer!important;
+    outline:none!important;
+    background-color:#fff!important;
+    background-image:
+      radial-gradient(circle at center, var(--brand-dot) 0 4px, transparent 4.5px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23374047' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 9 5 5 5-5'/%3E%3C/svg%3E")!important;
+    background-repeat:no-repeat,no-repeat!important;
+    background-size:10px 10px,14px 14px!important;
+    background-position:14px center,calc(100% - 13px) center!important;
+  }
+
+  #brandSelect.ref2-brand-select.tone-botanika{--brand-dot:#69a768}
+  #brandSelect.ref2-brand-select.tone-revita{--brand-dot:#d28ba3}
+  #brandSelect.ref2-brand-select.tone-vermefree{--brand-dot:#dda94c}
+  #brandSelect.ref2-brand-select.tone-shoty{--brand-dot:#827bc9}
+  #brandSelect.ref2-brand-select.tone-default{--brand-dot:#a3abb1}
+
+  #brandSelect.ref2-brand-select:focus{
+    border-color:#bdc6cc!important;
+    box-shadow:0 0 0 3px rgba(73,93,108,.08)!important;
+  }
+}
