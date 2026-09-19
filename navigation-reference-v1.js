@@ -231,6 +231,7 @@
       brand.style.setProperty('opacity','0','important');
       brand.style.setProperty('visibility','visible','important');
       brand.style.setProperty('cursor','pointer','important');
+      brand.style.setProperty('pointer-events','none','important');
       brand.style.setProperty('z-index','6','important');
       brand.style.setProperty('border','0','important');
       brand.style.setProperty('border-radius','0','important');
@@ -249,6 +250,29 @@
         workspace.setAttribute('aria-label','Marca atual: '+displayValue+'. Clique para trocar.');
       };
       brand.addEventListener('change',syncWorkspace);syncWorkspace();
+
+      workspace.setAttribute('role','button');
+      workspace.setAttribute('tabindex','0');
+      workspace.style.setProperty('cursor','pointer','important');
+      const openBrandPicker=()=>{
+        try{
+          if(typeof brand.showPicker==='function'){
+            brand.showPicker();
+            return;
+          }
+        }catch{}
+        brand.style.setProperty('pointer-events','auto','important');
+        brand.focus({preventScroll:true});
+        brand.click();
+        setTimeout(()=>brand.style.setProperty('pointer-events','none','important'),0);
+      };
+      workspace.addEventListener('click',openBrandPicker);
+      workspace.addEventListener('keydown',(e)=>{
+        if(e.key==='Enter'||e.key===' '){
+          e.preventDefault();
+          openBrandPicker();
+        }
+      });
     }
 
     const searchWrap=document.createElement('label');searchWrap.className='ref2-search';
