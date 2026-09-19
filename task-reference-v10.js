@@ -430,8 +430,12 @@
         const drop=document.createElement('label');
         drop.className='r10-delivery-dropzone';
         drop.setAttribute('for','v5DeliveryFiles');
-        drop.innerHTML='<span class="r10-delivery-drop-icon">'+r10Icon('uploadCloud')+'</span><span class="r10-delivery-drop-copy"><strong>Arraste e solte os arquivos aqui</strong><span>ou clique para anexar</span><small>Imagens, PDFs, ZIP, até 1,2 MB</small></span>';
+        drop.innerHTML='<span class="r10-delivery-drop-icon">'+r10Icon('folderSolid')+'</span><span class="r10-delivery-drop-copy"><strong>Arraste e solte os arquivos aqui</strong><span>ou clique para anexar</span><small>Imagens, PDFs, ZIP, até 1,2 MB</small></span>';
         drop.appendChild(fileInput);
+
+        const switcher=document.createElement('div');
+        switcher.className='r10-delivery-mode-switch';
+        switcher.innerHTML='<button type="button" class="r10-delivery-mode-btn is-active" data-r10-delivery-mode="file">'+r10Icon('folderSolid')+'<span>Enviar arquivo</span></button><button type="button" class="r10-delivery-mode-btn" data-r10-delivery-mode="alt">'+r10Icon('link')+'<span>Texto ou link</span></button>';
 
         const bar=document.createElement('div');
         bar.className='r10-delivery-files-bar';
@@ -441,7 +445,25 @@
         if(sendCompleteBtn)actions.appendChild(sendCompleteBtn);
 
         if(legacyGrid)legacyGrid.remove();
-        compose.prepend(drop,alternatives,bar);
+        alternatives.hidden=true;
+        compose.prepend(switcher,drop,alternatives,bar);
+
+        const setDeliveryMode=mode=>{
+          const altMode=mode==='alt';
+          drop.hidden=altMode;
+          alternatives.hidden=!altMode;
+          switcher.querySelectorAll('[data-r10-delivery-mode]').forEach(btn=>{
+            const active=btn.dataset.r10DeliveryMode===mode;
+            btn.classList.toggle('is-active',active);
+            btn.setAttribute('aria-pressed',active?'true':'false');
+          });
+        };
+        switcher.querySelectorAll('[data-r10-delivery-mode]').forEach(btn=>btn.addEventListener('click',e=>{
+          e.preventDefault();
+          e.stopPropagation();
+          setDeliveryMode(btn.dataset.r10DeliveryMode);
+        }));
+        setDeliveryMode('file');
 
         const syncDeliveryState=()=>{
           const selected=[...(fileInput.files||[])];
@@ -1649,6 +1671,47 @@
     border:0!important;
     background:transparent!important;
   }
+  #taskDetailDrawer .r10-delivery-mode-switch{
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    margin:0 18px 12px!important;
+  }
+  #taskDetailDrawer .r10-delivery-mode-btn{
+    box-sizing:border-box!important;
+    height:36px!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:7px!important;
+    padding:0 11px!important;
+    border:1px solid #dce2e6!important;
+    border-radius:10px!important;
+    background:#fff!important;
+    color:#68737c!important;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    font-size:11.5px!important;
+    font-weight:600!important;
+    line-height:1!important;
+    cursor:pointer!important;
+  }
+  #taskDetailDrawer .r10-delivery-mode-btn .r10-svg{
+    width:16px!important;
+    height:16px!important;
+    min-width:16px!important;
+    margin:0!important;
+    stroke-width:1.75!important;
+  }
+  #taskDetailDrawer .r10-delivery-mode-btn.is-active{
+    background:#f3f5f6!important;
+    border-color:#cfd8de!important;
+    color:#222b31!important;
+  }
+  #taskDetailDrawer .r10-delivery-dropzone[hidden],
+  #taskDetailDrawer .r10-delivery-alternatives[hidden]{
+    display:none!important;
+  }
+
   #taskDetailDrawer .r10-delivery-alternatives{
     box-sizing:border-box!important;
     margin:0 18px 16px!important;
@@ -1773,14 +1836,17 @@
     align-items:center!important;
     justify-content:center!important;
     border-radius:999px!important;
-    background:#eef1f3!important;
-    color:#20272c!important;
+    background:#edf0f2!important;
+    color:#7f8a92!important;
   }
   #taskDetailDrawer .r10-delivery-drop-icon .r10-svg{
-    width:27px!important;
-    height:27px!important;
+    display:block!important;
+    width:28px!important;
+    height:28px!important;
+    min-width:28px!important;
     margin:0!important;
-    stroke-width:1.75!important;
+    color:#7f8a92!important;
+    stroke-width:1.6!important;
   }
   #taskDetailDrawer .r10-delivery-drop-copy{
     display:flex!important;
