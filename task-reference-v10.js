@@ -564,11 +564,11 @@
     align-items:center!important;
     justify-content:flex-start!important;
     gap:8px!important;
-    height:40px!important;
-    min-height:40px!important;
+    height:39px!important;
+    min-height:39px!important;
     max-width:320px!important;
     margin:0!important;
-    padding:0 12px!important;
+    padding:0 11px!important;
     border:1px solid #d9dee3!important;
     border-radius:10px!important;
     background:#fff!important;
@@ -634,20 +634,23 @@
   }
 
   #taskDetailDrawer .r10-head-chip.priority{
-    background:#fff!important;
-    border-color:#d9dee3!important;
-    color:#5d6770!important;
+    background:#f5f7f8!important;
+    border-color:#dfe4e8!important;
+    color:#56616a!important;
   }
   #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon{
-    width:16px!important;
-    height:16px!important;
-    min-width:16px!important;
-    flex-basis:16px!important;
+    width:18px!important;
+    height:18px!important;
+    min-width:18px!important;
+    flex-basis:18px!important;
+    border-radius:6px!important;
+    background:#e9edf0!important;
+    color:#68747d!important;
   }
   #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon .r10-svg{
-    width:16px!important;
-    height:16px!important;
-    color:#7d8790!important;
+    width:13px!important;
+    height:13px!important;
+    color:#68747d!important;
   }
   #taskDetailDrawer .r10-head-chip.priority-high,
   #taskDetailDrawer .r10-head-chip.priority-urgent{
@@ -655,8 +658,15 @@
     border-color:#f6cfd5!important;
     color:#ef3f4d!important;
   }
+  #taskDetailDrawer .r10-head-chip.priority-high .r10-head-chip-icon,
+  #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon{
+    background:transparent!important;
+    color:#ef3f4d!important;
+  }
   #taskDetailDrawer .r10-head-chip.priority-high .r10-head-chip-icon .r10-svg,
   #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon .r10-svg{
+    width:16px!important;
+    height:16px!important;
     color:#ef3f4d!important;
   }
   #taskDetailDrawer .r10-head-chip.priority-low{
