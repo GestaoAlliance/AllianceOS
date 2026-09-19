@@ -215,7 +215,7 @@
       ensureBrands(brand);
       brand.className='ref2-workspace-select';
       workspace.style.setProperty('position','relative','important');
-      workspace.style.setProperty('overflow','hidden','important');
+      workspace.style.setProperty('overflow','visible','important');
       brand.style.setProperty('position','absolute','important');
       brand.style.setProperty('inset','0','important');
       brand.style.setProperty('left','0','important');
@@ -254,24 +254,89 @@
       workspace.setAttribute('role','button');
       workspace.setAttribute('tabindex','0');
       workspace.style.setProperty('cursor','pointer','important');
-      const openBrandPicker=()=>{
-        try{
-          if(typeof brand.showPicker==='function'){
-            brand.showPicker();
-            return;
-          }
-        }catch{}
-        brand.style.setProperty('pointer-events','auto','important');
-        brand.focus({preventScroll:true});
-        brand.click();
-        setTimeout(()=>brand.style.setProperty('pointer-events','none','important'),0);
+
+      // Custom brand menu instead of the browser's native select picker.
+      // The native picker was opening and immediately closing in Chrome.
+      const brandMenu=document.createElement('div');
+      brandMenu.className='ref2-workspace-menu';
+      brandMenu.setAttribute('role','listbox');
+      brandMenu.hidden=true;
+      Object.assign(brandMenu.style,{
+        position:'absolute',
+        left:'0',
+        right:'0',
+        bottom:'calc(100% + 8px)',
+        zIndex:'9999',
+        padding:'6px',
+        border:'1px solid #dfe4e7',
+        borderRadius:'12px',
+        background:'#fff',
+        boxShadow:'0 14px 34px rgba(20,28,34,.14)',
+        maxHeight:'260px',
+        overflowY:'auto'
+      });
+      workspace.appendChild(brandMenu);
+
+      const renderBrandMenu=()=>{
+        brandMenu.replaceChildren();
+        [...brand.options].forEach((opt)=>{
+          const value=opt.value||opt.textContent;
+          const btn=document.createElement('button');
+          btn.type='button';
+          btn.setAttribute('role','option');
+          btn.setAttribute('aria-selected',String(value===brand.value));
+          btn.textContent=opt.textContent;
+          Object.assign(btn.style,{
+            width:'100%',
+            height:'38px',
+            padding:'0 10px',
+            border:'0',
+            borderRadius:'9px',
+            background:value===brand.value?'#f1f4f5':'transparent',
+            color:'#252b30',
+            textAlign:'left',
+            font:'600 11px/1 Inter,system-ui,sans-serif',
+            cursor:'pointer'
+          });
+          btn.addEventListener('mouseenter',()=>{if(value!==brand.value)btn.style.background='#f7f8f9';});
+          btn.addEventListener('mouseleave',()=>{btn.style.background=value===brand.value?'#f1f4f5':'transparent';});
+          btn.addEventListener('click',(e)=>{
+            e.preventDefault();
+            e.stopPropagation();
+            if(brand.value!==value){
+              brand.value=value;
+              brand.dispatchEvent(new Event('change',{bubbles:true}));
+            }
+            brandMenu.hidden=true;
+            const arrow=q('.ref2-workspace-arrow',workspace);if(arrow)arrow.textContent='⌄';
+          });
+          brandMenu.appendChild(btn);
+        });
       };
-      workspace.addEventListener('click',openBrandPicker);
+
+      const setBrandMenuOpen=(open)=>{
+        if(open)renderBrandMenu();
+        brandMenu.hidden=!open;
+        const arrow=q('.ref2-workspace-arrow',workspace);if(arrow)arrow.textContent=open?'⌃':'⌄';
+      };
+
+      workspace.addEventListener('click',(e)=>{
+        if(brandMenu.contains(e.target))return;
+        e.preventDefault();
+        e.stopPropagation();
+        setBrandMenuOpen(brandMenu.hidden);
+      });
       workspace.addEventListener('keydown',(e)=>{
         if(e.key==='Enter'||e.key===' '){
           e.preventDefault();
-          openBrandPicker();
+          setBrandMenuOpen(brandMenu.hidden);
+        }else if(e.key==='Escape'){
+          setBrandMenuOpen(false);
         }
+      });
+      brandMenu.addEventListener('click',(e)=>e.stopPropagation());
+      document.addEventListener('click',(e)=>{
+        if(!workspace.contains(e.target))setBrandMenuOpen(false);
       });
     }
 
