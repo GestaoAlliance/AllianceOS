@@ -107,6 +107,7 @@
       window.AllianceOSDirectory={members:[],lists:[],brands:[]};
       return;
     }
+    try{await state.sb.rpc('aceitar_meu_convite');}catch(e){console.warn('[AllianceOS invite acceptance]',e);}
     const [profileR,profilesR,brandsR,areasR,listsR,linksR,invitesR,tasks]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('ativo',true).order('nome'),
@@ -139,7 +140,10 @@
     }
     const linked=new Set(state.links.map(x=>norm(x.legacy_name)));
     const inviteByEmail=new Map(state.invites.map(x=>[norm(x.email),x]));
-    state.members=(profilesR.data||[]).map(p=>{
+    state.members=(profilesR.data||[]).filter(p=>{
+      const c=inviteByEmail.get(norm(p.email));
+      return !c||!!c.aceito_em;
+    }).map(p=>{
       const c=inviteByEmail.get(norm(p.email));
       return {...p,tipo:'usuario',atribuivel:true,
         convite_status:c?.aceito_em?'aceito':(c?.envio_status||null),
@@ -158,7 +162,7 @@
       }
     }
     for(const c of state.invites){
-      if(c.aceito_em||(profilesR.data||[]).some(p=>norm(p.email)===norm(c.email)))continue;
+      if(c.aceito_em)continue;
       state.members.push({id:'convite:'+c.email,nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,tipo:'convite_pendente',atribuivel:false,
         convite_status:c.envio_status||'pendente',convite_enviado_em:c.enviado_em||null,convite_ultimo_envio_em:c.ultimo_envio_em||null,
         convite_erro:c.envio_erro||null,convite_aceito_em:c.aceito_em||null,convite_tentativas:Number(c.tentativas_envio||0)});

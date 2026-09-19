@@ -247,7 +247,10 @@ async function memberDirectory(supabase:any) {
   const inviteByEmail=new Map(invites.map((x:AnyRow)=>[norm(x.email),x]))
   const links=linksResult.data||[]
   const linked=new Set(links.map((x:AnyRow)=>norm(x.legacy_name)))
-  const rows:AnyRow[]=profiles.map((p:AnyRow)=>{
+  const rows:AnyRow[]=profiles.filter((p:AnyRow)=>{
+    const c=inviteByEmail.get(norm(p.email))
+    return !c || !!c.aceito_em
+  }).map((p:AnyRow)=>{
     const c=inviteByEmail.get(norm(p.email))
     return {
       id:String(p.id),nome:p.nome||p.email,email:p.email,papel:p.papel,cargo:p.cargo,tipo:'usuario',atribuivel:true,
@@ -269,7 +272,6 @@ async function memberDirectory(supabase:any) {
   }
   for(const c of invites){
     if(c.aceito_em) continue
-    if(profiles.some((p:AnyRow)=>norm(p.email)===norm(c.email))) continue
     rows.push({
       id:'convite:'+String(c.email),nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,
       tipo:'convite_pendente',atribuivel:false,
@@ -591,8 +593,11 @@ const protectedHandler = withOAuthProtectedResource(
       }, async (args:AnyRow) => {
         const who=await requireAdmin(supabase)
         const email=args.email.toLowerCase().trim()
-        const {data:existingProfile}=await supabase.from('profiles').select('id,nome,email,ativo').eq('email',email).maybeSingle()
-        if(existingProfile?.ativo) throw new Error('Este e-mail já possui um usuário real ativo no AllianceOS.')
+        const [{data:existingProfile},{data:existingInvite}]=await Promise.all([
+          supabase.from('profiles').select('id,nome,email,ativo').eq('email',email).maybeSingle(),
+          supabase.from('equipe_convites').select('email,aceito_em').eq('email',email).maybeSingle(),
+        ])
+        if(existingProfile?.ativo && (!existingInvite || existingInvite.aceito_em)) throw new Error('Este e-mail já possui um usuário real ativo no AllianceOS.')
         const brandIds:string[]=[]
         for(const input of args.marcas||[]){
           const b=await resolveBrand(supabase,input)
