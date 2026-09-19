@@ -810,72 +810,34 @@
     padding:0!important;
     margin:0 0 12px!important;
     overflow:visible!important;
-    background:transparent!important;
-    border:0!important;
-    border-radius:0!important;
-    box-shadow:none!important;
-    backdrop-filter:none!important;
+    background:#fff!important;
+    border:1px solid var(--ref-line)!important;
+    border-radius:18px!important;
+    box-shadow:0 9px 28px rgba(28,35,40,.025)!important;
+    backdrop-filter:blur(16px)!important;
   }
 
-  html body .global-toolbar > .ref2-brand-wrap{
-    position:absolute!important;
-    left:12px!important;
-    top:50%!important;
-    transform:translateY(-50%)!important;
-    width:180px!important;
-    min-width:180px!important;
-    max-width:180px!important;
-    height:46px!important;
+  /* O seletor de marca existe somente no card inferior da sidebar. */
+  html body .global-toolbar > .ref2-brand-wrap,
+  html body .global-toolbar > #brandSelect,
+  html body .global-toolbar > .side-select,
+  html body .global-toolbar > select[aria-label*="marca" i]{
+    display:none!important;
+    visibility:hidden!important;
+    width:0!important;
+    height:0!important;
+    min-width:0!important;
+    min-height:0!important;
     margin:0!important;
     padding:0!important;
+    border:0!important;
+    opacity:0!important;
+    pointer-events:none!important;
   }
-
-  html body .global-toolbar > .ref2-brand-wrap > #brandSelect.ref2-brand-select{
-    --brand-dot:#a3abb1;
-    position:absolute!important;
-    inset:0!important;
-    left:0!important;
-    top:0!important;
-    right:0!important;
-    bottom:0!important;
-    transform:none!important;
-    display:block!important;
-    width:100%!important;
-    min-width:0!important;
-    max-width:none!important;
-    height:100%!important;
-    margin:0!important;
-    padding:0 38px 0 36px!important;
-    box-sizing:border-box!important;
-    opacity:1!important;
-    appearance:none!important;
-    -webkit-appearance:none!important;
-    border:1px solid #dbe1e5!important;
-    border-radius:11px!important;
-    color:#20262b!important;
-    font:560 12px/1 var(--ref-font)!important;
-    text-align:left!important;
-    text-align-last:left!important;
-    cursor:pointer!important;
-    outline:none!important;
-    background-color:#fff!important;
-    background-image:
-      radial-gradient(circle at center, var(--brand-dot) 0 4px, transparent 4.5px),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23374047' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 9 5 5 5-5'/%3E%3C/svg%3E")!important;
-    background-repeat:no-repeat,no-repeat!important;
-    background-size:10px 10px,14px 14px!important;
-    background-position:14px center,calc(100% - 13px) center!important;
-  }
-
-  #brandSelect.ref2-brand-select.tone-botanika{--brand-dot:#69a768}
-  #brandSelect.ref2-brand-select.tone-revita{--brand-dot:#d28ba3}
-  #brandSelect.ref2-brand-select.tone-vermefree{--brand-dot:#dda94c}
-  #brandSelect.ref2-brand-select.tone-shoty{--brand-dot:#827bc9}
-  #brandSelect.ref2-brand-select.tone-default{--brand-dot:#a3abb1}
 
   html body .global-toolbar > .ref2-search{
     position:absolute!important;
-    left:192px!important;
+    left:12px!important;
     right:166px!important;
     top:50%!important;
     transform:translateY(-50%)!important;
