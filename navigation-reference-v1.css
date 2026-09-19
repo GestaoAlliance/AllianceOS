@@ -800,18 +800,14 @@
 
 
 /* ===== Navigation Reference V12 · canonical toolbar layout ===== */
-@media (min-width:901px){
+@media (min-width:1251px){
   html body .global-toolbar{
     box-sizing:border-box!important;
-    display:flex!important;
-    flex-direction:row!important;
-    flex-wrap:nowrap!important;
-    align-items:center!important;
-    justify-content:flex-start!important;
-    gap:10px!important;
+    display:block!important;
+    position:relative!important;
     height:66px!important;
     min-height:66px!important;
-    padding:8px 12px!important;
+    padding:0!important;
     margin:0 0 12px!important;
     overflow:visible!important;
     background:#fff!important;
@@ -820,9 +816,10 @@
   }
 
   html body .global-toolbar > .ref2-brand-wrap{
-    order:1!important;
-    position:relative!important;
-    flex:0 0 180px!important;
+    position:absolute!important;
+    left:12px!important;
+    top:50%!important;
+    transform:translateY(-50%)!important;
     width:180px!important;
     min-width:180px!important;
     max-width:180px!important;
@@ -831,11 +828,12 @@
   }
 
   html body .global-toolbar > .ref2-search{
-    order:2!important;
-    position:relative!important;
-    flex:0 0 760px!important;
-    width:760px!important;
-    min-width:0!important;
+    position:absolute!important;
+    left:202px!important;
+    top:50%!important;
+    transform:translateY(-50%)!important;
+    width:min(760px,calc(100% - 430px))!important;
+    min-width:420px!important;
     max-width:760px!important;
     height:46px!important;
     margin:0!important;
@@ -844,8 +842,10 @@
   }
 
   html body .global-toolbar > .ref2-top-actions{
-    order:3!important;
-    flex:0 0 auto!important;
+    position:absolute!important;
+    right:12px!important;
+    top:50%!important;
+    transform:translateY(-50%)!important;
     display:flex!important;
     align-items:center!important;
     justify-content:flex-end!important;
@@ -853,7 +853,7 @@
     width:auto!important;
     min-width:0!important;
     max-width:none!important;
-    margin:0 0 0 auto!important;
+    margin:0!important;
   }
 
   .ref2-top-logo,
@@ -933,6 +933,22 @@
 }
 
 @media (min-width:901px) and (max-width:1250px){
+  html body .global-toolbar{
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    gap:10px!important;
+    height:66px!important;
+    min-height:66px!important;
+    padding:8px 12px!important;
+    margin:0 0 12px!important;
+    background:#fff!important;
+    border:1px solid var(--ref-line)!important;
+    border-radius:18px!important;
+  }
+
   html body .global-toolbar > .ref2-brand-wrap,
   #brandSelect.ref2-brand-select{
     flex-basis:165px!important;
@@ -942,9 +958,22 @@
   }
 
   html body .global-toolbar > .ref2-search{
+    position:relative!important;
+    left:auto!important;
+    top:auto!important;
+    transform:none!important;
     flex:1 1 auto!important;
     width:auto!important;
     min-width:220px!important;
     max-width:620px!important;
+    margin:0!important;
+  }
+
+  html body .global-toolbar > .ref2-top-actions{
+    position:relative!important;
+    right:auto!important;
+    top:auto!important;
+    transform:none!important;
+    margin-left:auto!important;
   }
 }
