@@ -201,7 +201,8 @@
     if($('#allianceProfileStyles'))return;
     const st=document.createElement('style');st.id='allianceProfileStyles';
     st.textContent=[
-      '.ref2-avatar,.ref2-team-avatar,.mini-av,.bigav,.r10-step-avatar,.cav{overflow:hidden}',
+      '.ref2-avatar,.ref2-team-avatar,.mini-av,.bigav,.r10-step-avatar,.cav{overflow:hidden!important;aspect-ratio:1/1!important;flex-shrink:0!important}',
+      '.ref2-avatar img,.ref2-team-avatar img,.mini-av img,.bigav img,.r10-step-avatar img,.cav img{display:block!important;width:100%!important;height:100%!important;min-width:100%!important;min-height:100%!important;max-width:none!important;max-height:none!important;object-fit:cover!important;object-position:center center!important;aspect-ratio:1/1!important;border-radius:inherit!important}',
       '.aa-profile-modal{position:fixed;inset:0;z-index:100200;display:none;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}',
       '.aa-profile-modal.open{display:block}',
       '.aa-profile-backdrop{position:absolute;inset:0;background:rgba(17,22,26,.46);backdrop-filter:blur(4px)}',
