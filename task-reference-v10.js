@@ -28,7 +28,12 @@
       hourglass:'<path d="M7 3h10M7 21h10M8 3c0 4 1 6 4 9-3 3-4 5-4 9M16 3c0 4-1 6-4 9 3 3 4 5 4 9"/>',
       review:'<circle cx="12" cy="12" r="8"/><path d="m10 8 5 4-5 4z"/>',
       send:'<path d="m4 12 16-8-5 16-3-6-8-2Z"/><path d="m12 14 3-3"/>',
-      chart:'<path d="M5 19V9M10 19V5M15 19v-7M20 19V3"/><path d="M3 19h19"/>'
+      chart:'<path d="M5 19V9M10 19V5M15 19v-7M20 19V3"/><path d="M3 19h19"/>',
+      chevronUp:'<path d="m8 14 4-4 4 4"/>',
+      running:'<circle cx="12" cy="12" r="6.5"/>',
+      blocked:'<rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 12h6"/>',
+      waiting:'<path d="m9 7 7 5-7 5Z"/>',
+      reviewState:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.2"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -128,23 +133,31 @@
   const r10MetaPill = (icon,label,kind='') => '<span class="r10-pill '+kind+'">'+r10Icon(icon)+'<span>'+r10Esc(label)+'</span></span>';
 
   const r10StatusClass = value => 'status-'+r10Norm(value).replace(/\s+/g,'-');
-  const r10StatusSymbol = value => {
+  const r10StatusIcon = value => {
     const n=r10Norm(value);
-    if(n==='concluida')return '✓';
-    if(n==='em andamento')return '○';
-    if(n==='bloqueada')return '⌛';
-    if(n==='em revisao')return '◉';
-    return '▣';
+    if(n==='concluida')return r10Icon('done');
+    if(n==='em andamento')return r10Icon('running');
+    if(n==='bloqueada')return r10Icon('blocked');
+    if(n==='em revisao')return r10Icon('reviewState');
+    return r10Icon('waiting');
   };
-  const r10FlowState = (campaign,rows) => {
+  const r10FlowDisplayStatus = (x,currentId) => {
+    if(x.status==='feito')return 'Concluída';
+    if(x.status==='bloqueado'||r10Deps(x).some(d=>d.status!=='feito'))return 'Bloqueada';
+    if(x.status==='em revisão')return 'Em revisão';
+    if(x.status==='fazendo'||x.status==='em andamento'||String(x.id)===String(currentId))return 'Em andamento';
+    return 'Pendente';
+  };
+  const r10FlowState = (campaign,rows,currentId) => {
     const c=r10Norm(campaign?.status);
     if(c.includes('conclu'))return 'Concluída';
     if(c.includes('execu')||c.includes('prepar')||c.includes('leitura'))return 'Em andamento';
     if(c.includes('bloq'))return 'Bloqueada';
-    if(c.includes('planej'))return 'Pendente';
-    if(rows.every(x=>x.status==='feito'))return 'Concluída';
-    if(rows.some(x=>r10Status(x)==='Em andamento'))return 'Em andamento';
-    if(rows.some(x=>r10Status(x)==='Bloqueada'))return 'Bloqueada';
+    if(rows.length&&rows.every(x=>x.status==='feito'))return 'Concluída';
+    const executable=rows.some(x=>r10FlowDisplayStatus(x,currentId)==='Em andamento');
+    if(executable)return 'Em andamento';
+    const blocked=rows.some(x=>r10FlowDisplayStatus(x,currentId)==='Bloqueada');
+    if(blocked&&rows.every(x=>['Bloqueada','Concluída'].includes(r10FlowDisplayStatus(x,currentId))))return 'Bloqueada';
     return 'Pendente';
   };
   const r10CampaignSubtitle = campaign => {
@@ -180,8 +193,8 @@
     if(indexes.length===1)return 'Depende da tarefa '+indexes[0];
     return 'Depende das tarefas '+indexes.slice(0,-1).join(', ')+' e '+indexes[indexes.length-1];
   };
-  const r10StepIcon = t => {
-    const status=r10Status(t), n=r10Norm(t?.title);
+  const r10StepIcon = (t,status) => {
+    const n=r10Norm(t?.title);
     if(status==='Concluída')return r10Icon('done');
     if(status==='Bloqueada')return r10Icon('hourglass');
     if(/arte|criativ|design|banner|imagem|foto/.test(n))return r10Icon('image');
@@ -191,11 +204,10 @@
     if(/brief|copy|texto|roteir|conteudo/.test(n))return r10Icon('document');
     return r10Icon('task');
   };
-  const r10FlowStateHtml = state => '<span class="r10-flow-state state-'+r10Norm(state).replace(/\s+/g,'-')+'"><span class="r10-status-symbol">'+r10StatusSymbol(state)+'</span><span>'+r10Esc(state)+'</span></span>';
-  const r10StepStatusHtml = t => {
-    const status=r10Status(t);
-    if(status==='Concluída')return '<small class="r10-step-completed">✓ '+r10Esc(r10CompletionLabel(t))+'</small>';
-    return '<span class="r10-step-status '+r10StatusClass(status)+'"><span class="r10-status-symbol">'+r10StatusSymbol(status)+'</span><span>'+r10Esc(status)+'</span></span>';
+  const r10FlowStateHtml = state => '<span class="r10-flow-state state-'+r10Norm(state).replace(/\s+/g,'-')+'"><span class="r10-status-symbol">'+r10StatusIcon(state)+'</span><span>'+r10Esc(state)+'</span></span>';
+  const r10StepStatusHtml = (t,status) => {
+    if(status==='Concluída')return '<small class="r10-step-completed">'+r10StatusIcon(status)+'<span>'+r10Esc(r10CompletionLabel(t))+'</span></small>';
+    return '<span class="r10-step-status '+r10StatusClass(status)+'"><span class="r10-status-symbol">'+r10StatusIcon(status)+'</span><span>'+r10Esc(status)+'</span></span>';
   };
 
   function r10FlowHtml(t,rows){
@@ -205,9 +217,9 @@
     const done=rows.filter(x=>x.status==='feito').length, pct=rows.length?Math.round(done/rows.length*100):0;
     const flowTitle=linked?'Execução da Campanha':'Fluxo da tarefa';
     const flowSubtitle=linked?r10CampaignSubtitle(campaign):(hasStandaloneFlow?'Subtarefas, etapas e dependências':'Tarefa avulsa');
-    const flowState=linked?r10FlowState(campaign,rows):(hasStandaloneFlow?r10FlowState(null,rows):'Pendente');
+    const flowState=r10FlowState(linked?campaign:null,rows,t.id);
     const flowIcon=linked?r10Icon('campaign'):r10Icon('task');
-    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">'+flowIcon+'</span><div class="r10-flow-head-copy"><strong>'+r10Esc(flowTitle)+'</strong><span title="'+r10Esc(flowSubtitle)+'">'+r10Esc(flowSubtitle)+'</span></div></div>'+r10FlowStateHtml(flowState);
+    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">'+flowIcon+'</span><div class="r10-flow-head-copy"><strong>'+r10Esc(flowTitle)+'</strong><span title="'+r10Esc(flowSubtitle)+'">'+r10Esc(flowSubtitle)+'</span></div><span class="r10-flow-chevron" aria-hidden="true">'+r10Icon('chevronUp')+'</span></div>'+r10FlowStateHtml(flowState);
     if(linked||hasStandaloneFlow){
       html+='<div class="r10-progress-copy"><b>'+done+' de '+rows.length+' tarefas concluídas</b><span>'+pct+'%</span></div><div class="r10-progress"><i style="width:'+pct+'%"></i></div>';
     }else{
@@ -215,14 +227,15 @@
     }
     html+='<div class="r10-flow-list">';
     rows.forEach(function(x,i){
-      const status=r10Status(x), stateClass=' '+r10StatusClass(status);
+      const status=r10FlowDisplayStatus(x,t.id), stateClass=' '+r10StatusClass(status);
       const cl=(x.status==='feito'?' done':'')+(String(x.id)===String(t.id)?' current':'')+stateClass;
       const dependency=r10DependencyLabel(x,rows);
       const blockedReason=!dependency&&status==='Bloqueada'&&x.blockedReason?String(x.blockedReason):'';
       const meta=dependency||blockedReason;
       const who=(x.assignees||[])[0]||'';
-      const avatar=who?'<span class="r10-step-avatar">'+r10AvatarInner(who,(x.assigneeIds||[])[0])+'</span>':'';
-      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+r10StepIcon(x)+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b>'+r10StepStatusHtml(x)+(meta?'<small class="r10-step-meta">'+r10Esc(meta)+'</small>':'')+'</span>'+avatar+'</button>';
+      const showAvatar=!!who&&(String(x.id)===String(t.id)||status==='Em andamento');
+      const avatar=showAvatar?'<span class="r10-step-avatar">'+r10AvatarInner(who,(x.assigneeIds||[])[0])+'</span>':'';
+      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+r10StepIcon(x,status)+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b>'+r10StepStatusHtml(x,status)+(meta?'<small class="r10-step-meta">'+r10Esc(meta)+'</small>':'')+'</span>'+avatar+'</button>';
     });
     return html+'</div></aside>';
   }
@@ -356,38 +369,243 @@
   const r10FlowStyle=document.createElement('style');
   r10FlowStyle.id='r10-flow-reference-polish';
   r10FlowStyle.textContent=`
-  #taskDetailDrawer .r10-flow{overflow-x:hidden!important;padding:20px 16px 18px!important}
-  #taskDetailDrawer .r10-flow-head{gap:11px!important;padding:0 2px 12px!important}
-  #taskDetailDrawer .r10-flow-head-copy span{display:-webkit-box!important;margin-top:5px!important;line-height:1.35!important;white-space:normal!important;overflow:hidden!important;text-overflow:ellipsis!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow-wrap:anywhere!important}
-  #taskDetailDrawer .r10-flow-state{display:flex!important;width:max-content!important;align-items:center!important;gap:5px!important;margin:0 2px 16px auto!important;padding:5px 9px!important;border-radius:999px!important;font-size:9px!important;font-weight:650!important}
+  #taskDetailDrawer .r10-flow{
+    overflow-x:hidden!important;
+    padding:20px 16px 18px!important;
+  }
+  #taskDetailDrawer .r10-flow-head{
+    display:grid!important;
+    grid-template-columns:36px minmax(0,1fr) 24px!important;
+    align-items:start!important;
+    gap:11px!important;
+    padding:0 2px 10px!important;
+  }
+  #taskDetailDrawer .r10-flow-head-copy strong{
+    font-size:15px!important;
+    line-height:1.12!important;
+    font-weight:720!important;
+  }
+  #taskDetailDrawer .r10-flow-head-copy span{
+    display:-webkit-box!important;
+    margin-top:5px!important;
+    line-height:1.35!important;
+    white-space:normal!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    overflow-wrap:anywhere!important;
+  }
+  #taskDetailDrawer .r10-flow-chevron{
+    width:24px!important;
+    height:24px!important;
+    display:grid!important;
+    place-items:center!important;
+    color:#758089!important;
+    margin-top:1px!important;
+  }
+  #taskDetailDrawer .r10-flow-chevron .r10-svg{width:15px!important;height:15px!important}
+  #taskDetailDrawer .r10-flow-state{
+    display:flex!important;
+    width:max-content!important;
+    align-items:center!important;
+    gap:5px!important;
+    margin:0 2px 14px auto!important;
+    padding:5px 9px!important;
+    border-radius:999px!important;
+    font-size:9px!important;
+    font-weight:650!important;
+  }
   #taskDetailDrawer .r10-flow-state:before{content:none!important;display:none!important}
-  #taskDetailDrawer .r10-flow-state .r10-status-symbol{display:inline!important;margin:0!important;padding:0!important;background:transparent!important;color:inherit!important;font-size:10px!important;line-height:1!important}
-  #taskDetailDrawer .r10-flow-state.state-em-andamento{background:#e6f8ee!important;color:#208355!important}
+  #taskDetailDrawer .r10-flow-state .r10-status-symbol,
+  #taskDetailDrawer .r10-step-status .r10-status-symbol{
+    width:11px!important;
+    height:11px!important;
+    min-width:11px!important;
+    display:inline-grid!important;
+    place-items:center!important;
+    margin:0!important;
+    padding:0!important;
+    background:transparent!important;
+    color:inherit!important;
+  }
+  #taskDetailDrawer .r10-flow-state .r10-status-symbol .r10-svg,
+  #taskDetailDrawer .r10-step-status .r10-status-symbol .r10-svg{
+    width:11px!important;
+    height:11px!important;
+    stroke-width:2!important;
+  }
+  #taskDetailDrawer .r10-flow-state.state-em-andamento{background:#e5f8ed!important;color:#208657!important}
   #taskDetailDrawer .r10-flow-state.state-bloqueada{background:#fff1df!important;color:#b66e12!important}
   #taskDetailDrawer .r10-flow-state.state-pendente{background:#f0f2f4!important;color:#626c74!important}
-  #taskDetailDrawer .r10-flow-state.state-concluida{background:#e6f8ee!important;color:#208355!important}
-  #taskDetailDrawer .r10-flow-list{gap:10px!important;padding:0 0 6px 34px!important}
-  #taskDetailDrawer .r10-flow-list:before{left:12px!important;top:20px!important;bottom:20px!important;width:2px!important;background:repeating-linear-gradient(to bottom,#ced6db 0 5px,transparent 5px 9px)!important}
-  #taskDetailDrawer .r10-step{box-sizing:border-box!important;min-height:90px!important;grid-template-columns:34px minmax(0,1fr) auto!important;gap:10px!important;align-items:center!important;padding:11px!important;border-radius:13px!important;overflow:visible!important}
-  #taskDetailDrawer .r10-step:before{left:-34px!important;width:26px!important;height:26px!important;font-size:9px!important;z-index:3!important}
-  #taskDetailDrawer .r10-step.done:not(:last-child):after{content:""!important;position:absolute!important;left:-22px!important;top:50%!important;height:calc(100% + 10px)!important;width:2px!important;background:#7ad7aa!important;z-index:2!important}
-  #taskDetailDrawer .r10-step-icon{width:34px!important;height:34px!important;min-width:34px!important;border-radius:9px!important}
-  #taskDetailDrawer .r10-step-icon .r10-svg{width:17px!important;height:17px!important}
+  #taskDetailDrawer .r10-flow-state.state-concluida{background:#e5f8ed!important;color:#208657!important}
+
+  #taskDetailDrawer .r10-progress-copy{
+    margin:0 -16px 7px!important;
+    padding:15px 18px 0!important;
+    border-top:1px solid #edf0f2!important;
+    font-size:10px!important;
+  }
+  #taskDetailDrawer .r10-progress{
+    height:7px!important;
+    margin:0 2px 18px!important;
+  }
+
+  #taskDetailDrawer .r10-flow-list{
+    gap:10px!important;
+    padding:0 0 6px 34px!important;
+  }
+  #taskDetailDrawer .r10-flow-list:before{
+    left:12px!important;
+    top:14px!important;
+    bottom:18px!important;
+    width:2px!important;
+    background:repeating-linear-gradient(to bottom,#ccd5db 0 5px,transparent 5px 9px)!important;
+  }
+  #taskDetailDrawer .r10-step{
+    box-sizing:border-box!important;
+    min-height:94px!important;
+    grid-template-columns:34px minmax(0,1fr) auto!important;
+    gap:10px!important;
+    align-items:center!important;
+    padding:12px!important;
+    border:1px solid #dfe5e9!important;
+    border-radius:13px!important;
+    background:#fff!important;
+    overflow:visible!important;
+  }
+  #taskDetailDrawer .r10-step.current{
+    border-color:#8eb5fa!important;
+    box-shadow:0 0 0 1px rgba(82,132,234,.16)!important;
+    background:#fff!important;
+  }
+  #taskDetailDrawer .r10-step:before{
+    left:-34px!important;
+    width:26px!important;
+    height:26px!important;
+    font-size:9px!important;
+    z-index:4!important;
+  }
+  #taskDetailDrawer .r10-step.current:before{
+    background:#15191d!important;
+    border-color:#15191d!important;
+    color:#fff!important;
+  }
+  #taskDetailDrawer .r10-step.done:before{
+    background:#24b66e!important;
+    border-color:#24b66e!important;
+    color:#fff!important;
+  }
+  #taskDetailDrawer .r10-step.done:not(:last-child):after{
+    content:""!important;
+    position:absolute!important;
+    left:-22px!important;
+    top:50%!important;
+    height:calc(100% + 10px)!important;
+    width:2px!important;
+    background:#83d8ae!important;
+    z-index:3!important;
+  }
+  #taskDetailDrawer .r10-step-icon{
+    width:34px!important;
+    height:34px!important;
+    min-width:34px!important;
+    border-radius:9px!important;
+    background:#f1f3f4!important;
+    color:#4a555d!important;
+  }
+  #taskDetailDrawer .r10-step-icon .r10-svg{
+    width:17px!important;
+    height:17px!important;
+    stroke-width:1.8!important;
+  }
   #taskDetailDrawer .r10-step.done .r10-step-icon{background:#edf9f2!important;color:#24a766!important}
-  #taskDetailDrawer .r10-step.status-bloqueada .r10-step-icon{background:#fff2df!important;color:#d9851d!important}
-  #taskDetailDrawer .r10-step-copy{min-width:0!important;overflow:hidden!important}
-  #taskDetailDrawer .r10-step-copy b{display:-webkit-box!important;font-size:11px!important;line-height:1.28!important;font-weight:650!important;white-space:normal!important;overflow:hidden!important;text-overflow:ellipsis!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow-wrap:anywhere!important}
-  #taskDetailDrawer .r10-step.done .r10-step-copy b{text-decoration:line-through!important;color:#7d858b!important}
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status{display:inline-flex!important;align-items:center!important;gap:5px!important;width:max-content!important;max-width:100%!important;margin-top:6px!important;padding:4px 7px!important;border-radius:999px!important;font-size:8px!important;font-weight:650!important;line-height:1!important}
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status span{display:inline!important;margin:0!important;padding:0!important;background:transparent!important;color:inherit!important;font-size:inherit!important;line-height:inherit!important}
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-em-andamento{background:#e8f8ef!important;color:#238759!important}
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-bloqueada{background:#fff1df!important;color:#b66e12!important}
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-pendente{background:#f0f2f4!important;color:#626c74!important}
+  #taskDetailDrawer .r10-step.status-bloqueada .r10-step-icon{background:#fff1df!important;color:#d48620!important}
+
+  #taskDetailDrawer .r10-step-copy{
+    min-width:0!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-step-copy b{
+    display:-webkit-box!important;
+    font-size:11px!important;
+    line-height:1.28!important;
+    font-weight:650!important;
+    white-space:normal!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    overflow-wrap:anywhere!important;
+  }
+  #taskDetailDrawer .r10-step.done .r10-step-copy b{
+    text-decoration:line-through!important;
+    text-decoration-thickness:1px!important;
+    color:#7d858b!important;
+  }
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:5px!important;
+    width:max-content!important;
+    max-width:100%!important;
+    margin-top:6px!important;
+    padding:4px 7px!important;
+    border-radius:999px!important;
+    font-size:8px!important;
+    font-weight:650!important;
+    line-height:1!important;
+  }
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-em-andamento{background:#e7f8ee!important;color:#238759!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-bloqueada{background:#eef0f2!important;color:#4f5961!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-pendente{background:#eef0f2!important;color:#59636b!important}
   #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-em-revisao{background:#f2edfb!important;color:#7659aa!important}
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-meta,
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-completed{display:block!important;margin-top:6px!important;padding:0!important;border-radius:0!important;background:transparent!important;color:#818990!important;font-size:8.5px!important;font-weight:450!important;line-height:1.25!important;white-space:normal!important;overflow-wrap:anywhere!important}
-  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-completed{color:#758079!important}
-  #taskDetailDrawer .r10-step-avatar{width:28px!important;height:28px!important;min-width:28px!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status span{
+    margin:0!important;
+    padding:0!important;
+    background:transparent!important;
+    color:inherit!important;
+    font-size:inherit!important;
+    line-height:inherit!important;
+  }
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-meta{
+    display:block!important;
+    margin-top:6px!important;
+    padding:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    color:#858e95!important;
+    font-size:8.5px!important;
+    font-weight:450!important;
+    line-height:1.25!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-completed{
+    display:flex!important;
+    align-items:center!important;
+    gap:5px!important;
+    margin-top:6px!important;
+    padding:0!important;
+    background:transparent!important;
+    color:#7b858c!important;
+    font-size:8.5px!important;
+    font-weight:450!important;
+    line-height:1.25!important;
+  }
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-completed .r10-svg{
+    width:11px!important;
+    height:11px!important;
+    color:#28a96a!important;
+    flex:0 0 11px!important;
+  }
+  #taskDetailDrawer .r10-step-avatar{
+    width:30px!important;
+    height:30px!important;
+    min-width:30px!important;
+    border:2px solid #fff!important;
+    box-shadow:0 0 0 1px #dfe4e7!important;
+  }
   `;
   document.head.appendChild(r10FlowStyle);
 
