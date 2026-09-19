@@ -249,9 +249,14 @@
 
     toolbar.append(brandWrap,searchWrap,actions);
 
-    // Runtime geometry guard. The toolbar has accumulated legacy CSS over time,
-    // so measure the elements themselves and correct the visible positions.
+    // Runtime geometry guard. Measure the VISUAL positions and move the
+    // selector + search together, so legacy CSS cannot create a hidden offset.
     const setImportant=(el,prop,value)=>el?.style.setProperty(prop,value,'important');
+    const currentTranslateX=(el)=>{
+      const t=getComputedStyle(el).transform;
+      if(!t||t==='none') return 0;
+      try{return new DOMMatrixReadOnly(t).m41||0}catch{return 0}
+    };
     const alignToolbar=()=>{
       if(window.innerWidth<901)return;
 
@@ -264,11 +269,6 @@
 
       setImportant(brandWrap,'position','absolute');
       setImportant(brandWrap,'top','50%');
-      setImportant(brandWrap,'left','12px');
-      setImportant(brandWrap,'transform','translateY(-50%)');
-      setImportant(brandWrap,'width','180px');
-      setImportant(brandWrap,'min-width','180px');
-      setImportant(brandWrap,'max-width','180px');
       setImportant(brandWrap,'height','46px');
       setImportant(brandWrap,'margin','0');
 
@@ -287,10 +287,7 @@
 
       setImportant(searchWrap,'position','absolute');
       setImportant(searchWrap,'top','50%');
-      setImportant(searchWrap,'transform','translateY(-50%)');
       setImportant(searchWrap,'height','46px');
-      setImportant(searchWrap,'min-width','0');
-      setImportant(searchWrap,'max-width','none');
       setImportant(searchWrap,'margin','0');
 
       setImportant(actions,'position','absolute');
@@ -301,43 +298,44 @@
 
       requestAnimationFrame(()=>{
         const barRect=toolbar.getBoundingClientRect();
-        const visibleBrand=(brand||brandWrap).getBoundingClientRect();
-        const desiredBrandLeft=barRect.left+12;
-        const brandDelta=desiredBrandLeft-visibleBrand.left;
+        const brandRect=(brand||brandWrap).getBoundingClientRect();
+        const actionsRect=actions.getBoundingClientRect();
 
-        if(Math.abs(brandDelta)>.5){
-          const current=parseFloat(getComputedStyle(brandWrap).left)||12;
-          setImportant(brandWrap,'left',(current+brandDelta)+'px');
-        }
+        // Mirror the actual right inset on the left side.
+        const targetInset=Math.max(10,Math.round(barRect.right-actionsRect.right));
+        const targetBrandLeft=barRect.left+targetInset;
+        const visualDelta=targetBrandLeft-brandRect.left;
+
+        const brandTx=currentTranslateX(brandWrap)+visualDelta;
+        const searchTx=currentTranslateX(searchWrap)+visualDelta;
+        setImportant(brandWrap,'transform','translate('+brandTx+'px,-50%)');
+        setImportant(searchWrap,'transform','translate('+searchTx+'px,-50%)');
 
         requestAnimationFrame(()=>{
-          const bar2=toolbar.getBoundingClientRect();
-          const brand2=(brand||brandWrap).getBoundingClientRect();
-          const actions2=actions.getBoundingClientRect();
-          const searchLeft=Math.round(brand2.right-bar2.left+10);
-          const searchMaxRight=Math.round(actions2.left-bar2.left-24);
-          const searchWidth=Math.max(220,Math.min(760,searchMaxRight-searchLeft));
-
-          setImportant(searchWrap,'left',searchLeft+'px');
-          setImportant(searchWrap,'width',searchWidth+'px');
+          const b2=(brand||brandWrap).getBoundingClientRect();
+          const s2=searchWrap.getBoundingClientRect();
+          const gap=s2.left-b2.right;
+          const gapDelta=10-gap;
+          if(Math.abs(gapDelta)>.5){
+            setImportant(searchWrap,'transform','translate('+(searchTx+gapDelta)+'px,-50%)');
+          }
 
           requestAnimationFrame(()=>{
-            const b=toolbar.getBoundingClientRect();
-            const br=(brand||brandWrap).getBoundingClientRect();
-            const sr=searchWrap.getBoundingClientRect();
-            const ar=actions.getBoundingClientRect();
+            const bar3=toolbar.getBoundingClientRect();
+            const brand3=(brand||brandWrap).getBoundingClientRect();
+            const search3=searchWrap.getBoundingClientRect();
+            const actions3=actions.getBoundingClientRect();
             const metrics={
-              leftInset:Math.round(br.left-b.left),
-              brandSearchGap:Math.round(sr.left-br.right),
-              searchActionsGap:Math.round(ar.left-sr.right),
-              rightInset:Math.round(b.right-ar.right)
+              leftInset:Math.round(brand3.left-bar3.left),
+              brandSearchGap:Math.round(search3.left-brand3.right),
+              searchActionsGap:Math.round(actions3.left-search3.right),
+              rightInset:Math.round(bar3.right-actions3.right)
             };
             window.__allianceToolbarGeometry=metrics;
             toolbar.dataset.layoutVerified=(
-              Math.abs(metrics.leftInset-12)<=1 &&
+              Math.abs(metrics.leftInset-metrics.rightInset)<=1 &&
               Math.abs(metrics.brandSearchGap-10)<=1 &&
-              metrics.searchActionsGap>=20 &&
-              Math.abs(metrics.rightInset-12)<=1
+              metrics.searchActionsGap>=20
             )?'1':'0';
             if(toolbar.dataset.layoutVerified!=='1')console.warn('[AllianceOS toolbar geometry]',metrics);
           });
