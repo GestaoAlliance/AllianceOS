@@ -728,3 +728,35 @@
   #planningView .ref-strategy-tabs::-webkit-scrollbar,
   #campaignsView .ref-strategy-tabs::-webkit-scrollbar{display:none!important}
 }
+
+
+/* ===== Global profile/avatar image crop ===== */
+.ref2-avatar,
+.ref2-team-avatar,
+.mini-av,
+.bigav,
+.r10-step-avatar,
+.cav{
+  overflow:hidden!important;
+  aspect-ratio:1 / 1!important;
+  flex-shrink:0!important;
+}
+
+.ref2-avatar > img,
+.ref2-team-avatar > img,
+.mini-av > img,
+.bigav > img,
+.r10-step-avatar > img,
+.cav > img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:100%!important;
+  min-height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:cover!important;
+  object-position:center center!important;
+  border-radius:inherit!important;
+  transform:none!important;
+}
