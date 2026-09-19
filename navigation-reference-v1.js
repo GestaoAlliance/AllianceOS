@@ -247,7 +247,9 @@
     profile.addEventListener('click',()=>toast('Vitor Gutierrez'));
     actions.append(bell,profile);
 
-    toolbar.append(brandWrap,searchWrap,actions);
+    const leftControls=document.createElement('div');leftControls.className='ref2-left-controls';
+    leftControls.append(brandWrap,searchWrap);
+    toolbar.append(leftControls,actions);
 
     /* AllianceOS strategy bridge
        Mapa mental -> campanha/TAP -> tarefas, usando as mesmas chaves central.* */
