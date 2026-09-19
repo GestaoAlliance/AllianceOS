@@ -380,7 +380,7 @@
       const incomingCount=incomingItems.length;
 
       if(incomingHead){
-        incomingHead.innerHTML='<span class="r10-incoming-heading"><span class="r10-section-icon r10-incoming-icon">'+r10Icon('folderSolid')+'</span><strong>Materiais recebidos das etapas anteriores</strong></span><span class="r10-material-count">'+incomingCount+' '+(incomingCount===1?'item':'itens')+'</span>';
+        incomingHead.innerHTML='<span class="r10-materials-heading r10-incoming-heading"><span class="r10-section-icon r10-materials-icon r10-incoming-icon">'+r10Icon('folderSolid')+'</span><strong>Materiais recebidos das etapas anteriores</strong></span><span class="r10-material-count">'+incomingCount+' '+(incomingCount===1?'item':'itens')+'</span>';
       }
 
       incoming.querySelectorAll('.v5-delivery-card').forEach(card=>card.classList.add('r10-incoming-source-card'));
@@ -419,7 +419,7 @@
       const sentDeliveries=Array.isArray(t.deliveries)?t.deliveries:[];
       const sentItemCount=sentDeliveries.reduce((sum,d)=>sum+(String(d?.note||d?.text||'').trim()?1:0)+(Array.isArray(d?.files)?d.files.length:0)+(Array.isArray(d?.links)?d.links.length:0),0);
       const head=delivery.querySelector('.tsection-head');
-      if(head)head.innerHTML='<span class="r10-delivery-heading"><span class="r10-section-icon r10-delivery-head-icon">'+r10Icon('folderSolid')+'</span><strong>Sua entrega</strong></span><span class="r10-material-count">'+sentItemCount+' '+(sentItemCount===1?'item':'itens')+'</span>';
+      if(head)head.innerHTML='<span class="r10-materials-heading r10-delivery-heading"><span class="r10-section-icon r10-materials-icon r10-delivery-head-icon">'+r10Icon('folderSolid')+'</span><strong>Sua entrega</strong></span><span class="r10-material-count">'+sentItemCount+' '+(sentItemCount===1?'item':'itens')+'</span>';
 
       const compose=delivery.querySelector('.v5-delivery-compose');
       const fileInput=delivery.querySelector('#v5DeliveryFiles');
@@ -458,11 +458,6 @@
           });
         }
       });
-      delivery.querySelectorAll('[data-v5-delete-delivery]').forEach(btn=>{
-        btn.classList.add('r10-delivery-delete');
-        btn.innerHTML=r10Icon('trash');
-      });
-
       if(fileInput&&compose){
         fileInput.setAttribute('accept','image/*,video/*,audio/*,.pdf,.zip,.rar,.7z,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx');
 
@@ -1685,16 +1680,17 @@
     color:#7f8a92!important;
     stroke-width:1.65!important;
   }
-  #taskDetailDrawer .r10-incoming-heading>strong{
-    display:block!important;
-    margin:0!important;
-    padding:0!important;
-    color:#12171b!important;
-    font-size:17px!important;
-    font-weight:720!important;
-    line-height:1.15!important;
-    letter-spacing:-.022em!important;
-    white-space:nowrap!important;
+  #taskDetailDrawer .r10-main .r10-incoming-card>.tsection-head .r10-incoming-heading{
+    min-width:0!important;display:flex!important;align-items:center!important;gap:13px!important;margin:0!important;padding:0!important;
+  }
+  #taskDetailDrawer .r10-main .r10-incoming-card>.tsection-head .r10-incoming-icon{
+    width:40px!important;height:40px!important;min-width:40px!important;flex:0 0 40px!important;display:flex!important;align-items:center!important;justify-content:center!important;margin:0!important;padding:0!important;border-radius:11px!important;background:#edf0f2!important;color:#7f8a92!important;cursor:default!important;
+  }
+  #taskDetailDrawer .r10-main .r10-incoming-card>.tsection-head .r10-incoming-icon .r10-svg{
+    width:21px!important;height:21px!important;min-width:21px!important;margin:0!important;color:#7f8a92!important;stroke-width:1.65!important;
+  }
+  #taskDetailDrawer .r10-main .r10-incoming-card>.tsection-head .r10-incoming-heading>strong{
+    display:block!important;margin:0!important;padding:0!important;color:#12171b!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-size:17px!important;font-weight:720!important;line-height:1.15!important;letter-spacing:-.022em!important;white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-incoming-card>.v5-delivery-list{
     display:flex!important;
@@ -1720,7 +1716,7 @@
     font-weight:650!important;
     line-height:1.25!important;
   }
-  #taskDetailDrawer .r10-incoming-source-card .v5-delivery-card-head span{
+  #taskDetailDrawer .r10-incoming-source-card .v5-delivery-card-head>div>span{
     color:#8a949c!important;
     font-size:10.5px!important;
   }
@@ -1814,6 +1810,7 @@
     white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-main .r10-delivery-card>.tsection-head .r10-delivery-head-icon{
+    cursor:default!important;
     width:40px!important;
     height:40px!important;
     min-width:40px!important;
@@ -2131,6 +2128,14 @@
     flex-direction:column!important;
     gap:8px!important;
   }
+  #taskDetailDrawer .r10-incoming-card .v5-delivery-ok,
+  #taskDetailDrawer .r10-delivery-card .v5-delivery-ok{
+    box-sizing:border-box!important;min-height:28px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;padding:0 10px!important;border:1px solid #d8eee1!important;border-radius:999px!important;background:#eff9f3!important;color:#31845e!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-size:11.5px!important;font-weight:650!important;line-height:1!important;white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-incoming-card .v5-delivery-ok::before,
+  #taskDetailDrawer .r10-delivery-card .v5-delivery-ok::before{
+    content:""!important;width:7px!important;height:7px!important;flex:0 0 7px!important;border-radius:999px!important;background:#31a36f!important;
+  }
   #taskDetailDrawer .r10-delivery-card .r10-delivery-sent-item,
   #taskDetailDrawer .r10-incoming-card .r10-delivery-sent-item{
     box-sizing:border-box!important;
@@ -2177,48 +2182,15 @@
     grid-column:2!important;grid-row:2!important;align-self:start!important;min-width:0!important;margin:0!important;color:#7f8991!important;font-size:12px!important;font-weight:450!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important
   }
   #taskDetailDrawer .r10-delivery-sent-actions{
-    grid-column:3!important;
-    grid-row:1 / 3!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:flex-end!important;
-    gap:9px!important;
-    align-self:center!important;
-    min-width:max-content!important;
-    margin:0!important;
-    padding:0 2px 0 12px!important;
+    grid-column:3!important;grid-row:1 / 3!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:11px!important;align-self:center!important;min-width:max-content!important;margin:0!important;padding:0 4px 0 14px!important;
   }
   #taskDetailDrawer .r10-delivery-sent-action{
-    position:static!important;
-    inset:auto!important;
-    transform:none!important;
-    translate:none!important;
-    box-sizing:border-box!important;
-    width:36px!important;
-    height:36px!important;
-    min-width:36px!important;
-    flex:0 0 36px!important;
-    display:grid!important;
-    place-items:center!important;
-    margin:0!important;
-    padding:0!important;
-    border:1px solid #e3e8eb!important;
-    border-radius:9px!important;
-    background:#fff!important;
-    color:#66727b!important;
-    opacity:1!important;
-    cursor:pointer!important;
-    text-decoration:none!important;
+    position:static!important;inset:auto!important;transform:none!important;translate:none!important;box-sizing:border-box!important;width:24px!important;height:24px!important;min-width:24px!important;flex:0 0 24px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#748089!important;opacity:1!important;cursor:pointer!important;text-decoration:none!important;
   }
-  #taskDetailDrawer .r10-delivery-sent-action:hover{border-color:#d4dce1!important;background:#f4f6f7!important}
-  #taskDetailDrawer .r10-delivery-sent-action.is-delete:hover{background:#fff1f2!important;color:#df4452!important}
-  #taskDetailDrawer .r10-delivery-sent-action .r10-svg{width:17px!important;height:17px!important;stroke-width:1.8!important}
+  #taskDetailDrawer .r10-delivery-sent-action:hover{border:0!important;background:transparent!important;color:#20272d!important}
+  #taskDetailDrawer .r10-delivery-sent-action.is-delete:hover{background:transparent!important;color:#df4452!important}
+  #taskDetailDrawer .r10-delivery-sent-action .r10-svg{width:18px!important;height:18px!important;stroke-width:1.75!important}
   #taskDetailDrawer .r10-delivery-card-head-actions{display:flex!important;align-items:center!important;gap:12px!important}
-  #taskDetailDrawer .r10-delivery-delete{
-    position:static!important;inset:auto!important;transform:none!important;box-sizing:border-box!important;width:36px!important;height:36px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:1px solid #e3e8eb!important;border-radius:9px!important;background:#fff!important;color:#8a949b!important;cursor:pointer!important
-  }
-  #taskDetailDrawer .r10-delivery-delete:hover{background:#fff1f2!important;color:#df4452!important}
-  #taskDetailDrawer .r10-delivery-delete .r10-svg{width:15px!important;height:15px!important;stroke-width:1.8!important}
 
   #taskDetailDrawer .r10-completion-card{
     box-sizing:border-box!important;min-height:76px!important;margin-top:16px!important;padding:16px 18px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:18px!important;border:1px solid #e2e7ea!important;border-radius:16px!important;background:#fff!important

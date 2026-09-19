@@ -227,8 +227,7 @@
     const editNote=editable?'<button type="button" data-v5-edit-note="'+id+'" title="Editar texto">✎</button>':'';
     const deleteNote=editable?'<button type="button" data-v5-delete-note="'+id+'" title="Excluir texto">×</button>':'';
     const noteHtml=note?'<div class="v5-material" data-v5-kind="text"><span class="v5-material-icon">T</span><b title="'+esc(note)+'">'+esc(note)+'</b><small>Texto</small><span class="v5-material-actions">'+copyNote+editNote+deleteNote+'</span></div>':'';
-    const deleteDelivery=editable?'<button type="button" class="v5-delivery-delete" data-v5-delete-delivery="'+id+'" title="Excluir entrega inteira">×</button>':'';
-    return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(d.at||'Agora')+'</span></div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">Enviado</span>'+deleteDelivery+'</span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+'</div></article>';
+    return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(d.at||'Agora')+'</span></div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">Enviado</span></span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+'</div></article>';
   }
 
   function v5IncomingHtml(t){
