@@ -27,6 +27,9 @@
       document:'<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/>',
       image:'<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m6 17 4-4 3 3 2-2 3 3"/>',
       hourglass:'<path d="M7 3h10M7 21h10M8 3c0 4 1 6 4 9-3 3-4 5-4 9M16 3c0 4-1 6-4 9 3 3 4 5 4 9"/>',
+      statusDoneMini:'<circle cx="12" cy="12" r="7"/><path d="m8.5 12 2.2 2.2 4.8-5"/>',
+      statusBlockedMini:'<rect x="5.5" y="5.5" width="13" height="13" rx="2.2"/><path d="M12 8.7v4.6M12 15.8h.01"/>',
+      statusPendingMini:'<circle cx="12" cy="12" r="7"/><path d="M12 8v4l2.7 1.8"/>',
       review:'<circle cx="12" cy="12" r="8"/><path d="m10 8 5 4-5 4z"/>',
       send:'<path d="m4 12 16-8-5 16-3-6-8-2Z"/><path d="m12 14 3-3"/>',
       chart:'<path d="M5 19V9M10 19V5M15 19v-7M20 19V3"/><path d="M3 19h19"/>',
@@ -734,15 +737,16 @@
     const deps=r10Deps(t), dependents=r10Dependents(t);
     const dependencyRow=(x,relation)=>{
       const status=r10Status(x);
-      const tone=status==='Concluída'?'done':status==='Bloqueada'?'blocked':relation==='before'?'waiting':'ready';
+      const tone=status==='Concluída'?'done':status==='Bloqueada'?'blocked':status==='Pendente'?'waiting':'ready';
       const icon=tone==='done'?r10Icon('done'):(tone==='blocked'||tone==='waiting')?r10Icon('hourglass'):r10Icon('next');
-      const statusIcon=tone==='done'?'<span class="r10-dep-status-icon">'+r10Icon('done')+'</span>':'';
-      return '<button type="button" class="r10-dep-row '+tone+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-icon">'+icon+'</span><span class="r10-dep-copy"><b>'+r10Esc(x.title)+'</b><span class="r10-dep-status '+tone+'">'+statusIcon+'<span class="r10-dep-status-text">'+r10Esc(status)+'</span></span></span></button>';
+      const miniIcon=tone==='done'?r10Icon('statusDoneMini'):tone==='blocked'?r10Icon('statusBlockedMini'):r10Icon('statusPendingMini');
+      return '<button type="button" class="r10-dep-row '+tone+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-icon">'+icon+'</span><span class="r10-dep-copy"><b>'+r10Esc(x.title)+'</b><span class="r10-dep-status '+tone+'"><span class="r10-dep-status-icon">'+miniIcon+'</span><span class="r10-dep-status-text">'+r10Esc(status)+'</span></span></span></button>';
     };
-    let depHtml='';
-    if(deps.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Depende de</span><div class="r10-dep-list">'+deps.map(x=>dependencyRow(x,'before')).join('')+'</div></div>';
-    if(dependents.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Desbloqueia</span><div class="r10-dep-list">'+dependents.map(x=>dependencyRow(x,'after')).join('')+'</div></div>';
-    if(!depHtml)depHtml='<div class="r10-dep-empty">Sem dependências vinculadas.</div>';
+    const dependencyGroup=(label,rows,relation)=>{
+      const content=rows.length?rows.map(x=>dependencyRow(x,relation)).join(''):'<div class="r10-dep-none">—</div>';
+      return '<div class="r10-dep-group '+(rows.length?'has-items':'is-empty')+'"><span class="r10-dep-label">'+label+'</span><div class="r10-dep-list">'+content+'</div></div>';
+    };
+    const depHtml=dependencyGroup('Depende de',deps,'before')+dependencyGroup('Desbloqueia',dependents,'after');
     const depCard=document.createElement('section');
     depCard.className='r10-side-card r10-dependencies-card';
     depCard.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('dependency')+'</span><strong>Dependências</strong></div><div class="r10-side-card-body">'+depHtml+'</div>';
