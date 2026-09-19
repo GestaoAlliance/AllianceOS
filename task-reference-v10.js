@@ -41,7 +41,7 @@
       flame:'<path d="M13.5 3.5c.3 3-1.7 4.2-3.2 5.8-1.5 1.6-2.2 3-1.2 5.1.5-1.4 1.5-2.2 2.5-3 .2 2.2 1 3.3 2.2 4.4 1.4 1.2 1.8 3.1.8 4.7 3-.9 5.1-3.6 5.1-6.8 0-4.1-2.8-7.8-6.2-10.2Z"/><path d="M9.7 20.5c-2.5-.8-4.2-3-4.2-5.8 0-2.4 1.1-4.3 2.8-5.9-.2 2.3.6 3.4 1.9 4.5-1 1.3-1.4 2.9-.5 4.3.5.8 1.1 1.5 2 2.2-.6.4-1.2.6-2 .7Z"/>',
       whatsappBrand:'<circle cx="12" cy="12" r="9" fill="#22c86a" stroke="none"/><path d="M8.4 8.7c.7 3 2.8 5.2 5.8 5.9l1.5-1.5 2.1.8-.8 2.2c-.2.7-.8 1.1-1.6 1.1-4.8-.2-8.5-3.9-8.7-8.7 0-.7.4-1.3 1.1-1.6l2.2-.8.8 2.1-1.5 1.5Z" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
       folderSolid:'<path d="M3.8 7.5h6.1l1.8 2H20v8.7a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.2V7.5Z" fill="currentColor" stroke="none"/><path d="M4 7.8V5.9A1.9 1.9 0 0 1 5.9 4h4l1.8 2H18" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>',
-      priorityMark:'<path d="M12 3.3c2.5 2.1 4.3 4.5 4.3 7.2 0 1.3-.4 2.4-1.1 3.4-.2-1.5-1-2.6-2.2-3.5.1 2.2-1 3.2-2.1 4.2-1.2 1.1-1.6 2.4-.9 4.2-2.1-.8-3.5-2.8-3.5-5.4 0-3.6 2.4-6.9 5.5-10.1Z" fill="currentColor" stroke="none"/>'
+      priorityMark:'<path d="m12 3.5 2.2 1.1 2.5.1 1.1 2.2 2 1.5-.5 2.4.5 2.4-2 1.5-1.1 2.2-2.5.1L12 20.5l-2.2-1.1-2.5-.1-1.1-2.2-2-1.5.5-2.4-.5-2.4 2-1.5 1.1-2.2 2.5-.1L12 3.5Z" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2.2" fill="#fff" stroke="none"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -152,7 +152,7 @@
     if(p==='Alta')return 'Alta prioridade';
     if(p==='Baixa')return 'Baixa prioridade';
     if(p==='Urgente')return 'Urgente';
-    return p;
+    return 'Prioridade normal';
   };
   const r10BriefText = (value,max=190) => {
     const clean=String(value||'').replace(/\s+/g,' ').trim();
@@ -327,7 +327,7 @@
       r10HeaderPill('priorityMark',priorityLabel,'priority priority-'+priorityTone)
     ].filter(Boolean).join('');
     const subtitle=r10TaskSubtitle(t);
-    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back aria-label="Voltar">'+r10Icon('arrowLeft')+'</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more aria-label="Mais opções">'+r10Icon('more')+'</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev aria-label="Tarefa anterior">'+r10Icon('chevronLeft')+'</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next aria-label="Próxima tarefa">'+r10Icon('chevronRight')+'</button><span class="r10-save-slot"></span></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><div class="r10-title-slot"></div><p class="r10-subtitle">'+r10Esc(subtitle)+'</p><div class="r10-pills">'+headPills+'</div></header><div class="r10-center-stack"></div>';
+    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back aria-label="Voltar">'+r10Icon('arrowLeft')+'</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more aria-label="Mais opções">'+r10Icon('more')+'</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev="'+(prev?r10Esc(prev.id):'')+'" aria-label="Tarefa anterior">'+r10Icon('chevronLeft')+'</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next="'+(nextTask?r10Esc(nextTask.id):'')+'" aria-label="Próxima tarefa">'+r10Icon('chevronRight')+'</button><span class="r10-save-slot"></span></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><div class="r10-title-slot"></div><p class="r10-subtitle">'+r10Esc(subtitle)+'</p><div class="r10-pills">'+headPills+'</div></header><div class="r10-center-stack"></div>';
     const titleSlot=center.querySelector('.r10-title-slot');
     if(titleInput&&titleSlot){
       titleInput.classList.add('r10-title-input');
@@ -365,20 +365,51 @@
     const extra=document.createElement('details');extra.className='r10-side-card r10-more';extra.innerHTML='<summary>Mais opções da tarefa</summary><div class="r10-more-body"></div>';const eb=extra.querySelector('.r10-more-body');[startField,supportField,recurrenceField].filter(Boolean).forEach(x=>eb.appendChild(x));if(eb.children.length)stack.appendChild(extra);
     workspace.appendChild(side);oldLayout.replaceWith(workspace);
 
-    workspace.querySelectorAll('[data-r10-task]').forEach(el=>el.addEventListener('click',()=>openTaskDetail(el.dataset.r10Task)));
-    const back=workspace.querySelector('[data-r10-back]');if(back)back.addEventListener('click',()=>closeTaskDetail());
-    const p=workspace.querySelector('[data-r10-prev]');if(p)p.addEventListener('click',()=>{if(prev)openTaskDetail(prev.id)});
-    const n=workspace.querySelector('[data-r10-next]');if(n)n.addEventListener('click',()=>{if(nextTask)openTaskDetail(nextTask.id)});
-    const m=workspace.querySelector('[data-r10-more]');if(m)m.addEventListener('click',()=>{extra.open=!extra.open});
-    const campaignLink=workspace.querySelector('[data-r10-open-campaign]');
-    if(campaignLink)campaignLink.addEventListener('click',e=>{
+    const persistDraftBeforeNavigation=()=>{
+      try{
+        const current=r10Task(taskState.selected);
+        if(current&&typeof syncDetailDraft==='function')syncDetailDraft(current);
+        if(typeof v3Persist==='function')v3Persist(false);
+      }catch(e){console.warn('[AllianceOS task nav persist]',e)}
+    };
+    workspace.addEventListener('click',e=>{
+      const control=e.target.closest('[data-r10-back],[data-r10-prev],[data-r10-next],[data-r10-more],[data-r10-task],[data-r10-open-campaign]');
+      if(!control||!workspace.contains(control))return;
       e.preventDefault();
       e.stopPropagation();
-      const name=campaignLink.dataset.r10OpenCampaign||campaignLabel;
-      closeTaskDetail();
-      if(typeof window.openCampaignWorkspaceByName==='function')setTimeout(()=>window.openCampaignWorkspaceByName(name),0);
-      else if(typeof window.__centralShowCampaigns==='function')setTimeout(()=>window.__centralShowCampaigns(),0);
-    });
+
+      if(control.hasAttribute('data-r10-back')){
+        persistDraftBeforeNavigation();
+        closeTaskDetail();
+        return;
+      }
+      if(control.hasAttribute('data-r10-prev')||control.hasAttribute('data-r10-next')){
+        if(control.disabled)return;
+        const id=control.getAttribute(control.hasAttribute('data-r10-prev')?'data-r10-prev':'data-r10-next');
+        if(!id)return;
+        persistDraftBeforeNavigation();
+        requestAnimationFrame(()=>openTaskDetail(id));
+        return;
+      }
+      if(control.hasAttribute('data-r10-more')){
+        extra.open=!extra.open;
+        return;
+      }
+      if(control.hasAttribute('data-r10-task')){
+        const id=control.getAttribute('data-r10-task');
+        if(!id)return;
+        persistDraftBeforeNavigation();
+        requestAnimationFrame(()=>openTaskDetail(id));
+        return;
+      }
+      if(control.hasAttribute('data-r10-open-campaign')){
+        const name=control.dataset.r10OpenCampaign||campaignLabel;
+        persistDraftBeforeNavigation();
+        closeTaskDetail();
+        if(typeof window.openCampaignWorkspaceByName==='function')setTimeout(()=>window.openCampaignWorkspaceByName(name),0);
+        else if(typeof window.__centralShowCampaigns==='function')setTimeout(()=>window.__centralShowCampaigns(),0);
+      }
+    },true);
   }
   function r10PersistCompletionStamp(){
     try{localStorage.setItem(taskStorageKey,JSON.stringify(taskData));}catch{}
@@ -446,6 +477,13 @@
     height:18px!important;
     stroke-width:1.8!important;
   }
+  #taskDetailDrawer .r10-main-top,
+  #taskDetailDrawer .r10-main-nav,
+  #taskDetailDrawer .r10-icon-btn,
+  #taskDetailDrawer .r10-pills,
+  #taskDetailDrawer .r10-pill{
+    pointer-events:auto!important;
+  }
   #taskDetailDrawer .r10-main-nav{gap:10px!important}
   #taskDetailDrawer .r10-counter{
     min-width:46px!important;
@@ -459,23 +497,25 @@
   #taskDetailDrawer .r10-kicker{
     display:inline-flex!important;
     align-items:center!important;
-    gap:6px!important;
+    gap:7px!important;
     width:max-content!important;
-    min-height:22px!important;
-    margin:0 0 10px!important;
-    padding:4px 7px!important;
-    border-radius:7px!important;
-    background:#f1f3f4!important;
-    color:#7a848c!important;
-    font-size:8px!important;
-    font-weight:650!important;
+    height:26px!important;
+    min-height:26px!important;
+    margin:0 0 11px!important;
+    padding:0 9px!important;
+    border-radius:8px!important;
+    background:#f0f2f3!important;
+    color:#77828a!important;
+    font-size:9px!important;
+    font-weight:680!important;
     line-height:1!important;
-    letter-spacing:.025em!important;
+    letter-spacing:.035em!important;
   }
   #taskDetailDrawer .r10-kicker .r10-svg{
-    width:12px!important;
-    height:12px!important;
-    stroke-width:1.8!important;
+    width:13px!important;
+    height:13px!important;
+    flex:0 0 13px!important;
+    stroke-width:1.75!important;
   }
   #taskDetailDrawer .r10-title,
   #taskDetailDrawer .r10-title-input{
@@ -502,27 +542,28 @@
     display:flex!important;
     align-items:center!important;
     flex-wrap:wrap!important;
-    gap:9px!important;
-    margin-top:15px!important;
+    gap:10px!important;
+    margin-top:16px!important;
   }
   #taskDetailDrawer .r10-pill{
     appearance:none!important;
     -webkit-appearance:none!important;
+    box-sizing:border-box!important;
     display:inline-flex!important;
     align-items:center!important;
     justify-content:center!important;
     gap:8px!important;
-    min-height:40px!important;
-    height:40px!important;
-    max-width:300px!important;
+    height:42px!important;
+    min-height:42px!important;
+    max-width:320px!important;
     padding:0 13px!important;
-    border:1px solid #d8dee3!important;
-    border-radius:10px!important;
+    border:1px solid #d6dde2!important;
+    border-radius:11px!important;
     background:#fff!important;
-    color:#263139!important;
-    font:600 13px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-    letter-spacing:-.01em!important;
-    box-shadow:0 1px 2px rgba(24,31,36,.025)!important;
+    color:#20292f!important;
+    font:620 14px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    letter-spacing:-.012em!important;
+    box-shadow:0 1px 2px rgba(24,31,36,.02)!important;
     white-space:nowrap!important;
     overflow:hidden!important;
   }
@@ -533,10 +574,11 @@
     white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-pill .r10-svg{
-    width:18px!important;
-    height:18px!important;
-    min-width:18px!important;
-    flex:0 0 18px!important;
+    width:19px!important;
+    height:19px!important;
+    min-width:19px!important;
+    flex:0 0 19px!important;
+    stroke-width:1.75!important;
   }
   #taskDetailDrawer .r10-pill.channel{
     background:#fff!important;
@@ -559,14 +601,14 @@
   }
   #taskDetailDrawer .r10-pill.priority{
     background:#fff!important;
-    border-color:#d8dee3!important;
-    color:#56616a!important;
+    border-color:#d6dde2!important;
+    color:#5d6870!important;
   }
   #taskDetailDrawer .r10-pill.priority-high,
   #taskDetailDrawer .r10-pill.priority-urgent{
-    background:#faedef!important;
-    border-color:#f3cdd2!important;
-    color:#e13f4d!important;
+    background:#fff0f1!important;
+    border-color:#f7cfd4!important;
+    color:#f04452!important;
   }
   #taskDetailDrawer .r10-pill.priority .r10-svg{
     color:#7b858d!important;
