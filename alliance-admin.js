@@ -4,11 +4,15 @@
   const CONFIG_URL='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
   const TASKS_KEY='central.tasks.vitor-gutierrez';
   const APP_URL='https://alliance-os-sooty.vercel.app';
-  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],links:[],invites:[],tasks:[],notifications:[]};
+  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],areas:[],links:[],invites:[],tasks:[],notifications:[]};
   window.AllianceOSDirectory={members:[],lists:[],brands:[]};
 
   const esc=(v)=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const norm=(v)=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const initials=(v)=>{const p=String(v||'').trim().split(/\s+/).filter(Boolean);return (((p[0]||'')[0]||'')+((p[1]||'')[0]||'')).toUpperCase()||'—';};
+  const avatarInner=(person,fallbackName='')=>person?.foto_url
+    ? '<img src="'+esc(person.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
+    : esc(initials(person?.nome||fallbackName));
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const toast=(msg)=>{
@@ -103,10 +107,11 @@
       window.AllianceOSDirectory={members:[],lists:[],brands:[]};
       return;
     }
-    const [profileR,profilesR,brandsR,listsR,linksR,invitesR,tasks]=await Promise.all([
-      state.sb.from('profiles').select('id,nome,email,papel,cargo,ativo').eq('id',state.user.id).maybeSingle(),
-      state.sb.from('profiles').select('id,nome,email,papel,cargo,ativo').eq('ativo',true).order('nome'),
+    const [profileR,profilesR,brandsR,areasR,listsR,linksR,invitesR,tasks]=await Promise.all([
+      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('id',state.user.id).maybeSingle(),
+      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('ativo',true).order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo').eq('ativo',true).order('nome'),
+      state.sb.from('areas').select('id,nome').order('nome'),
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),
       state.sb.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,aceito_em').order('nome'),
@@ -114,6 +119,7 @@
     ]);
     state.profile=profileR.data||null;
     state.brands=brandsR.data||[];
+    state.areas=areasR.data||[];
     state.links=linksR.data||[];
     state.invites=invitesR.data||[];
     state.tasks=tasks;
@@ -146,7 +152,7 @@
     }
     const brandMap=new Map(state.brands.map(b=>[String(b.id),b]));
     state.lists=(listsR.data||[]).map(l=>({...l,marca:brandMap.get(String(l.brand_id))?.nome||'',arquivada:!!l.arquivado_em}));
-    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands};
+    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,areas:state.areas};
     window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
     renderDirectoryChrome();
     installNav();
@@ -189,6 +195,98 @@
   function openModal(){ensureModal();$('#allianceAdminModal').classList.add('open');refreshAll();}
   function closeModal(){$('#allianceAdminModal')?.classList.remove('open');}
 
+
+  let profileRemovePhoto=false;
+  function ensureProfileStyles(){
+    if($('#allianceProfileStyles'))return;
+    const st=document.createElement('style');st.id='allianceProfileStyles';
+    st.textContent=[
+      '.ref2-avatar,.ref2-team-avatar,.mini-av,.bigav,.r10-step-avatar,.cav{overflow:hidden}',
+      '.aa-profile-modal{position:fixed;inset:0;z-index:100200;display:none;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}',
+      '.aa-profile-modal.open{display:block}',
+      '.aa-profile-backdrop{position:absolute;inset:0;background:rgba(17,22,26,.46);backdrop-filter:blur(4px)}',
+      '.aa-profile-card{position:absolute;right:22px;top:22px;width:min(470px,calc(100vw - 32px));max-height:calc(100vh - 44px);overflow:auto;background:#fff;border:1px solid #e0e5e8;border-radius:20px;box-shadow:0 24px 70px rgba(18,26,31,.22);color:#171b1e}',
+      '.aa-profile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px;border-bottom:1px solid #edf0f2}.aa-profile-head h2{margin:0;font-size:18px;letter-spacing:-.03em}.aa-profile-head p{margin:5px 0 0;color:#7c868d;font-size:11px}.aa-profile-close{width:34px;height:34px;border:1px solid #dfe4e7;border-radius:10px;background:#fff;font-size:18px}',
+      '.aa-profile-body{padding:22px;display:grid;gap:18px}.aa-profile-photo-row{display:flex;align-items:center;gap:16px}.aa-profile-photo{width:82px;height:82px;border-radius:50%;background:#eef1f2;display:grid;place-items:center;font-size:22px;font-weight:800;overflow:hidden;flex:0 0 auto}.aa-profile-photo img{width:100%;height:100%;object-fit:cover}.aa-profile-photo-actions{display:grid;gap:7px}.aa-profile-photo-actions input{font-size:10px;max-width:280px}.aa-profile-photo-actions small{font-size:9px;color:#889198;line-height:1.4}',
+      '.aa-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.aa-profile-field{display:grid;gap:6px}.aa-profile-field.full{grid-column:1/-1}.aa-profile-field label{font-size:10px;font-weight:750;color:#667078}.aa-profile-field input,.aa-profile-field select{height:41px;border:1px solid #dce1e4;border-radius:9px;padding:0 10px;background:#fff;color:#20262a;outline:none}.aa-profile-field input[readonly]{background:#f7f8f9;color:#7a848b}',
+      '.aa-profile-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:4px}.aa-profile-btn{height:40px;border:1px solid #dce1e4;border-radius:9px;background:#fff;padding:0 13px;font-weight:750;font-size:11px}.aa-profile-btn.primary{background:#171b1e;color:#fff;border-color:#171b1e}.aa-profile-btn.danger{color:#a43d43;width:max-content}.aa-profile-btn:disabled{opacity:.5}',
+      '@media(max-width:560px){.aa-profile-card{right:8px;top:8px;width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.aa-profile-grid{grid-template-columns:1fr}.aa-profile-field.full{grid-column:auto}.aa-profile-photo-row{align-items:flex-start;flex-direction:column}}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+  function ensureProfileModal(){
+    if($('#allianceProfileModal'))return;
+    ensureProfileStyles();
+    const modal=document.createElement('div');modal.id='allianceProfileModal';modal.className='aa-profile-modal';
+    modal.innerHTML='<div class="aa-profile-backdrop" data-aa-profile-close></div><section class="aa-profile-card"><header class="aa-profile-head"><div><h2>Meu perfil</h2><p>Atualize como você aparece no AllianceOS.</p></div><button class="aa-profile-close" type="button" data-aa-profile-close>×</button></header><div class="aa-profile-body" id="allianceProfileBody"></div></section>';
+    document.body.appendChild(modal);
+    $$('[data-aa-profile-close]',modal).forEach(x=>x.addEventListener('click',closeProfileModal));
+  }
+  function closeProfileModal(){$('#allianceProfileModal')?.classList.remove('open');}
+  function renderProfileForm(){
+    const body=$('#allianceProfileBody');if(!body||!state.profile)return;
+    const p=state.profile, photo=p.foto_url||'';
+    const areaOptions='<option value="">Sem área definida</option>'+state.areas.map(a=>'<option value="'+esc(a.id)+'" '+(String(p.area_id||'')===String(a.id)?'selected':'')+'>'+esc(a.nome)+'</option>').join('');
+    body.innerHTML='<div class="aa-profile-photo-row"><div class="aa-profile-photo" id="aaProfilePreview">'+avatarInner(p,p.nome)+'</div><div class="aa-profile-photo-actions"><input id="aaProfilePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><small>JPG, PNG, WEBP ou GIF · até 5 MB. A foto substitui suas iniciais no sistema.</small><button class="aa-profile-btn danger" id="aaProfileRemovePhoto" type="button" '+(!photo?'disabled':'')+'>Remover foto</button></div></div>'+
+      '<div class="aa-profile-grid"><div class="aa-profile-field full"><label>Nome</label><input id="aaProfileName" value="'+esc(p.nome||'')+'" maxlength="200"></div><div class="aa-profile-field"><label>Cargo</label><input id="aaProfileCargo" value="'+esc(p.cargo||'')+'" maxlength="200" placeholder="Ex.: Gestão de projetos"></div><div class="aa-profile-field"><label>Área</label><select id="aaProfileArea">'+areaOptions+'</select></div><div class="aa-profile-field"><label>E-mail</label><input value="'+esc(p.email||'')+'" readonly></div><div class="aa-profile-field"><label>Papel</label><input value="'+esc(p.papel==='admin'?'Administrador':'Membro')+'" readonly></div></div>'+
+      '<div class="aa-profile-actions"><button class="aa-profile-btn" type="button" data-aa-profile-close-inside>Cancelar</button><button class="aa-profile-btn primary" id="aaProfileSave" type="button">Salvar perfil</button></div>';
+    profileRemovePhoto=false;
+    $('[data-aa-profile-close-inside]',body)?.addEventListener('click',closeProfileModal);
+    const input=$('#aaProfilePhoto',body),preview=$('#aaProfilePreview',body),remove=$('#aaProfileRemovePhoto',body);
+    input?.addEventListener('change',()=>{
+      const file=input.files?.[0];if(!file)return;
+      if(file.size>5*1024*1024){toast('A foto precisa ter no máximo 5 MB.');input.value='';return;}
+      if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)){toast('Use JPG, PNG, WEBP ou GIF.');input.value='';return;}
+      profileRemovePhoto=false;if(remove)remove.disabled=false;
+      preview.innerHTML='<img src="'+esc(URL.createObjectURL(file))+'" alt="">';
+    });
+    remove?.addEventListener('click',()=>{profileRemovePhoto=true;if(input)input.value='';preview.textContent=initials($('#aaProfileName',body)?.value||p.nome);remove.disabled=true;});
+    $('#aaProfileSave',body)?.addEventListener('click',saveProfile);
+  }
+  async function saveProfile(){
+    if(!state.user||!state.profile)return;
+    const btn=$('#aaProfileSave'),name=$('#aaProfileName')?.value.trim(),cargo=$('#aaProfileCargo')?.value.trim()||null,area=$('#aaProfileArea')?.value||null,file=$('#aaProfilePhoto')?.files?.[0]||null;
+    if(!name){toast('Digite seu nome.');return;}
+    btn.disabled=true;btn.textContent='Salvando…';
+    const oldName=state.profile.nome;
+    try{
+      let fotoUrl=state.profile.foto_url||null;
+      const path=state.user.id+'/avatar';
+      if(profileRemovePhoto){
+        const rem=await state.sb.storage.from('profile-avatars').remove([path]);
+        if(rem.error&&!String(rem.error.message||'').toLowerCase().includes('not found'))throw rem.error;
+        fotoUrl=null;
+      }
+      if(file){
+        const upload=await state.sb.storage.from('profile-avatars').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'3600'});
+        if(upload.error)throw upload.error;
+        const pub=state.sb.storage.from('profile-avatars').getPublicUrl(path);
+        fotoUrl=(pub.data?.publicUrl||'')+'?v='+Date.now();
+      }
+      const {data,error}=await state.sb.rpc('atualizar_meu_perfil',{p_nome:name,p_cargo:cargo,p_area_id:area,p_foto_url:fotoUrl});
+      if(error)throw error;
+      const updated=Array.isArray(data)?data[0]:data;if(updated)state.profile=updated;
+      if(norm(oldName)!==norm(name)){
+        try{
+          let touched=false;
+          for(const t of state.tasks){
+            if(!(t.assigneeIds||[]).some(id=>String(id)===String(state.user.id))||!Array.isArray(t.assignees))continue;
+            const next=t.assignees.map(n=>norm(n)===norm(oldName)?name:n);
+            if(JSON.stringify(next)!==JSON.stringify(t.assignees)){t.assignees=next;touched=true;}
+          }
+          if(touched)await writeTasks(state.tasks);
+        }catch(syncErr){console.warn('[AllianceOS profile task name sync]',syncErr);}
+      }
+      await audit('atualizar_perfil','perfil',state.user.id,{nome:name,cargo,area_id:area,foto:!!fotoUrl});
+      await refreshAll();closeProfileModal();toast('Perfil atualizado.');
+    }catch(err){toast(err?.message||String(err));}
+    finally{btn.disabled=false;btn.textContent='Salvar perfil';}
+  }
+  function openProfileModal(){
+    if(!state.user){openModal();return;}
+    ensureProfileModal();renderProfileForm();$('#allianceProfileModal').classList.add('open');
+  }
+
   function installNav(){
     const legacyNav=$('.nav')||$('.sidebar');
     if(legacyNav&&!$('#allianceAdminNav')){
@@ -207,6 +305,7 @@
     };
     bindCapture($('.ref2-nav-btn[data-key="settings"]'),'aaAdminBound',()=>openModal());
     bindCapture($('.ref2-team'),'aaAdminBound',()=>openModal());
+    bindCapture($('.ref2-profile'),'aaProfileBound',()=>state.user?openProfileModal():openModal());
     bindCapture($('.ref2-nav-btn[data-key="notifications"]'),'aaNotifBound',e=>state.user?openNotifications(e):openModal());
   }
 
@@ -218,13 +317,13 @@
     if(team){
       team.setAttribute('aria-label','Equipe Alliance · '+count+' membro'+(count===1?'':'s'));
       const shown=real.slice(0,2);
-      team.innerHTML=shown.map(m=>'<span class="ref2-team-avatar">'+esc((String(m.nome||'').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]||'').join('')||'—').toUpperCase())+'</span>').join('')+
+      team.innerHTML=shown.map(m=>'<span class="ref2-team-avatar">'+avatarInner(m,m.nome)+'</span>').join('')+
         (count>2?'<span class="ref2-team-avatar more">+'+(count-2)+'</span>':'');
     }
     if(state.profile){
       const av=$('.ref2-avatar');
-      if(av)av.textContent=(String(state.profile.nome||'').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]||'').join('')||'—').toUpperCase();
-      const profileBtn=$('.ref2-profile');if(profileBtn)profileBtn.setAttribute('aria-label',state.profile.nome||'Perfil');
+      if(av){av.innerHTML=avatarInner(state.profile,state.profile.nome);av.style.overflow='hidden';}
+      const profileBtn=$('.ref2-profile');if(profileBtn)profileBtn.setAttribute('aria-label','Editar perfil · '+(state.profile.nome||'Perfil'));
     }
   }
 

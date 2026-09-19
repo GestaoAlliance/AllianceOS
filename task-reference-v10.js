@@ -26,6 +26,12 @@
     const p=r10Short(v).split(/\s+/).filter(Boolean);
     return (((p[0]||'')[0]||'')+((p[1]||'')[0]||'')).toUpperCase() || '—';
   };
+  const r10AvatarInner = (name,userId) => {
+    const members=window.AllianceOSDirectory?.members||[];
+    const key=String(r10Short(name)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const person=members.find(m=>m.tipo==='usuario'&&((userId&&String(m.id)===String(userId))||String(m.nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()===key));
+    return person?.foto_url?'<img src="'+r10Esc(person.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">':r10Esc(r10Initials(name));
+  };
   const r10Task = id => taskData.find(x=>String(x.id)===String(id))||null;
   const r10Deps = t => (t.dependencies||[]).map(r10Task).filter(Boolean);
   const r10Dependents = t => taskData.filter(x=>(x.dependencies||[]).some(id=>String(id)===String(t.id)));
@@ -104,7 +110,7 @@
       const cl=(x.status==='feito'?' done':'')+(String(x.id)===String(t.id)?' current':'');
       const icon=x.status==='feito'?r10Icon('done'):String(x.id)===String(t.id)?r10Icon('task'):r10Icon('pending');
       const relation=!linked&&x._r10Relation?x._r10Relation+' · ':'';
-      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+icon+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b><span>'+r10Esc(relation+r10Status(x))+'</span></span><span class="r10-step-avatar">'+r10Esc(r10Initials((x.assignees||[])[0]||''))+'</span></button>';
+      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+icon+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b><span>'+r10Esc(relation+r10Status(x))+'</span></span><span class="r10-step-avatar">'+r10AvatarInner((x.assignees||[])[0]||'',(x.assigneeIds||[])[0])+'</span></button>';
     });
     return html+'</div></aside>';
   }

@@ -315,9 +315,15 @@
     return out.join('');
   }
 
-  avatarStack = function(names){
+  function v3AvatarInner(name,userId){
+    const members=window.AllianceOSDirectory?.members||[];
+    const key=String(v3Short(name)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const person=members.find(m=>m.tipo==='usuario'&&((userId&&String(m.id)===String(userId))||String(m.nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()===key));
+    return person?.foto_url?`<img src="${esc(person.foto_url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`:initials(v3Short(name));
+  }
+  avatarStack = function(names,ids=[]){
     if(!names?.length)return '<span class="no-assignee">Sem responsável</span>';
-    return `<div class="avatar-stack">${names.slice(0,3).map(n=>`<span class="mini-av" title="${esc(v3Short(n))}">${initials(v3Short(n))}</span>`).join('')}${names.length>3?`<span class="mini-av more">+${names.length-3}</span>`:''}<span class="assignee-name">${esc(v3Short(names[0]))}</span></div>`;
+    return `<div class="avatar-stack">${names.slice(0,3).map((n,i)=>`<span class="mini-av" title="${esc(v3Short(n))}">${v3AvatarInner(n,ids[i])}</span>`).join('')}${names.length>3?`<span class="mini-av more">+${names.length-3}</span>`:''}<span class="assignee-name">${esc(v3Short(names[0]))}</span></div>`;
   };
   metrics = function(t){
     const done=(t.checklist||[]).filter(x=>x.done).length,total=(t.checklist||[]).length;
@@ -329,7 +335,7 @@
     const blockers=v3Blockers(t);
     return `<div class="cu-row ${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
       <div class="cu-row-title"><button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button><div class="cu-titletext"><div class="task-title-line"><b>${esc(t.title)}</b>${v3FlowBadges(t)}</div><small>${esc(t.description||t.project||'Sem descrição')}</small></div></div>
-      <div>${avatarStack(t.assignees)}</div>
+      <div>${avatarStack(t.assignees,t.assigneeIds||[])}</div>
       <div><span class="pri ${t.priority}">${PRIORITY_LABEL[t.priority]||'Normal'}</span></div>
       <div><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}${isOverdue(t)?' · atrasada':''}</span></div>
       <div><span class="tag-project">${esc(t.project||'Operação')}</span></div>
@@ -349,7 +355,7 @@
   renderBoard = function(canvas,data){
     canvas.innerHTML=`<div class="cu-board">${TASK_STATUSES.map(status=>{
       const rows=data.filter(t=>t.status===status);
-      return `<section class="cu-column" data-v3-drop-status="${status}"><div class="cu-colhead" style="--status-color:${STATUS_COLORS[status]}"><span class="bar"></span><b>${status}</b><span>${rows.length}</span></div>${rows.map(t=>`<article class="cu-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" draggable="true" data-drag-id="${esc(t.id)}" data-task-id="${esc(t.id)}"><div class="cu-card-project">${esc(t.project||'Operação')}</div><div class="cu-card-title">${esc(t.title)}</div><div class="cu-card-flow">${v3FlowBadges(t)}</div><div class="cu-card-foot">${avatarStack(t.assignees)}<span class="pri ${t.priority}" title="${PRIORITY_LABEL[t.priority]}"></span><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div></article>`).join('')}</section>`;
+      return `<section class="cu-column" data-v3-drop-status="${status}"><div class="cu-colhead" style="--status-color:${STATUS_COLORS[status]}"><span class="bar"></span><b>${status}</b><span>${rows.length}</span></div>${rows.map(t=>`<article class="cu-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" draggable="true" data-drag-id="${esc(t.id)}" data-task-id="${esc(t.id)}"><div class="cu-card-project">${esc(t.project||'Operação')}</div><div class="cu-card-title">${esc(t.title)}</div><div class="cu-card-flow">${v3FlowBadges(t)}</div><div class="cu-card-foot">${avatarStack(t.assignees,t.assigneeIds||[])}<span class="pri ${t.priority}" title="${PRIORITY_LABEL[t.priority]}"></span><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div></article>`).join('')}</section>`;
     }).join('')}</div>`;
     bindTaskElements();bindDrag();
   };
@@ -366,7 +372,7 @@
     const names=[...new Set(data.flatMap(t=>t.assignees.length?t.assignees:['Sem responsável']))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
     canvas.innerHTML=`<div class="cu-people">${names.map(n=>{
       const rows=data.filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n));
-      return `<section class="cu-person"><div class="cu-person-head"><div class="bigav">${n==='Sem responsável'?'—':initials(v3Short(n))}</div><div><b>${esc(v3Short(n))}</b><span>${rows.filter(t=>t.status!=='feito').length} abertas · ${rows.filter(isOverdue).length} vencidas</span></div></div>${rows.map(t=>`<div class="cu-person-task ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${dateBr(t.due)} · ${esc(t.project)}</small></div>`).join('')}</section>`;
+      return `<section class="cu-person"><div class="cu-person-head"><div class="bigav">${n==='Sem responsável'?'—':v3AvatarInner(n)}</div><div><b>${esc(v3Short(n))}</b><span>${rows.filter(t=>t.status!=='feito').length} abertas · ${rows.filter(isOverdue).length} vencidas</span></div></div>${rows.map(t=>`<div class="cu-person-task ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${dateBr(t.due)} · ${esc(t.project)}</small></div>`).join('')}</section>`;
     }).join('')}</div>`;bindTaskElements();
   };
 
@@ -475,7 +481,7 @@
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Anexos</strong><span>Arquivos e referências usados nesta execução.</span></div><span>${(t.attachments||[]).length}</span></div><label class="attachment-drop v3-attachment-drop">Adicionar arquivos<input type="file" id="attachmentInput" multiple></label><div id="attachmentList">${(t.attachments||[]).map((f,i)=>`<div class="file-pill"><span>◫</span><b>${esc(f.name)}</b><small>${esc(f.size||'')}</small><button type="button" data-remove-attachment="${i}">×</button></div>`).join('')}</div></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Entrega</strong><span>${t.deliveryRequired?'Obrigatória para concluir.':'Registre o resultado final, link ou observação.'}</span></div><span>${(t.deliveries||[]).length}</span></div><div class="addline"><input id="newDeliveryText" placeholder="Cole o link ou descreva a entrega"><button type="button" id="addDeliveryBtn">Registrar entrega</button></div><div id="deliveryList">${(t.deliveries||[]).map((d,i)=>`<div class="file-pill"><span>↗</span><b>${esc(d.text||d.url||d.name||'Entrega')}</b><small>${esc(d.at||'')}</small><button type="button" data-remove-delivery="${i}">×</button></div>`).join('')}</div></section>
       <section class="tsection v3-section v3-continuity"><div class="tsection-head"><div><strong>Conclusão e continuidade</strong><span>O fluxo libera automaticamente as próximas tarefas. Não é necessário escolher “próxima tarefa”.</span></div></div>${blockers.length?`<div class="v3-continuity-note blocked">Ainda faltam ${blockers.length} dependência${blockers.length>1?'s':''}: ${blockers.slice(0,3).map(x=>esc(x.title)).join(', ')}.</div>`:`<div class="v3-continuity-note">${next.length?`Ao concluir, ${next.length===1?`“${esc(next[0].title)}” será liberada`:`${next.length} tarefas serão liberadas`} automaticamente.`:'Esta é a última etapa conhecida deste fluxo.'}</div>`}<button type="button" id="v3CompleteTaskBtn" class="v3-complete-btn ${t.status==='feito'?'secondary':''}" ${blockers.length&&t.status!=='feito'?'disabled':''}>${t.status==='feito'?'Reabrir tarefa':next.length?'Concluir e liberar próximas':'Concluir tarefa'}</button></section>
-      <section class="tsection v3-section"><div class="tsection-head"><div><strong>Comentários e atividade</strong><span>Decisões e mudanças importantes ficam registradas aqui.</span></div><span>${(t.comments||[]).length} comentário(s)</span></div><div class="addline v3-comment-add"><input id="newCommentText" placeholder="Escreva um comentário"><button type="button" id="addCommentBtn">Comentar</button></div><div id="commentList">${(t.comments||[]).map(c=>`<div class="comment"><div class="cav">${initials(c.author)}</div><div class="comment-body"><b>${esc(c.author)}</b><p>${esc(c.text)}</p><small>${esc(c.at)}</small></div></div>`).join('')}</div><div class="v3-history">${(t.history||[]).map(h=>`<div class="activity"><b>${esc(h.at)}</b><p>${esc(h.text)}</p></div>`).join('')}</div></section>
+      <section class="tsection v3-section"><div class="tsection-head"><div><strong>Comentários e atividade</strong><span>Decisões e mudanças importantes ficam registradas aqui.</span></div><span>${(t.comments||[]).length} comentário(s)</span></div><div class="addline v3-comment-add"><input id="newCommentText" placeholder="Escreva um comentário"><button type="button" id="addCommentBtn">Comentar</button></div><div id="commentList">${(t.comments||[]).map(c=>`<div class="comment"><div class="cav">${v3AvatarInner(c.author)}</div><div class="comment-body"><b>${esc(c.author)}</b><p>${esc(c.text)}</p><small>${esc(c.at)}</small></div></div>`).join('')}</div><div class="v3-history">${(t.history||[]).map(h=>`<div class="activity"><b>${esc(h.at)}</b><p>${esc(h.text)}</p></div>`).join('')}</div></section>
     </main><aside class="tdetail-side"><div class="v3-side-title"><strong>Contexto da tarefa</strong><span>${esc(t.brand||'')} · ${esc(t.project||'Operação')}</span></div><div class="tdetail-grid">
       <div class="tfield"><label>Status</label><select id="detailStatus">${TASK_STATUSES.map(st=>`<option value="${st}" ${st===t.status?'selected':''} ${st==='feito'&&completionProblem&&t.status!=='feito'?'disabled':''}>${st}${st==='feito'&&completionProblem?' · com trava':''}</option>`).join('')}</select></div>
       <div class="tfield" id="detailBlockedReasonField"><label>Motivo do bloqueio</label><input id="detailBlockedReason" value="${esc(t.blockedReason||'')}" placeholder="Ex.: aguardando terceiro"><small>Obrigatório quando o status é bloqueado.</small></div>
