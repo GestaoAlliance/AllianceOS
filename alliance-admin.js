@@ -107,7 +107,6 @@
       window.AllianceOSDirectory={members:[],lists:[],brands:[]};
       return;
     }
-    try{await state.sb.rpc('aceitar_meu_convite');}catch(e){console.warn('[AllianceOS invite acceptance]',e);}
     const [profileR,profilesR,brandsR,areasR,listsR,linksR,invitesR,tasks]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('ativo',true).order('nome'),
