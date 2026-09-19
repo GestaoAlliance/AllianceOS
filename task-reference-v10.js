@@ -602,7 +602,7 @@
       dueField.querySelector('label').textContent='Prazo';
       dueField.querySelectorAll('small').forEach(x=>x.remove());
       const dueVisual=r10DueVisual(t);
-      dueField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-due-icon">'+r10Icon('calendar')+'</span><span class="r10-due-display"><strong>'+r10Esc(dueVisual.main)+'</strong><small>'+r10Esc(dueVisual.sub)+'</small></span>');
+      dueField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-due-icon">'+r10Icon('calendar')+'</span><button type="button" class="r10-due-display" data-r10-edit-due title="Editar prazo" aria-label="Editar prazo"><strong>'+r10Esc(dueVisual.main)+'</strong><small>'+r10Esc(dueVisual.sub)+'</small></button>');
     }
     if(priorityField){priorityField.classList.add('r10-field-priority','priority-'+r10Norm(r10Priority(t)));priorityField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-priority-bars">'+r10Icon('priority')+'</span>')}
     if(campaignField){campaignField.classList.add('r10-field-campaign');campaignField.querySelector('label').textContent=t.campaignId?'Campanha':'Lista';campaignField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn">'+r10Icon('folder')+'</span>')}
@@ -774,6 +774,33 @@
       if(typeof v3Persist==='function')v3Persist(false);
       renderTaskDetailBody(t);
     }));
+    const dueInput=workspace.querySelector('#detailDue');
+    const dueTrigger=workspace.querySelector('[data-r10-edit-due]');
+    const refreshDueVisual=()=>{
+      if(!dueTrigger||!dueInput)return;
+      const dueVisual=r10DueVisual({dueAt:dueInput.value||''});
+      const main=dueTrigger.querySelector('strong');
+      const sub=dueTrigger.querySelector('small');
+      if(main)main.textContent=dueVisual.main;
+      if(sub)sub.textContent=dueVisual.sub;
+    };
+    dueTrigger?.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      if(!dueInput)return;
+      try{
+        if(typeof dueInput.showPicker==='function')dueInput.showPicker();
+        else{dueInput.focus();dueInput.click();}
+      }catch{
+        dueInput.focus();
+        dueInput.click();
+      }
+    });
+    dueInput?.addEventListener('change',()=>{
+      refreshDueVisual();
+      dueField?.classList.add('r10-field-edited');
+    });
+
     const campaignLink=workspace.querySelector('[data-r10-open-campaign]');
     campaignLink?.addEventListener('click',e=>{
       e.preventDefault();
