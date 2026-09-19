@@ -164,7 +164,7 @@
     if(url){try{const parsed=new URL(url);if(!/^https?:$/.test(parsed.protocol))throw new Error();}catch{showToast('Use um link válido começando por https://');return false;}}
     const total=rawFiles.reduce((n,f)=>n+f.size,0);
     if(total>1200000){showToast('Os arquivos somam mais de 1,2 MB. Para arquivos maiores, envie um link do Drive/Figma.');return false;}
-    if(!rawFiles.length&&!url){showToast('Adicione pelo menos um arquivo ou link para enviar a entrega.');return false;}
+    if(!rawFiles.length&&!url&&!note){showToast('Adicione um arquivo, escreva a entrega ou informe um link.');return false;}
     let files=[];
     try{files=await Promise.all(rawFiles.map(v5ReadFile));}catch{showToast('Não foi possível preparar um dos arquivos.');return false;}
     const links=url?[{label:label||'Material da entrega',url}]:[];

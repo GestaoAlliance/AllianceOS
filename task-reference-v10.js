@@ -370,13 +370,34 @@
       if(fileInput&&compose){
         fileInput.setAttribute('accept','image/*,.pdf,.zip,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx');
 
-        const hidden=document.createElement('div');
-        hidden.className='r10-delivery-hidden-controls';
-        ['v5DeliveryNote','v5DeliveryLink','v5DeliveryLinkLabel'].forEach(id=>{
-          const el=delivery.querySelector('#'+id);
-          const field=el?.closest('label');
-          if(field)hidden.appendChild(field);
-        });
+        const alternatives=document.createElement('div');
+        alternatives.className='r10-delivery-alternatives';
+        alternatives.innerHTML='<div class="r10-delivery-alt-head"><strong>Ou entregue por texto ou link</strong><span>Use quando a entrega não for um arquivo.</span></div><div class="r10-delivery-alt-grid"></div>';
+        const altGrid=alternatives.querySelector('.r10-delivery-alt-grid');
+        const noteInput=delivery.querySelector('#v5DeliveryNote');
+        const linkInput=delivery.querySelector('#v5DeliveryLink');
+        const linkLabelInput=delivery.querySelector('#v5DeliveryLinkLabel');
+        const noteField=noteInput?.closest('label');
+        const linkField=linkInput?.closest('label');
+        const linkLabelField=linkLabelInput?.closest('label');
+        if(noteField){
+          noteField.classList.add('r10-delivery-note-field');
+          noteField.childNodes[0].nodeValue='Texto da entrega';
+          noteInput.setAttribute('placeholder','Escreva aqui o conteúdo ou a mensagem final desta tarefa.');
+          altGrid.appendChild(noteField);
+        }
+        if(linkField){
+          linkField.classList.add('r10-delivery-link-field');
+          linkField.childNodes[0].nodeValue='Link da entrega';
+          linkInput.setAttribute('placeholder','https://drive.google.com/… ou Figma, Docs, etc.');
+          altGrid.appendChild(linkField);
+        }
+        if(linkLabelField){
+          linkLabelField.classList.add('r10-delivery-link-label-field');
+          linkLabelField.childNodes[0].nodeValue='Nome do link';
+          linkLabelInput.setAttribute('placeholder','Ex.: Copy aprovada');
+          altGrid.appendChild(linkLabelField);
+        }
 
         const drop=document.createElement('label');
         drop.className='r10-delivery-dropzone';
@@ -392,23 +413,40 @@
         if(sendCompleteBtn)actions.appendChild(sendCompleteBtn);
 
         if(legacyGrid)legacyGrid.remove();
-        compose.prepend(hidden,drop,bar);
+        compose.prepend(drop,alternatives,bar);
 
-        const syncSelection=()=>{
+        const syncDeliveryState=()=>{
           const selected=[...(fileInput.files||[])];
           const total=sentCount+selected.length;
+          const hasText=!!String(noteInput?.value||'').trim();
+          const hasLink=!!String(linkInput?.value||'').trim();
+          const hasContent=selected.length>0||hasText||hasLink;
           delivery.classList.toggle('has-selection',selected.length>0);
+          delivery.classList.toggle('has-content',hasContent);
           const countEl=bar.querySelector('.r10-delivery-files-count');
           const statusEl=bar.querySelector('.r10-delivery-files-status');
           if(countEl)countEl.textContent='Arquivos anexados ('+total+')';
-          if(statusEl)statusEl.textContent=selected.length
-            ? selected.length+' '+(selected.length===1?'arquivo selecionado':'arquivos selecionados')+' para envio.'
-            : (sentCount?sentCount+' '+(sentCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.');
+          if(statusEl){
+            if(selected.length)statusEl.textContent=selected.length+' '+(selected.length===1?'arquivo selecionado':'arquivos selecionados')+' para envio.';
+            else if(hasText||hasLink)statusEl.textContent='Entrega pronta para enviar.';
+            else statusEl.textContent=sentCount?sentCount+' '+(sentCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.';
+          }
         };
-        fileInput.addEventListener('change',syncSelection);
+        fileInput.addEventListener('change',syncDeliveryState);
+        noteInput?.addEventListener('input',syncDeliveryState);
+        linkInput?.addEventListener('input',syncDeliveryState);
+        linkLabelInput?.addEventListener('input',syncDeliveryState);
         ['dragenter','dragover'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add('is-dragging')}));
-        ['dragleave','drop'].forEach(type=>drop.addEventListener(type,e=>{if(type==='drop')e.preventDefault();drop.classList.remove('is-dragging')}));
-        syncSelection();
+        drop.addEventListener('dragleave',()=>drop.classList.remove('is-dragging'));
+        drop.addEventListener('drop',e=>{
+          e.preventDefault();
+          drop.classList.remove('is-dragging');
+          if(e.dataTransfer?.files?.length){
+            try{fileInput.files=e.dataTransfer.files}catch{}
+            fileInput.dispatchEvent(new Event('change',{bubbles:true}));
+          }
+        });
+        syncDeliveryState();
       }
     }
     const simpleAction=oldMain.querySelector('.v7-simple-action'), comments=oldMain.querySelector('#commentList')&&oldMain.querySelector('#commentList').closest('.v3-section');
@@ -1528,8 +1566,86 @@
     border:0!important;
     background:transparent!important;
   }
-  #taskDetailDrawer .r10-delivery-hidden-controls{
-    display:none!important;
+  #taskDetailDrawer .r10-delivery-alternatives{
+    box-sizing:border-box!important;
+    margin:0 18px 16px!important;
+    padding:14px!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:13px!important;
+    background:#fff!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-head{
+    display:flex!important;
+    align-items:baseline!important;
+    gap:8px!important;
+    margin-bottom:11px!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-head>strong{
+    color:#20272d!important;
+    font-size:13px!important;
+    font-weight:650!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-head>span{
+    color:#8a949c!important;
+    font-size:10.5px!important;
+    font-weight:450!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-grid{
+    display:grid!important;
+    grid-template-columns:minmax(0,1.15fr) minmax(230px,.85fr)!important;
+    grid-template-rows:auto auto!important;
+    gap:10px 12px!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-grid>label{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:6px!important;
+    margin:0!important;
+    color:#4c5861!important;
+    font-size:10.5px!important;
+    font-weight:650!important;
+  }
+  #taskDetailDrawer .r10-delivery-note-field{
+    grid-column:1!important;
+    grid-row:1 / 3!important;
+  }
+  #taskDetailDrawer .r10-delivery-link-field{
+    grid-column:2!important;
+    grid-row:1!important;
+  }
+  #taskDetailDrawer .r10-delivery-link-label-field{
+    grid-column:2!important;
+    grid-row:2!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-grid textarea,
+  #taskDetailDrawer .r10-delivery-alt-grid input{
+    box-sizing:border-box!important;
+    width:100%!important;
+    margin:0!important;
+    border:1px solid #dce2e6!important;
+    border-radius:10px!important;
+    outline:0!important;
+    background:#fff!important;
+    color:#263139!important;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    font-size:12.5px!important;
+    font-weight:450!important;
+    line-height:1.4!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-grid textarea{
+    min-height:96px!important;
+    height:100%!important;
+    padding:11px 12px!important;
+    resize:vertical!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-grid input{
+    height:43px!important;
+    padding:0 12px!important;
+  }
+  #taskDetailDrawer .r10-delivery-alt-grid textarea:focus,
+  #taskDetailDrawer .r10-delivery-alt-grid input:focus{
+    border-color:#b9c5cd!important;
+    box-shadow:0 0 0 2px rgba(59,93,116,.06)!important;
   }
   #taskDetailDrawer .r10-delivery-dropzone{
     box-sizing:border-box!important;
@@ -1642,10 +1758,10 @@
     gap:8px!important;
     margin-left:auto!important;
   }
-  #taskDetailDrawer .r10-delivery-card.has-selection .r10-delivery-files-status{
+  #taskDetailDrawer .r10-delivery-card.has-content .r10-delivery-files-status{
     display:none!important;
   }
-  #taskDetailDrawer .r10-delivery-card.has-selection .r10-delivery-actions{
+  #taskDetailDrawer .r10-delivery-card.has-content .r10-delivery-actions{
     display:flex!important;
   }
   #taskDetailDrawer .r10-delivery-actions button{
@@ -1671,6 +1787,18 @@
   }
   #taskDetailDrawer .r10-delivery-card>.v5-delivery-list{
     margin:0 18px 14px!important;
+  }
+  @media(max-width:1050px){
+    #taskDetailDrawer .r10-delivery-alt-grid{
+      grid-template-columns:1fr!important;
+      grid-template-rows:auto!important;
+    }
+    #taskDetailDrawer .r10-delivery-note-field,
+    #taskDetailDrawer .r10-delivery-link-field,
+    #taskDetailDrawer .r10-delivery-link-label-field{
+      grid-column:1!important;
+      grid-row:auto!important;
+    }
   }
   `;
   document.head.appendChild(r10FlowStyle);
