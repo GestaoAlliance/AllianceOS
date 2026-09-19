@@ -47,7 +47,8 @@
       fileText:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/>',
       archiveFile:'<path d="M6 3h12v5H6z"/><path d="M7 8h10v13H7zM10 12h4M10 16h4"/>',
       download:'<path d="M12 4v10"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/>',
-      close:'<path d="m8 8 8 8M16 8l-8 8"/>'
+      close:'<path d="m8 8 8 8M16 8l-8 8"/>',
+      uploadCloud:'<path d="M7 18h10a3.5 3.5 0 0 0 .4-6.98A5.5 5.5 0 0 0 6.5 9.5 4 4 0 0 0 7 18Z"/><path d="M12 16V8"/><path d="m8.8 11.2 3.2-3.2 3.2 3.2"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -353,7 +354,63 @@
     }
     const incoming=oldMain.querySelector('.v5-incoming-section'), delivery=oldMain.querySelector('.v5-delivery-section');
     const conferenceSection=oldMain.querySelector('#detailChecklist')&&oldMain.querySelector('#detailChecklist').closest('.v3-section');
-    if(delivery){const h=delivery.querySelector('.tsection-head strong'),s=delivery.querySelector('.tsection-head span');if(h)h.textContent='Sua entrega';if(s)s.textContent=t.deliveryRequired?'Obrigatória para concluir a tarefa':'Envie o material final desta execução'}
+    if(delivery){
+      delivery.classList.add('r10-delivery-card');
+      const head=delivery.querySelector('.tsection-head');
+      if(head)head.innerHTML='<span class="r10-delivery-heading"><span class="r10-delivery-head-icon">'+r10Icon('uploadCloud')+'</span><strong>Sua entrega</strong></span>';
+
+      const compose=delivery.querySelector('.v5-delivery-compose');
+      const fileInput=delivery.querySelector('#v5DeliveryFiles');
+      const sendBtn=delivery.querySelector('#v5SendDelivery');
+      const sendCompleteBtn=delivery.querySelector('#v5SendAndComplete');
+      const legacyGrid=delivery.querySelector('.v5-compose-grid');
+      const sentFiles=(Array.isArray(t.deliveries)?t.deliveries:[]).flatMap(d=>Array.isArray(d?.files)?d.files:[]);
+      const sentCount=sentFiles.length;
+
+      if(fileInput&&compose){
+        fileInput.setAttribute('accept','image/*,.pdf,.zip,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx');
+
+        const hidden=document.createElement('div');
+        hidden.className='r10-delivery-hidden-controls';
+        ['v5DeliveryNote','v5DeliveryLink','v5DeliveryLinkLabel'].forEach(id=>{
+          const el=delivery.querySelector('#'+id);
+          const field=el?.closest('label');
+          if(field)hidden.appendChild(field);
+        });
+
+        const drop=document.createElement('label');
+        drop.className='r10-delivery-dropzone';
+        drop.setAttribute('for','v5DeliveryFiles');
+        drop.innerHTML='<span class="r10-delivery-drop-icon">'+r10Icon('uploadCloud')+'</span><span class="r10-delivery-drop-copy"><strong>Arraste e solte os arquivos aqui</strong><span>ou clique para anexar</span><small>Imagens, PDFs, ZIP, até 1,2 MB</small></span>';
+        drop.appendChild(fileInput);
+
+        const bar=document.createElement('div');
+        bar.className='r10-delivery-files-bar';
+        bar.innerHTML='<strong class="r10-delivery-files-count">Arquivos anexados ('+sentCount+')</strong><span class="r10-delivery-files-status">'+(sentCount?sentCount+' '+(sentCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.')+'</span><span class="r10-delivery-actions"></span>';
+        const actions=bar.querySelector('.r10-delivery-actions');
+        if(sendBtn)actions.appendChild(sendBtn);
+        if(sendCompleteBtn)actions.appendChild(sendCompleteBtn);
+
+        if(legacyGrid)legacyGrid.remove();
+        compose.prepend(hidden,drop,bar);
+
+        const syncSelection=()=>{
+          const selected=[...(fileInput.files||[])];
+          const total=sentCount+selected.length;
+          delivery.classList.toggle('has-selection',selected.length>0);
+          const countEl=bar.querySelector('.r10-delivery-files-count');
+          const statusEl=bar.querySelector('.r10-delivery-files-status');
+          if(countEl)countEl.textContent='Arquivos anexados ('+total+')';
+          if(statusEl)statusEl.textContent=selected.length
+            ? selected.length+' '+(selected.length===1?'arquivo selecionado':'arquivos selecionados')+' para envio.'
+            : (sentCount?sentCount+' '+(sentCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.');
+        };
+        fileInput.addEventListener('change',syncSelection);
+        ['dragenter','dragover'].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add('is-dragging')}));
+        ['dragleave','drop'].forEach(type=>drop.addEventListener(type,e=>{if(type==='drop')e.preventDefault();drop.classList.remove('is-dragging')}));
+        syncSelection();
+      }
+    }
     const simpleAction=oldMain.querySelector('.v7-simple-action'), comments=oldMain.querySelector('#commentList')&&oldMain.querySelector('#commentList').closest('.v3-section');
     oldMain.querySelectorAll('.v7-flow-summary,.v9-workspace-title,.v7-advanced-flow,.v3-continuity,.v5-tree-section').forEach(x=>x.classList.add('r10-engine-hidden'));
 
@@ -1407,6 +1464,213 @@
   #taskDetailDrawer .r10-materials-card .attachment-drop,
   #taskDetailDrawer .r10-materials-card .v3-attachment-drop{
     display:none!important;
+  }
+
+  /* Delivery — reference layout */
+  #taskDetailDrawer .r10-main .r10-delivery-card{
+    margin-top:16px!important;
+    padding:0 0 18px!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:16px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-main .r10-delivery-card>.tsection-head{
+    box-sizing:border-box!important;
+    min-height:70px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    padding:16px 18px 10px!important;
+    border:0!important;
+    background:#fff!important;
+  }
+  #taskDetailDrawer .r10-delivery-heading{
+    display:flex!important;
+    align-items:center!important;
+    gap:13px!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  #taskDetailDrawer .r10-delivery-head-icon{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    flex:0 0 42px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    border-radius:11px!important;
+    background:#edf0f2!important;
+    color:#20272c!important;
+  }
+  #taskDetailDrawer .r10-delivery-head-icon .r10-svg{
+    width:21px!important;
+    height:21px!important;
+    margin:0!important;
+    stroke-width:1.8!important;
+  }
+  #taskDetailDrawer .r10-delivery-heading>strong{
+    margin:0!important;
+    color:#12171b!important;
+    font-size:18px!important;
+    font-weight:720!important;
+    line-height:1.15!important;
+    letter-spacing:-.022em!important;
+  }
+  #taskDetailDrawer .r10-delivery-card .v5-delivery-state{
+    display:none!important;
+  }
+  #taskDetailDrawer .r10-delivery-card .v5-delivery-compose{
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+  }
+  #taskDetailDrawer .r10-delivery-hidden-controls{
+    display:none!important;
+  }
+  #taskDetailDrawer .r10-delivery-dropzone{
+    box-sizing:border-box!important;
+    position:relative!important;
+    min-height:176px!important;
+    margin:0 18px 16px!important;
+    padding:24px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:12px!important;
+    border:1px dashed #d7dfe5!important;
+    border-radius:16px!important;
+    background:#fbfcfd!important;
+    text-align:center!important;
+    cursor:pointer!important;
+    transition:border-color .15s ease,background .15s ease!important;
+  }
+  #taskDetailDrawer .r10-delivery-dropzone:hover,
+  #taskDetailDrawer .r10-delivery-dropzone.is-dragging{
+    border-color:#bfcbd4!important;
+    background:#f8fafb!important;
+  }
+  #taskDetailDrawer .r10-delivery-dropzone>#v5DeliveryFiles{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    opacity:0!important;
+    font-size:0!important;
+    cursor:pointer!important;
+    z-index:3!important;
+  }
+  #taskDetailDrawer .r10-delivery-drop-icon{
+    width:62px!important;
+    height:62px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    border-radius:999px!important;
+    background:#eef1f3!important;
+    color:#20272c!important;
+  }
+  #taskDetailDrawer .r10-delivery-drop-icon .r10-svg{
+    width:27px!important;
+    height:27px!important;
+    margin:0!important;
+    stroke-width:1.75!important;
+  }
+  #taskDetailDrawer .r10-delivery-drop-copy{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    gap:5px!important;
+  }
+  #taskDetailDrawer .r10-delivery-drop-copy>strong{
+    margin:0!important;
+    color:#182027!important;
+    font-size:16px!important;
+    font-weight:650!important;
+    line-height:1.22!important;
+  }
+  #taskDetailDrawer .r10-delivery-drop-copy>span{
+    color:#69757f!important;
+    font-size:14px!important;
+    font-weight:500!important;
+    line-height:1.2!important;
+  }
+  #taskDetailDrawer .r10-delivery-drop-copy>small{
+    color:#8b959d!important;
+    font-size:12.5px!important;
+    font-weight:450!important;
+    line-height:1.2!important;
+  }
+  #taskDetailDrawer .r10-delivery-files-bar{
+    box-sizing:border-box!important;
+    min-height:58px!important;
+    margin:0 18px!important;
+    padding:0 16px!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:14px!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:13px!important;
+    background:#fff!important;
+  }
+  #taskDetailDrawer .r10-delivery-files-count{
+    margin:0!important;
+    color:#20272d!important;
+    font-size:14px!important;
+    font-weight:650!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-delivery-files-status{
+    margin-left:auto!important;
+    color:#7f8991!important;
+    font-size:13px!important;
+    font-weight:450!important;
+    line-height:1.2!important;
+    text-align:right!important;
+  }
+  #taskDetailDrawer .r10-delivery-actions{
+    display:none!important;
+    align-items:center!important;
+    gap:8px!important;
+    margin-left:auto!important;
+  }
+  #taskDetailDrawer .r10-delivery-card.has-selection .r10-delivery-files-status{
+    display:none!important;
+  }
+  #taskDetailDrawer .r10-delivery-card.has-selection .r10-delivery-actions{
+    display:flex!important;
+  }
+  #taskDetailDrawer .r10-delivery-actions button{
+    min-height:34px!important;
+    height:34px!important;
+    padding:0 12px!important;
+    border:1px solid #d8dee3!important;
+    border-radius:9px!important;
+    background:#fff!important;
+    color:#2e3941!important;
+    font-size:11px!important;
+    font-weight:650!important;
+    cursor:pointer!important;
+  }
+  #taskDetailDrawer .r10-delivery-actions button.primary{
+    border-color:#171c20!important;
+    background:#171c20!important;
+    color:#fff!important;
+  }
+  #taskDetailDrawer .r10-delivery-actions button:disabled{
+    opacity:.4!important;
+    cursor:not-allowed!important;
+  }
+  #taskDetailDrawer .r10-delivery-card>.v5-delivery-list{
+    margin:0 18px 14px!important;
   }
   `;
   document.head.appendChild(r10FlowStyle);
