@@ -44,6 +44,55 @@
     return pending.length?`Confira todos os itens da lista antes de continuar (${pending.length} pendente${pending.length>1?'s':''}).`:'';
   }
 
+  function v5CloseConferenceModal(){
+    document.querySelector('.v5-conference-modal')?.remove();
+    document.body.classList.remove('v5-conference-modal-open');
+  }
+
+  function v5OpenConferenceModal(t){
+    v5Normalize(t);
+    v5CloseConferenceModal();
+    const items=Array.isArray(t.checklist)?t.checklist:[];
+    const modal=document.createElement('div');
+    modal.className='v5-conference-modal';
+    modal.innerHTML='<div class="v5-conference-backdrop" data-v5-conference-close></div><section class="v5-conference-dialog" role="dialog" aria-modal="true" aria-label="Lista de conferência"><header class="v5-conference-head"><div><span class="v5-conference-kicker">CONFERÊNCIA FINAL</span><h2>Confira antes de concluir</h2><p>Marque cada item conferido. Seu progresso fica salvo automaticamente.</p></div><button type="button" class="v5-conference-close" data-v5-conference-close aria-label="Fechar">×</button></header><div class="v5-conference-progress"><div><strong data-v5-conference-count></strong><span>itens conferidos</span></div><div class="v5-conference-track"><span data-v5-conference-bar></span></div></div><div class="v5-conference-list">'+(items.length?items.map(item=>'<label class="v5-conference-item '+(item.done?'done':'')+'"><input type="checkbox" data-v5-conference-check="'+esc(item.id)+'" '+(item.done?'checked':'')+'><span class="v5-conference-box">✓</span><span class="v5-conference-text">'+esc(item.text)+'</span></label>').join(''):'<div class="v5-conference-empty">Esta tarefa exige conferência, mas a lista está sem itens.</div>')+'</div><footer class="v5-conference-foot"><button type="button" class="v5-conference-cancel" data-v5-conference-close>Fechar</button><button type="button" class="v5-conference-complete" data-v5-conference-complete>Concluir tarefa</button></footer></section>';
+    document.body.appendChild(modal);
+    document.body.classList.add('v5-conference-modal-open');
+
+    const refresh=()=>{
+      const done=items.filter(x=>x.done).length;
+      const total=items.length;
+      const count=modal.querySelector('[data-v5-conference-count]');
+      const bar=modal.querySelector('[data-v5-conference-bar]');
+      const complete=modal.querySelector('[data-v5-conference-complete]');
+      if(count)count.textContent=done+' de '+total;
+      if(bar)bar.style.width=(total?Math.round(done/total*100):0)+'%';
+      if(complete){
+        complete.disabled=!total||done!==total;
+        complete.textContent=done===total&&total?'Concluir tarefa':'Confira todos os itens';
+      }
+    };
+
+    modal.querySelectorAll('[data-v5-conference-check]').forEach(input=>input.addEventListener('change',()=>{
+      const item=items.find(x=>String(x.id)===String(input.dataset.v5ConferenceCheck));
+      if(!item)return;
+      item.done=input.checked;
+      input.closest('.v5-conference-item')?.classList.toggle('done',input.checked);
+      v5Persist(false);
+      window.AllianceOSOps?.recordTaskAction?.('marcar_item_checklist',t,{item_id:item.id,concluido:item.done});
+      refresh();
+    }));
+    modal.querySelectorAll('[data-v5-conference-close]').forEach(btn=>btn.addEventListener('click',v5CloseConferenceModal));
+    modal.querySelector('[data-v5-conference-complete]')?.addEventListener('click',()=>{
+      if(items.some(x=>!x.done)||!items.length)return;
+      v5CloseConferenceModal();
+      if(v5Complete(t,true))closeTaskDetail();
+    });
+    const escClose=e=>{if(e.key==='Escape'){v5CloseConferenceModal();document.removeEventListener('keydown',escClose)}};
+    document.addEventListener('keydown',escClose);
+    refresh();
+  }
+
   function v5CompletionProblem(t){
     const blockers=v5Blockers(t);
     if(blockers.length) return `Conclua antes: ${blockers.slice(0,2).map(x=>x.title).join(', ')}${blockers.length>2?'…':''}`;
@@ -56,8 +105,11 @@
   function v5Complete(t,done=true){
     v5Normalize(t);
     if(done){
-      const problem=v5CompletionProblem(t);
-      if(problem){showToast(problem);return false;}
+      const blockers=v5Blockers(t);
+      if(blockers.length){showToast(`Conclua antes: ${blockers.slice(0,2).map(x=>x.title).join(', ')}${blockers.length>2?'…':''}`);return false;}
+      const conferenceProblem=v5ConferenceProblem(t);
+      if(conferenceProblem){v5OpenConferenceModal(t);return false;}
+      if(v5NeedsDelivery(t) && !v5HasDelivery(t)){showToast('Envie a entrega desta etapa antes de concluir.');return false;}
       if(t.status!=='feito'){
         const old=t.status;t.status='feito';
         t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “feito”.`});
@@ -204,17 +256,29 @@
 
     const doneOption=[...(document.getElementById('detailStatus')?.options||[])].find(o=>o.value==='feito');
     const conferenceProblem=v5ConferenceProblem(t);
-    if(doneOption && t.status!=='feito' && (conferenceProblem || (v5NeedsDelivery(t) && !v5HasDelivery(t)))){
-      doneOption.disabled=true;doneOption.textContent=conferenceProblem?'feito · requer conferência':'feito · requer entrega';
+    if(doneOption && t.status!=='feito' && (v5NeedsDelivery(t) && !v5HasDelivery(t))){
+      doneOption.disabled=true;doneOption.textContent='feito · requer entrega';
+    } else if(doneOption && t.status!=='feito' && conferenceProblem){
+      doneOption.disabled=false;doneOption.textContent='feito · conferir antes';
     }
 
     const oldComplete=document.getElementById('v3CompleteTaskBtn');
     if(oldComplete){
       const btn=oldComplete.cloneNode(true);oldComplete.replaceWith(btn);
-      const problem=v5CompletionProblem(t);
-      if(t.status!=='feito'&&problem){btn.disabled=true;btn.textContent=v5ConferenceProblem(t)?'Conclua a lista de conferência':v5NeedsDelivery(t)&&!v5HasDelivery(t)&&!v5Blockers(t).length?'Envie a entrega para concluir':'Conclua as etapas anteriores';}
-      else{btn.disabled=false;btn.textContent=t.status==='feito'?'Reabrir tarefa':v5Dependents(t).length?'Concluir e liberar próximas':'Concluir tarefa';}
-      btn.addEventListener('click',()=>{if(t.status==='feito')v5Complete(t,false);else if(v5Complete(t,true))closeTaskDetail()});
+      const blockers=v5Blockers(t);
+      const deliveryPending=v5NeedsDelivery(t)&&!v5HasDelivery(t);
+      if(t.status!=='feito'&&(blockers.length||deliveryPending)){
+        btn.disabled=true;
+        btn.textContent=deliveryPending&&!blockers.length?'Envie a entrega para concluir':'Conclua as etapas anteriores';
+      }else{
+        btn.disabled=false;
+        btn.textContent=t.status==='feito'?'Reabrir tarefa':v5Dependents(t).length?'Concluir e liberar próximas':'Concluir tarefa';
+      }
+      btn.addEventListener('click',()=>{
+        if(t.status==='feito'){v5Complete(t,false);return;}
+        if(v5ConferenceProblem(t)){v5OpenConferenceModal(t);return;}
+        if(v5Complete(t,true))closeTaskDetail();
+      });
     }
 
     document.getElementById('v5DeliveryRequired')?.addEventListener('change',e=>{t.deliveryRequired=e.target.checked;t.history.unshift({at:'Agora',text:e.target.checked?'Entrega obrigatória ativada para esta tarefa.':'Entrega obrigatória desativada para esta tarefa.'});v5Persist(false);renderTaskDetailBody(t)});
@@ -229,8 +293,19 @@
     v5Normalize(t);
     const wanted=document.getElementById('detailStatus')?.value||t.status;
     if(wanted==='feito'&&t.status!=='feito'){
-      const problem=v5CompletionProblem(t);
-      if(problem){document.getElementById('detailStatus').value=t.status;showToast(problem);document.querySelector('.v5-delivery-section')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+      const blockers=v5Blockers(t);
+      const deliveryPending=v5NeedsDelivery(t)&&!v5HasDelivery(t);
+      if(blockers.length||deliveryPending){
+        document.getElementById('detailStatus').value=t.status;
+        showToast(blockers.length?'Conclua as etapas anteriores antes de finalizar.':'Envie a entrega desta etapa antes de concluir.');
+        if(deliveryPending)document.querySelector('.v5-delivery-section')?.scrollIntoView({behavior:'smooth',block:'center'});
+        return;
+      }
+      if(v5ConferenceProblem(t)){
+        document.getElementById('detailStatus').value=t.status;
+        v5OpenConferenceModal(t);
+        return;
+      }
     }
     v5BaseSaveCurrentTask();
   };

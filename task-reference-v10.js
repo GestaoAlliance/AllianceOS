@@ -563,7 +563,7 @@
       saveSlot.appendChild(saveButton);
     }
     if(legacySaveButton)legacySaveButton.hidden=true;
-    const centerStack=center.querySelector('.r10-center-stack');[briefing,attachments,incoming,delivery,conferenceSection,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
+    const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
     const info=document.createElement('section');info.className='r10-side-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('status')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
@@ -2063,6 +2063,36 @@
       grid-row:auto!important;
     }
   }
+
+  body.v5-conference-modal-open{overflow:hidden!important}
+  .v5-conference-modal{position:fixed!important;inset:0!important;z-index:2147483000!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:24px!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+  .v5-conference-backdrop{position:absolute!important;inset:0!important;background:rgba(17,24,39,.38)!important;backdrop-filter:blur(2px)!important}
+  .v5-conference-dialog{position:relative!important;z-index:1!important;box-sizing:border-box!important;width:min(620px,calc(100vw - 40px))!important;max-height:min(760px,calc(100vh - 48px))!important;display:flex!important;flex-direction:column!important;border:1px solid #dfe5e9!important;border-radius:18px!important;background:#fff!important;box-shadow:0 24px 70px rgba(15,23,42,.18)!important;overflow:hidden!important}
+  .v5-conference-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:20px!important;padding:22px 22px 16px!important;border-bottom:1px solid #edf0f2!important}
+  .v5-conference-kicker{display:block!important;margin-bottom:7px!important;color:#8b959d!important;font-size:9px!important;font-weight:700!important;letter-spacing:.08em!important}
+  .v5-conference-head h2{margin:0!important;color:#12171b!important;font-size:22px!important;font-weight:750!important;line-height:1.1!important;letter-spacing:-.025em!important}
+  .v5-conference-head p{margin:7px 0 0!important;color:#75818a!important;font-size:12.5px!important;line-height:1.45!important}
+  .v5-conference-close{width:34px!important;height:34px!important;display:grid!important;place-items:center!important;flex:0 0 34px!important;margin:0!important;padding:0!important;border:1px solid #dfe5e9!important;border-radius:9px!important;background:#fff!important;color:#65717a!important;font-size:19px!important;cursor:pointer!important}
+  .v5-conference-progress{padding:14px 22px!important;border-bottom:1px solid #edf0f2!important}
+  .v5-conference-progress>div:first-child{display:flex!important;align-items:baseline!important;justify-content:space-between!important;margin-bottom:8px!important}
+  .v5-conference-progress strong{color:#20272d!important;font-size:12px!important;font-weight:700!important}
+  .v5-conference-progress span{color:#8b959d!important;font-size:10.5px!important}
+  .v5-conference-track{height:6px!important;border-radius:999px!important;background:#eef2f4!important;overflow:hidden!important}
+  .v5-conference-track>span{display:block!important;height:100%!important;width:0;border-radius:inherit!important;background:#22b86f!important;transition:width .18s ease!important}
+  .v5-conference-list{min-height:120px!important;max-height:430px!important;overflow:auto!important;padding:8px 14px!important}
+  .v5-conference-item{box-sizing:border-box!important;min-height:52px!important;display:grid!important;grid-template-columns:24px minmax(0,1fr)!important;align-items:center!important;gap:10px!important;padding:9px 10px!important;border-bottom:1px solid #eef1f3!important;cursor:pointer!important}
+  .v5-conference-item:last-child{border-bottom:0!important}
+  .v5-conference-item input{position:absolute!important;opacity:0!important;pointer-events:none!important}
+  .v5-conference-box{width:22px!important;height:22px!important;display:grid!important;place-items:center!important;border:1px solid #cfd8de!important;border-radius:6px!important;background:#fff!important;color:transparent!important;font-size:12px!important;font-weight:800!important}
+  .v5-conference-item.done .v5-conference-box{border-color:#22b86f!important;background:#22b86f!important;color:#fff!important}
+  .v5-conference-text{color:#303a42!important;font-size:13px!important;font-weight:500!important;line-height:1.35!important}
+  .v5-conference-item.done .v5-conference-text{color:#7b858d!important;text-decoration:line-through!important}
+  .v5-conference-empty{padding:24px!important;text-align:center!important;color:#8b959d!important;font-size:12px!important}
+  .v5-conference-foot{display:flex!important;justify-content:flex-end!important;gap:9px!important;padding:14px 18px!important;border-top:1px solid #edf0f2!important;background:#fbfcfd!important}
+  .v5-conference-foot button{height:38px!important;padding:0 14px!important;border-radius:10px!important;font-family:inherit!important;font-size:12px!important;font-weight:650!important;cursor:pointer!important}
+  .v5-conference-cancel{border:1px solid #d9e0e5!important;background:#fff!important;color:#53606a!important}
+  .v5-conference-complete{border:1px solid #171c20!important;background:#171c20!important;color:#fff!important}
+  .v5-conference-complete:disabled{border-color:#e0e5e8!important;background:#e7ebee!important;color:#9aa3aa!important;cursor:not-allowed!important}
   `;
   document.head.appendChild(r10FlowStyle);
 
