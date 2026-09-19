@@ -45,14 +45,41 @@
     return !!a?.campaignId && String(a.campaignId)===String(b.campaignId);
   };
   function r10CampaignTasks(t){
-    const rows=t.campaignId?taskData.filter(x=>r10SameCampaign(x,t)):[t];
+    let rows;
+    if(t.campaignId){
+      rows=taskData.filter(x=>r10SameCampaign(x,t));
+    }else{
+      const currentId=String(t.id);
+      const related=[
+        t,
+        ...r10Deps(t),
+        ...r10Dependents(t),
+        ...(t.parentTaskId?[r10Task(t.parentTaskId)]:[]),
+        ...taskData.filter(x=>String(x.parentTaskId||'')===currentId)
+      ].filter(Boolean);
+      const unique=new Map();
+      related.forEach(x=>{if(!unique.has(String(x.id)))unique.set(String(x.id),x)});
+      const directDeps=new Set((t.dependencies||[]).map(String));
+      const directDependents=new Set(r10Dependents(t).map(x=>String(x.id)));
+      rows=[...unique.values()].map(x=>{
+        const id=String(x.id);
+        let relation='Relacionada';
+        if(id===currentId)relation='Tarefa atual';
+        else if(directDeps.has(id))relation='Precisa acontecer antes';
+        else if(directDependents.has(id))relation='Depende desta tarefa';
+        else if(String(x.parentTaskId||'')===currentId)relation='Subtarefa / etapa';
+        else if(String(t.parentTaskId||'')===id)relation='Tarefa principal';
+        return {...x,_r10Relation:relation};
+      });
+    }
     const set=new Set(rows.map(x=>String(x.id))), memo=new Map(), visiting=new Set();
     function depth(x){
       const k=String(x.id);if(memo.has(k))return memo.get(k);if(visiting.has(k))return 0;visiting.add(k);
       const ds=(x.dependencies||[]).map(r10Task).filter(d=>d&&set.has(String(d.id)));
       const d=ds.length?1+Math.max.apply(null,ds.map(depth)):0;visiting.delete(k);memo.set(k,d);return d;
     }
-    return rows.slice().sort((a,b)=>depth(a)-depth(b)||String(a.due||'9999').localeCompare(String(b.due||'9999'))||String(a.title||'').localeCompare(String(b.title||''),'pt-BR'));
+    const relationRank={'Precisa acontecer antes':0,'Tarefa principal':1,'Tarefa atual':2,'Subtarefa / etapa':3,'Depende desta tarefa':4,'Relacionada':5};
+    return rows.slice().sort((a,b)=>depth(a)-depth(b)||(relationRank[a._r10Relation]??0)-(relationRank[b._r10Relation]??0)||String(a.due||'9999').localeCompare(String(b.due||'9999'))||String(a.title||'').localeCompare(String(b.title||''),'pt-BR'));
   }
   const r10Status = t => t.status==='feito'?'Concluída':t.status==='bloqueado'?'Bloqueada':r10Deps(t).some(x=>x.status!=='feito')?'Bloqueada':t.status==='em revisão'?'Em revisão':(t.status==='fazendo'||t.status==='em andamento')?'Em andamento':'Pendente';
   const r10Priority = t => ({urgent:'Urgente',high:'Alta',alta:'Alta',normal:'Normal',low:'Baixa',baixa:'Baixa'}[String(t.priority||'').toLowerCase()]||String(t.priority||'Normal'));
@@ -60,16 +87,24 @@
   function r10FlowHtml(t,rows){
     const campaign=r10CampaignRecord(t);
     const linked=!!t.campaignId;
+    const hasStandaloneFlow=!linked&&rows.some(x=>String(x.id)!==String(t.id));
     const done=rows.filter(x=>x.status==='feito').length, pct=rows.length?Math.round(done/rows.length*100):0;
     const flowTitle=linked?'Execução da Campanha':'Fluxo da tarefa';
-    const flowSubtitle=linked?(campaign?.name||t.project||'Campanha vinculada'):'Tarefa avulsa';
-    const flowState=linked?'Em andamento':'Sem campanha';
+    const flowSubtitle=linked?(campaign?.name||t.project||'Campanha vinculada'):(hasStandaloneFlow?'Subtarefas, etapas e dependências':'Tarefa avulsa');
+    const flowState=linked?'Em andamento':(hasStandaloneFlow?'Fluxo relacionado':'Sem etapas');
     const flowIcon=linked?r10Icon('campaign'):r10Icon('task');
-    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">'+flowIcon+'</span><div class="r10-flow-head-copy"><strong>'+r10Esc(flowTitle)+'</strong><span>'+r10Esc(flowSubtitle)+'</span></div></div><span class="r10-flow-state">'+r10Esc(flowState)+'</span><div class="r10-progress-copy"><b>'+done+' de '+rows.length+' '+(linked?'tarefas concluídas':'tarefa concluída')+'</b><span>'+pct+'%</span></div><div class="r10-progress"><i style="width:'+pct+'%"></i></div><div class="r10-flow-list">';
+    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">'+flowIcon+'</span><div class="r10-flow-head-copy"><strong>'+r10Esc(flowTitle)+'</strong><span>'+r10Esc(flowSubtitle)+'</span></div></div><span class="r10-flow-state">'+r10Esc(flowState)+'</span>';
+    if(linked||hasStandaloneFlow){
+      html+='<div class="r10-progress-copy"><b>'+done+' de '+rows.length+' tarefas concluídas</b><span>'+pct+'%</span></div><div class="r10-progress"><i style="width:'+pct+'%"></i></div>';
+    }else{
+      html+='<div class="r10-progress-copy"><b>Nenhuma etapa vinculada</b><span>—</span></div>';
+    }
+    html+='<div class="r10-flow-list">';
     rows.forEach(function(x,i){
       const cl=(x.status==='feito'?' done':'')+(String(x.id)===String(t.id)?' current':'');
       const icon=x.status==='feito'?r10Icon('done'):String(x.id)===String(t.id)?r10Icon('task'):r10Icon('pending');
-      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+icon+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b><span>'+r10Esc(r10Status(x))+'</span></span><span class="r10-step-avatar">'+r10Esc(r10Initials((x.assignees||[])[0]||''))+'</span></button>';
+      const relation=!linked&&x._r10Relation?x._r10Relation+' · ':'';
+      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+icon+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b><span>'+r10Esc(relation+r10Status(x))+'</span></span><span class="r10-step-avatar">'+r10Esc(r10Initials((x.assignees||[])[0]||''))+'</span></button>';
     });
     return html+'</div></aside>';
   }
