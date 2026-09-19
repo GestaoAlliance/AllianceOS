@@ -2246,3 +2246,150 @@
     column-gap:7px!important;
   }
 }
+
+
+/* ===== Task Reference V18 · faithful dependency/observation visual polish ===== */
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-head .r10-side-card-icon,
+#taskDetailDrawer .r10-observations-card>.r10-side-card-head .r10-side-card-icon{
+  background:#e2e4e9!important;
+  color:#1c2025!important;
+  border-radius:9px!important;
+}
+
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-head>strong,
+#taskDetailDrawer .r10-observations-card>.r10-side-card-head>strong{
+  color:#191d22!important;
+  font-weight:720!important;
+}
+
+#taskDetailDrawer .r10-dep-row{
+  border-color:#e1e4e8!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  box-shadow:0 1px 2px rgba(23,30,35,.018)!important;
+}
+
+#taskDetailDrawer .r10-dep-row.done .r10-dep-icon{
+  background:#42b96f!important;
+  color:#fff!important;
+  border-radius:50%!important;
+}
+
+#taskDetailDrawer .r10-dep-row.done .r10-dep-icon .r10-svg{
+  width:16px!important;
+  height:16px!important;
+  stroke-width:2.4!important;
+}
+
+#taskDetailDrawer .r10-dep-row.waiting .r10-dep-icon,
+#taskDetailDrawer .r10-dep-row.blocked .r10-dep-icon{
+  background:#fff4e7!important;
+  color:#df9950!important;
+  border-radius:9px!important;
+}
+
+#taskDetailDrawer .r10-dep-row.waiting .r10-dep-icon .r10-svg,
+#taskDetailDrawer .r10-dep-row.blocked .r10-dep-icon .r10-svg{
+  width:16px!important;
+  height:16px!important;
+  stroke-width:2!important;
+}
+
+#taskDetailDrawer .r10-dep-status.done{
+  background:#e5f4eb!important;
+  color:#4e9f68!important;
+}
+
+#taskDetailDrawer .r10-dep-status.waiting{
+  background:#fff4e7!important;
+  color:#c8843a!important;
+}
+
+#taskDetailDrawer .r10-dep-status.blocked{
+  background:#f9e8ea!important;
+  color:#d05f67!important;
+}
+
+#taskDetailDrawer .r10-dep-status.ready{
+  background:#eef3fb!important;
+  color:#5875a5!important;
+}
+
+#taskDetailDrawer .r10-dep-label{
+  color:#68747d!important;
+  font-weight:540!important;
+}
+
+#taskDetailDrawer .r10-observations-card .v3-comment-add{
+  border:0!important;
+  border-bottom:0!important;
+  box-shadow:none!important;
+}
+
+#taskDetailDrawer .r10-observations-card #newCommentText{
+  border-color:#dfe3e7!important;
+  border-radius:10px!important;
+  color:#3e4850!important;
+  background:#fff!important;
+}
+
+#taskDetailDrawer .r10-observations-card #newCommentText::placeholder{
+  color:#8e99a2!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment{
+  border:0!important;
+  border-top:0!important;
+  border-bottom:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  padding:14px 22px 10px 0!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  border:0!important;
+  border-radius:0!important;
+  outline:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  padding:0!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body>b{
+  color:#20262b!important;
+  font-weight:680!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body>small{
+  color:#8d969e!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body>p{
+  color:#56616a!important;
+  line-height:1.45!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment .cav{
+  border:0!important;
+  box-shadow:none!important;
+  background:#e7ece9!important;
+  color:#273129!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment .cav img{
+  width:100%!important;
+  height:100%!important;
+  display:block!important;
+  object-fit:cover!important;
+  border-radius:50%!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment::after{
+  content:"•••"!important;
+  color:#657783!important;
+  letter-spacing:1px!important;
+}

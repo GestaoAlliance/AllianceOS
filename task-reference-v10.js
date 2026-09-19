@@ -14,8 +14,8 @@
       statusPanel:'<rect x="6" y="5" width="12" height="15" rx="2"/><path d="M9 5V3.5h6V5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 8.5v1M12 14.5v1"/>',
       context:'<path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2M8 11h8M8 15h5"/>',
       tag:'<path d="M4 12 12 4h6l2 2v6l-8 8-8-8Z"/><circle cx="16" cy="8" r="1"/>',
-      dependency:'<circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 7h4a4 4 0 0 1 4 4v4M15 17h-4a4 4 0 0 1-4-4V9"/>',
-      comment:'<path d="M5 5h14v11H9l-4 3V5Z"/><path d="M8 9h8M8 12h5"/>',
+      dependency:'<circle cx="7" cy="5.5" r="2"/><circle cx="7" cy="18.5" r="2"/><circle cx="17" cy="18.5" r="2"/><path d="M7 7.5v5M7 12.5h10v4"/>',
+      comment:'<rect x="4.5" y="5" width="15" height="11.5" rx="2.2"/><path d="M8 16.5v2.6l3.2-2.6"/><circle cx="9" cy="10.7" r=".7" fill="currentColor" stroke="none"/><circle cx="12" cy="10.7" r=".7" fill="currentColor" stroke="none"/><circle cx="15" cy="10.7" r=".7" fill="currentColor" stroke="none"/>',
       alert:'<path d="M12 4v9"/><path d="M12 17h.01"/>',
       next:'<path d="m9 6 6 6-6 6"/>',
       whatsapp:'<circle cx="12" cy="12" r="8"/><path d="M8.5 8.8c.7 3 2.7 5 5.7 5.8l1.4-1.4 2 .8-.7 2.2c-.2.6-.8 1-1.5 1C10.6 17 7 13.4 6.8 8.6c0-.7.4-1.3 1-1.5L10 6.4l.8 2-1.4 1.4Z"/>',
@@ -66,11 +66,23 @@
     const p=r10Short(v).split(/\s+/).filter(Boolean);
     return (((p[0]||'')[0]||'')+((p[1]||'')[0]||'')).toUpperCase() || '—';
   };
+  const r10Person = (name,userId) => {
+    const members=(window.AllianceOSDirectory?.members||[]).filter(m=>m?.tipo==='usuario');
+    if(userId){
+      const byId=members.find(m=>String(m.id)===String(userId));
+      if(byId)return byId;
+    }
+    const normName=String(r10Short(name)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    if(!normName)return null;
+    const exact=members.find(m=>String(m.nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()===normName);
+    if(exact)return exact;
+    const first=normName.split(/\s+/)[0];
+    const firstMatches=members.filter(m=>String(m.nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().split(/\s+/)[0]===first);
+    return firstMatches.length===1?firstMatches[0]:null;
+  };
   const r10AvatarInner = (name,userId) => {
-    const members=window.AllianceOSDirectory?.members||[];
-    const key=String(r10Short(name)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-    const person=members.find(m=>m.tipo==='usuario'&&((userId&&String(m.id)===String(userId))||String(m.nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()===key));
-    return person?.foto_url?'<img src="'+r10Esc(person.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">':r10Esc(r10Initials(name));
+    const person=r10Person(name,userId);
+    return person?.foto_url?'<img src="'+r10Esc(person.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">':r10Esc(r10Initials(person?.nome||name));
   };
   const r10Task = id => taskData.find(x=>String(x.id)===String(id))||null;
   const r10Deps = t => (t.dependencies||[]).map(r10Task).filter(Boolean);
@@ -720,15 +732,15 @@
     stack.appendChild(context);
 
     const deps=r10Deps(t), dependents=r10Dependents(t);
-    const dependencyRow=x=>{
+    const dependencyRow=(x,relation)=>{
       const status=r10Status(x);
-      const tone=status==='Concluída'?'done':status==='Bloqueada'?'blocked':'ready';
-      const icon=tone==='done'?r10Icon('done'):tone==='blocked'?r10Icon('hourglass'):r10Icon('next');
+      const tone=status==='Concluída'?'done':status==='Bloqueada'?'blocked':relation==='before'?'waiting':'ready';
+      const icon=tone==='done'?r10Icon('done'):(tone==='blocked'||tone==='waiting')?r10Icon('hourglass'):r10Icon('next');
       return '<button type="button" class="r10-dep-row '+tone+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-icon">'+icon+'</span><span class="r10-dep-copy"><b>'+r10Esc(x.title)+'</b><span class="r10-dep-status '+tone+'">'+r10Esc(status)+'</span></span></button>';
     };
     let depHtml='';
-    if(deps.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Depende de</span><div class="r10-dep-list">'+deps.map(dependencyRow).join('')+'</div></div>';
-    if(dependents.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Desbloqueia</span><div class="r10-dep-list">'+dependents.map(dependencyRow).join('')+'</div></div>';
+    if(deps.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Depende de</span><div class="r10-dep-list">'+deps.map(x=>dependencyRow(x,'before')).join('')+'</div></div>';
+    if(dependents.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Desbloqueia</span><div class="r10-dep-list">'+dependents.map(x=>dependencyRow(x,'after')).join('')+'</div></div>';
     if(!depHtml)depHtml='<div class="r10-dep-empty">Sem dependências vinculadas.</div>';
     const depCard=document.createElement('section');
     depCard.className='r10-side-card r10-dependencies-card';
@@ -742,6 +754,17 @@
       const cc=card.querySelector('.r10-side-card-body');
       const add=comments.querySelector('.v3-comment-add');
       const list=comments.querySelector('#commentList');
+      if(list){
+        list.querySelectorAll('.comment').forEach(row=>{
+          const nameEl=row.querySelector('.comment-body>b');
+          const avatarEl=row.querySelector('.cav');
+          const person=r10Person(nameEl?.textContent||'');
+          if(person){
+            if(nameEl)nameEl.textContent=person.nome||nameEl.textContent;
+            if(avatarEl)avatarEl.innerHTML=r10AvatarInner(person.nome,person.id);
+          }
+        });
+      }
       if(add){
         const input=add.querySelector('#newCommentText');
         const submit=add.querySelector('#addCommentBtn');
