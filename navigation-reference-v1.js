@@ -210,24 +210,20 @@
     const topLogo=document.createElement('div');topLogo.className='ref2-top-logo';
     topLogo.innerHTML='<div class="ref2-top-logo-icon">✱</div><div class="ref2-top-logo-name">AllianceOS</div>';
 
-    const brandWrap=document.createElement('div');brandWrap.className='ref2-brand-wrap';
+    const brandWrap=document.createElement('div');brandWrap.className='ref2-brand-wrap tone-default';
     const brandTone=value=>{
       const n=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
       return n.includes('botanika')?'botanika':n.includes('revita')?'revita':n.includes('verme')?'vermefree':n.includes('shoty')?'shoty':'default';
     };
-    const brandDisplay=document.createElement('span');brandDisplay.className='ref2-brand-display';
-    brandDisplay.innerHTML='<span class="ref2-brand-dot default"></span><span class="ref2-brand-label">Botanika</span><span class="ref2-brand-caret"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></span>';
-    brandWrap.appendChild(brandDisplay);
     if(brand){
       ensureBrands(brand);
-      brand.className='ref2-brand-select ref2-brand-native';
+      brand.className='ref2-brand-select';
       brandWrap.appendChild(brand);
       const syncWorkspace=()=>{
         const value=brand.value;
         const displayValue=/todas/i.test(value)?'Todas as marcas':value;
         const s=q('.ref2-workspace-copy strong');if(s)s.textContent=displayValue;
-        const dot=brandDisplay.querySelector('.ref2-brand-dot');if(dot)dot.className='ref2-brand-dot '+brandTone(value);
-        const label=brandDisplay.querySelector('.ref2-brand-label');if(label)label.textContent=displayValue;
+        brandWrap.className='ref2-brand-wrap tone-'+brandTone(value);
       };
       brand.addEventListener('change',syncWorkspace);syncWorkspace();
       workspace.addEventListener('click',()=>brand.focus());
