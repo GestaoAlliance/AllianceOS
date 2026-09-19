@@ -455,3 +455,173 @@
 @media (min-width:901px) and (max-width:1400px){
   #taskDetailDrawer .r10-workspace{grid-template-columns:280px minmax(500px,1fr) 320px!important}
 }
+
+
+/* ===== Task Reference V12 · spacing, margins and integrated page ===== */
+@media (min-width:901px){
+  #taskDetailDrawer.open{
+    background:#f4f6f8!important;
+    backdrop-filter:none!important;
+  }
+
+  #taskDetailDrawer .tdrawer-panel{
+    left:248px!important;
+    right:12px!important;
+    top:90px!important;
+    bottom:12px!important;
+    border:1px solid #e3e8ec!important;
+    border-radius:18px!important;
+    background:#fff!important;
+    box-shadow:0 8px 28px rgba(24,31,36,.035)!important;
+    overflow:hidden!important;
+  }
+
+  #taskDetailDrawer .tdrawer-body{
+    background:#fff!important;
+  }
+
+  #taskDetailDrawer .r10-workspace{
+    grid-template-columns:300px minmax(0,1fr) 350px!important;
+    background:#fff!important;
+  }
+
+  #taskDetailDrawer .r10-flow{
+    padding:20px 18px 24px!important;
+    background:#fff!important;
+  }
+
+  #taskDetailDrawer .r10-main{
+    padding:18px 24px 30px!important;
+    background:#fff!important;
+  }
+
+  #taskDetailDrawer .r10-side{
+    padding:18px 16px 26px!important;
+    background:#fafbfc!important;
+  }
+
+  #taskDetailDrawer .r10-main-top{
+    min-height:42px!important;
+    margin-bottom:20px!important;
+  }
+
+  #taskDetailDrawer .r10-task-head{
+    padding:0 0 18px!important;
+  }
+
+  #taskDetailDrawer .r10-center-stack{
+    gap:14px!important;
+  }
+
+  #taskDetailDrawer .r10-main .v3-section,
+  #taskDetailDrawer .r10-main .tsection,
+  #taskDetailDrawer .r10-main .v5-delivery-section,
+  #taskDetailDrawer .r10-main .v5-incoming-section{
+    margin:0!important;
+    border-radius:14px!important;
+  }
+
+  #taskDetailDrawer .r10-side-stack{
+    gap:12px!important;
+  }
+
+  #taskDetailDrawer .r10-side-card{
+    margin:0!important;
+    border-radius:14px!important;
+  }
+
+  #taskDetailDrawer .r10-side-card-body{
+    padding:11px 13px 13px!important;
+  }
+
+  #taskDetailDrawer .r10-side .tfield,
+  #taskDetailDrawer .r10-context-row{
+    grid-template-columns:74px minmax(0,1fr)!important;
+    column-gap:10px!important;
+    min-height:52px!important;
+    padding:6px 0!important;
+    align-items:center!important;
+  }
+
+  #taskDetailDrawer .r10-side .tfield>label,
+  #taskDetailDrawer .r10-context-row>span:first-child{
+    padding:0!important;
+    line-height:1.25!important;
+  }
+
+  #taskDetailDrawer .r10-side .tfield select,
+  #taskDetailDrawer .r10-side .tfield input{
+    height:40px!important;
+    min-height:40px!important;
+    padding-right:28px!important;
+  }
+
+  #taskDetailDrawer .r10-field-status select,
+  #taskDetailDrawer .r10-field-owner select,
+  #taskDetailDrawer .r10-field-due input,
+  #taskDetailDrawer .r10-field-priority select,
+  #taskDetailDrawer .r10-field-campaign select{
+    padding-left:44px!important;
+  }
+
+  #taskDetailDrawer .r10-field-adorn{
+    left:96px!important;
+    width:22px!important;
+    height:22px!important;
+  }
+
+  #taskDetailDrawer .r10-field-adorn.status-dot{
+    left:103px!important;
+    width:8px!important;
+    height:8px!important;
+  }
+
+  #taskDetailDrawer .owner-avatar{
+    left:94px!important;
+    width:26px!important;
+    height:26px!important;
+  }
+
+  #taskDetailDrawer .r10-context-value{
+    min-height:40px!important;
+    height:40px!important;
+    padding:0 11px!important;
+  }
+
+  #taskDetailDrawer .r10-tags{
+    row-gap:7px!important;
+    column-gap:7px!important;
+  }
+
+  #taskDetailDrawer .r10-dep-row{
+    margin-bottom:7px!important;
+    padding:9px!important;
+  }
+
+  #taskDetailDrawer .r10-flow-list{
+    gap:10px!important;
+  }
+
+  #taskDetailDrawer .r10-step{
+    min-height:76px!important;
+    padding:11px!important;
+  }
+
+  #taskDetailDrawer .r10-progress{
+    margin-bottom:18px!important;
+  }
+}
+
+@media (min-width:901px) and (max-width:1450px){
+  #taskDetailDrawer .r10-workspace{
+    grid-template-columns:280px minmax(0,1fr) 320px!important;
+  }
+  #taskDetailDrawer .r10-main{
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  #taskDetailDrawer .r10-side{
+    padding-left:12px!important;
+    padding-right:12px!important;
+  }
+}
