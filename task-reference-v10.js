@@ -750,23 +750,9 @@
     color:#25d366!important;
   }
 
-  #taskDetailDrawer .r10-head-chip.campaign{
-    background:#fff!important;
-    border-color:#d9dee3!important;
-    color:#20292f!important;
-    cursor:pointer!important;
-  }
-  #taskDetailDrawer .r10-head-chip.campaign .r10-head-chip-icon .r10-svg{
-    width:17px!important;
-    height:17px!important;
-    color:#246bfe!important;
-  }
-  #taskDetailDrawer .r10-head-chip.campaign:hover{
-    background:#f8faff!important;
-    border-color:#cbd7ec!important;
-  }
-
+  #taskDetailDrawer .r10-head-chip.campaign,
   #taskDetailDrawer .r10-head-chip.priority{
+    box-sizing:border-box!important;
     height:39px!important;
     min-height:39px!important;
     padding:0 11px!important;
@@ -775,9 +761,24 @@
     border-radius:10px!important;
     background:#fff!important;
     color:#263039!important;
-    font:600 14px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-    letter-spacing:-.012em!important;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    font-size:11px!important;
+    font-weight:600!important;
+    line-height:1!important;
+    letter-spacing:-.006em!important;
+    cursor:pointer!important;
   }
+  #taskDetailDrawer .r10-head-chip.campaign .r10-head-chip-label,
+  #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-label{
+    display:block!important;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    font-size:11px!important;
+    font-weight:600!important;
+    line-height:1!important;
+    letter-spacing:-.006em!important;
+    color:inherit!important;
+  }
+  #taskDetailDrawer .r10-head-chip.campaign .r10-head-chip-icon,
   #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon{
     width:17px!important;
     height:17px!important;
@@ -785,13 +786,36 @@
     flex:0 0 17px!important;
     display:grid!important;
     place-items:center!important;
+    margin:0!important;
+    padding:0!important;
     border-radius:0!important;
     background:transparent!important;
-    color:#727d85!important;
   }
+  #taskDetailDrawer .r10-head-chip.campaign .r10-head-chip-icon .r10-svg,
   #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon .r10-svg{
+    display:block!important;
     width:17px!important;
     height:17px!important;
+    min-width:17px!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  #taskDetailDrawer .r10-head-chip.campaign{
+    color:#263039!important;
+  }
+  #taskDetailDrawer .r10-head-chip.campaign .r10-head-chip-icon .r10-svg{
+    color:#246bfe!important;
+  }
+  #taskDetailDrawer .r10-head-chip.campaign:hover{
+    background:#f8faff!important;
+    border-color:#cbd7ec!important;
+  }
+
+  #taskDetailDrawer .r10-head-chip.priority{
+    color:#5d6870!important;
+    cursor:default!important;
+  }
+  #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon .r10-svg{
     color:#727d85!important;
   }
   #taskDetailDrawer .r10-head-chip.priority-high,
@@ -800,8 +824,6 @@
     border-color:#f3cbd2!important;
     color:#ef3f4d!important;
   }
-  #taskDetailDrawer .r10-head-chip.priority-high .r10-head-chip-icon,
-  #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon,
   #taskDetailDrawer .r10-head-chip.priority-high .r10-head-chip-icon .r10-svg,
   #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon .r10-svg{
     color:#ef3f4d!important;
@@ -1172,7 +1194,34 @@
 
   #taskDetailDrawer .r10-materials-icon{
     position:relative!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    place-items:unset!important;
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    flex:0 0 40px!important;
+    padding:0!important;
+    border-radius:11px!important;
+    background:#edf0f2!important;
+    color:#7f8a92!important;
+    text-align:center!important;
     cursor:pointer!important;
+  }
+  #taskDetailDrawer .r10-materials-icon .r10-svg{
+    display:block!important;
+    position:static!important;
+    width:21px!important;
+    height:21px!important;
+    min-width:21px!important;
+    flex:0 0 21px!important;
+    margin:auto!important;
+    padding:0!important;
+    transform:none!important;
+    translate:none!important;
+    color:#7f8a92!important;
+    stroke-width:1.65!important;
   }
   #taskDetailDrawer .r10-material-input{
     position:absolute!important;
