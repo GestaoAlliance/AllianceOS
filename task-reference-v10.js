@@ -41,7 +41,13 @@
       flame:'<path d="M13.5 3.5c.3 3-1.7 4.2-3.2 5.8-1.5 1.6-2.2 3-1.2 5.1.5-1.4 1.5-2.2 2.5-3 .2 2.2 1 3.3 2.2 4.4 1.4 1.2 1.8 3.1.8 4.7 3-.9 5.1-3.6 5.1-6.8 0-4.1-2.8-7.8-6.2-10.2Z"/><path d="M9.7 20.5c-2.5-.8-4.2-3-4.2-5.8 0-2.4 1.1-4.3 2.8-5.9-.2 2.3.6 3.4 1.9 4.5-1 1.3-1.4 2.9-.5 4.3.5.8 1.1 1.5 2 2.2-.6.4-1.2.6-2 .7Z"/>',
       whatsappBrand:'<circle cx="12" cy="12" r="9" fill="#22c86a" stroke="none"/><path d="M8.4 8.7c.7 3 2.8 5.2 5.8 5.9l1.5-1.5 2.1.8-.8 2.2c-.2.7-.8 1.1-1.6 1.1-4.8-.2-8.5-3.9-8.7-8.7 0-.7.4-1.3 1.1-1.6l2.2-.8.8 2.1-1.5 1.5Z" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
       folderSolid:'<path d="M3.8 7.5h6.1l1.8 2H20v8.7a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.2V7.5Z" fill="currentColor" stroke="none"/><path d="M4 7.8V5.9A1.9 1.9 0 0 1 5.9 4h4l1.8 2H18" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>',
-      priorityMark:'<path d="m12 3.8 2.15 1.05 2.38.18 1.04 2.16 1.8 1.57-.52 2.34.52 2.34-1.8 1.57-1.04 2.16-2.38.18L12 20.2l-2.15-1.05-2.38-.18-1.04-2.16-1.8-1.57.52-2.34-.52-2.34 1.8-1.57 1.04-2.16 2.38-.18L12 3.8Z" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.55" fill="#fff" stroke="none"/>'
+      priorityMark:'<path d="m12 3.8 2.15 1.05 2.38.18 1.04 2.16 1.8 1.57-.52 2.34.52 2.34-1.8 1.57-1.04 2.16-2.38.18L12 20.2l-2.15-1.05-2.38-.18-1.04-2.16-1.8-1.57.52-2.34-.52-2.34 1.8-1.57 1.04-2.16 2.38-.18L12 3.8Z" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.55" fill="#fff" stroke="none"/>',
+      objectiveTarget:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2v2M22 12h-2M12 22v-2M2 12h2"/>',
+      paperclip:'<path d="m8.5 12.5 6.2-6.2a3.1 3.1 0 0 1 4.4 4.4l-7.6 7.6a5 5 0 0 1-7.1-7.1l7.2-7.2"/><path d="m10.2 10.8-4.1 4.1a2.3 2.3 0 1 0 3.3 3.3l7.1-7.1"/>',
+      fileText:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/>',
+      archiveFile:'<path d="M6 3h12v5H6z"/><path d="M7 8h10v13H7zM10 12h4M10 16h4"/>',
+      download:'<path d="M12 4v10"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/>',
+      close:'<path d="m8 8 8 8M16 8l-8 8"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -172,6 +178,20 @@
     return 'Executar '+title.toLowerCase()+' conforme o briefing, os materiais e o resultado esperado desta tarefa.';
   };
   const r10TaskSubtitle = t => r10BriefText(t?.summary||t?.shortDescription||t?.description||t?.objective||t?.briefing)||r10AutoTaskSummary(t);
+  const r10AttachmentMeta = f => {
+    const name=String(f?.name||'arquivo');
+    const ext=(name.includes('.')?name.split('.').pop():'ARQ').toUpperCase();
+    const size=String(f?.sizeLabel||f?.size||'').trim();
+    return [ext,size].filter(Boolean).join(' · ');
+  };
+  const r10AttachmentTone = f => {
+    const name=r10Norm(f?.name);
+    if(/\.pdf$/.test(name))return 'pdf';
+    if(/\.(zip|rar|7z)$/.test(name))return 'archive';
+    if(/\.(png|jpg|jpeg|webp|gif|svg)$/.test(name))return 'image';
+    return 'file';
+  };
+  const r10AttachmentIcon = f => r10Icon(r10AttachmentTone(f)==='archive'?'archiveFile':'fileText');
   const r10HeaderPill = (icon,label,kind='',attrs='') => '<span class="r10-head-chip '+kind+'" '+attrs+'><span class="r10-head-chip-icon">'+r10Icon(icon)+'</span><span class="r10-head-chip-label">'+r10Esc(label)+'</span></span>';
   const r10CampaignHeaderPill = label => '<button type="button" class="r10-head-chip campaign r10-campaign-link" data-r10-open-campaign="'+r10Esc(label)+'" title="Abrir campanha"><span class="r10-head-chip-icon">'+r10Icon('folderSolid')+'</span><span class="r10-head-chip-label">'+r10Esc(label)+'</span></button>';
 
@@ -298,9 +318,79 @@
     const legacySaveButton=document.getElementById('taskSaveBtn');
     const rows=r10CampaignTasks(t), index=Math.max(0,rows.findIndex(x=>String(x.id)===String(t.id))), prev=rows[index-1], nextTask=rows[index+1];
     const briefing=oldMain.querySelector('.description-area')&&oldMain.querySelector('.description-area').closest('.v3-section');
-    if(briefing){const h=briefing.querySelector('.tsection-head strong'),s=briefing.querySelector('.tsection-head span');if(h)h.textContent='Objetivo';if(s)s.textContent='Resultado esperado e orientação para execução'}
+    if(briefing){
+      briefing.classList.add('r10-objective-card');
+      const head=briefing.querySelector('.tsection-head');
+      const textarea=briefing.querySelector('.description-area');
+      if(head)head.innerHTML='<span class="r10-section-icon r10-objective-icon">'+r10Icon('objectiveTarget')+'</span><div class="r10-section-heading"><strong>Objetivo</strong></div>';
+      if(textarea){
+        textarea.setAttribute('aria-label','Objetivo da tarefa');
+        textarea.setAttribute('placeholder','Descreva o resultado esperado desta tarefa, o contexto necessário para executar e como saber que ficou pronto.');
+        const fit=()=>{
+          textarea.style.height='auto';
+          textarea.style.height=Math.max(78,textarea.scrollHeight)+'px';
+        };
+        textarea.addEventListener('input',fit);
+        requestAnimationFrame(fit);
+      }
+    }
     const attachments=oldMain.querySelector('#attachmentInput')&&oldMain.querySelector('#attachmentInput').closest('.v3-section');
-    if(attachments){const h=attachments.querySelector('.tsection-head strong'),s=attachments.querySelector('.tsection-head span');if(h)h.textContent='Materiais e insumos';if(s)s.textContent=String((t.attachments||[]).length)+' item(ns)'}
+    if(attachments){
+      attachments.classList.add('r10-materials-card');
+      const files=Array.isArray(t.attachments)?t.attachments:[];
+      const count=files.length;
+      const head=attachments.querySelector('.tsection-head');
+      const input=attachments.querySelector('#attachmentInput');
+      const oldDrop=attachments.querySelector('.attachment-drop,.v3-attachment-drop');
+      if(head){
+        head.innerHTML='<div class="r10-materials-heading"><label class="r10-section-icon r10-materials-icon" title="Adicionar arquivos">'+r10Icon('paperclip')+'</label><strong>Materiais e insumos</strong></div><span class="r10-material-count">'+count+' '+(count===1?'item':'itens')+'</span>';
+        const uploadLabel=head.querySelector('.r10-materials-icon');
+        if(uploadLabel&&input){
+          input.classList.add('r10-material-input');
+          input.setAttribute('aria-label','Adicionar arquivos');
+          uploadLabel.appendChild(input);
+        }
+      }
+      if(oldDrop&&oldDrop!==input?.parentElement)oldDrop.remove();
+      const list=attachments.querySelector('#attachmentList');
+      if(list){
+        list.classList.add('r10-material-list');
+        const rows=[...list.querySelectorAll('.file-pill')];
+        rows.forEach((row,i)=>{
+          const file=files[i]||{};
+          row.classList.add('r10-material-row','type-'+r10AttachmentTone(file));
+          const icon=row.querySelector(':scope > span');
+          const name=row.querySelector(':scope > b');
+          const meta=row.querySelector(':scope > small');
+          const remove=row.querySelector('[data-remove-attachment]');
+          if(icon){
+            icon.className='r10-material-type';
+            icon.innerHTML=r10AttachmentIcon(file);
+          }
+          if(name)name.classList.add('r10-material-name');
+          if(meta){
+            meta.classList.add('r10-material-meta');
+            meta.textContent=r10AttachmentMeta(file);
+          }
+          if(file?.dataUrl&&!row.querySelector('.r10-material-download')){
+            const a=document.createElement('a');
+            a.className='r10-material-action r10-material-download';
+            a.href=file.dataUrl;
+            a.download=file.name||'arquivo';
+            a.title='Baixar arquivo';
+            a.innerHTML=r10Icon('download');
+            if(remove)row.insertBefore(a,remove);else row.appendChild(a);
+          }
+          if(remove){
+            remove.classList.add('r10-material-action','r10-material-remove');
+            remove.setAttribute('title','Remover arquivo');
+            remove.setAttribute('aria-label','Remover arquivo');
+            remove.innerHTML=r10Icon('close');
+          }
+        });
+        if(!rows.length)list.innerHTML='<button type="button" class="r10-material-empty" data-r10-add-material>'+r10Icon('paperclip')+'<span><b>Nenhum material anexado</b><small>Adicionar arquivos para esta tarefa</small></span></button>';
+      }
+    }
     const incoming=oldMain.querySelector('.v5-incoming-section'), delivery=oldMain.querySelector('.v5-delivery-section');
     const conferenceSection=oldMain.querySelector('#detailChecklist')&&oldMain.querySelector('#detailChecklist').closest('.v3-section');
     if(delivery){const h=delivery.querySelector('.tsection-head strong'),s=delivery.querySelector('.tsection-head span');if(h)h.textContent='Sua entrega';if(s)s.textContent=t.deliveryRequired?'Obrigatória para concluir a tarefa':'Envie o material final desta execução'}
@@ -435,6 +525,11 @@
       e.stopPropagation();
       openRelatedTask(el.dataset.r10Task);
     }));
+    workspace.querySelector('[data-r10-add-material]')?.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      document.getElementById('attachmentInput')?.click();
+    });
     const campaignLink=workspace.querySelector('[data-r10-open-campaign]');
     campaignLink?.addEventListener('click',e=>{
       e.preventDefault();
@@ -956,6 +1051,257 @@
     min-width:30px!important;
     border:2px solid #fff!important;
     box-shadow:0 0 0 1px #dfe4e7!important;
+  }
+
+  /* Objective + materials — reference layout */
+  #taskDetailDrawer .r10-main .r10-objective-card,
+  #taskDetailDrawer .r10-main .r10-materials-card{
+    margin-top:14px!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:17px!important;
+    background:#fff!important;
+    box-shadow:0 1px 2px rgba(27,34,39,.018)!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-main .r10-objective-card .tsection-head,
+  #taskDetailDrawer .r10-main .r10-materials-card .tsection-head{
+    min-height:70px!important;
+    height:auto!important;
+    padding:15px 18px 10px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:12px!important;
+    border-bottom:0!important;
+    background:#fff!important;
+  }
+  #taskDetailDrawer .r10-section-icon{
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    flex:0 0 40px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:11px!important;
+    background:#eef1f3!important;
+    color:#252c31!important;
+  }
+  #taskDetailDrawer .r10-section-icon .r10-svg{
+    width:20px!important;
+    height:20px!important;
+    stroke-width:1.85!important;
+  }
+  #taskDetailDrawer .r10-objective-card .tsection-head{
+    justify-content:flex-start!important;
+  }
+  #taskDetailDrawer .r10-section-heading{
+    min-width:0!important;
+    display:flex!important;
+    align-items:center!important;
+  }
+  #taskDetailDrawer .r10-objective-card .tsection-head strong,
+  #taskDetailDrawer .r10-materials-heading>strong{
+    margin:0!important;
+    color:#151a1e!important;
+    font-size:16px!important;
+    font-weight:720!important;
+    line-height:1.15!important;
+    letter-spacing:-.018em!important;
+  }
+  #taskDetailDrawer .r10-main .r10-objective-card .description-area{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-height:78px!important;
+    margin:0!important;
+    padding:2px 20px 20px 72px!important;
+    border:0!important;
+    outline:0!important;
+    resize:none!important;
+    overflow:hidden!important;
+    background:transparent!important;
+    color:#65717b!important;
+    font:430 13.5px/1.58 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    letter-spacing:-.005em!important;
+  }
+  #taskDetailDrawer .r10-main .r10-objective-card .description-area::placeholder{
+    color:#8b959d!important;
+    opacity:1!important;
+  }
+
+  #taskDetailDrawer .r10-materials-heading{
+    min-width:0!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:13px!important;
+  }
+  #taskDetailDrawer .r10-materials-icon{
+    position:relative!important;
+    cursor:pointer!important;
+  }
+  #taskDetailDrawer .r10-material-input{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    opacity:0!important;
+    cursor:pointer!important;
+  }
+  #taskDetailDrawer .r10-material-count{
+    min-height:28px!important;
+    padding:0 10px!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    border:0!important;
+    border-radius:9px!important;
+    background:#f2f4f5!important;
+    color:#7b858d!important;
+    font-size:10.5px!important;
+    font-weight:600!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-main .r10-materials-card #attachmentList.r10-material-list{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:8px!important;
+    margin:0!important;
+    padding:2px 18px 18px!important;
+  }
+  #taskDetailDrawer .r10-main .r10-materials-card .file-pill.r10-material-row{
+    box-sizing:border-box!important;
+    min-height:62px!important;
+    margin:0!important;
+    padding:8px 10px!important;
+    display:grid!important;
+    grid-template-columns:38px minmax(0,1fr) auto!important;
+    grid-template-rows:auto auto!important;
+    column-gap:10px!important;
+    row-gap:3px!important;
+    align-items:center!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:11px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+  }
+  #taskDetailDrawer .r10-material-type{
+    grid-column:1!important;
+    grid-row:1 / 3!important;
+    width:34px!important;
+    height:34px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:9px!important;
+    background:#eef2f4!important;
+    color:#68747d!important;
+  }
+  #taskDetailDrawer .r10-material-type .r10-svg{
+    width:18px!important;
+    height:18px!important;
+    stroke-width:1.75!important;
+  }
+  #taskDetailDrawer .r10-material-row.type-pdf .r10-material-type{
+    background:#fff0f1!important;
+    color:#ef3f4d!important;
+  }
+  #taskDetailDrawer .r10-material-row.type-archive .r10-material-type{
+    background:#fff2df!important;
+    color:#e68a1f!important;
+  }
+  #taskDetailDrawer .r10-material-row.type-image .r10-material-type{
+    background:#edf3ff!important;
+    color:#3d73de!important;
+  }
+  #taskDetailDrawer .r10-material-name{
+    grid-column:2!important;
+    grid-row:1!important;
+    align-self:end!important;
+    min-width:0!important;
+    margin:0!important;
+    color:#20272d!important;
+    font-size:12.5px!important;
+    font-weight:650!important;
+    line-height:1.18!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-material-meta{
+    grid-column:2!important;
+    grid-row:2!important;
+    align-self:start!important;
+    margin:0!important;
+    color:#7f8991!important;
+    font-size:10.5px!important;
+    font-weight:450!important;
+    line-height:1.2!important;
+  }
+  #taskDetailDrawer .r10-material-action{
+    grid-column:3!important;
+    grid-row:1 / 3!important;
+    align-self:center!important;
+    width:30px!important;
+    height:30px!important;
+    display:grid!important;
+    place-items:center!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:8px!important;
+    background:transparent!important;
+    color:#68747d!important;
+    cursor:pointer!important;
+    text-decoration:none!important;
+  }
+  #taskDetailDrawer .r10-material-action .r10-svg{
+    width:17px!important;
+    height:17px!important;
+    stroke-width:1.8!important;
+  }
+  #taskDetailDrawer .r10-material-remove{
+    opacity:.45!important;
+  }
+  #taskDetailDrawer .r10-material-row:hover .r10-material-remove{
+    opacity:1!important;
+    background:#f5f7f8!important;
+  }
+  #taskDetailDrawer .r10-material-download+.r10-material-remove{
+    display:none!important;
+  }
+  #taskDetailDrawer .r10-material-empty{
+    box-sizing:border-box!important;
+    min-height:62px!important;
+    width:100%!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:11px!important;
+    padding:10px 12px!important;
+    border:1px dashed #d9e0e5!important;
+    border-radius:11px!important;
+    background:#fbfcfd!important;
+    color:#65717a!important;
+    cursor:pointer!important;
+    text-align:left!important;
+  }
+  #taskDetailDrawer .r10-material-empty>.r10-svg{
+    width:20px!important;
+    height:20px!important;
+    flex:0 0 20px!important;
+  }
+  #taskDetailDrawer .r10-material-empty span{
+    min-width:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:3px!important;
+  }
+  #taskDetailDrawer .r10-material-empty b{
+    color:#343d44!important;
+    font-size:11.5px!important;
+    font-weight:650!important;
+  }
+  #taskDetailDrawer .r10-material-empty small{
+    color:#8b949b!important;
+    font-size:9.5px!important;
   }
   `;
   document.head.appendChild(r10FlowStyle);
