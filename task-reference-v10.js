@@ -609,6 +609,50 @@
       campaignField.classList.add('r10-field-campaign');
       campaignField.querySelector('label').textContent=t.campaignId?'Campanha':'Lista';
       campaignField.querySelectorAll('small').forEach(x=>x.remove());
+
+      const campaignSelect=campaignField.querySelector('#detailCampaign');
+      const directoryLists=Array.isArray(window.AllianceOSDirectory?.lists)?window.AllianceOSDirectory.lists:[];
+      const linkedList=directoryLists.find(l=>
+        (t.listId&&String(l.id)===String(t.listId)) ||
+        (t.campaignId&&String(l.campanha_id||'')===String(t.campaignId))
+      );
+      const campaignName=String(
+        linkedList?.nome ||
+        campaign?.name ||
+        campaign?.nome ||
+        (t.project&&t.project!=='Operação'?t.project:'') ||
+        'Campanha vinculada'
+      ).trim();
+
+      if(campaignSelect){
+        if(linkedList?.id){
+          const listValue=String(linkedList.id);
+          let option=[...campaignSelect.options].find(o=>String(o.value)===listValue);
+          if(!option){
+            option=document.createElement('option');
+            option.value=listValue;
+            option.textContent=campaignName;
+            campaignSelect.appendChild(option);
+          }else{
+            option.textContent=campaignName;
+          }
+          campaignSelect.value=listValue;
+        }else if(t.campaignId){
+          let option=[...campaignSelect.options].find(o=>
+            String(o.value)===String(t.campaignId) ||
+            r10Norm(o.textContent).includes(r10Norm(campaignName))
+          );
+          if(!option){
+            option=document.createElement('option');
+            option.value=String(t.campaignId);
+            option.textContent=campaignName;
+            campaignSelect.appendChild(option);
+          }
+          campaignSelect.value=option.value;
+        }
+        campaignSelect.setAttribute('title',campaignName);
+      }
+
       campaignField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-campaign-icon">'+r10Icon('folder')+'</span>');
     }
 
@@ -672,8 +716,7 @@
     const info=document.createElement('section');info.className='r10-side-card r10-status-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('statusPanel')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
 
     const context=document.createElement('section');context.className='r10-side-card r10-context-card';context.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('folder')+'</span><strong>'+(t.campaignId?'Contexto da campanha':'Contexto da tarefa')+'</strong></div><div class="r10-side-card-body"></div>';const cb=context.querySelector('.r10-side-card-body');if(campaignField)cb.appendChild(campaignField);
-    cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value r10-client-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i><span>'+r10Esc(t.brand||'—')+'</span></span></div>'+
-      '<div class="r10-context-row"><span>Canal</span><span class="r10-context-value r10-channel-value">'+r10Icon(channel&&channel.toLowerCase().includes('whatsapp')?'whatsapp':'tag')+'<span>'+r10Esc(channel||'—')+'</span></span></div>');
+    cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value r10-client-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i><span>'+r10Esc(t.brand||'—')+'</span></span></div>');
     stack.appendChild(context);
 
     const tags=(t.tags||[]).filter(Boolean);const defaultTags=[channel,t.brand||'Operação',r10Priority(t)].filter(Boolean);const tagList=(tags.length?tags:defaultTags).map(x=>'<span class="r10-tag'+r10TagClass(x)+'">'+r10Esc(x)+'</span>').join('');stack.insertAdjacentHTML('beforeend',r10Card('Sinais e tags',r10Icon('tag'),'<div class="r10-tags">'+tagList+'<button type="button" class="r10-add-tag">＋ Adicionar tag</button></div>'));
