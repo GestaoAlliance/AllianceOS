@@ -1064,3 +1064,42 @@
     box-shadow:0 0 0 3px rgba(73,93,108,.08)!important;
   }
 }
+
+
+/* ===== Navigation Reference V7 · brand directly beside search ===== */
+@media (min-width:901px){
+  html body .global-toolbar{
+    display:grid!important;
+    grid-template-columns:180px minmax(0,1fr) auto!important;
+    align-items:center!important;
+    column-gap:12px!important;
+    row-gap:0!important;
+    justify-content:stretch!important;
+  }
+
+  .ref2-brand-wrap{
+    grid-column:1!important;
+    width:180px!important;
+    min-width:180px!important;
+    max-width:180px!important;
+    margin:0!important;
+  }
+
+  .ref2-search{
+    grid-column:2!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+    justify-self:stretch!important;
+  }
+
+  .ref2-top-actions{
+    grid-column:3!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+    justify-self:end!important;
+  }
+}
