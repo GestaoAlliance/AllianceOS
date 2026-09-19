@@ -406,7 +406,7 @@
           actions.classList.add('r10-delivery-sent-actions');
           actions.querySelectorAll('a,button').forEach(action=>{
             action.classList.add('r10-delivery-sent-action');
-            if(action.hasAttribute('data-v5-delivery-download'))action.innerHTML=r10Icon('download');
+            if(action.hasAttribute('data-v5-delivery-download')||action.hasAttribute('data-v5-download-unavailable'))action.innerHTML=r10Icon('download');
             else if(action.hasAttribute('data-v5-open-link'))action.innerHTML=r10Icon('arrowUpRight');
             else if(action.hasAttribute('data-v5-copy-value'))action.innerHTML=r10Icon('copy');
           });
@@ -450,7 +450,7 @@
           actions.classList.add('r10-delivery-sent-actions');
           actions.querySelectorAll('a,button').forEach(action=>{
             action.classList.add('r10-delivery-sent-action');
-            if(action.hasAttribute('data-v5-delivery-download'))action.innerHTML=r10Icon('download');
+            if(action.hasAttribute('data-v5-delivery-download')||action.hasAttribute('data-v5-download-unavailable'))action.innerHTML=r10Icon('download');
             else if(action.hasAttribute('data-v5-open-link'))action.innerHTML=r10Icon('arrowUpRight');
             else if(action.hasAttribute('data-v5-copy-value'))action.innerHTML=r10Icon('copy');
             else if(action.matches('[data-v5-edit-note],[data-v5-edit-link],[data-v5-edit-file]'))action.innerHTML=r10Icon('pencil');
@@ -2190,6 +2190,64 @@
   #taskDetailDrawer .r10-delivery-sent-action:hover{border:0!important;background:transparent!important;color:#20272d!important}
   #taskDetailDrawer .r10-delivery-sent-action.is-delete:hover{background:transparent!important;color:#df4452!important}
   #taskDetailDrawer .r10-delivery-sent-action .r10-svg{width:18px!important;height:18px!important;stroke-width:1.75!important}
+  #taskDetailDrawer .r10-delivery-sent-actions>a,
+  #taskDetailDrawer .r10-delivery-sent-actions>button,
+  #taskDetailDrawer .r10-incoming-card .v5-material-actions>a,
+  #taskDetailDrawer .r10-incoming-card .v5-material-actions>button,
+  #taskDetailDrawer .r10-delivery-card .v5-material-actions>a,
+  #taskDetailDrawer .r10-delivery-card .v5-material-actions>button{
+    -webkit-appearance:none!important;
+    appearance:none!important;
+    position:static!important;
+    inset:auto!important;
+    transform:none!important;
+    translate:none!important;
+    box-sizing:border-box!important;
+    width:24px!important;
+    height:24px!important;
+    min-width:24px!important;
+    max-width:24px!important;
+    flex:0 0 24px!important;
+    display:grid!important;
+    place-items:center!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    outline:0!important;
+    border-radius:0!important;
+    background:none!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    filter:none!important;
+    color:#748089!important;
+    opacity:1!important;
+    cursor:pointer!important;
+    text-decoration:none!important;
+  }
+  #taskDetailDrawer .r10-delivery-sent-actions>a:hover,
+  #taskDetailDrawer .r10-delivery-sent-actions>button:hover,
+  #taskDetailDrawer .r10-incoming-card .v5-material-actions>a:hover,
+  #taskDetailDrawer .r10-incoming-card .v5-material-actions>button:hover,
+  #taskDetailDrawer .r10-delivery-card .v5-material-actions>a:hover,
+  #taskDetailDrawer .r10-delivery-card .v5-material-actions>button:hover{
+    border:0!important;
+    background:none!important;
+    background-color:transparent!important;
+    box-shadow:none!important;
+    color:#20272d!important;
+  }
+  #taskDetailDrawer .r10-delivery-sent-actions>a::before,
+  #taskDetailDrawer .r10-delivery-sent-actions>a::after,
+  #taskDetailDrawer .r10-delivery-sent-actions>button::before,
+  #taskDetailDrawer .r10-delivery-sent-actions>button::after{
+    display:none!important;
+    content:none!important;
+  }
+  #taskDetailDrawer [data-v5-download-unavailable]{
+    opacity:.35!important;
+    cursor:not-allowed!important;
+  }
   #taskDetailDrawer .r10-delivery-card-head-actions{display:flex!important;align-items:center!important;gap:12px!important}
 
   #taskDetailDrawer .r10-completion-card{

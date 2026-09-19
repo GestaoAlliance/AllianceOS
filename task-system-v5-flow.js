@@ -199,7 +199,9 @@
       const name=esc(rawName);
       const key=esc(String(deliveryId)+':'+i);
       const kind=v5FileKind(f);
-      const download=f.dataUrl?'<a href="'+esc(f.dataUrl)+'" download="'+name+'" data-v5-delivery-download="'+key+'" title="Baixar arquivo">↓</a>':'';
+      const download=f.dataUrl
+        ? '<a href="'+esc(f.dataUrl)+'" download="'+name+'" data-v5-delivery-download="'+key+'" title="Baixar arquivo">↓</a>'
+        : '<button type="button" data-v5-download-unavailable="'+key+'" title="Download indisponível para este arquivo antigo" aria-label="Download indisponível">↓</button>';
       const copy='<button type="button" data-v5-copy-value="'+esc(encodeURIComponent(rawName))+'" title="Copiar nome do arquivo">⧉</button>';
       const edit=editable?'<button type="button" data-v5-edit-file="'+key+'" title="Editar nome">✎</button>':'';
       const del=editable?'<button type="button" data-v5-delete-file="'+key+'" title="Excluir arquivo">×</button>':'';
@@ -291,6 +293,9 @@
   function v5BindDeliveryItemActions(t){
     document.querySelectorAll('[data-v5-copy-value]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();v5CopyValue(btn.dataset.v5CopyValue);
+    }));
+    document.querySelectorAll('[data-v5-download-unavailable]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();showToast('Este arquivo antigo não possui o conteúdo salvo para download.');
     }));
     document.querySelectorAll('[data-v5-delete-delivery]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
