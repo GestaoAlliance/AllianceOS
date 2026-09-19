@@ -38,7 +38,10 @@
       chevronLeft:'<path d="m14 7-5 5 5 5"/>',
       chevronRight:'<path d="m10 7 5 5-5 5"/>',
       more:'<circle cx="6" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="18" cy="12" r="1"/>',
-      flame:'<path d="M13.5 3.5c.3 3-1.7 4.2-3.2 5.8-1.5 1.6-2.2 3-1.2 5.1.5-1.4 1.5-2.2 2.5-3 .2 2.2 1 3.3 2.2 4.4 1.4 1.2 1.8 3.1.8 4.7 3-.9 5.1-3.6 5.1-6.8 0-4.1-2.8-7.8-6.2-10.2Z"/><path d="M9.7 20.5c-2.5-.8-4.2-3-4.2-5.8 0-2.4 1.1-4.3 2.8-5.9-.2 2.3.6 3.4 1.9 4.5-1 1.3-1.4 2.9-.5 4.3.5.8 1.1 1.5 2 2.2-.6.4-1.2.6-2 .7Z"/>'
+      flame:'<path d="M13.5 3.5c.3 3-1.7 4.2-3.2 5.8-1.5 1.6-2.2 3-1.2 5.1.5-1.4 1.5-2.2 2.5-3 .2 2.2 1 3.3 2.2 4.4 1.4 1.2 1.8 3.1.8 4.7 3-.9 5.1-3.6 5.1-6.8 0-4.1-2.8-7.8-6.2-10.2Z"/><path d="M9.7 20.5c-2.5-.8-4.2-3-4.2-5.8 0-2.4 1.1-4.3 2.8-5.9-.2 2.3.6 3.4 1.9 4.5-1 1.3-1.4 2.9-.5 4.3.5.8 1.1 1.5 2 2.2-.6.4-1.2.6-2 .7Z"/>',
+      whatsappBrand:'<circle cx="12" cy="12" r="9" fill="#22c86a" stroke="none"/><path d="M8.4 8.7c.7 3 2.8 5.2 5.8 5.9l1.5-1.5 2.1.8-.8 2.2c-.2.7-.8 1.1-1.6 1.1-4.8-.2-8.5-3.9-8.7-8.7 0-.7.4-1.3 1.1-1.6l2.2-.8.8 2.1-1.5 1.5Z" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+      folderSolid:'<path d="M3.8 7.5h6.1l1.8 2H20v8.7a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.2V7.5Z" fill="currentColor" stroke="none"/><path d="M4 7.8V5.9A1.9 1.9 0 0 1 5.9 4h4l1.8 2H18" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>',
+      priorityMark:'<path d="M12 3.3c2.5 2.1 4.3 4.5 4.3 7.2 0 1.3-.4 2.4-1.1 3.4-.2-1.5-1-2.6-2.2-3.5.1 2.2-1 3.2-2.1 4.2-1.2 1.1-1.6 2.4-.9 4.2-2.1-.8-3.5-2.8-3.5-5.4 0-3.6 2.4-6.9 5.5-10.1Z" fill="currentColor" stroke="none"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -151,15 +154,26 @@
     if(p==='Urgente')return 'Urgente';
     return p;
   };
-  const r10TaskSubtitle = (t,campaign) => {
-    const direct=String(t?.description||'').trim();
-    if(direct)return direct;
-    const campaignContext=String(campaign?.objective||campaign?.description||campaign?.summary||'').trim();
-    if(campaignContext)return campaignContext;
-    return t?.campaignId?'Execução vinculada à campanha '+String(campaign?.name||t?.project||'')+'.':'Tarefa avulsa, sem campanha vinculada.';
+  const r10BriefText = (value,max=190) => {
+    const clean=String(value||'').replace(/\s+/g,' ').trim();
+    if(!clean)return '';
+    const sentence=clean.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim()||clean;
+    const source=sentence.length>=55?sentence:clean;
+    if(source.length<=max)return source;
+    const cut=source.slice(0,max+1), at=cut.lastIndexOf(' ');
+    return (at>Math.floor(max*.72)?cut.slice(0,at):source.slice(0,max)).trim()+'…';
   };
+  const r10AutoTaskSummary = t => {
+    const title=String(t?.title||'esta tarefa').trim();
+    const n=r10Norm(title);
+    if(/dispar|envi|program/.test(n))return 'Executar '+title.toLowerCase()+' conforme o briefing, os materiais e as orientações definidos para esta tarefa.';
+    if(/cri|desenvolv|produz|mont/.test(n))return title+' conforme o briefing, os materiais e o resultado esperado definidos para esta tarefa.';
+    if(/revis|aprov|valid/.test(n))return title+' conferindo os critérios, materiais e resultado esperado desta tarefa.';
+    return 'Executar '+title.toLowerCase()+' conforme o briefing, os materiais e o resultado esperado desta tarefa.';
+  };
+  const r10TaskSubtitle = t => r10BriefText(t?.summary||t?.shortDescription||t?.description||t?.objective||t?.briefing)||r10AutoTaskSummary(t);
   const r10HeaderPill = (icon,label,kind='',attrs='') => '<span class="r10-pill '+kind+'" '+attrs+'>'+r10Icon(icon)+'<span>'+r10Esc(label)+'</span></span>';
-  const r10CampaignHeaderPill = label => '<button type="button" class="r10-pill campaign r10-campaign-link" data-r10-open-campaign="'+r10Esc(label)+'" title="Abrir campanha">'+r10Icon('folder')+'<span>'+r10Esc(label)+'</span></button>';
+  const r10CampaignHeaderPill = label => '<button type="button" class="r10-pill campaign r10-campaign-link" data-r10-open-campaign="'+r10Esc(label)+'" title="Abrir campanha">'+r10Icon('folderSolid')+'<span>'+r10Esc(label)+'</span></button>';
 
   const r10StatusClass = value => 'status-'+r10Norm(value).replace(/\s+/g,'-');
   const r10StatusIcon = value => {
@@ -308,11 +322,11 @@
     const priorityLabel=r10PriorityHeaderLabel(t);
     const priorityTone=r10PriorityTone(priorityLabel);
     const headPills=[
-      channel?r10HeaderPill(channel.toLowerCase().includes('whatsapp')?'whatsapp':'tag',channel,'channel'):null,
-      t.campaignId?r10CampaignHeaderPill(campaignLabel):r10HeaderPill('task','Tarefa avulsa','standalone'),
-      r10HeaderPill('flame',priorityLabel,'priority priority-'+priorityTone)
+      channel?r10HeaderPill(channel.toLowerCase().includes('whatsapp')?'whatsappBrand':'tag',channel,'channel'):null,
+      t.campaignId?r10CampaignHeaderPill(campaignLabel):null,
+      r10HeaderPill('priorityMark',priorityLabel,'priority priority-'+priorityTone)
     ].filter(Boolean).join('');
-    const subtitle=r10TaskSubtitle(t,campaign);
+    const subtitle=r10TaskSubtitle(t);
     center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back aria-label="Voltar">'+r10Icon('arrowLeft')+'</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more aria-label="Mais opções">'+r10Icon('more')+'</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev aria-label="Tarefa anterior">'+r10Icon('chevronLeft')+'</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next aria-label="Próxima tarefa">'+r10Icon('chevronRight')+'</button><span class="r10-save-slot"></span></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><div class="r10-title-slot"></div><p class="r10-subtitle">'+r10Esc(subtitle)+'</p><div class="r10-pills">'+headPills+'</div></header><div class="r10-center-stack"></div>';
     const titleSlot=center.querySelector('.r10-title-slot');
     if(titleInput&&titleSlot){
@@ -479,8 +493,8 @@
     margin:10px 0 0!important;
     color:#6f7b84!important;
     font-size:14px!important;
-    line-height:1.45!important;
-    font-weight:430!important;
+    line-height:1.48!important;
+    font-weight:440!important;
     white-space:normal!important;
     overflow-wrap:anywhere!important;
   }
@@ -488,8 +502,8 @@
     display:flex!important;
     align-items:center!important;
     flex-wrap:wrap!important;
-    gap:8px!important;
-    margin-top:14px!important;
+    gap:9px!important;
+    margin-top:15px!important;
   }
   #taskDetailDrawer .r10-pill{
     appearance:none!important;
@@ -497,17 +511,18 @@
     display:inline-flex!important;
     align-items:center!important;
     justify-content:center!important;
-    gap:7px!important;
-    min-height:32px!important;
-    height:32px!important;
-    max-width:260px!important;
-    padding:0 11px!important;
-    border:1px solid #dce3e7!important;
-    border-radius:9px!important;
+    gap:8px!important;
+    min-height:40px!important;
+    height:40px!important;
+    max-width:300px!important;
+    padding:0 13px!important;
+    border:1px solid #d8dee3!important;
+    border-radius:10px!important;
     background:#fff!important;
-    color:#354048!important;
-    font:600 10px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-    box-shadow:none!important;
+    color:#263139!important;
+    font:600 13px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    letter-spacing:-.01em!important;
+    box-shadow:0 1px 2px rgba(24,31,36,.025)!important;
     white-space:nowrap!important;
     overflow:hidden!important;
   }
@@ -518,58 +533,52 @@
     white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-pill .r10-svg{
-    width:15px!important;
-    height:15px!important;
-    min-width:15px!important;
-    stroke-width:1.8!important;
+    width:18px!important;
+    height:18px!important;
+    min-width:18px!important;
+    flex:0 0 18px!important;
   }
   #taskDetailDrawer .r10-pill.channel{
     background:#fff!important;
-    border-color:#dce3e7!important;
-    color:#37434a!important;
+    border-color:#d8dee3!important;
+    color:#263139!important;
   }
-  #taskDetailDrawer .r10-pill.channel .r10-svg{color:#20b768!important}
+  #taskDetailDrawer .r10-pill.channel .r10-svg{color:#22c86a!important}
   #taskDetailDrawer .r10-pill.campaign{
     background:#fff!important;
-    border-color:#dce3e7!important;
-    color:#3b4650!important;
+    border-color:#d8dee3!important;
+    color:#263139!important;
   }
-  #taskDetailDrawer .r10-pill.campaign .r10-svg{color:#377bf1!important}
+  #taskDetailDrawer .r10-pill.campaign .r10-svg{color:#2869e8!important}
   #taskDetailDrawer .r10-campaign-link{
     cursor:pointer!important;
   }
   #taskDetailDrawer .r10-campaign-link:hover{
-    background:#f7f9ff!important;
-    border-color:#cdd9f2!important;
-  }
-  #taskDetailDrawer .r10-pill.standalone{
-    background:#f7f8ff!important;
-    border-color:#dde3f1!important;
-    color:#627096!important;
+    background:#f8faff!important;
+    border-color:#cbd7ec!important;
   }
   #taskDetailDrawer .r10-pill.priority{
     background:#fff!important;
-    border-color:#dce3e7!important;
-    color:#5c6670!important;
+    border-color:#d8dee3!important;
+    color:#56616a!important;
   }
   #taskDetailDrawer .r10-pill.priority-high,
   #taskDetailDrawer .r10-pill.priority-urgent{
-    background:#fff0f1!important;
-    border-color:#f6d3d7!important;
-    color:#e33e4e!important;
+    background:#faedef!important;
+    border-color:#f3cdd2!important;
+    color:#e13f4d!important;
+  }
+  #taskDetailDrawer .r10-pill.priority .r10-svg{
+    color:#7b858d!important;
   }
   #taskDetailDrawer .r10-pill.priority-high .r10-svg,
   #taskDetailDrawer .r10-pill.priority-urgent .r10-svg{
-    color:#f04452!important;
-    fill:currentColor!important;
-  }
-  #taskDetailDrawer .r10-pill.priority-normal .r10-svg{
-    color:#7d8790!important;
-    fill:none!important;
+    color:#ef3f4d!important;
   }
   #taskDetailDrawer .r10-pill.priority-low{
     background:#f5f8fb!important;
-    color:#667580!important;
+    border-color:#dde4e9!important;
+    color:#64727c!important;
   }
 
   #taskDetailDrawer .r10-flow{
