@@ -625,3 +625,224 @@
     padding-right:12px!important;
   }
 }
+
+
+/* Reference-aligned Status e informações */
+#taskDetailDrawer .r10-status-card{
+  border:1px solid #dfe5e9!important;
+  border-radius:18px!important;
+  background:#fff!important;
+  box-shadow:0 1px 3px rgba(24,31,36,.025)!important;
+  overflow:hidden!important;
+}
+#taskDetailDrawer .r10-status-card>.r10-side-card-head{
+  box-sizing:border-box!important;
+  height:68px!important;
+  min-height:68px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:14px!important;
+  padding:0 18px!important;
+  border-bottom:0!important;
+}
+#taskDetailDrawer .r10-status-card>.r10-side-card-head .r10-side-card-icon{
+  width:40px!important;
+  height:40px!important;
+  min-width:40px!important;
+  flex:0 0 40px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:12px!important;
+  background:#edf0f2!important;
+  color:#20272d!important;
+}
+#taskDetailDrawer .r10-status-card>.r10-side-card-head .r10-side-card-icon .r10-svg{
+  width:21px!important;
+  height:21px!important;
+  stroke-width:1.7!important;
+}
+#taskDetailDrawer .r10-status-card>.r10-side-card-head>strong{
+  margin:0!important;
+  min-height:0!important;
+  color:#13191d!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:15.5px!important;
+  font-weight:720!important;
+  line-height:1.15!important;
+  letter-spacing:-.018em!important;
+}
+#taskDetailDrawer .r10-status-card>.r10-side-card-body{
+  padding:4px 18px 18px!important;
+}
+#taskDetailDrawer .r10-status-card .tfield{
+  box-sizing:border-box!important;
+  min-height:66px!important;
+  display:grid!important;
+  grid-template-columns:92px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:12px!important;
+  margin:0!important;
+  padding:6px 0!important;
+  position:relative!important;
+}
+#taskDetailDrawer .r10-status-card .tfield>label{
+  min-height:0!important;
+  display:flex!important;
+  align-items:center!important;
+  margin:0!important;
+  padding:0!important;
+  color:#66727b!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  line-height:1.2!important;
+}
+#taskDetailDrawer .r10-status-card .tfield select,
+#taskDetailDrawer .r10-status-card .tfield input{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  height:54px!important;
+  min-height:54px!important;
+  margin:0!important;
+  padding:0 42px 0 50px!important;
+  border:1px solid #d9e0e5!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:#20272d!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:13px!important;
+  font-weight:560!important;
+  line-height:1.15!important;
+  box-shadow:none!important;
+}
+#taskDetailDrawer .r10-status-card .tfield select:focus,
+#taskDetailDrawer .r10-status-card .tfield input:focus{
+  border-color:#bcc7ce!important;
+  outline:0!important;
+  box-shadow:0 0 0 2px rgba(64,92,110,.06)!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-adorn{
+  position:absolute!important;
+  left:108px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  width:28px!important;
+  height:28px!important;
+  display:grid!important;
+  place-items:center!important;
+  z-index:3!important;
+  margin:0!important;
+  padding:0!important;
+  color:#20272d!important;
+  pointer-events:none!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-adorn .r10-svg{
+  width:20px!important;
+  height:20px!important;
+  stroke-width:1.75!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-adorn.status-dot{
+  left:116px!important;
+  width:12px!important;
+  height:12px!important;
+  border-radius:999px!important;
+  background:#25b86f!important;
+  box-shadow:0 0 0 3px #eef9f3!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-status.state-bloqueada .status-dot{
+  background:#e59a37!important;
+  box-shadow:0 0 0 3px #fff5e7!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-status.state-pendente .status-dot{
+  background:#a7afb5!important;
+  box-shadow:0 0 0 3px #f2f4f5!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-status.state-concluida .status-dot{
+  background:#25b86f!important;
+  box-shadow:0 0 0 3px #eef9f3!important;
+}
+#taskDetailDrawer .r10-status-card .owner-avatar{
+  left:105px!important;
+  width:34px!important;
+  height:34px!important;
+  border-radius:50%!important;
+  background:#e9edef!important;
+  color:#56616a!important;
+  overflow:hidden!important;
+  font-size:9px!important;
+  font-weight:700!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-owner select{
+  padding-left:56px!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-bars{
+  color:#6f7a82!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority.priority-alta .r10-priority-bars,
+#taskDetailDrawer .r10-status-card .r10-field-priority.priority-urgente .r10-priority-bars{
+  color:#ef3344!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority.priority-baixa .r10-priority-bars{
+  color:#5a9c70!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-bars .r10-svg{
+  width:22px!important;
+  height:22px!important;
+  stroke-width:2!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-due{
+  min-height:78px!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-due>input{
+  position:absolute!important;
+  right:0!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  width:calc(100% - 104px)!important;
+  height:62px!important;
+  min-height:62px!important;
+  opacity:0!important;
+  z-index:5!important;
+  cursor:pointer!important;
+}
+#taskDetailDrawer .r10-status-card .r10-due-display{
+  grid-column:2!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-height:62px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  gap:4px!important;
+  padding:8px 14px 8px 50px!important;
+  border:1px solid #d9e0e5!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  pointer-events:none!important;
+}
+#taskDetailDrawer .r10-status-card .r10-due-display>strong{
+  margin:0!important;
+  color:#20272d!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  line-height:1.2!important;
+}
+#taskDetailDrawer .r10-status-card .r10-due-display>small{
+  margin:0!important;
+  color:#59656e!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  line-height:1.2!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-due .r10-due-icon{
+  left:108px!important;
+  width:28px!important;
+  height:28px!important;
+  color:#20272d!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-due .r10-due-icon .r10-svg{
+  width:21px!important;
+  height:21px!important;
+  stroke-width:1.7!important;
+}

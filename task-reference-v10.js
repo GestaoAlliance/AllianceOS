@@ -11,6 +11,7 @@
       done:'<path d="m6 12 4 4 8-8"/>',
       pending:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 12h6"/>',
       status:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/>',
+      statusPanel:'<rect x="6" y="5" width="12" height="15" rx="2"/><path d="M9 5V3.5h6V5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 8.5v1M12 14.5v1"/>',
       context:'<path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2M8 11h8M8 15h5"/>',
       tag:'<path d="M4 12 12 4h6l2 2v6l-8 8-8-8Z"/><circle cx="16" cy="8" r="1"/>',
       dependency:'<circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 7h4a4 4 0 0 1 4 4v4M15 17h-4a4 4 0 0 1-4-4V9"/>',
@@ -321,6 +322,24 @@
     });
     return html+'</div></aside>';
   }
+  function r10DueVisual(t){
+    const raw=t?.dueAt||t?.due||'';
+    if(!raw)return {main:'Sem prazo',sub:''};
+    const source=String(raw);
+    const d=new Date(source.length===10?source+'T12:00:00':source);
+    if(Number.isNaN(d.getTime()))return {main:'Sem prazo',sub:''};
+    const main=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+    const today=new Date();today.setHours(0,0,0,0);
+    const target=new Date(d);target.setHours(0,0,0,0);
+    const diff=Math.round((target-today)/86400000);
+    let sub='Hoje';
+    if(diff===1)sub='Amanhã';
+    else if(diff>1)sub='Em '+diff+' dias';
+    else if(diff===-1)sub='Atrasada há 1 dia';
+    else if(diff<-1)sub='Atrasada há '+Math.abs(diff)+' dias';
+    return {main,sub};
+  }
+
   function r10Card(title,icon,body){
     return '<section class="r10-side-card"><div class="r10-side-card-head"><span class="r10-side-card-icon">'+icon+'</span><strong>'+r10Esc(title)+'</strong></div><div class="r10-side-card-body">'+body+'</div></section>';
   }
@@ -578,8 +597,14 @@
     const statusField=r10MoveField(oldSide,'detailStatus'), ownerField=r10MoveField(oldSide,'detailPrimaryAssignee'), dueField=r10MoveField(oldSide,'detailDue'), priorityField=r10MoveField(oldSide,'detailPriority'), campaignField=r10MoveField(oldSide,'detailCampaign'), startField=r10MoveField(oldSide,'detailStart'), supportField=r10MoveField(oldSide,'detailAddAssignee'), recurrenceField=r10MoveField(oldSide,'detailRecurrence');
     if(statusField){statusField.classList.add('r10-field-status','state-'+r10Norm(r10Status(t)).replace(/\s+/g,'-'));statusField.querySelector('label').textContent='Status';statusField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn status-dot"></span>')}
     if(ownerField){ownerField.classList.add('r10-field-owner');ownerField.querySelector('label').textContent='Responsável';ownerField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn owner-avatar">'+r10AvatarInner((t.assignees||[])[0]||'',(t.assigneeIds||[])[0])+'</span>')}
-    if(dueField){dueField.classList.add('r10-field-due');dueField.querySelector('label').textContent='Prazo';dueField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn">'+r10Icon('calendar')+'</span>')}
-    if(priorityField){priorityField.classList.add('r10-field-priority','priority-'+r10Norm(r10Priority(t)));priorityField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn">'+r10Icon('priority')+'</span>')}
+    if(dueField){
+      dueField.classList.add('r10-field-due');
+      dueField.querySelector('label').textContent='Prazo';
+      dueField.querySelectorAll('small').forEach(x=>x.remove());
+      const dueVisual=r10DueVisual(t);
+      dueField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-due-icon">'+r10Icon('calendar')+'</span><span class="r10-due-display"><strong>'+r10Esc(dueVisual.main)+'</strong><small>'+r10Esc(dueVisual.sub)+'</small></span>');
+    }
+    if(priorityField){priorityField.classList.add('r10-field-priority','priority-'+r10Norm(r10Priority(t)));priorityField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-priority-bars">'+r10Icon('priority')+'</span>')}
     if(campaignField){campaignField.classList.add('r10-field-campaign');campaignField.querySelector('label').textContent=t.campaignId?'Campanha':'Lista';campaignField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn">'+r10Icon('folder')+'</span>')}
 
     const workspace=document.createElement('div');workspace.className='r10-workspace';workspace.insertAdjacentHTML('beforeend',r10FlowHtml(t,rows));
@@ -639,7 +664,7 @@
     const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,completionAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
-    const info=document.createElement('section');info.className='r10-side-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('status')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
+    const info=document.createElement('section');info.className='r10-side-card r10-status-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('statusPanel')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
 
     const context=document.createElement('section');context.className='r10-side-card';context.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('context')+'</span><strong>'+(t.campaignId?'Contexto da campanha':'Contexto da tarefa')+'</strong></div><div class="r10-side-card-body"></div>';const cb=context.querySelector('.r10-side-card-body');if(campaignField)cb.appendChild(campaignField);
     cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i>'+r10Esc(t.brand||'—')+'</span></div>'+
