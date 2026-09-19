@@ -294,8 +294,8 @@
     if(!body||!oldLayout||!oldMain||!oldSide)return;
 
     const campaign=r10CampaignRecord(t);
-    const titleInput=document.getElementById('taskTitleInput');
-    const saveButton=document.getElementById('taskSaveBtn');
+    const legacyTitleInput=document.getElementById('taskTitleInput');
+    const legacySaveButton=document.getElementById('taskSaveBtn');
     const rows=r10CampaignTasks(t), index=Math.max(0,rows.findIndex(x=>String(x.id)===String(t.id))), prev=rows[index-1], nextTask=rows[index+1];
     const briefing=oldMain.querySelector('.description-area')&&oldMain.querySelector('.description-area').closest('.v3-section');
     if(briefing){const h=briefing.querySelector('.tsection-head strong'),s=briefing.querySelector('.tsection-head span');if(h)h.textContent='Objetivo';if(s)s.textContent='Resultado esperado e orientação para execução'}
@@ -329,19 +329,45 @@
     const subtitle=r10TaskSubtitle(t);
     center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back aria-label="Voltar">'+r10Icon('arrowLeft')+'</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more aria-label="Mais opções">'+r10Icon('more')+'</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev="'+(prev?r10Esc(prev.id):'')+'" aria-label="Tarefa anterior">'+r10Icon('chevronLeft')+'</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next="'+(nextTask?r10Esc(nextTask.id):'')+'" aria-label="Próxima tarefa">'+r10Icon('chevronRight')+'</button><span class="r10-save-slot"></span></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><div class="r10-title-slot"></div><p class="r10-subtitle">'+r10Esc(subtitle)+'</p><div class="r10-pills">'+headPills+'</div></header><div class="r10-center-stack"></div>';
     const titleSlot=center.querySelector('.r10-title-slot');
-    if(titleInput&&titleSlot){
-      titleInput.classList.add('r10-title-input');
-      titleInput.setAttribute('placeholder','Nome da tarefa');
-      titleSlot.appendChild(titleInput);
-    }else if(titleSlot){
-      titleSlot.innerHTML='<h1 class="r10-title">'+r10Esc(t.title||'Tarefa')+'</h1>';
+    let visibleTitleInput=null;
+    if(titleSlot){
+      visibleTitleInput=document.createElement('input');
+      visibleTitleInput.type='text';
+      visibleTitleInput.className='r10-title-input';
+      visibleTitleInput.setAttribute('aria-label','Título da tarefa');
+      visibleTitleInput.setAttribute('placeholder','Nome da tarefa');
+      visibleTitleInput.value=t.title||'';
+      visibleTitleInput.addEventListener('input',()=>{
+        if(legacyTitleInput)legacyTitleInput.value=visibleTitleInput.value;
+      });
+      titleSlot.appendChild(visibleTitleInput);
     }
     const saveSlot=center.querySelector('.r10-save-slot');
-    if(saveButton&&saveSlot){
-      saveButton.classList.add('r10-save-btn');
+    if(saveSlot){
+      const saveButton=document.createElement('button');
+      saveButton.type='button';
+      saveButton.className='r10-save-btn';
       saveButton.textContent='Salvar alterações';
+      saveButton.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const id=String(taskState.selected||t.id);
+        if(legacyTitleInput&&visibleTitleInput)legacyTitleInput.value=visibleTitleInput.value;
+        try{
+          saveCurrentTask();
+        }catch(err){
+          console.error('[AllianceOS task save]',err);
+          showToast('Não foi possível salvar a tarefa.');
+          return;
+        }
+        requestAnimationFrame(()=>{
+          const drawer=document.getElementById('taskDetailDrawer');
+          if(drawer&&!drawer.classList.contains('open')&&r10Task(id))openTaskDetail(id);
+        });
+      });
       saveSlot.appendChild(saveButton);
     }
+    if(legacySaveButton)legacySaveButton.hidden=true;
     const centerStack=center.querySelector('.r10-center-stack');[briefing,attachments,incoming,delivery,conferenceSection,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
@@ -365,56 +391,58 @@
     const extra=document.createElement('details');extra.className='r10-side-card r10-more';extra.innerHTML='<summary>Mais opções da tarefa</summary><div class="r10-more-body"></div>';const eb=extra.querySelector('.r10-more-body');[startField,supportField,recurrenceField].filter(Boolean).forEach(x=>eb.appendChild(x));if(eb.children.length)stack.appendChild(extra);
     workspace.appendChild(side);oldLayout.replaceWith(workspace);
 
-    const persistDraftBeforeNavigation=()=>{
-      try{
-        const current=r10Task(taskState.selected);
-        if(current&&typeof syncDetailDraft==='function')syncDetailDraft(current);
-        if(typeof v3Persist==='function')v3Persist(false);
-      }catch(e){console.warn('[AllianceOS task nav persist]',e)}
+    const syncVisibleTitle=()=>{
+      const current=r10Task(taskState.selected);
+      if(!current)return;
+      const input=workspace.querySelector('.r10-title-input');
+      if(input){
+        current.title=input.value.trim()||current.title;
+        if(legacyTitleInput)legacyTitleInput.value=input.value;
+      }
     };
-    const r10HandleNavigation=e=>{
-      const control=e.target.closest('[data-r10-back],[data-r10-prev],[data-r10-next],[data-r10-more],[data-r10-task],[data-r10-open-campaign]');
-      if(!control||!workspace.contains(control))return;
-      if(e.__r10Handled)return;
-      e.__r10Handled=true;
+    const openRelatedTask=id=>{
+      if(!id)return;
+      syncVisibleTitle();
+      openTaskDetail(id);
+    };
+
+    workspace.querySelector('[data-r10-back]')?.addEventListener('click',e=>{
       e.preventDefault();
       e.stopPropagation();
-
-      if(control.hasAttribute('data-r10-back')){
-        persistDraftBeforeNavigation();
-        closeTaskDetail();
-        return;
-      }
-      if(control.hasAttribute('data-r10-prev')||control.hasAttribute('data-r10-next')){
-        if(control.disabled)return;
-        const id=control.getAttribute(control.hasAttribute('data-r10-prev')?'data-r10-prev':'data-r10-next');
-        if(!id)return;
-        persistDraftBeforeNavigation();
-        requestAnimationFrame(()=>openTaskDetail(id));
-        return;
-      }
-      if(control.hasAttribute('data-r10-more')){
-        extra.open=!extra.open;
-        return;
-      }
-      if(control.hasAttribute('data-r10-task')){
-        const id=control.getAttribute('data-r10-task');
-        if(!id)return;
-        persistDraftBeforeNavigation();
-        requestAnimationFrame(()=>openTaskDetail(id));
-        return;
-      }
-      if(control.hasAttribute('data-r10-open-campaign')){
-        const name=control.dataset.r10OpenCampaign||campaignLabel;
-        persistDraftBeforeNavigation();
-        closeTaskDetail();
-        if(typeof window.openCampaignWorkspaceByName==='function')setTimeout(()=>window.openCampaignWorkspaceByName(name),0);
-        else if(typeof window.__centralShowCampaigns==='function')setTimeout(()=>window.__centralShowCampaigns(),0);
-      }
-    };
-    workspace.addEventListener('click',r10HandleNavigation,true);
-    workspace.querySelectorAll('[data-r10-back],[data-r10-prev],[data-r10-next],[data-r10-more]').forEach(btn=>{
-      btn.onclick=e=>r10HandleNavigation(e);
+      closeTaskDetail();
+    });
+    workspace.querySelector('[data-r10-prev]')?.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const btn=e.currentTarget;
+      if(btn.disabled)return;
+      openRelatedTask(btn.dataset.r10Prev);
+    });
+    workspace.querySelector('[data-r10-next]')?.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const btn=e.currentTarget;
+      if(btn.disabled)return;
+      openRelatedTask(btn.dataset.r10Next);
+    });
+    workspace.querySelector('[data-r10-more]')?.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      extra.open=!extra.open;
+    });
+    workspace.querySelectorAll('[data-r10-task]').forEach(el=>el.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      openRelatedTask(el.dataset.r10Task);
+    }));
+    const campaignLink=workspace.querySelector('[data-r10-open-campaign]');
+    campaignLink?.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const name=campaignLink.dataset.r10OpenCampaign||campaignLabel;
+      closeTaskDetail();
+      if(typeof window.openCampaignWorkspaceByName==='function')setTimeout(()=>window.openCampaignWorkspaceByName(name),0);
+      else if(typeof window.__centralShowCampaigns==='function')setTimeout(()=>window.__centralShowCampaigns(),0);
     });
   }
   function r10PersistCompletionStamp(){
@@ -461,6 +489,15 @@
   const r10FlowStyle=document.createElement('style');
   r10FlowStyle.id='r10-flow-reference-polish';
   r10FlowStyle.textContent=`
+  #taskDetailDrawer .tdrawer-head{
+    position:absolute!important;
+    width:1px!important;
+    height:1px!important;
+    overflow:hidden!important;
+    clip-path:inset(50%)!important;
+    opacity:0!important;
+    pointer-events:none!important;
+  }
   #taskDetailDrawer .r10-main{
     padding:18px 24px 28px!important;
   }
@@ -770,11 +807,11 @@
     padding:0 0 6px 34px!important;
   }
   #taskDetailDrawer .r10-flow-list:before{
-    left:12px!important;
-    top:14px!important;
-    bottom:18px!important;
+    left:13px!important;
+    top:47px!important;
+    bottom:47px!important;
     width:2px!important;
-    background:repeating-linear-gradient(to bottom,#ccd5db 0 5px,transparent 5px 9px)!important;
+    background:repeating-linear-gradient(to bottom,#cbd4da 0 5px,transparent 5px 9px)!important;
   }
   #taskDetailDrawer .r10-step{
     box-sizing:border-box!important;
@@ -813,11 +850,11 @@
   #taskDetailDrawer .r10-step.done:not(:last-child):after{
     content:""!important;
     position:absolute!important;
-    left:-22px!important;
+    left:-21px!important;
     top:50%!important;
     height:calc(100% + 10px)!important;
     width:2px!important;
-    background:#83d8ae!important;
+    background:#79d6a8!important;
     z-index:3!important;
   }
   #taskDetailDrawer .r10-step-icon{
