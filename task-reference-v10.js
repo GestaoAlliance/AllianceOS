@@ -41,7 +41,7 @@
       flame:'<path d="M13.5 3.5c.3 3-1.7 4.2-3.2 5.8-1.5 1.6-2.2 3-1.2 5.1.5-1.4 1.5-2.2 2.5-3 .2 2.2 1 3.3 2.2 4.4 1.4 1.2 1.8 3.1.8 4.7 3-.9 5.1-3.6 5.1-6.8 0-4.1-2.8-7.8-6.2-10.2Z"/><path d="M9.7 20.5c-2.5-.8-4.2-3-4.2-5.8 0-2.4 1.1-4.3 2.8-5.9-.2 2.3.6 3.4 1.9 4.5-1 1.3-1.4 2.9-.5 4.3.5.8 1.1 1.5 2 2.2-.6.4-1.2.6-2 .7Z"/>',
       whatsappBrand:'<circle cx="12" cy="12" r="9" fill="#22c86a" stroke="none"/><path d="M8.4 8.7c.7 3 2.8 5.2 5.8 5.9l1.5-1.5 2.1.8-.8 2.2c-.2.7-.8 1.1-1.6 1.1-4.8-.2-8.5-3.9-8.7-8.7 0-.7.4-1.3 1.1-1.6l2.2-.8.8 2.1-1.5 1.5Z" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
       folderSolid:'<path d="M3.8 7.5h6.1l1.8 2H20v8.7a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.2V7.5Z" fill="currentColor" stroke="none"/><path d="M4 7.8V5.9A1.9 1.9 0 0 1 5.9 4h4l1.8 2H18" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>',
-      priorityMark:'<path d="m12 3.5 2.2 1.1 2.5.1 1.1 2.2 2 1.5-.5 2.4.5 2.4-2 1.5-1.1 2.2-2.5.1L12 20.5l-2.2-1.1-2.5-.1-1.1-2.2-2-1.5.5-2.4-.5-2.4 2-1.5 1.1-2.2 2.5-.1L12 3.5Z" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2.2" fill="#fff" stroke="none"/>'
+      priorityMark:'<path d="m12 3.8 2.15 1.05 2.38.18 1.04 2.16 1.8 1.57-.52 2.34.52 2.34-1.8 1.57-1.04 2.16-2.38.18L12 20.2l-2.15-1.05-2.38-.18-1.04-2.16-1.8-1.57.52-2.34-.52-2.34 1.8-1.57 1.04-2.16 2.38-.18L12 3.8Z" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.55" fill="#fff" stroke="none"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -372,9 +372,11 @@
         if(typeof v3Persist==='function')v3Persist(false);
       }catch(e){console.warn('[AllianceOS task nav persist]',e)}
     };
-    workspace.addEventListener('click',e=>{
+    const r10HandleNavigation=e=>{
       const control=e.target.closest('[data-r10-back],[data-r10-prev],[data-r10-next],[data-r10-more],[data-r10-task],[data-r10-open-campaign]');
       if(!control||!workspace.contains(control))return;
+      if(e.__r10Handled)return;
+      e.__r10Handled=true;
       e.preventDefault();
       e.stopPropagation();
 
@@ -409,7 +411,11 @@
         if(typeof window.openCampaignWorkspaceByName==='function')setTimeout(()=>window.openCampaignWorkspaceByName(name),0);
         else if(typeof window.__centralShowCampaigns==='function')setTimeout(()=>window.__centralShowCampaigns(),0);
       }
-    },true);
+    };
+    workspace.addEventListener('click',r10HandleNavigation,true);
+    workspace.querySelectorAll('[data-r10-back],[data-r10-prev],[data-r10-next],[data-r10-more]').forEach(btn=>{
+      btn.onclick=e=>r10HandleNavigation(e);
+    });
   }
   function r10PersistCompletionStamp(){
     try{localStorage.setItem(taskStorageKey,JSON.stringify(taskData));}catch{}
@@ -497,25 +503,26 @@
   #taskDetailDrawer .r10-kicker{
     display:inline-flex!important;
     align-items:center!important;
-    gap:7px!important;
+    gap:6px!important;
     width:max-content!important;
-    height:26px!important;
-    min-height:26px!important;
-    margin:0 0 11px!important;
-    padding:0 9px!important;
-    border-radius:8px!important;
-    background:#f0f2f3!important;
-    color:#77828a!important;
-    font-size:9px!important;
-    font-weight:680!important;
+    height:22px!important;
+    min-height:22px!important;
+    margin:0 0 10px!important;
+    padding:0 8px!important;
+    border:0!important;
+    border-radius:7px!important;
+    background:#f1f3f4!important;
+    color:#7a848c!important;
+    font-size:8.5px!important;
+    font-weight:650!important;
     line-height:1!important;
     letter-spacing:.035em!important;
   }
   #taskDetailDrawer .r10-kicker .r10-svg{
-    width:13px!important;
-    height:13px!important;
-    flex:0 0 13px!important;
-    stroke-width:1.75!important;
+    width:11px!important;
+    height:11px!important;
+    flex:0 0 11px!important;
+    stroke-width:1.8!important;
   }
   #taskDetailDrawer .r10-title,
   #taskDetailDrawer .r10-title-input{
@@ -530,11 +537,11 @@
   }
   #taskDetailDrawer .r10-subtitle{
     max-width:760px!important;
-    margin:10px 0 0!important;
-    color:#6f7b84!important;
+    margin:9px 0 0!important;
+    color:#6f7a84!important;
     font-size:14px!important;
     line-height:1.48!important;
-    font-weight:440!important;
+    font-weight:430!important;
     white-space:normal!important;
     overflow-wrap:anywhere!important;
   }
@@ -542,8 +549,8 @@
     display:flex!important;
     align-items:center!important;
     flex-wrap:wrap!important;
-    gap:10px!important;
-    margin-top:16px!important;
+    gap:9px!important;
+    margin-top:15px!important;
   }
   #taskDetailDrawer .r10-pill{
     appearance:none!important;
@@ -552,18 +559,18 @@
     display:inline-flex!important;
     align-items:center!important;
     justify-content:center!important;
-    gap:8px!important;
-    height:42px!important;
-    min-height:42px!important;
+    gap:7px!important;
+    height:38px!important;
+    min-height:38px!important;
     max-width:320px!important;
-    padding:0 13px!important;
-    border:1px solid #d6dde2!important;
-    border-radius:11px!important;
+    padding:0 12px!important;
+    border:1px solid #d8dee3!important;
+    border-radius:10px!important;
     background:#fff!important;
-    color:#20292f!important;
-    font:620 14px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-    letter-spacing:-.012em!important;
-    box-shadow:0 1px 2px rgba(24,31,36,.02)!important;
+    color:#263039!important;
+    font:600 13.5px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    letter-spacing:-.01em!important;
+    box-shadow:none!important;
     white-space:nowrap!important;
     overflow:hidden!important;
   }
@@ -574,24 +581,24 @@
     white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-pill .r10-svg{
-    width:19px!important;
-    height:19px!important;
-    min-width:19px!important;
-    flex:0 0 19px!important;
+    width:18px!important;
+    height:18px!important;
+    min-width:18px!important;
+    flex:0 0 18px!important;
     stroke-width:1.75!important;
   }
   #taskDetailDrawer .r10-pill.channel{
     background:#fff!important;
     border-color:#d8dee3!important;
-    color:#263139!important;
+    color:#273139!important;
   }
-  #taskDetailDrawer .r10-pill.channel .r10-svg{color:#22c86a!important}
+  #taskDetailDrawer .r10-pill.channel .r10-svg{color:#25d366!important}
   #taskDetailDrawer .r10-pill.campaign{
     background:#fff!important;
     border-color:#d8dee3!important;
-    color:#263139!important;
+    color:#273139!important;
   }
-  #taskDetailDrawer .r10-pill.campaign .r10-svg{color:#2869e8!important}
+  #taskDetailDrawer .r10-pill.campaign .r10-svg{color:#246bfe!important}
   #taskDetailDrawer .r10-campaign-link{
     cursor:pointer!important;
   }
@@ -601,14 +608,14 @@
   }
   #taskDetailDrawer .r10-pill.priority{
     background:#fff!important;
-    border-color:#d6dde2!important;
-    color:#5d6870!important;
+    border-color:#d8dee3!important;
+    color:#5e6871!important;
   }
   #taskDetailDrawer .r10-pill.priority-high,
   #taskDetailDrawer .r10-pill.priority-urgent{
-    background:#fff0f1!important;
-    border-color:#f7cfd4!important;
-    color:#f04452!important;
+    background:#fff0f2!important;
+    border-color:#f6cfd5!important;
+    color:#ef3f4d!important;
   }
   #taskDetailDrawer .r10-pill.priority .r10-svg{
     color:#7b858d!important;
@@ -621,6 +628,26 @@
     background:#f5f8fb!important;
     border-color:#dde4e9!important;
     color:#64727c!important;
+  }
+  #taskDetailDrawer .r10-pill.channel .r10-svg{
+    width:19px!important;
+    height:19px!important;
+    flex-basis:19px!important;
+  }
+  #taskDetailDrawer .r10-pill.campaign .r10-svg{
+    width:17px!important;
+    height:17px!important;
+    flex-basis:17px!important;
+  }
+  #taskDetailDrawer .r10-pill.priority .r10-svg{
+    width:16px!important;
+    height:16px!important;
+    min-width:16px!important;
+    flex-basis:16px!important;
+  }
+  #taskDetailDrawer .r10-pill.priority-high .r10-svg,
+  #taskDetailDrawer .r10-pill.priority-urgent .r10-svg{
+    color:#ef3f4d!important;
   }
 
   #taskDetailDrawer .r10-flow{
