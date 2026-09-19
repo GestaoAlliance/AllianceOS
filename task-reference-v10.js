@@ -719,16 +719,46 @@
     cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value r10-client-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i><span>'+r10Esc(t.brand||'—')+'</span></span></div>');
     stack.appendChild(context);
 
-    const tags=(t.tags||[]).filter(Boolean);const defaultTags=[channel,t.brand||'Operação',r10Priority(t)].filter(Boolean);const tagList=(tags.length?tags:defaultTags).map(x=>'<span class="r10-tag'+r10TagClass(x)+'">'+r10Esc(x)+'</span>').join('');stack.insertAdjacentHTML('beforeend',r10Card('Sinais e tags',r10Icon('tag'),'<div class="r10-tags">'+tagList+'<button type="button" class="r10-add-tag">＋ Adicionar tag</button></div>'));
+    const deps=r10Deps(t), dependents=r10Dependents(t);
+    const dependencyRow=x=>{
+      const status=r10Status(x);
+      const tone=status==='Concluída'?'done':status==='Bloqueada'?'blocked':'ready';
+      const icon=tone==='done'?r10Icon('done'):tone==='blocked'?r10Icon('hourglass'):r10Icon('next');
+      return '<button type="button" class="r10-dep-row '+tone+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-icon">'+icon+'</span><span class="r10-dep-copy"><b>'+r10Esc(x.title)+'</b><span class="r10-dep-status '+tone+'">'+r10Esc(status)+'</span></span></button>';
+    };
+    let depHtml='';
+    if(deps.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Depende de</span><div class="r10-dep-list">'+deps.map(dependencyRow).join('')+'</div></div>';
+    if(dependents.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Desbloqueia</span><div class="r10-dep-list">'+dependents.map(dependencyRow).join('')+'</div></div>';
+    if(!depHtml)depHtml='<div class="r10-dep-empty">Sem dependências vinculadas.</div>';
+    const depCard=document.createElement('section');
+    depCard.className='r10-side-card r10-dependencies-card';
+    depCard.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('dependency')+'</span><strong>Dependências</strong></div><div class="r10-side-card-body">'+depHtml+'</div>';
+    stack.appendChild(depCard);
 
-    const deps=r10Deps(t), dependents=r10Dependents(t);let depHtml='';
-    if(deps.length){depHtml+='<div class="r10-context-row"><span>Depende de</span><div>';deps.forEach(x=>{depHtml+='<button type="button" class="r10-dep-row '+(x.status==='feito'?'':'blocked')+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-dot">'+(x.status==='feito'?'✓':'!')+'</span><span><b>'+r10Esc(x.title)+'</b><span>'+r10Esc(r10Status(x))+'</span></span></button>'});depHtml+='</div></div>'}
-    if(dependents.length){depHtml+='<div class="r10-context-row"><span>Desbloqueia</span><div>';dependents.forEach(x=>{depHtml+='<button type="button" class="r10-dep-row '+(r10Status(x)==='Bloqueada'?'blocked':'')+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-dot">→</span><span><b>'+r10Esc(x.title)+'</b><span>'+r10Esc(r10Status(x))+'</span></span></button>'});depHtml+='</div></div>'}
-    if(!depHtml)depHtml='<div style="font-size:9px;color:#8e979f">Sem dependências vinculadas.</div>';stack.insertAdjacentHTML('beforeend',r10Card('Dependências',r10Icon('dependency'),depHtml));
-
-    if(comments){const card=document.createElement('section');card.className='r10-side-card';card.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('comment')+'</span><strong>Observações</strong></div><div class="r10-side-card-body"></div>';const cc=card.querySelector('.r10-side-card-body');[comments.querySelector('.v3-comment-add'),comments.querySelector('#commentList'),comments.querySelector('.v3-history')].filter(Boolean).forEach(x=>cc.appendChild(x));stack.appendChild(card)}
-
-    const extra=document.createElement('details');extra.className='r10-side-card r10-more';extra.innerHTML='<summary>Mais opções da tarefa</summary><div class="r10-more-body"></div>';const eb=extra.querySelector('.r10-more-body');[startField,supportField,recurrenceField].filter(Boolean).forEach(x=>eb.appendChild(x));if(eb.children.length)stack.appendChild(extra);
+    if(comments){
+      const card=document.createElement('section');
+      card.className='r10-side-card r10-observations-card';
+      card.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('comment')+'</span><strong>Observações</strong></div><div class="r10-side-card-body"></div>';
+      const cc=card.querySelector('.r10-side-card-body');
+      const add=comments.querySelector('.v3-comment-add');
+      const list=comments.querySelector('#commentList');
+      if(add){
+        const input=add.querySelector('#newCommentText');
+        const submit=add.querySelector('#addCommentBtn');
+        if(input){
+          input.placeholder='Adicione uma observação...';
+          input.setAttribute('aria-label','Adicionar observação');
+          input.addEventListener('keydown',e=>{
+            if(e.key==='Enter'&&!e.shiftKey){
+              e.preventDefault();
+              submit?.click();
+            }
+          });
+        }
+      }
+      [add,list].filter(Boolean).forEach(x=>cc.appendChild(x));
+      stack.appendChild(card);
+    }
     workspace.appendChild(side);oldLayout.replaceWith(workspace);
 
     const syncVisibleTitle=()=>{

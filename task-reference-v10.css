@@ -1844,3 +1844,405 @@
     flex:0 0 16px!important;
   }
 }
+
+
+/* ===== Task Reference V17 · dependências e observações fiéis à referência ===== */
+#taskDetailDrawer .r10-dependencies-card,
+#taskDetailDrawer .r10-observations-card{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  border:1px solid #e3e8ec!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  box-shadow:0 1px 3px rgba(24,31,36,.025)!important;
+  overflow:hidden!important;
+}
+
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-head,
+#taskDetailDrawer .r10-observations-card>.r10-side-card-head{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-height:60px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:11px!important;
+  margin:0!important;
+  padding:10px 14px!important;
+  border:0!important;
+  background:#fff!important;
+}
+
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-head .r10-side-card-icon,
+#taskDetailDrawer .r10-observations-card>.r10-side-card-head .r10-side-card-icon{
+  box-sizing:border-box!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  flex:0 0 34px!important;
+  display:grid!important;
+  place-items:center!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:9px!important;
+  background:#edf0f2!important;
+  color:#20272d!important;
+}
+
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-head .r10-svg,
+#taskDetailDrawer .r10-observations-card>.r10-side-card-head .r10-svg{
+  width:17px!important;
+  height:17px!important;
+  min-width:17px!important;
+  margin:0!important;
+  stroke-width:1.7!important;
+}
+
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-head>strong,
+#taskDetailDrawer .r10-observations-card>.r10-side-card-head>strong{
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+  color:#151b1f!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:14.5px!important;
+  font-weight:720!important;
+  line-height:1.15!important;
+  letter-spacing:-.018em!important;
+}
+
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-body{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:10px!important;
+  margin:0!important;
+  padding:4px 14px 16px!important;
+  overflow:hidden!important;
+}
+
+#taskDetailDrawer .r10-dep-group{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:74px minmax(0,1fr)!important;
+  column-gap:10px!important;
+  align-items:start!important;
+  margin:0!important;
+  padding:4px 0!important;
+}
+
+#taskDetailDrawer .r10-dep-label{
+  display:block!important;
+  min-width:0!important;
+  padding-top:11px!important;
+  color:#6f7a83!important;
+  font-size:9.5px!important;
+  font-weight:520!important;
+  line-height:1.25!important;
+}
+
+#taskDetailDrawer .r10-dep-list{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:8px!important;
+}
+
+#taskDetailDrawer .r10-dep-row{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:58px!important;
+  display:grid!important;
+  grid-template-columns:30px minmax(0,1fr)!important;
+  column-gap:9px!important;
+  align-items:center!important;
+  margin:0!important;
+  padding:9px 10px!important;
+  border:1px solid #dfe5e9!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:#273038!important;
+  text-align:left!important;
+  box-shadow:0 1px 2px rgba(24,31,36,.018)!important;
+  cursor:pointer!important;
+}
+
+#taskDetailDrawer .r10-dep-row:hover{
+  border-color:#cfd8de!important;
+  background:#fcfdfd!important;
+}
+
+#taskDetailDrawer .r10-dep-icon{
+  box-sizing:border-box!important;
+  width:28px!important;
+  height:28px!important;
+  min-width:28px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:50%!important;
+  background:#eef3f6!important;
+  color:#6e7b84!important;
+}
+
+#taskDetailDrawer .r10-dep-icon .r10-svg{
+  width:15px!important;
+  height:15px!important;
+  stroke-width:2!important;
+}
+
+#taskDetailDrawer .r10-dep-row.done .r10-dep-icon{
+  background:#eaf8f0!important;
+  color:#27a765!important;
+}
+
+#taskDetailDrawer .r10-dep-row.blocked .r10-dep-icon{
+  border-radius:9px!important;
+  background:#fff4e8!important;
+  color:#d78a2d!important;
+}
+
+#taskDetailDrawer .r10-dep-row.ready .r10-dep-icon{
+  background:#edf4ff!important;
+  color:#5b7db7!important;
+}
+
+#taskDetailDrawer .r10-dep-copy{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:5px!important;
+}
+
+#taskDetailDrawer .r10-dep-copy>b{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  color:#273038!important;
+  font-size:10.5px!important;
+  font-weight:620!important;
+  line-height:1.22!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+#taskDetailDrawer .r10-dep-status{
+  box-sizing:border-box!important;
+  min-height:19px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  margin:0!important;
+  padding:2px 7px!important;
+  border-radius:999px!important;
+  font-size:8.5px!important;
+  font-weight:650!important;
+  line-height:1!important;
+}
+
+#taskDetailDrawer .r10-dep-status::before{
+  content:""!important;
+  width:5px!important;
+  height:5px!important;
+  flex:0 0 5px!important;
+  border-radius:50%!important;
+  background:currentColor!important;
+  opacity:.9!important;
+}
+
+#taskDetailDrawer .r10-dep-status.done{
+  background:#eaf8f0!important;
+  color:#28a765!important;
+}
+
+#taskDetailDrawer .r10-dep-status.blocked{
+  background:#fff0f0!important;
+  color:#d24f58!important;
+}
+
+#taskDetailDrawer .r10-dep-status.ready{
+  background:#edf4ff!important;
+  color:#5877ad!important;
+}
+
+#taskDetailDrawer .r10-dep-empty{
+  box-sizing:border-box!important;
+  width:100%!important;
+  padding:8px 2px 6px!important;
+  color:#8a959d!important;
+  font-size:9.5px!important;
+  line-height:1.35!important;
+}
+
+#taskDetailDrawer .r10-observations-card>.r10-side-card-body{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  display:block!important;
+  margin:0!important;
+  padding:4px 14px 16px!important;
+  overflow:hidden!important;
+}
+
+#taskDetailDrawer .r10-observations-card .v3-comment-add{
+  box-sizing:border-box!important;
+  width:100%!important;
+  display:block!important;
+  margin:0 0 8px!important;
+  padding:0!important;
+}
+
+#taskDetailDrawer .r10-observations-card #newCommentText{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  height:46px!important;
+  margin:0!important;
+  padding:0 13px!important;
+  border:1px solid #dfe5e9!important;
+  border-radius:10px!important;
+  outline:none!important;
+  background:#fff!important;
+  color:#333d44!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:10px!important;
+  font-weight:450!important;
+  line-height:1.2!important;
+  box-shadow:none!important;
+}
+
+#taskDetailDrawer .r10-observations-card #newCommentText::placeholder{
+  color:#9aa4ac!important;
+  opacity:1!important;
+}
+
+#taskDetailDrawer .r10-observations-card #newCommentText:focus{
+  border-color:#bcc8d0!important;
+  box-shadow:0 0 0 2px rgba(112,132,145,.08)!important;
+}
+
+#taskDetailDrawer .r10-observations-card #addCommentBtn{
+  display:none!important;
+}
+
+#taskDetailDrawer .r10-observations-card #commentList{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment{
+  position:relative!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:34px minmax(0,1fr)!important;
+  column-gap:10px!important;
+  align-items:start!important;
+  margin:0!important;
+  padding:14px 22px 12px 0!important;
+  border-top:1px solid #eef1f3!important;
+  background:transparent!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment:first-child{
+  border-top:0!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment::after{
+  content:"•••"!important;
+  position:absolute!important;
+  top:15px!important;
+  right:0!important;
+  color:#748089!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  letter-spacing:1px!important;
+  line-height:1!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment .cav{
+  box-sizing:border-box!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  margin:0!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body{
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:max-content minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;
+  column-gap:8px!important;
+  row-gap:4px!important;
+  margin:0!important;
+  padding:0!important;
+  background:transparent!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body>b{
+  grid-column:1!important;
+  grid-row:1!important;
+  min-width:0!important;
+  margin:0!important;
+  color:#253039!important;
+  font-size:10.5px!important;
+  font-weight:650!important;
+  line-height:1.2!important;
+  white-space:nowrap!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body>small{
+  grid-column:2!important;
+  grid-row:1!important;
+  align-self:center!important;
+  min-width:0!important;
+  margin:0!important;
+  color:#8b969e!important;
+  font-size:8.5px!important;
+  font-weight:450!important;
+  line-height:1.2!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+#taskDetailDrawer .r10-observations-card .comment-body>p{
+  grid-column:1 / -1!important;
+  grid-row:2!important;
+  min-width:0!important;
+  margin:0!important;
+  color:#56636c!important;
+  font-size:9.5px!important;
+  font-weight:450!important;
+  line-height:1.45!important;
+  overflow-wrap:anywhere!important;
+}
+
+#taskDetailDrawer .r10-observations-card .v3-history{
+  display:none!important;
+}
+
+@media (max-width:1120px){
+  #taskDetailDrawer .r10-dep-group{
+    grid-template-columns:62px minmax(0,1fr)!important;
+    column-gap:7px!important;
+  }
+}
