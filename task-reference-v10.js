@@ -322,7 +322,7 @@
       briefing.classList.add('r10-objective-card');
       const head=briefing.querySelector('.tsection-head');
       const textarea=briefing.querySelector('.description-area');
-      if(head)head.innerHTML='<span class="r10-section-icon r10-objective-icon">'+r10Icon('objectiveTarget')+'</span><div class="r10-section-heading"><strong>Objetivo</strong></div>';
+      if(head)head.innerHTML='<span class="r10-objective-heading"><span class="r10-section-icon r10-objective-icon">'+r10Icon('objectiveTarget')+'</span><strong>Objetivo</strong></span>';
       if(textarea){
         textarea.setAttribute('aria-label','Objetivo da tarefa');
         textarea.setAttribute('placeholder','Descreva o resultado esperado desta tarefa, o contexto necessário para executar e como saber que ficou pronto.');
@@ -343,7 +343,7 @@
       const input=attachments.querySelector('#attachmentInput');
       const oldDrop=attachments.querySelector('.attachment-drop,.v3-attachment-drop');
       if(head){
-        head.innerHTML='<div class="r10-materials-heading"><label class="r10-section-icon r10-materials-icon" title="Adicionar arquivos">'+r10Icon('paperclip')+'</label><strong>Materiais e insumos</strong></div><span class="r10-material-count">'+count+' '+(count===1?'item':'itens')+'</span>';
+        head.innerHTML='<span class="r10-materials-heading"><label class="r10-section-icon r10-materials-icon" title="Adicionar arquivos">'+r10Icon('paperclip')+'</label><strong>Materiais e insumos</strong></span><span class="r10-material-count">'+count+' '+(count===1?'item':'itens')+'</span>';
         const uploadLabel=head.querySelector('.r10-materials-icon');
         if(uploadLabel&&input){
           input.classList.add('r10-material-input');
@@ -1065,15 +1065,20 @@
   }
   #taskDetailDrawer .r10-main .r10-objective-card .tsection-head,
   #taskDetailDrawer .r10-main .r10-materials-card .tsection-head{
+    box-sizing:border-box!important;
     min-height:70px!important;
     height:auto!important;
     padding:15px 18px 10px!important;
     display:flex!important;
+    flex-direction:row!important;
     align-items:center!important;
-    justify-content:space-between!important;
     gap:12px!important;
     border-bottom:0!important;
     background:#fff!important;
+    text-align:left!important;
+  }
+  #taskDetailDrawer .r10-main .r10-materials-card .tsection-head{
+    justify-content:space-between!important;
   }
   #taskDetailDrawer .r10-section-icon{
     width:40px!important;
@@ -1091,29 +1096,49 @@
     height:20px!important;
     stroke-width:1.85!important;
   }
-  #taskDetailDrawer .r10-objective-card .tsection-head{
-    justify-content:flex-start!important;
-  }
-  #taskDetailDrawer .r10-section-heading{
-    min-width:0!important;
+  #taskDetailDrawer .r10-main .r10-objective-card .tsection-head{
     display:flex!important;
     align-items:center!important;
+    justify-content:flex-start!important;
+    text-align:left!important;
   }
-  #taskDetailDrawer .r10-objective-card .tsection-head strong,
-  #taskDetailDrawer .r10-materials-heading>strong{
+  #taskDetailDrawer .r10-main .r10-objective-card .r10-objective-heading,
+  #taskDetailDrawer .r10-main .r10-materials-card .r10-materials-heading{
+    min-width:0!important;
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:13px!important;
     margin:0!important;
+    padding:0!important;
+    text-align:left!important;
+    white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-main .r10-objective-card .r10-objective-heading{
+    flex:1 1 auto!important;
+  }
+  #taskDetailDrawer .r10-main .r10-objective-card .r10-objective-heading>strong,
+  #taskDetailDrawer .r10-main .r10-materials-card .r10-materials-heading>strong{
+    display:block!important;
+    flex:0 1 auto!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
     color:#151a1e!important;
     font-size:16px!important;
     font-weight:720!important;
     line-height:1.15!important;
     letter-spacing:-.018em!important;
+    text-align:left!important;
+    white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-main .r10-objective-card .description-area{
     box-sizing:border-box!important;
     width:100%!important;
     min-height:78px!important;
     margin:0!important;
-    padding:2px 20px 20px 72px!important;
+    padding:0 20px 22px 71px!important;
     border:0!important;
     outline:0!important;
     resize:none!important;
@@ -1128,12 +1153,6 @@
     opacity:1!important;
   }
 
-  #taskDetailDrawer .r10-materials-heading{
-    min-width:0!important;
-    display:flex!important;
-    align-items:center!important;
-    gap:13px!important;
-  }
   #taskDetailDrawer .r10-materials-icon{
     position:relative!important;
     cursor:pointer!important;
@@ -1143,8 +1162,14 @@
     inset:0!important;
     width:100%!important;
     height:100%!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
     opacity:0!important;
+    color:transparent!important;
+    font-size:0!important;
     cursor:pointer!important;
+    z-index:3!important;
   }
   #taskDetailDrawer .r10-material-count{
     min-height:28px!important;
