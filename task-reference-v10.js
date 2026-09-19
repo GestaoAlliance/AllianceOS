@@ -734,7 +734,19 @@
     cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value r10-client-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i><span>'+r10Esc(t.brand||'—')+'</span></span></div>');
     stack.appendChild(context);
 
-    const deps=r10Deps(t), dependents=r10Dependents(t);
+    const r10UniqueTasks=rows=>{
+      const seen=new Set();
+      return rows.filter(Boolean).filter(x=>{
+        const id=String(x.id);
+        if(seen.has(id))return false;
+        seen.add(id);
+        return true;
+      });
+    };
+    const childSteps=taskData.filter(x=>String(x.parentTaskId||'')===String(t.id));
+    const parentStep=t.parentTaskId?r10Task(t.parentTaskId):null;
+    const deps=r10UniqueTasks([...r10Deps(t),...childSteps]);
+    const dependents=r10UniqueTasks([...r10Dependents(t),parentStep]);
     const dependencyRow=(x,relation)=>{
       const status=r10Status(x);
       const tone=status==='Concluída'?'done':status==='Bloqueada'?'blocked':status==='Pendente'?'waiting':'ready';
@@ -759,7 +771,6 @@
       const cc=card.querySelector('.r10-side-card-body');
       const add=comments.querySelector('.v3-comment-add');
       const list=comments.querySelector('#commentList');
-      const history=comments.querySelector('.v3-history');
       if(list){
         list.querySelectorAll('.comment').forEach(row=>{
           const nameEl=row.querySelector('.comment-body>b');
@@ -785,7 +796,7 @@
           });
         }
       }
-      [add,list,history].filter(Boolean).forEach(x=>cc.appendChild(x));
+      [add,list].filter(Boolean).forEach(x=>cc.appendChild(x));
       stack.appendChild(card);
     }
     workspace.appendChild(side);oldLayout.replaceWith(workspace);
