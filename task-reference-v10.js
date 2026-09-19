@@ -172,8 +172,8 @@
     return 'Executar '+title.toLowerCase()+' conforme o briefing, os materiais e o resultado esperado desta tarefa.';
   };
   const r10TaskSubtitle = t => r10BriefText(t?.summary||t?.shortDescription||t?.description||t?.objective||t?.briefing)||r10AutoTaskSummary(t);
-  const r10HeaderPill = (icon,label,kind='',attrs='') => '<span class="r10-pill '+kind+'" '+attrs+'>'+r10Icon(icon)+'<span>'+r10Esc(label)+'</span></span>';
-  const r10CampaignHeaderPill = label => '<button type="button" class="r10-pill campaign r10-campaign-link" data-r10-open-campaign="'+r10Esc(label)+'" title="Abrir campanha">'+r10Icon('folderSolid')+'<span>'+r10Esc(label)+'</span></button>';
+  const r10HeaderPill = (icon,label,kind='',attrs='') => '<span class="r10-head-chip '+kind+'" '+attrs+'><span class="r10-head-chip-icon">'+r10Icon(icon)+'</span><span class="r10-head-chip-label">'+r10Esc(label)+'</span></span>';
+  const r10CampaignHeaderPill = label => '<button type="button" class="r10-head-chip campaign r10-campaign-link" data-r10-open-campaign="'+r10Esc(label)+'" title="Abrir campanha"><span class="r10-head-chip-icon">'+r10Icon('folderSolid')+'</span><span class="r10-head-chip-label">'+r10Esc(label)+'</span></button>';
 
   const r10StatusClass = value => 'status-'+r10Norm(value).replace(/\s+/g,'-');
   const r10StatusIcon = value => {
@@ -503,16 +503,18 @@
   #taskDetailDrawer .r10-kicker{
     display:inline-flex!important;
     align-items:center!important;
+    justify-content:center!important;
     gap:6px!important;
-    width:max-content!important;
-    height:22px!important;
-    min-height:22px!important;
+    width:auto!important;
+    min-width:78px!important;
+    height:24px!important;
+    min-height:24px!important;
     margin:0 0 10px!important;
-    padding:0 8px!important;
+    padding:0 9px!important;
     border:0!important;
     border-radius:7px!important;
     background:#f1f3f4!important;
-    color:#7a848c!important;
+    color:#78828a!important;
     font-size:8.5px!important;
     font-weight:650!important;
     line-height:1!important;
@@ -552,102 +554,123 @@
     gap:9px!important;
     margin-top:15px!important;
   }
-  #taskDetailDrawer .r10-pill{
+
+  /* Header chips: isolated from legacy .r10-pill rules. */
+  #taskDetailDrawer .r10-head-chip{
     appearance:none!important;
     -webkit-appearance:none!important;
     box-sizing:border-box!important;
     display:inline-flex!important;
     align-items:center!important;
-    justify-content:center!important;
-    gap:7px!important;
-    height:38px!important;
-    min-height:38px!important;
+    justify-content:flex-start!important;
+    gap:8px!important;
+    height:40px!important;
+    min-height:40px!important;
     max-width:320px!important;
+    margin:0!important;
     padding:0 12px!important;
-    border:1px solid #d8dee3!important;
+    border:1px solid #d9dee3!important;
     border-radius:10px!important;
     background:#fff!important;
     color:#263039!important;
-    font:600 13.5px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-    letter-spacing:-.01em!important;
-    box-shadow:none!important;
+    font:600 14px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    letter-spacing:-.012em!important;
+    text-decoration:none!important;
+    box-shadow:0 1px 1px rgba(20,28,34,.015)!important;
     white-space:nowrap!important;
     overflow:hidden!important;
+    vertical-align:middle!important;
   }
-  #taskDetailDrawer .r10-pill>span{
+  #taskDetailDrawer .r10-head-chip-label{
+    display:block!important;
     min-width:0!important;
     overflow:hidden!important;
     text-overflow:ellipsis!important;
     white-space:nowrap!important;
+    line-height:1!important;
   }
-  #taskDetailDrawer .r10-pill .r10-svg{
+  #taskDetailDrawer .r10-head-chip-icon{
     width:18px!important;
     height:18px!important;
     min-width:18px!important;
     flex:0 0 18px!important;
-    stroke-width:1.75!important;
+    display:grid!important;
+    place-items:center!important;
+    line-height:0!important;
   }
-  #taskDetailDrawer .r10-pill.channel{
+  #taskDetailDrawer .r10-head-chip-icon .r10-svg{
+    display:block!important;
+    width:18px!important;
+    height:18px!important;
+    min-width:18px!important;
+    flex:0 0 18px!important;
+  }
+
+  #taskDetailDrawer .r10-head-chip.channel{
     background:#fff!important;
-    border-color:#d8dee3!important;
-    color:#273139!important;
+    border-color:#d9dee3!important;
+    color:#20292f!important;
   }
-  #taskDetailDrawer .r10-pill.channel .r10-svg{color:#25d366!important}
-  #taskDetailDrawer .r10-pill.campaign{
+  #taskDetailDrawer .r10-head-chip.channel .r10-head-chip-icon .r10-svg{
+    width:19px!important;
+    height:19px!important;
+    color:#25d366!important;
+  }
+
+  #taskDetailDrawer .r10-head-chip.campaign{
     background:#fff!important;
-    border-color:#d8dee3!important;
-    color:#273139!important;
-  }
-  #taskDetailDrawer .r10-pill.campaign .r10-svg{color:#246bfe!important}
-  #taskDetailDrawer .r10-campaign-link{
+    border-color:#d9dee3!important;
+    color:#20292f!important;
     cursor:pointer!important;
   }
-  #taskDetailDrawer .r10-campaign-link:hover{
+  #taskDetailDrawer .r10-head-chip.campaign .r10-head-chip-icon .r10-svg{
+    width:17px!important;
+    height:17px!important;
+    color:#246bfe!important;
+  }
+  #taskDetailDrawer .r10-head-chip.campaign:hover{
     background:#f8faff!important;
     border-color:#cbd7ec!important;
   }
-  #taskDetailDrawer .r10-pill.priority{
+
+  #taskDetailDrawer .r10-head-chip.priority{
     background:#fff!important;
-    border-color:#d8dee3!important;
-    color:#5e6871!important;
+    border-color:#d9dee3!important;
+    color:#5d6770!important;
   }
-  #taskDetailDrawer .r10-pill.priority-high,
-  #taskDetailDrawer .r10-pill.priority-urgent{
-    background:#fff0f2!important;
-    border-color:#f6cfd5!important;
-    color:#ef3f4d!important;
-  }
-  #taskDetailDrawer .r10-pill.priority .r10-svg{
-    color:#7b858d!important;
-  }
-  #taskDetailDrawer .r10-pill.priority-high .r10-svg,
-  #taskDetailDrawer .r10-pill.priority-urgent .r10-svg{
-    color:#ef3f4d!important;
-  }
-  #taskDetailDrawer .r10-pill.priority-low{
-    background:#f5f8fb!important;
-    border-color:#dde4e9!important;
-    color:#64727c!important;
-  }
-  #taskDetailDrawer .r10-pill.channel .r10-svg{
-    width:19px!important;
-    height:19px!important;
-    flex-basis:19px!important;
-  }
-  #taskDetailDrawer .r10-pill.campaign .r10-svg{
-    width:17px!important;
-    height:17px!important;
-    flex-basis:17px!important;
-  }
-  #taskDetailDrawer .r10-pill.priority .r10-svg{
+  #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon{
     width:16px!important;
     height:16px!important;
     min-width:16px!important;
     flex-basis:16px!important;
   }
-  #taskDetailDrawer .r10-pill.priority-high .r10-svg,
-  #taskDetailDrawer .r10-pill.priority-urgent .r10-svg{
+  #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon .r10-svg{
+    width:16px!important;
+    height:16px!important;
+    color:#7d8790!important;
+  }
+  #taskDetailDrawer .r10-head-chip.priority-high,
+  #taskDetailDrawer .r10-head-chip.priority-urgent{
+    background:#fff0f2!important;
+    border-color:#f6cfd5!important;
     color:#ef3f4d!important;
+  }
+  #taskDetailDrawer .r10-head-chip.priority-high .r10-head-chip-icon .r10-svg,
+  #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon .r10-svg{
+    color:#ef3f4d!important;
+  }
+  #taskDetailDrawer .r10-head-chip.priority-low{
+    background:#f6f8fa!important;
+    border-color:#dfe4e8!important;
+    color:#64717a!important;
+  }
+
+  #taskDetailDrawer .r10-main-top,
+  #taskDetailDrawer .r10-main-nav,
+  #taskDetailDrawer .r10-icon-btn,
+  #taskDetailDrawer .r10-pills,
+  #taskDetailDrawer .r10-head-chip{
+    pointer-events:auto!important;
   }
 
   #taskDetailDrawer .r10-flow{
