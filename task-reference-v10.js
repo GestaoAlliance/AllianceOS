@@ -343,11 +343,11 @@
       attachments.className='tsection v3-section r10-materials-card';
       const rows=files.length?files.map((file,i)=>{
         const tone=r10AttachmentTone(file);
-        const canDownload=!!file?.dataUrl;
-        const action=canDownload
-          ? '<a class="r10-material-action r10-material-download" href="'+r10Esc(file.dataUrl)+'" download="'+r10Esc(file.name||'arquivo')+'" title="Baixar arquivo" aria-label="Baixar arquivo">'+r10Icon('download')+'</a>'
-          : '<button type="button" class="r10-material-action r10-material-remove" data-r10-remove-material="'+i+'" title="Remover arquivo" aria-label="Remover arquivo">'+r10Icon('close')+'</button>';
-        return '<div class="r10-material-item type-'+tone+'"><span class="r10-material-fileicon">'+r10AttachmentIcon(file)+'</span><span class="r10-material-copy"><strong title="'+r10Esc(file.name||'Arquivo')+'">'+r10Esc(file.name||'Arquivo')+'</strong><small>'+r10Esc(r10AttachmentMeta(file))+'</small></span>'+action+'</div>';
+        const download=file?.dataUrl
+          ? '<a class="r10-material-action r10-material-download" href="'+r10Esc(file.dataUrl)+'" download="'+r10Esc(file.name||'arquivo')+'" title="Baixar material" aria-label="Baixar material">'+r10Icon('download')+'</a>'
+          : '<button type="button" class="r10-material-action r10-material-download is-disabled" data-r10-missing-download="'+i+'" title="Arquivo antigo sem conteúdo salvo para download" aria-label="Download indisponível">'+r10Icon('download')+'</button>';
+        const remove='<button type="button" class="r10-material-action r10-material-remove" data-r10-remove-material="'+i+'" title="Remover arquivo" aria-label="Remover arquivo">'+r10Icon('close')+'</button>';
+        return '<div class="r10-material-item type-'+tone+'"><span class="r10-material-fileicon">'+r10AttachmentIcon(file)+'</span><span class="r10-material-copy"><strong title="'+r10Esc(file.name||'Arquivo')+'">'+r10Esc(file.name||'Arquivo')+'</strong><small>'+r10Esc(r10AttachmentMeta(file))+'</small></span><span class="r10-material-actions">'+download+remove+'</span></div>';
       }).join(''):'<button type="button" class="r10-material-empty" data-r10-add-material>'+r10Icon('paperclip')+'<span><b>Nenhum material anexado</b><small>Adicionar arquivos para esta tarefa</small></span></button>';
       attachments.innerHTML='<div class="tsection-head"><span class="r10-materials-heading"><label class="r10-section-icon r10-materials-icon" title="Adicionar arquivos">'+r10Icon('paperclip')+'<input class="r10-material-input" id="r10AttachmentInput" type="file" multiple aria-label="Adicionar arquivos"></label><strong>Materiais e insumos</strong></span><span class="r10-material-count">'+count+' '+(count===1?'item':'itens')+'</span></div><div class="r10-material-list">'+rows+'</div>';
     }
@@ -490,20 +490,38 @@
       e.stopPropagation();
       workspace.querySelector('#r10AttachmentInput')?.click();
     });
-    workspace.querySelector('#r10AttachmentInput')?.addEventListener('change',e=>{
+    workspace.querySelector('#r10AttachmentInput')?.addEventListener('change',async e=>{
       const selected=[...e.target.files];
       if(!selected.length)return;
       t.attachments=Array.isArray(t.attachments)?t.attachments:[];
-      selected.forEach(file=>{
-        t.attachments.push({
+      const readDataUrl=file=>new Promise(resolve=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(typeof reader.result==='string'?reader.result:'');
+        reader.onerror=()=>resolve('');
+        reader.readAsDataURL(file);
+      });
+      const additions=[];
+      for(const file of selected){
+        additions.push({
           name:file.name,
           size:(file.size>=1048576?(file.size/1048576).toFixed(file.size>=10485760?0:1)+' MB':Math.max(1,Math.round(file.size/1024))+' KB'),
-          type:file.type||''
+          type:file.type||'',
+          dataUrl:await readDataUrl(file)
         });
-      });
-      if(typeof v3Persist==='function')v3Persist(false);
+      }
+      t.attachments.push(...additions);
+      try{
+        if(typeof v3Persist==='function')v3Persist(false);
+      }catch(err){
+        console.warn('[AllianceOS attachment persist]',err);
+      }
       renderTaskDetailBody(t);
     });
+    workspace.querySelectorAll('[data-r10-missing-download]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof showToast==='function')showToast('Este anexo antigo não possui o arquivo salvo. Reanexe para habilitar o download.');
+    }));
     workspace.querySelectorAll('[data-r10-remove-material]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();
       e.stopPropagation();
@@ -1095,9 +1113,28 @@
     color:#20272c!important;
   }
   #taskDetailDrawer .r10-section-icon .r10-svg{
+    display:block!important;
+    position:static!important;
     width:21px!important;
     height:21px!important;
+    min-width:21px!important;
+    margin:0!important;
+    padding:0!important;
+    transform:none!important;
+    translate:none!important;
     stroke-width:1.9!important;
+  }
+  #taskDetailDrawer .r10-objective-icon{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    place-items:unset!important;
+    padding:0!important;
+    text-align:center!important;
+  }
+  #taskDetailDrawer .r10-objective-icon .r10-svg{
+    flex:0 0 21px!important;
+    margin:auto!important;
   }
   #taskDetailDrawer .r10-main .r10-objective-heading>strong,
   #taskDetailDrawer .r10-main .r10-materials-heading>strong{
@@ -1179,7 +1216,7 @@
     min-height:60px!important;
     width:100%!important;
     display:grid!important;
-    grid-template-columns:38px minmax(0,1fr) 32px!important;
+    grid-template-columns:38px minmax(0,1fr) auto!important;
     align-items:center!important;
     gap:11px!important;
     margin:0!important;
@@ -1242,6 +1279,13 @@
     line-height:1.2!important;
     white-space:nowrap!important;
   }
+  #taskDetailDrawer .r10-material-actions{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:4px!important;
+    min-width:68px!important;
+  }
   #taskDetailDrawer .r10-material-action{
     width:32px!important;
     height:32px!important;
@@ -1258,6 +1302,16 @@
   }
   #taskDetailDrawer .r10-material-action:hover{
     background:#f4f6f7!important;
+  }
+  #taskDetailDrawer .r10-material-download{
+    color:#66727b!important;
+  }
+  #taskDetailDrawer .r10-material-download.is-disabled{
+    opacity:.34!important;
+    cursor:not-allowed!important;
+  }
+  #taskDetailDrawer .r10-material-remove{
+    color:#8a949b!important;
   }
   #taskDetailDrawer .r10-material-action .r10-svg{
     width:18px!important;
