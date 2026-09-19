@@ -195,33 +195,39 @@
 
   function v5FilesHtml(files=[],deliveryId='',editable=false){
     return (files||[]).map((f,i)=>{
-      const name=esc(f.name||'arquivo');
+      const rawName=String(f.name||'arquivo');
+      const name=esc(rawName);
       const key=esc(String(deliveryId)+':'+i);
       const kind=v5FileKind(f);
-      const download=f.dataUrl?'<a href="'+esc(f.dataUrl)+'" download="'+name+'" data-v5-delivery-download="'+key+'" title="Baixar">↓</a>':'';
+      const download=f.dataUrl?'<a href="'+esc(f.dataUrl)+'" download="'+name+'" data-v5-delivery-download="'+key+'" title="Baixar arquivo">↓</a>':'';
+      const copy='<button type="button" data-v5-copy-value="'+esc(encodeURIComponent(rawName))+'" title="Copiar nome do arquivo">⧉</button>';
       const edit=editable?'<button type="button" data-v5-edit-file="'+key+'" title="Editar nome">✎</button>':'';
-      const del=editable?'<button type="button" data-v5-delete-file="'+key+'" title="Excluir">×</button>':'';
-      return '<div class="v5-material" data-v5-kind="'+kind+'"><span class="v5-material-icon">◫</span><b title="'+name+'">'+name+'</b><small>'+esc(v5FileMeta(f))+'</small><span class="v5-material-actions">'+download+edit+del+'</span></div>';
+      const del=editable?'<button type="button" data-v5-delete-file="'+key+'" title="Excluir arquivo">×</button>':'';
+      return '<div class="v5-material" data-v5-kind="'+kind+'"><span class="v5-material-icon">◫</span><b title="'+name+'">'+name+'</b><small>'+esc(v5FileMeta(f))+'</small><span class="v5-material-actions">'+download+copy+edit+del+'</span></div>';
     }).join('');
   }
 
   function v5LinksHtml(links=[],deliveryId='',editable=false){
     return (links||[]).map((l,i)=>{
       const key=esc(String(deliveryId)+':'+i);
+      const rawUrl=String(l.url||'');
       const label=esc(l.label||'Abrir link');
-      const url=esc(l.url||'');
+      const url=esc(rawUrl);
+      const copy='<button type="button" data-v5-copy-value="'+esc(encodeURIComponent(rawUrl))+'" title="Copiar link">⧉</button>';
       const edit=editable?'<button type="button" data-v5-edit-link="'+key+'" title="Editar link">✎</button>':'';
-      const del=editable?'<button type="button" data-v5-delete-link="'+key+'" title="Excluir">×</button>':'';
-      return '<div class="v5-material" data-v5-kind="link"><span class="v5-material-icon">↗</span><b title="'+url+'">'+label+'</b><small>'+url+'</small><span class="v5-material-actions"><a href="'+url+'" target="_blank" rel="noopener" data-v5-open-link="'+key+'" title="Abrir link">↗</a>'+edit+del+'</span></div>';
+      const del=editable?'<button type="button" data-v5-delete-link="'+key+'" title="Excluir link">×</button>':'';
+      return '<div class="v5-material" data-v5-kind="link"><span class="v5-material-icon">↗</span><b title="'+url+'">'+label+'</b><small>'+url+'</small><span class="v5-material-actions"><a href="'+url+'" target="_blank" rel="noopener" data-v5-open-link="'+key+'" title="Abrir link">↗</a>'+copy+edit+del+'</span></div>';
     }).join('');
   }
 
   function v5DeliveryCard(d,sourceTitle='',editable=false){
     const id=esc(d.id||'');
     const note=String(d.note||d.text||'').trim();
-    const noteActions=editable?'<span class="v5-material-actions"><button type="button" data-v5-edit-note="'+id+'" title="Editar texto">✎</button><button type="button" data-v5-delete-note="'+id+'" title="Excluir texto">×</button></span>':'';
-    const noteHtml=note?'<div class="v5-material" data-v5-kind="text"><span class="v5-material-icon">T</span><b title="'+esc(note)+'">'+esc(note)+'</b><small>Texto</small>'+noteActions+'</div>':'';
-    const deleteDelivery=editable?'<button type="button" class="v5-delivery-delete" data-v5-delete-delivery="'+id+'" title="Excluir entrega">×</button>':'';
+    const copyNote=note?'<button type="button" data-v5-copy-value="'+esc(encodeURIComponent(note))+'" title="Copiar texto">⧉</button>':'';
+    const editNote=editable?'<button type="button" data-v5-edit-note="'+id+'" title="Editar texto">✎</button>':'';
+    const deleteNote=editable?'<button type="button" data-v5-delete-note="'+id+'" title="Excluir texto">×</button>':'';
+    const noteHtml=note?'<div class="v5-material" data-v5-kind="text"><span class="v5-material-icon">T</span><b title="'+esc(note)+'">'+esc(note)+'</b><small>Texto</small><span class="v5-material-actions">'+copyNote+editNote+deleteNote+'</span></div>':'';
+    const deleteDelivery=editable?'<button type="button" class="v5-delivery-delete" data-v5-delete-delivery="'+id+'" title="Excluir entrega inteira">×</button>':'';
     return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(d.at||'Agora')+'</span></div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">Enviado</span>'+deleteDelivery+'</span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+'</div></article>';
   }
 
@@ -268,7 +274,25 @@
     v5Persist(false);
     renderTaskDetailBody(t);
   }
+  async function v5CopyValue(encoded){
+    let value='';
+    try{value=decodeURIComponent(String(encoded||''))}catch{value=String(encoded||'')}
+    if(!value){showToast('Nada para copiar.');return;}
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(value);
+      else{
+        const ta=document.createElement('textarea');ta.value=value;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();
+      }
+      showToast('Copiado');
+    }catch{
+      showToast('Não foi possível copiar.');
+    }
+  }
+
   function v5BindDeliveryItemActions(t){
+    document.querySelectorAll('[data-v5-copy-value]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();v5CopyValue(btn.dataset.v5CopyValue);
+    }));
     document.querySelectorAll('[data-v5-delete-delivery]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
       const id=btn.dataset.v5DeleteDelivery;

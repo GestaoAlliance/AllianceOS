@@ -54,7 +54,8 @@
       videoMedia:'<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',
       audioMedia:'<path d="M9 18V6l9-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="15.5" cy="16" r="2.5"/>',
       pencil:'<path d="m4 20 4.2-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m13.8 7.2 3 3"/>',
-      trash:'<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>'
+      trash:'<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>',
+      copy:'<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -379,7 +380,7 @@
       const incomingCount=incomingItems.length;
 
       if(incomingHead){
-        incomingHead.innerHTML='<span class="r10-incoming-heading"><span class="r10-section-icon r10-incoming-icon">'+r10Icon('folderSolid')+'</span><span class="r10-incoming-copy"><strong>Materiais recebidos</strong><small>Das etapas anteriores</small></span></span><span class="r10-material-count">'+incomingCount+' '+(incomingCount===1?'item':'itens')+'</span>';
+        incomingHead.innerHTML='<span class="r10-incoming-heading"><span class="r10-section-icon r10-incoming-icon">'+r10Icon('folderSolid')+'</span><strong>Materiais recebidos das etapas anteriores</strong></span><span class="r10-material-count">'+incomingCount+' '+(incomingCount===1?'item':'itens')+'</span>';
       }
 
       incoming.querySelectorAll('.v5-delivery-card').forEach(card=>card.classList.add('r10-incoming-source-card'));
@@ -407,6 +408,7 @@
             action.classList.add('r10-delivery-sent-action');
             if(action.hasAttribute('data-v5-delivery-download'))action.innerHTML=r10Icon('download');
             else if(action.hasAttribute('data-v5-open-link'))action.innerHTML=r10Icon('arrowUpRight');
+            else if(action.hasAttribute('data-v5-copy-value'))action.innerHTML=r10Icon('copy');
           });
         }
       });
@@ -414,8 +416,10 @@
 
     if(delivery){
       delivery.classList.add('r10-delivery-card');
+      const sentDeliveries=Array.isArray(t.deliveries)?t.deliveries:[];
+      const sentItemCount=sentDeliveries.reduce((sum,d)=>sum+(String(d?.note||d?.text||'').trim()?1:0)+(Array.isArray(d?.files)?d.files.length:0)+(Array.isArray(d?.links)?d.links.length:0),0);
       const head=delivery.querySelector('.tsection-head');
-      if(head)head.innerHTML='<span class="r10-delivery-heading"><span class="r10-section-icon r10-delivery-head-icon">'+r10Icon('folderSolid')+'</span><strong>Sua entrega</strong></span>';
+      if(head)head.innerHTML='<span class="r10-delivery-heading"><span class="r10-section-icon r10-delivery-head-icon">'+r10Icon('folderSolid')+'</span><strong>Sua entrega</strong></span><span class="r10-material-count">'+sentItemCount+' '+(sentItemCount===1?'item':'itens')+'</span>';
 
       const compose=delivery.querySelector('.v5-delivery-compose');
       const fileInput=delivery.querySelector('#v5DeliveryFiles');
@@ -448,6 +452,7 @@
             action.classList.add('r10-delivery-sent-action');
             if(action.hasAttribute('data-v5-delivery-download'))action.innerHTML=r10Icon('download');
             else if(action.hasAttribute('data-v5-open-link'))action.innerHTML=r10Icon('arrowUpRight');
+            else if(action.hasAttribute('data-v5-copy-value'))action.innerHTML=r10Icon('copy');
             else if(action.matches('[data-v5-edit-note],[data-v5-edit-link],[data-v5-edit-file]'))action.innerHTML=r10Icon('pencil');
             else if(action.matches('[data-v5-delete-note],[data-v5-delete-link],[data-v5-delete-file]')){action.classList.add('is-delete');action.innerHTML=r10Icon('trash')}
           });
@@ -572,6 +577,7 @@
       legacyCompleteButton.classList.add('r10-complete-btn');
       completionAction.querySelector('.r10-completion-action').appendChild(legacyCompleteButton);
     }
+    if(simpleAction)simpleAction.remove();
     oldMain.querySelectorAll('.v7-flow-summary,.v9-workspace-title,.v7-advanced-flow,.v3-continuity,.v5-tree-section').forEach(x=>x.classList.add('r10-engine-hidden'));
 
     const statusField=r10MoveField(oldSide,'detailStatus'), ownerField=r10MoveField(oldSide,'detailPrimaryAssignee'), dueField=r10MoveField(oldSide,'detailDue'), priorityField=r10MoveField(oldSide,'detailPriority'), campaignField=r10MoveField(oldSide,'detailCampaign'), startField=r10MoveField(oldSide,'detailStart'), supportField=r10MoveField(oldSide,'detailAddAssignee'), recurrenceField=r10MoveField(oldSide,'detailRecurrence');
@@ -635,7 +641,7 @@
       saveSlot.appendChild(saveButton);
     }
     if(legacySaveButton)legacySaveButton.hidden=true;
-    const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,completionAction,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
+    const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,completionAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
     const info=document.createElement('section');info.className='r10-side-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('status')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
@@ -1679,26 +1685,16 @@
     color:#7f8a92!important;
     stroke-width:1.65!important;
   }
-  #taskDetailDrawer .r10-incoming-copy{
-    min-width:0!important;
-    display:flex!important;
-    flex-direction:column!important;
-    gap:3px!important;
-  }
-  #taskDetailDrawer .r10-incoming-copy>strong{
+  #taskDetailDrawer .r10-incoming-heading>strong{
+    display:block!important;
     margin:0!important;
+    padding:0!important;
     color:#12171b!important;
     font-size:17px!important;
     font-weight:720!important;
     line-height:1.15!important;
     letter-spacing:-.022em!important;
-  }
-  #taskDetailDrawer .r10-incoming-copy>small{
-    margin:0!important;
-    color:#8b959d!important;
-    font-size:10.5px!important;
-    font-weight:450!important;
-    line-height:1.25!important;
+    white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-incoming-card>.v5-delivery-list{
     display:flex!important;
@@ -1709,10 +1705,10 @@
   }
   #taskDetailDrawer .r10-incoming-source-card{
     margin:0!important;
-    padding:12px!important;
-    border:1px solid #e2e7ea!important;
-    border-radius:13px!important;
-    background:#fff!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
     box-shadow:none!important;
   }
   #taskDetailDrawer .r10-incoming-source-card .v5-delivery-card-head{
@@ -2121,10 +2117,10 @@
     gap:10px!important;
   }
   #taskDetailDrawer .r10-delivery-card .v5-delivery-card{
-    padding:12px!important;
-    border:1px solid #e2e7ea!important;
-    border-radius:13px!important;
-    background:#fff!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
     box-shadow:none!important;
   }
   #taskDetailDrawer .r10-delivery-card .v5-delivery-card-head{
@@ -2186,33 +2182,40 @@
     display:flex!important;
     align-items:center!important;
     justify-content:flex-end!important;
-    gap:8px!important;
+    gap:9px!important;
     align-self:center!important;
-    padding-left:6px!important;
+    min-width:max-content!important;
+    margin:0!important;
+    padding:0 2px 0 12px!important;
   }
   #taskDetailDrawer .r10-delivery-sent-action{
+    position:static!important;
+    inset:auto!important;
+    transform:none!important;
+    translate:none!important;
     box-sizing:border-box!important;
-    width:34px!important;
-    height:34px!important;
-    min-width:34px!important;
-    flex:0 0 34px!important;
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+    flex:0 0 36px!important;
     display:grid!important;
     place-items:center!important;
     margin:0!important;
     padding:0!important;
-    border:1px solid transparent!important;
+    border:1px solid #e3e8eb!important;
     border-radius:9px!important;
-    background:transparent!important;
+    background:#fff!important;
     color:#66727b!important;
+    opacity:1!important;
     cursor:pointer!important;
     text-decoration:none!important;
   }
-  #taskDetailDrawer .r10-delivery-sent-action:hover{background:#f4f6f7!important}
+  #taskDetailDrawer .r10-delivery-sent-action:hover{border-color:#d4dce1!important;background:#f4f6f7!important}
   #taskDetailDrawer .r10-delivery-sent-action.is-delete:hover{background:#fff1f2!important;color:#df4452!important}
   #taskDetailDrawer .r10-delivery-sent-action .r10-svg{width:17px!important;height:17px!important;stroke-width:1.8!important}
-  #taskDetailDrawer .r10-delivery-card-head-actions{display:flex!important;align-items:center!important;gap:10px!important}
+  #taskDetailDrawer .r10-delivery-card-head-actions{display:flex!important;align-items:center!important;gap:12px!important}
   #taskDetailDrawer .r10-delivery-delete{
-    box-sizing:border-box!important;width:34px!important;height:34px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#8a949b!important;cursor:pointer!important
+    position:static!important;inset:auto!important;transform:none!important;box-sizing:border-box!important;width:36px!important;height:36px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:1px solid #e3e8eb!important;border-radius:9px!important;background:#fff!important;color:#8a949b!important;cursor:pointer!important
   }
   #taskDetailDrawer .r10-delivery-delete:hover{background:#fff1f2!important;color:#df4452!important}
   #taskDetailDrawer .r10-delivery-delete .r10-svg{width:15px!important;height:15px!important;stroke-width:1.8!important}
