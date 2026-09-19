@@ -22,7 +22,13 @@
       calendar:'<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16"/>',
       user:'<circle cx="12" cy="8" r="3"/><path d="M5.5 20c.5-4 2.7-6 6.5-6s6 2 6.5 6"/>',
       priority:'<path d="M6 19V13M12 19V9M18 19V5"/>',
-      brand:'<circle cx="12" cy="12" r="8"/><path d="M8.5 12h7M12 8.5v7"/>'
+      brand:'<circle cx="12" cy="12" r="8"/><path d="M8.5 12h7M12 8.5v7"/>',
+      document:'<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/>',
+      image:'<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="m6 17 4-4 3 3 2-2 3 3"/>',
+      hourglass:'<path d="M7 3h10M7 21h10M8 3c0 4 1 6 4 9-3 3-4 5-4 9M16 3c0 4-1 6-4 9 3 3 4 5 4 9"/>',
+      review:'<circle cx="12" cy="12" r="8"/><path d="m10 8 5 4-5 4z"/>',
+      send:'<path d="m4 12 16-8-5 16-3-6-8-2Z"/><path d="m12 14 3-3"/>',
+      chart:'<path d="M5 19V9M10 19V5M15 19v-7M20 19V3"/><path d="M3 19h19"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -121,16 +127,87 @@
   };
   const r10MetaPill = (icon,label,kind='') => '<span class="r10-pill '+kind+'">'+r10Icon(icon)+'<span>'+r10Esc(label)+'</span></span>';
 
+  const r10StatusClass = value => 'status-'+r10Norm(value).replace(/\s+/g,'-');
+  const r10StatusSymbol = value => {
+    const n=r10Norm(value);
+    if(n==='concluida')return '✓';
+    if(n==='em andamento')return '○';
+    if(n==='bloqueada')return '⌛';
+    if(n==='em revisao')return '◉';
+    return '▣';
+  };
+  const r10FlowState = (campaign,rows) => {
+    const c=r10Norm(campaign?.status);
+    if(c.includes('conclu'))return 'Concluída';
+    if(c.includes('execu')||c.includes('prepar')||c.includes('leitura'))return 'Em andamento';
+    if(c.includes('bloq'))return 'Bloqueada';
+    if(c.includes('planej'))return 'Pendente';
+    if(rows.every(x=>x.status==='feito'))return 'Concluída';
+    if(rows.some(x=>r10Status(x)==='Em andamento'))return 'Em andamento';
+    if(rows.some(x=>r10Status(x)==='Bloqueada'))return 'Bloqueada';
+    return 'Pendente';
+  };
+  const r10CampaignSubtitle = campaign => {
+    const direct=campaign?.summary||campaign?.shortDescription||campaign?.description||campaign?.descricao||campaign?.objective||campaign?.context;
+    if(String(direct||'').trim())return String(direct).trim();
+    const channels=Array.isArray(campaign?.channels)?campaign.channels.filter(Boolean).join(', '):'';
+    let period='';
+    if(campaign?.start){
+      const d=new Date(String(campaign.start)+'T12:00:00');
+      if(!Number.isNaN(d.getTime())){
+        period=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).replace(' de ',' ');
+        period=period.charAt(0).toUpperCase()+period.slice(1);
+      }
+    }
+    return [channels,period].filter(Boolean).join(' | ')||campaign?.name||'Campanha vinculada';
+  };
+  const r10CompletionLabel = t => {
+    const raw=t?.completedAt||t?.completed_at||t?.concluidaEm||t?.concluidoEm||'';
+    if(raw){
+      const d=new Date(raw);
+      if(!Number.isNaN(d.getTime())){
+        const mon=d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
+        return 'Concluída em '+String(d.getDate()).padStart(2,'0')+' '+mon+', '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+      }
+      return 'Concluída em '+String(raw);
+    }
+    const history=(t?.history||[]).find(h=>h?.at&&h.at!=='Agora'&&/(para [“"]?feito|conclu[ií]d)/i.test(String(h.text||'')));
+    return history?'Concluída em '+history.at:'Concluída';
+  };
+  const r10DependencyLabel = (t,rows) => {
+    const indexes=[...new Set((t.dependencies||[]).map(id=>rows.findIndex(x=>String(x.id)===String(id))).filter(i=>i>=0).map(i=>i+1))].sort((a,b)=>a-b);
+    if(!indexes.length)return '';
+    if(indexes.length===1)return 'Depende da tarefa '+indexes[0];
+    return 'Depende das tarefas '+indexes.slice(0,-1).join(', ')+' e '+indexes[indexes.length-1];
+  };
+  const r10StepIcon = t => {
+    const status=r10Status(t), n=r10Norm(t?.title);
+    if(status==='Concluída')return r10Icon('done');
+    if(status==='Bloqueada')return r10Icon('hourglass');
+    if(/arte|criativ|design|banner|imagem|foto/.test(n))return r10Icon('image');
+    if(/revis|aprov|valid/.test(n))return r10Icon('review');
+    if(/disparo|envio|program|whatsapp|e-mail|email|mensagem/.test(n))return r10Icon('send');
+    if(/resultado|acompanh|relat|metric|analise/.test(n))return r10Icon('chart');
+    if(/brief|copy|texto|roteir|conteudo/.test(n))return r10Icon('document');
+    return r10Icon('task');
+  };
+  const r10FlowStateHtml = state => '<span class="r10-flow-state state-'+r10Norm(state).replace(/\s+/g,'-')+'"><span class="r10-status-symbol">'+r10StatusSymbol(state)+'</span><span>'+r10Esc(state)+'</span></span>';
+  const r10StepStatusHtml = t => {
+    const status=r10Status(t);
+    if(status==='Concluída')return '<small class="r10-step-completed">✓ '+r10Esc(r10CompletionLabel(t))+'</small>';
+    return '<span class="r10-step-status '+r10StatusClass(status)+'"><span class="r10-status-symbol">'+r10StatusSymbol(status)+'</span><span>'+r10Esc(status)+'</span></span>';
+  };
+
   function r10FlowHtml(t,rows){
     const campaign=r10CampaignRecord(t);
     const linked=!!t.campaignId;
     const hasStandaloneFlow=!linked&&rows.some(x=>String(x.id)!==String(t.id));
     const done=rows.filter(x=>x.status==='feito').length, pct=rows.length?Math.round(done/rows.length*100):0;
     const flowTitle=linked?'Execução da Campanha':'Fluxo da tarefa';
-    const flowSubtitle=linked?(campaign?.name||t.project||'Campanha vinculada'):(hasStandaloneFlow?'Subtarefas, etapas e dependências':'Tarefa avulsa');
-    const flowState=linked?(rows.every(x=>x.status==='feito')?'Concluída':'Em andamento'):(hasStandaloneFlow?'Fluxo relacionado':'Sem etapas');
+    const flowSubtitle=linked?r10CampaignSubtitle(campaign):(hasStandaloneFlow?'Subtarefas, etapas e dependências':'Tarefa avulsa');
+    const flowState=linked?r10FlowState(campaign,rows):(hasStandaloneFlow?r10FlowState(null,rows):'Pendente');
     const flowIcon=linked?r10Icon('campaign'):r10Icon('task');
-    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">'+flowIcon+'</span><div class="r10-flow-head-copy"><strong>'+r10Esc(flowTitle)+'</strong><span>'+r10Esc(flowSubtitle)+'</span></div></div><span class="r10-flow-state">'+r10Esc(flowState)+'</span>';
+    let html='<aside class="r10-flow"><div class="r10-flow-head"><span class="r10-flow-icon">'+flowIcon+'</span><div class="r10-flow-head-copy"><strong>'+r10Esc(flowTitle)+'</strong><span title="'+r10Esc(flowSubtitle)+'">'+r10Esc(flowSubtitle)+'</span></div></div>'+r10FlowStateHtml(flowState);
     if(linked||hasStandaloneFlow){
       html+='<div class="r10-progress-copy"><b>'+done+' de '+rows.length+' tarefas concluídas</b><span>'+pct+'%</span></div><div class="r10-progress"><i style="width:'+pct+'%"></i></div>';
     }else{
@@ -138,11 +215,14 @@
     }
     html+='<div class="r10-flow-list">';
     rows.forEach(function(x,i){
-      const stateClass=' status-'+r10Norm(r10Status(x)).replace(/\s+/g,'-');
+      const status=r10Status(x), stateClass=' '+r10StatusClass(status);
       const cl=(x.status==='feito'?' done':'')+(String(x.id)===String(t.id)?' current':'')+stateClass;
-      const icon=x.status==='feito'?r10Icon('done'):String(x.id)===String(t.id)?r10Icon('task'):r10Icon('pending');
-      const relation=!linked&&x._r10Relation?x._r10Relation+' · ':'';
-      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+icon+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b><span>'+r10Esc(relation+r10Status(x))+'</span></span><span class="r10-step-avatar">'+r10AvatarInner((x.assignees||[])[0]||'',(x.assigneeIds||[])[0])+'</span></button>';
+      const dependency=r10DependencyLabel(x,rows);
+      const blockedReason=!dependency&&status==='Bloqueada'&&x.blockedReason?String(x.blockedReason):'';
+      const meta=dependency||blockedReason;
+      const who=(x.assignees||[])[0]||'';
+      const avatar=who?'<span class="r10-step-avatar">'+r10AvatarInner(who,(x.assigneeIds||[])[0])+'</span>':'';
+      html+='<button type="button" class="r10-step'+cl+'" data-r10-task="'+r10Esc(x.id)+'" data-number="'+(i+1)+'"><span class="r10-step-icon">'+r10StepIcon(x)+'</span><span class="r10-step-copy"><b>'+r10Esc(x.title||'Tarefa')+'</b>'+r10StepStatusHtml(x)+(meta?'<small class="r10-step-meta">'+r10Esc(meta)+'</small>':'')+'</span>'+avatar+'</button>';
     });
     return html+'</div></aside>';
   }
@@ -232,5 +312,84 @@
     const n=workspace.querySelector('[data-r10-next]');if(n)n.addEventListener('click',()=>{if(nextTask)openTaskDetail(nextTask.id)});
     const m=workspace.querySelector('[data-r10-more]');if(m)m.addEventListener('click',()=>{extra.open=!extra.open});
   }
+  function r10PersistCompletionStamp(){
+    try{localStorage.setItem(taskStorageKey,JSON.stringify(taskData));}catch{}
+  }
+  function r10SyncCompletionStamp(t,beforeStatus){
+    if(!t)return false;
+    if(beforeStatus!=='feito'&&t.status==='feito'&&!t.completedAt){t.completedAt=new Date().toISOString();return true;}
+    if(beforeStatus==='feito'&&t.status!=='feito'&&t.completedAt){delete t.completedAt;return true;}
+    return false;
+  }
+  const r10BaseSaveCurrentTask=saveCurrentTask;
+  saveCurrentTask=function(){
+    const t=r10Task(taskState.selected), before=t?.status;
+    r10BaseSaveCurrentTask();
+    if(r10SyncCompletionStamp(t,before))r10PersistCompletionStamp();
+  };
+  const r10BaseBindTaskElements=bindTaskElements;
+  bindTaskElements=function(){
+    r10BaseBindTaskElements();
+    document.querySelectorAll('[data-v3-toggle-done]').forEach(btn=>{
+      if(btn.dataset.r10CompletionStamp)return;
+      btn.dataset.r10CompletionStamp='1';
+      btn.addEventListener('click',()=>{
+        const t=r10Task(btn.dataset.v3ToggleDone), before=t?.status;
+        queueMicrotask(()=>{if(r10SyncCompletionStamp(t,before))r10PersistCompletionStamp();});
+      },true);
+    });
+  };
+  const r10BaseBindDrag=bindDrag;
+  bindDrag=function(){
+    r10BaseBindDrag();
+    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{
+      if(col.dataset.r10CompletionStamp)return;
+      col.dataset.r10CompletionStamp='1';
+      col.addEventListener('drop',e=>{
+        const id=e.dataTransfer?.getData('text/plain'), t=r10Task(id), before=t?.status;
+        queueMicrotask(()=>{if(r10SyncCompletionStamp(t,before))r10PersistCompletionStamp();});
+      },true);
+    });
+  };
+
+  document.getElementById('r10-flow-reference-polish')?.remove();
+  const r10FlowStyle=document.createElement('style');
+  r10FlowStyle.id='r10-flow-reference-polish';
+  r10FlowStyle.textContent=`
+  #taskDetailDrawer .r10-flow{overflow-x:hidden!important;padding:20px 16px 18px!important}
+  #taskDetailDrawer .r10-flow-head{gap:11px!important;padding:0 2px 12px!important}
+  #taskDetailDrawer .r10-flow-head-copy span{display:-webkit-box!important;margin-top:5px!important;line-height:1.35!important;white-space:normal!important;overflow:hidden!important;text-overflow:ellipsis!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow-wrap:anywhere!important}
+  #taskDetailDrawer .r10-flow-state{display:flex!important;width:max-content!important;align-items:center!important;gap:5px!important;margin:0 2px 16px auto!important;padding:5px 9px!important;border-radius:999px!important;font-size:9px!important;font-weight:650!important}
+  #taskDetailDrawer .r10-flow-state:before{content:none!important;display:none!important}
+  #taskDetailDrawer .r10-flow-state .r10-status-symbol{display:inline!important;margin:0!important;padding:0!important;background:transparent!important;color:inherit!important;font-size:10px!important;line-height:1!important}
+  #taskDetailDrawer .r10-flow-state.state-em-andamento{background:#e6f8ee!important;color:#208355!important}
+  #taskDetailDrawer .r10-flow-state.state-bloqueada{background:#fff1df!important;color:#b66e12!important}
+  #taskDetailDrawer .r10-flow-state.state-pendente{background:#f0f2f4!important;color:#626c74!important}
+  #taskDetailDrawer .r10-flow-state.state-concluida{background:#e6f8ee!important;color:#208355!important}
+  #taskDetailDrawer .r10-flow-list{gap:10px!important;padding:0 0 6px 34px!important}
+  #taskDetailDrawer .r10-flow-list:before{left:12px!important;top:20px!important;bottom:20px!important;width:2px!important;background:repeating-linear-gradient(to bottom,#ced6db 0 5px,transparent 5px 9px)!important}
+  #taskDetailDrawer .r10-step{box-sizing:border-box!important;min-height:90px!important;grid-template-columns:34px minmax(0,1fr) auto!important;gap:10px!important;align-items:center!important;padding:11px!important;border-radius:13px!important;overflow:visible!important}
+  #taskDetailDrawer .r10-step:before{left:-34px!important;width:26px!important;height:26px!important;font-size:9px!important;z-index:3!important}
+  #taskDetailDrawer .r10-step.done:not(:last-child):after{content:""!important;position:absolute!important;left:-22px!important;top:50%!important;height:calc(100% + 10px)!important;width:2px!important;background:#7ad7aa!important;z-index:2!important}
+  #taskDetailDrawer .r10-step-icon{width:34px!important;height:34px!important;min-width:34px!important;border-radius:9px!important}
+  #taskDetailDrawer .r10-step-icon .r10-svg{width:17px!important;height:17px!important}
+  #taskDetailDrawer .r10-step.done .r10-step-icon{background:#edf9f2!important;color:#24a766!important}
+  #taskDetailDrawer .r10-step.status-bloqueada .r10-step-icon{background:#fff2df!important;color:#d9851d!important}
+  #taskDetailDrawer .r10-step-copy{min-width:0!important;overflow:hidden!important}
+  #taskDetailDrawer .r10-step-copy b{display:-webkit-box!important;font-size:11px!important;line-height:1.28!important;font-weight:650!important;white-space:normal!important;overflow:hidden!important;text-overflow:ellipsis!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow-wrap:anywhere!important}
+  #taskDetailDrawer .r10-step.done .r10-step-copy b{text-decoration:line-through!important;color:#7d858b!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status{display:inline-flex!important;align-items:center!important;gap:5px!important;width:max-content!important;max-width:100%!important;margin-top:6px!important;padding:4px 7px!important;border-radius:999px!important;font-size:8px!important;font-weight:650!important;line-height:1!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status span{display:inline!important;margin:0!important;padding:0!important;background:transparent!important;color:inherit!important;font-size:inherit!important;line-height:inherit!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-em-andamento{background:#e8f8ef!important;color:#238759!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-bloqueada{background:#fff1df!important;color:#b66e12!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-pendente{background:#f0f2f4!important;color:#626c74!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-status.status-em-revisao{background:#f2edfb!important;color:#7659aa!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-meta,
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-completed{display:block!important;margin-top:6px!important;padding:0!important;border-radius:0!important;background:transparent!important;color:#818990!important;font-size:8.5px!important;font-weight:450!important;line-height:1.25!important;white-space:normal!important;overflow-wrap:anywhere!important}
+  #taskDetailDrawer .r10-step .r10-step-copy .r10-step-completed{color:#758079!important}
+  #taskDetailDrawer .r10-step-avatar{width:28px!important;height:28px!important;min-width:28px!important}
+  `;
+  document.head.appendChild(r10FlowStyle);
+
   renderTaskDetailBody=function(t){r10RenderDetail(t)};
 }
