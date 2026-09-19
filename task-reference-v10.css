@@ -1279,3 +1279,228 @@
     left:69px!important;
   }
 }
+
+
+/* Contexto da campanha — compact reference geometry */
+#taskDetailDrawer .r10-context-card{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  border:1px solid #dfe5e9!important;
+  border-radius:14px!important;
+  background:#fff!important;
+  box-shadow:0 1px 3px rgba(24,31,36,.02)!important;
+  overflow:hidden!important;
+}
+
+#taskDetailDrawer .r10-context-card>.r10-side-card-head{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  height:58px!important;
+  min-height:58px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:11px!important;
+  margin:0!important;
+  padding:10px 14px!important;
+  border:0!important;
+  background:#fff!important;
+}
+
+#taskDetailDrawer .r10-context-card>.r10-side-card-head .r10-side-card-icon{
+  box-sizing:border-box!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  flex:0 0 34px!important;
+  display:grid!important;
+  place-items:center!important;
+  margin:0!important;
+  padding:0!important;
+  border-radius:9px!important;
+  background:#edf0f2!important;
+  color:#20272d!important;
+}
+
+#taskDetailDrawer .r10-context-card>.r10-side-card-head .r10-side-card-icon .r10-svg{
+  display:block!important;
+  width:18px!important;
+  height:18px!important;
+  margin:0!important;
+  stroke-width:1.7!important;
+}
+
+#taskDetailDrawer .r10-context-card>.r10-side-card-head>strong{
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+  color:#171c20!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:15px!important;
+  font-weight:720!important;
+  line-height:1.1!important;
+  letter-spacing:-.018em!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+#taskDetailDrawer .r10-context-card>.r10-side-card-body{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:0!important;
+  margin:0!important;
+  padding:10px 14px 14px!important;
+  overflow:hidden!important;
+}
+
+#taskDetailDrawer .r10-context-card .tfield,
+#taskDetailDrawer .r10-context-card .r10-context-row{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:52px!important;
+  display:grid!important;
+  grid-template-columns:66px minmax(0,1fr)!important;
+  align-items:center!important;
+  column-gap:8px!important;
+  margin:0!important;
+  padding:4px 0!important;
+  position:relative!important;
+  overflow:visible!important;
+}
+
+#taskDetailDrawer .r10-context-card .tfield>label,
+#taskDetailDrawer .r10-context-card .r10-context-row>span:first-child{
+  box-sizing:border-box!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+  color:#64717a!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:10.5px!important;
+  font-weight:500!important;
+  line-height:1.15!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-field-campaign select{
+  grid-column:2!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:44px!important;
+  min-height:44px!important;
+  margin:0!important;
+  padding:0 28px 0 36px!important;
+  border:1px solid #d8dfe4!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:#20272d!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:11.5px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  box-shadow:none!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-field-campaign .r10-campaign-icon{
+  position:absolute!important;
+  left:82px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  width:20px!important;
+  height:20px!important;
+  display:grid!important;
+  place-items:center!important;
+  margin:0!important;
+  padding:0!important;
+  color:#20272d!important;
+  pointer-events:none!important;
+  z-index:3!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-field-campaign .r10-campaign-icon .r10-svg{
+  width:17px!important;
+  height:17px!important;
+  stroke-width:1.7!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-context-value{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:44px!important;
+  min-height:44px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  margin:0!important;
+  padding:0 10px!important;
+  border:1px solid #d8dfe4!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:#20272d!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:11.5px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  overflow:hidden!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-context-value>span{
+  min-width:0!important;
+  display:block!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-context-value .r10-svg{
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  flex:0 0 18px!important;
+  margin:0!important;
+  color:#2e3a42!important;
+  stroke-width:1.7!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-brand-dot{
+  width:22px!important;
+  height:22px!important;
+  min-width:22px!important;
+  flex:0 0 22px!important;
+  display:block!important;
+  border-radius:7px!important;
+}
+
+#taskDetailDrawer .r10-context-card .r10-channel-value .r10-svg{
+  color:#22b86f!important;
+}
+
+@media (max-width:1120px){
+  #taskDetailDrawer .r10-context-card>.r10-side-card-body{
+    padding:10px 12px 14px!important;
+  }
+  #taskDetailDrawer .r10-context-card .tfield,
+  #taskDetailDrawer .r10-context-card .r10-context-row{
+    grid-template-columns:62px minmax(0,1fr)!important;
+    column-gap:7px!important;
+  }
+  #taskDetailDrawer .r10-context-card .r10-field-campaign .r10-campaign-icon{
+    left:75px!important;
+  }
+}

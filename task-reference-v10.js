@@ -605,7 +605,12 @@
       dueField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-due-icon">'+r10Icon('calendar')+'</span><button type="button" class="r10-due-display" data-r10-edit-due title="Editar prazo" aria-label="Editar prazo"><strong>'+r10Esc(dueVisual.main)+'</strong><small>'+r10Esc(dueVisual.sub)+'</small></button>');
     }
     if(priorityField){priorityField.classList.add('r10-field-priority','priority-'+r10Norm(r10Priority(t)));priorityField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-priority-bars">'+r10Icon('priority')+'</span>')}
-    if(campaignField){campaignField.classList.add('r10-field-campaign');campaignField.querySelector('label').textContent=t.campaignId?'Campanha':'Lista';campaignField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn">'+r10Icon('folder')+'</span>')}
+    if(campaignField){
+      campaignField.classList.add('r10-field-campaign');
+      campaignField.querySelector('label').textContent=t.campaignId?'Campanha':'Lista';
+      campaignField.querySelectorAll('small').forEach(x=>x.remove());
+      campaignField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-campaign-icon">'+r10Icon('folder')+'</span>');
+    }
 
     const workspace=document.createElement('div');workspace.className='r10-workspace';workspace.insertAdjacentHTML('beforeend',r10FlowHtml(t,rows));
 
@@ -666,10 +671,9 @@
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
     const info=document.createElement('section');info.className='r10-side-card r10-status-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('statusPanel')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
 
-    const context=document.createElement('section');context.className='r10-side-card';context.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('context')+'</span><strong>'+(t.campaignId?'Contexto da campanha':'Contexto da tarefa')+'</strong></div><div class="r10-side-card-body"></div>';const cb=context.querySelector('.r10-side-card-body');if(campaignField)cb.appendChild(campaignField);
-    cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i>'+r10Esc(t.brand||'—')+'</span></div>'+
-      (channel?'<div class="r10-context-row"><span>Canal</span><span class="r10-context-value">'+r10Icon(channel.toLowerCase().includes('whatsapp')?'whatsapp':'tag')+'<span>'+r10Esc(channel)+'</span></span></div>':'')+
-      '<div class="r10-context-row"><span>Tipo</span><span class="r10-context-value">'+r10Icon('task')+'<span>'+r10Esc(t.campaignId?'Execução de campanha':'Tarefa avulsa')+'</span></span></div>');
+    const context=document.createElement('section');context.className='r10-side-card r10-context-card';context.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('folder')+'</span><strong>'+(t.campaignId?'Contexto da campanha':'Contexto da tarefa')+'</strong></div><div class="r10-side-card-body"></div>';const cb=context.querySelector('.r10-side-card-body');if(campaignField)cb.appendChild(campaignField);
+    cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value r10-client-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i><span>'+r10Esc(t.brand||'—')+'</span></span></div>'+
+      '<div class="r10-context-row"><span>Canal</span><span class="r10-context-value r10-channel-value">'+r10Icon(channel&&channel.toLowerCase().includes('whatsapp')?'whatsapp':'tag')+'<span>'+r10Esc(channel||'—')+'</span></span></div>');
     stack.appendChild(context);
 
     const tags=(t.tags||[]).filter(Boolean);const defaultTags=[channel,t.brand||'Operação',r10Priority(t)].filter(Boolean);const tagList=(tags.length?tags:defaultTags).map(x=>'<span class="r10-tag'+r10TagClass(x)+'">'+r10Esc(x)+'</span>').join('');stack.insertAdjacentHTML('beforeend',r10Card('Sinais e tags',r10Icon('tag'),'<div class="r10-tags">'+tagList+'<button type="button" class="r10-add-tag">＋ Adicionar tag</button></div>'));
