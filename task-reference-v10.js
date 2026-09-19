@@ -334,48 +334,22 @@
         requestAnimationFrame(fit);
       }
     }
-    const attachments=oldMain.querySelector('#attachmentInput')&&oldMain.querySelector('#attachmentInput').closest('.v3-section');
-    if(attachments){
-      attachments.classList.add('r10-materials-card');
+    const legacyAttachments=oldMain.querySelector('#attachmentInput')&&oldMain.querySelector('#attachmentInput').closest('.v3-section');
+    let attachments=null;
+    if(legacyAttachments){
       const files=Array.isArray(t.attachments)?t.attachments:[];
       const count=files.length;
-      const head=attachments.querySelector('.tsection-head');
-      const input=attachments.querySelector('#attachmentInput');
-      const oldDrop=attachments.querySelector('.attachment-drop,.v3-attachment-drop');
-      if(head){
-        head.innerHTML='<span class="r10-materials-heading"><label class="r10-section-icon r10-materials-icon" title="Adicionar arquivos">'+r10Icon('paperclip')+'</label><strong>Materiais e insumos</strong></span><span class="r10-material-count">'+count+' '+(count===1?'item':'itens')+'</span>';
-        const uploadLabel=head.querySelector('.r10-materials-icon');
-        if(uploadLabel&&input){
-          input.classList.add('r10-material-input');
-          input.setAttribute('aria-label','Adicionar arquivos');
-          uploadLabel.appendChild(input);
-        }
-      }
-      if(oldDrop&&oldDrop!==input?.parentElement)oldDrop.remove();
-
-      let list=attachments.querySelector('#attachmentList');
-      if(!list){
-        list=document.createElement('div');
-        list.id='attachmentList';
-        attachments.appendChild(list);
-      }
-      list.className='r10-material-list';
-      list.replaceChildren();
-
-      if(files.length){
-        files.forEach((file,i)=>{
-          const row=document.createElement('div');
-          const tone=r10AttachmentTone(file);
-          row.className='r10-material-item type-'+tone;
-          const action=file?.dataUrl
-            ? '<a class="r10-material-action" href="'+r10Esc(file.dataUrl)+'" download="'+r10Esc(file.name||'arquivo')+'" title="Baixar arquivo" aria-label="Baixar arquivo">'+r10Icon('download')+'</a>'
-            : '<button type="button" class="r10-material-action r10-material-remove" data-r10-remove-material="'+i+'" title="Remover arquivo" aria-label="Remover arquivo">'+r10Icon('close')+'</button>';
-          row.innerHTML='<span class="r10-material-fileicon">'+r10AttachmentIcon(file)+'</span><span class="r10-material-copy"><strong>'+r10Esc(file.name||'Arquivo')+'</strong><small>'+r10Esc(r10AttachmentMeta(file))+'</small></span>'+action;
-          list.appendChild(row);
-        });
-      }else{
-        list.innerHTML='<button type="button" class="r10-material-empty" data-r10-add-material>'+r10Icon('paperclip')+'<span><b>Nenhum material anexado</b><small>Adicionar arquivos para esta tarefa</small></span></button>';
-      }
+      attachments=document.createElement('section');
+      attachments.className='tsection v3-section r10-materials-card';
+      const rows=files.length?files.map((file,i)=>{
+        const tone=r10AttachmentTone(file);
+        const canDownload=!!file?.dataUrl;
+        const action=canDownload
+          ? '<a class="r10-material-action r10-material-download" href="'+r10Esc(file.dataUrl)+'" download="'+r10Esc(file.name||'arquivo')+'" title="Baixar arquivo" aria-label="Baixar arquivo">'+r10Icon('download')+'</a>'
+          : '<button type="button" class="r10-material-action r10-material-remove" data-r10-remove-material="'+i+'" title="Remover arquivo" aria-label="Remover arquivo">'+r10Icon('close')+'</button>';
+        return '<div class="r10-material-item type-'+tone+'"><span class="r10-material-fileicon">'+r10AttachmentIcon(file)+'</span><span class="r10-material-copy"><strong title="'+r10Esc(file.name||'Arquivo')+'">'+r10Esc(file.name||'Arquivo')+'</strong><small>'+r10Esc(r10AttachmentMeta(file))+'</small></span>'+action+'</div>';
+      }).join(''):'<button type="button" class="r10-material-empty" data-r10-add-material>'+r10Icon('paperclip')+'<span><b>Nenhum material anexado</b><small>Adicionar arquivos para esta tarefa</small></span></button>';
+      attachments.innerHTML='<div class="tsection-head"><span class="r10-materials-heading"><label class="r10-section-icon r10-materials-icon" title="Adicionar arquivos">'+r10Icon('paperclip')+'<input class="r10-material-input" id="r10AttachmentInput" type="file" multiple aria-label="Adicionar arquivos"></label><strong>Materiais e insumos</strong></span><span class="r10-material-count">'+count+' '+(count===1?'item':'itens')+'</span></div><div class="r10-material-list">'+rows+'</div>';
     }
     const incoming=oldMain.querySelector('.v5-incoming-section'), delivery=oldMain.querySelector('.v5-delivery-section');
     const conferenceSection=oldMain.querySelector('#detailChecklist')&&oldMain.querySelector('#detailChecklist').closest('.v3-section');
@@ -514,7 +488,21 @@
     workspace.querySelector('[data-r10-add-material]')?.addEventListener('click',e=>{
       e.preventDefault();
       e.stopPropagation();
-      document.getElementById('attachmentInput')?.click();
+      workspace.querySelector('#r10AttachmentInput')?.click();
+    });
+    workspace.querySelector('#r10AttachmentInput')?.addEventListener('change',e=>{
+      const selected=[...e.target.files];
+      if(!selected.length)return;
+      t.attachments=Array.isArray(t.attachments)?t.attachments:[];
+      selected.forEach(file=>{
+        t.attachments.push({
+          name:file.name,
+          size:(file.size>=1048576?(file.size/1048576).toFixed(file.size>=10485760?0:1)+' MB':Math.max(1,Math.round(file.size/1024))+' KB'),
+          type:file.type||''
+        });
+      });
+      if(typeof v3Persist==='function')v3Persist(false);
+      renderTaskDetailBody(t);
     });
     workspace.querySelectorAll('[data-r10-remove-material]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();
@@ -761,39 +749,43 @@
   }
 
   #taskDetailDrawer .r10-head-chip.priority{
-    background:#f5f7f8!important;
-    border-color:#dfe4e8!important;
-    color:#56616a!important;
+    height:39px!important;
+    min-height:39px!important;
+    padding:0 11px!important;
+    gap:8px!important;
+    border:1px solid #d9dee3!important;
+    border-radius:10px!important;
+    background:#fff!important;
+    color:#263039!important;
+    font:600 14px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    letter-spacing:-.012em!important;
   }
   #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon{
-    width:18px!important;
-    height:18px!important;
-    min-width:18px!important;
-    flex-basis:18px!important;
-    border-radius:6px!important;
-    background:#e9edf0!important;
-    color:#68747d!important;
+    width:17px!important;
+    height:17px!important;
+    min-width:17px!important;
+    flex:0 0 17px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:0!important;
+    background:transparent!important;
+    color:#727d85!important;
   }
   #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon .r10-svg{
-    width:13px!important;
-    height:13px!important;
-    color:#68747d!important;
+    width:17px!important;
+    height:17px!important;
+    color:#727d85!important;
   }
   #taskDetailDrawer .r10-head-chip.priority-high,
   #taskDetailDrawer .r10-head-chip.priority-urgent{
     background:#fff0f2!important;
-    border-color:#f6cfd5!important;
+    border-color:#f3cbd2!important;
     color:#ef3f4d!important;
   }
   #taskDetailDrawer .r10-head-chip.priority-high .r10-head-chip-icon,
-  #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon{
-    background:transparent!important;
-    color:#ef3f4d!important;
-  }
+  #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon,
   #taskDetailDrawer .r10-head-chip.priority-high .r10-head-chip-icon .r10-svg,
   #taskDetailDrawer .r10-head-chip.priority-urgent .r10-head-chip-icon .r10-svg{
-    width:16px!important;
-    height:16px!important;
     color:#ef3f4d!important;
   }
   #taskDetailDrawer .r10-head-chip.priority-low{
@@ -1062,8 +1054,8 @@
   #taskDetailDrawer .r10-main .r10-objective-card .tsection-head,
   #taskDetailDrawer .r10-main .r10-materials-card .tsection-head{
     box-sizing:border-box!important;
-    min-height:68px!important;
-    padding:16px 18px 10px!important;
+    min-height:64px!important;
+    padding:14px 18px 8px!important;
     display:flex!important;
     flex-direction:row!important;
     align-items:center!important;
@@ -1092,10 +1084,10 @@
   }
 
   #taskDetailDrawer .r10-section-icon{
-    width:42px!important;
-    height:42px!important;
-    min-width:42px!important;
-    flex:0 0 42px!important;
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    flex:0 0 40px!important;
     display:grid!important;
     place-items:center!important;
     border-radius:11px!important;
@@ -1113,7 +1105,7 @@
     margin:0!important;
     padding:0!important;
     color:#12171b!important;
-    font-size:18px!important;
+    font-size:17px!important;
     font-weight:720!important;
     line-height:1.15!important;
     letter-spacing:-.022em!important;
@@ -1124,9 +1116,9 @@
     box-sizing:border-box!important;
     display:block!important;
     width:100%!important;
-    min-height:88px!important;
+    min-height:84px!important;
     margin:0!important;
-    padding:0 22px 24px 72px!important;
+    padding:0 22px 22px 72px!important;
     border:0!important;
     outline:0!important;
     resize:none!important;
@@ -1184,10 +1176,10 @@
   }
   #taskDetailDrawer .r10-main .r10-material-item{
     box-sizing:border-box!important;
-    min-height:62px!important;
+    min-height:60px!important;
     width:100%!important;
     display:grid!important;
-    grid-template-columns:40px minmax(0,1fr) 34px!important;
+    grid-template-columns:38px minmax(0,1fr) 32px!important;
     align-items:center!important;
     gap:11px!important;
     margin:0!important;
@@ -1198,8 +1190,8 @@
     overflow:hidden!important;
   }
   #taskDetailDrawer .r10-material-fileicon{
-    width:36px!important;
-    height:36px!important;
+    width:34px!important;
+    height:34px!important;
     display:grid!important;
     place-items:center!important;
     border-radius:9px!important;
@@ -1307,6 +1299,11 @@
   #taskDetailDrawer .r10-material-empty small{
     color:#8b949b!important;
     font-size:10px!important;
+  }
+  #taskDetailDrawer .r10-materials-card .file-pill,
+  #taskDetailDrawer .r10-materials-card .attachment-drop,
+  #taskDetailDrawer .r10-materials-card .v3-attachment-drop{
+    display:none!important;
   }
   `;
   document.head.appendChild(r10FlowStyle);
