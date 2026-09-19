@@ -33,7 +33,12 @@
       running:'<circle cx="12" cy="12" r="6.5"/>',
       blocked:'<rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 12h6"/>',
       waiting:'<path d="m9 7 7 5-7 5Z"/>',
-      reviewState:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.2"/>'
+      reviewState:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.2"/>',
+      arrowLeft:'<path d="m15 6-6 6 6 6"/><path d="M9 12h10"/>',
+      chevronLeft:'<path d="m14 7-5 5 5 5"/>',
+      chevronRight:'<path d="m10 7 5 5-5 5"/>',
+      more:'<circle cx="6" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="18" cy="12" r="1"/>',
+      flame:'<path d="M13.5 3.5c.3 3-1.7 4.2-3.2 5.8-1.5 1.6-2.2 3-1.2 5.1.5-1.4 1.5-2.2 2.5-3 .2 2.2 1 3.3 2.2 4.4 1.4 1.2 1.8 3.1.8 4.7 3-.9 5.1-3.6 5.1-6.8 0-4.1-2.8-7.8-6.2-10.2Z"/><path d="M9.7 20.5c-2.5-.8-4.2-3-4.2-5.8 0-2.4 1.1-4.3 2.8-5.9-.2 2.3.6 3.4 1.9 4.5-1 1.3-1.4 2.9-.5 4.3.5.8 1.1 1.5 2 2.2-.6.4-1.2.6-2 .7Z"/>'
     };
     return '<svg class="r10-svg" viewBox="0 0 24 24" aria-hidden="true">'+(paths[name]||paths.task)+'</svg>';
   };
@@ -131,6 +136,30 @@
     return '';
   };
   const r10MetaPill = (icon,label,kind='') => '<span class="r10-pill '+kind+'">'+r10Icon(icon)+'<span>'+r10Esc(label)+'</span></span>';
+
+  const r10PriorityTone = value => {
+    const n=r10Norm(value);
+    if(n.includes('urgent'))return 'urgent';
+    if(n.includes('alta')||n.includes('high'))return 'high';
+    if(n.includes('baixa')||n.includes('low'))return 'low';
+    return 'normal';
+  };
+  const r10PriorityHeaderLabel = value => {
+    const p=r10Priority(value);
+    if(p==='Alta')return 'Alta prioridade';
+    if(p==='Baixa')return 'Baixa prioridade';
+    if(p==='Urgente')return 'Urgente';
+    return p;
+  };
+  const r10TaskSubtitle = (t,campaign) => {
+    const direct=String(t?.description||'').trim();
+    if(direct)return direct;
+    const campaignContext=String(campaign?.objective||campaign?.description||campaign?.summary||'').trim();
+    if(campaignContext)return campaignContext;
+    return t?.campaignId?'Execução vinculada à campanha '+String(campaign?.name||t?.project||'')+'.':'Tarefa avulsa, sem campanha vinculada.';
+  };
+  const r10HeaderPill = (icon,label,kind='',attrs='') => '<span class="r10-pill '+kind+'" '+attrs+'>'+r10Icon(icon)+'<span>'+r10Esc(label)+'</span></span>';
+  const r10CampaignHeaderPill = label => '<button type="button" class="r10-pill campaign r10-campaign-link" data-r10-open-campaign="'+r10Esc(label)+'" title="Abrir campanha">'+r10Icon('folder')+'<span>'+r10Esc(label)+'</span></button>';
 
   const r10StatusClass = value => 'status-'+r10Norm(value).replace(/\s+/g,'-');
   const r10StatusIcon = value => {
@@ -275,13 +304,16 @@
 
     const center=document.createElement('main');center.className='r10-main';
     const channel=r10Channel(t,campaign);
-    const campaignLabel=t.campaignId?(campaign?.name||t.project||'Campanha'):'Tarefa avulsa';
+    const campaignLabel=t.campaignId?(campaign?.name||t.project||'Campanha'):'';
+    const priorityLabel=r10PriorityHeaderLabel(t);
+    const priorityTone=r10PriorityTone(priorityLabel);
     const headPills=[
-      channel?r10MetaPill(channel.toLowerCase().includes('whatsapp')?'whatsapp':'tag',channel,'channel'):null,
-      r10MetaPill('folder',campaignLabel,'campaign'),
-      r10MetaPill('priority',r10Priority(t),'priority')
+      channel?r10HeaderPill(channel.toLowerCase().includes('whatsapp')?'whatsapp':'tag',channel,'channel'):null,
+      t.campaignId?r10CampaignHeaderPill(campaignLabel):r10HeaderPill('task','Tarefa avulsa','standalone'),
+      r10HeaderPill('flame',priorityLabel,'priority priority-'+priorityTone)
     ].filter(Boolean).join('');
-    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back>←</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more>•••</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev>‹</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next>›</button><span class="r10-save-slot"></span></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><div class="r10-title-slot"></div><p class="r10-subtitle">'+(t.description? r10Esc(String(t.description).slice(0,150)) :(t.campaignId?'Execução vinculada à campanha '+r10Esc(campaignLabel)+'.':'Tarefa avulsa, sem campanha vinculada.'))+'</p><div class="r10-pills">'+headPills+'</div></header><div class="r10-center-stack"></div>';
+    const subtitle=r10TaskSubtitle(t,campaign);
+    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back aria-label="Voltar">'+r10Icon('arrowLeft')+'</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more aria-label="Mais opções">'+r10Icon('more')+'</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev aria-label="Tarefa anterior">'+r10Icon('chevronLeft')+'</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next aria-label="Próxima tarefa">'+r10Icon('chevronRight')+'</button><span class="r10-save-slot"></span></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><div class="r10-title-slot"></div><p class="r10-subtitle">'+r10Esc(subtitle)+'</p><div class="r10-pills">'+headPills+'</div></header><div class="r10-center-stack"></div>';
     const titleSlot=center.querySelector('.r10-title-slot');
     if(titleInput&&titleSlot){
       titleInput.classList.add('r10-title-input');
@@ -324,6 +356,15 @@
     const p=workspace.querySelector('[data-r10-prev]');if(p)p.addEventListener('click',()=>{if(prev)openTaskDetail(prev.id)});
     const n=workspace.querySelector('[data-r10-next]');if(n)n.addEventListener('click',()=>{if(nextTask)openTaskDetail(nextTask.id)});
     const m=workspace.querySelector('[data-r10-more]');if(m)m.addEventListener('click',()=>{extra.open=!extra.open});
+    const campaignLink=workspace.querySelector('[data-r10-open-campaign]');
+    if(campaignLink)campaignLink.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const name=campaignLink.dataset.r10OpenCampaign||campaignLabel;
+      closeTaskDetail();
+      if(typeof window.openCampaignWorkspaceByName==='function')setTimeout(()=>window.openCampaignWorkspaceByName(name),0);
+      else if(typeof window.__centralShowCampaigns==='function')setTimeout(()=>window.__centralShowCampaigns(),0);
+    });
   }
   function r10PersistCompletionStamp(){
     try{localStorage.setItem(taskStorageKey,JSON.stringify(taskData));}catch{}
@@ -369,6 +410,168 @@
   const r10FlowStyle=document.createElement('style');
   r10FlowStyle.id='r10-flow-reference-polish';
   r10FlowStyle.textContent=`
+  #taskDetailDrawer .r10-main{
+    padding:18px 24px 28px!important;
+  }
+  #taskDetailDrawer .r10-main-top{
+    margin:0 0 24px!important;
+    min-height:42px!important;
+  }
+  #taskDetailDrawer .r10-icon-btn{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    border-radius:11px!important;
+    border:1px solid #dde3e7!important;
+    background:#fff!important;
+    color:#293239!important;
+    box-shadow:0 1px 1px rgba(24,31,36,.015)!important;
+  }
+  #taskDetailDrawer .r10-icon-btn .r10-svg{
+    width:18px!important;
+    height:18px!important;
+    stroke-width:1.8!important;
+  }
+  #taskDetailDrawer .r10-main-nav{gap:10px!important}
+  #taskDetailDrawer .r10-counter{
+    min-width:46px!important;
+    text-align:center!important;
+    font-size:9px!important;
+    color:#7d8790!important;
+  }
+  #taskDetailDrawer .r10-task-head{
+    padding:0 2px 22px!important;
+  }
+  #taskDetailDrawer .r10-kicker{
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    width:max-content!important;
+    min-height:22px!important;
+    margin:0 0 10px!important;
+    padding:4px 7px!important;
+    border-radius:7px!important;
+    background:#f1f3f4!important;
+    color:#7a848c!important;
+    font-size:8px!important;
+    font-weight:650!important;
+    line-height:1!important;
+    letter-spacing:.025em!important;
+  }
+  #taskDetailDrawer .r10-kicker .r10-svg{
+    width:12px!important;
+    height:12px!important;
+    stroke-width:1.8!important;
+  }
+  #taskDetailDrawer .r10-title,
+  #taskDetailDrawer .r10-title-input{
+    font-size:34px!important;
+    line-height:1.06!important;
+    font-weight:720!important;
+    letter-spacing:-.045em!important;
+    color:#101418!important;
+  }
+  #taskDetailDrawer .r10-title-input{
+    min-height:38px!important;
+  }
+  #taskDetailDrawer .r10-subtitle{
+    max-width:760px!important;
+    margin:10px 0 0!important;
+    color:#6f7b84!important;
+    font-size:14px!important;
+    line-height:1.45!important;
+    font-weight:430!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  #taskDetailDrawer .r10-pills{
+    display:flex!important;
+    align-items:center!important;
+    flex-wrap:wrap!important;
+    gap:8px!important;
+    margin-top:14px!important;
+  }
+  #taskDetailDrawer .r10-pill{
+    appearance:none!important;
+    -webkit-appearance:none!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:7px!important;
+    min-height:32px!important;
+    height:32px!important;
+    max-width:260px!important;
+    padding:0 11px!important;
+    border:1px solid #dce3e7!important;
+    border-radius:9px!important;
+    background:#fff!important;
+    color:#354048!important;
+    font:600 10px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    box-shadow:none!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-pill>span{
+    min-width:0!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-pill .r10-svg{
+    width:15px!important;
+    height:15px!important;
+    min-width:15px!important;
+    stroke-width:1.8!important;
+  }
+  #taskDetailDrawer .r10-pill.channel{
+    background:#fff!important;
+    border-color:#dce3e7!important;
+    color:#37434a!important;
+  }
+  #taskDetailDrawer .r10-pill.channel .r10-svg{color:#20b768!important}
+  #taskDetailDrawer .r10-pill.campaign{
+    background:#fff!important;
+    border-color:#dce3e7!important;
+    color:#3b4650!important;
+  }
+  #taskDetailDrawer .r10-pill.campaign .r10-svg{color:#377bf1!important}
+  #taskDetailDrawer .r10-campaign-link{
+    cursor:pointer!important;
+  }
+  #taskDetailDrawer .r10-campaign-link:hover{
+    background:#f7f9ff!important;
+    border-color:#cdd9f2!important;
+  }
+  #taskDetailDrawer .r10-pill.standalone{
+    background:#f7f8ff!important;
+    border-color:#dde3f1!important;
+    color:#627096!important;
+  }
+  #taskDetailDrawer .r10-pill.priority{
+    background:#fff!important;
+    border-color:#dce3e7!important;
+    color:#5c6670!important;
+  }
+  #taskDetailDrawer .r10-pill.priority-high,
+  #taskDetailDrawer .r10-pill.priority-urgent{
+    background:#fff0f1!important;
+    border-color:#f6d3d7!important;
+    color:#e33e4e!important;
+  }
+  #taskDetailDrawer .r10-pill.priority-high .r10-svg,
+  #taskDetailDrawer .r10-pill.priority-urgent .r10-svg{
+    color:#f04452!important;
+    fill:currentColor!important;
+  }
+  #taskDetailDrawer .r10-pill.priority-normal .r10-svg{
+    color:#7d8790!important;
+    fill:none!important;
+  }
+  #taskDetailDrawer .r10-pill.priority-low{
+    background:#f5f8fb!important;
+    color:#667580!important;
+  }
+
   #taskDetailDrawer .r10-flow{
     overflow-x:hidden!important;
     padding:20px 16px 18px!important;
