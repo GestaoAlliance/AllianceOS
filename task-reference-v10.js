@@ -352,43 +352,29 @@
         }
       }
       if(oldDrop&&oldDrop!==input?.parentElement)oldDrop.remove();
-      const list=attachments.querySelector('#attachmentList');
-      if(list){
-        list.classList.add('r10-material-list');
-        const rows=[...list.querySelectorAll('.file-pill')];
-        rows.forEach((row,i)=>{
-          const file=files[i]||{};
-          row.classList.add('r10-material-row','type-'+r10AttachmentTone(file));
-          const icon=row.querySelector(':scope > span');
-          const name=row.querySelector(':scope > b');
-          const meta=row.querySelector(':scope > small');
-          const remove=row.querySelector('[data-remove-attachment]');
-          if(icon){
-            icon.className='r10-material-type';
-            icon.innerHTML=r10AttachmentIcon(file);
-          }
-          if(name)name.classList.add('r10-material-name');
-          if(meta){
-            meta.classList.add('r10-material-meta');
-            meta.textContent=r10AttachmentMeta(file);
-          }
-          if(file?.dataUrl&&!row.querySelector('.r10-material-download')){
-            const a=document.createElement('a');
-            a.className='r10-material-action r10-material-download';
-            a.href=file.dataUrl;
-            a.download=file.name||'arquivo';
-            a.title='Baixar arquivo';
-            a.innerHTML=r10Icon('download');
-            if(remove)row.insertBefore(a,remove);else row.appendChild(a);
-          }
-          if(remove){
-            remove.classList.add('r10-material-action','r10-material-remove');
-            remove.setAttribute('title','Remover arquivo');
-            remove.setAttribute('aria-label','Remover arquivo');
-            remove.innerHTML=r10Icon('close');
-          }
+
+      let list=attachments.querySelector('#attachmentList');
+      if(!list){
+        list=document.createElement('div');
+        list.id='attachmentList';
+        attachments.appendChild(list);
+      }
+      list.className='r10-material-list';
+      list.replaceChildren();
+
+      if(files.length){
+        files.forEach((file,i)=>{
+          const row=document.createElement('div');
+          const tone=r10AttachmentTone(file);
+          row.className='r10-material-item type-'+tone;
+          const action=file?.dataUrl
+            ? '<a class="r10-material-action" href="'+r10Esc(file.dataUrl)+'" download="'+r10Esc(file.name||'arquivo')+'" title="Baixar arquivo" aria-label="Baixar arquivo">'+r10Icon('download')+'</a>'
+            : '<button type="button" class="r10-material-action r10-material-remove" data-r10-remove-material="'+i+'" title="Remover arquivo" aria-label="Remover arquivo">'+r10Icon('close')+'</button>';
+          row.innerHTML='<span class="r10-material-fileicon">'+r10AttachmentIcon(file)+'</span><span class="r10-material-copy"><strong>'+r10Esc(file.name||'Arquivo')+'</strong><small>'+r10Esc(r10AttachmentMeta(file))+'</small></span>'+action;
+          list.appendChild(row);
         });
-        if(!rows.length)list.innerHTML='<button type="button" class="r10-material-empty" data-r10-add-material>'+r10Icon('paperclip')+'<span><b>Nenhum material anexado</b><small>Adicionar arquivos para esta tarefa</small></span></button>';
+      }else{
+        list.innerHTML='<button type="button" class="r10-material-empty" data-r10-add-material>'+r10Icon('paperclip')+'<span><b>Nenhum material anexado</b><small>Adicionar arquivos para esta tarefa</small></span></button>';
       }
     }
     const incoming=oldMain.querySelector('.v5-incoming-section'), delivery=oldMain.querySelector('.v5-delivery-section');
@@ -530,6 +516,15 @@
       e.stopPropagation();
       document.getElementById('attachmentInput')?.click();
     });
+    workspace.querySelectorAll('[data-r10-remove-material]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const index=Number(btn.dataset.r10RemoveMaterial);
+      if(!Number.isInteger(index)||index<0)return;
+      t.attachments.splice(index,1);
+      if(typeof v3Persist==='function')v3Persist(false);
+      renderTaskDetailBody(t);
+    }));
     const campaignLink=workspace.querySelector('[data-r10-open-campaign]');
     campaignLink?.addEventListener('click',e=>{
       e.preventDefault();
@@ -1056,54 +1051,36 @@
   /* Objective + materials — reference layout */
   #taskDetailDrawer .r10-main .r10-objective-card,
   #taskDetailDrawer .r10-main .r10-materials-card{
-    margin-top:14px!important;
+    margin-top:16px!important;
     border:1px solid #e2e7ea!important;
-    border-radius:17px!important;
+    border-radius:16px!important;
     background:#fff!important;
-    box-shadow:0 1px 2px rgba(27,34,39,.018)!important;
+    box-shadow:none!important;
     overflow:hidden!important;
   }
+
   #taskDetailDrawer .r10-main .r10-objective-card .tsection-head,
   #taskDetailDrawer .r10-main .r10-materials-card .tsection-head{
     box-sizing:border-box!important;
-    min-height:70px!important;
-    height:auto!important;
-    padding:15px 18px 10px!important;
+    min-height:68px!important;
+    padding:16px 18px 10px!important;
     display:flex!important;
     flex-direction:row!important;
     align-items:center!important;
-    gap:12px!important;
-    border-bottom:0!important;
+    gap:13px!important;
+    border:0!important;
     background:#fff!important;
     text-align:left!important;
+  }
+  #taskDetailDrawer .r10-main .r10-objective-card .tsection-head{
+    justify-content:flex-start!important;
   }
   #taskDetailDrawer .r10-main .r10-materials-card .tsection-head{
     justify-content:space-between!important;
   }
-  #taskDetailDrawer .r10-section-icon{
-    width:40px!important;
-    height:40px!important;
-    min-width:40px!important;
-    flex:0 0 40px!important;
-    display:grid!important;
-    place-items:center!important;
-    border-radius:11px!important;
-    background:#eef1f3!important;
-    color:#252c31!important;
-  }
-  #taskDetailDrawer .r10-section-icon .r10-svg{
-    width:20px!important;
-    height:20px!important;
-    stroke-width:1.85!important;
-  }
-  #taskDetailDrawer .r10-main .r10-objective-card .tsection-head{
-    display:flex!important;
-    align-items:center!important;
-    justify-content:flex-start!important;
-    text-align:left!important;
-  }
-  #taskDetailDrawer .r10-main .r10-objective-card .r10-objective-heading,
-  #taskDetailDrawer .r10-main .r10-materials-card .r10-materials-heading{
+
+  #taskDetailDrawer .r10-main .r10-objective-heading,
+  #taskDetailDrawer .r10-main .r10-materials-heading{
     min-width:0!important;
     display:flex!important;
     flex-direction:row!important;
@@ -1112,44 +1089,55 @@
     gap:13px!important;
     margin:0!important;
     padding:0!important;
-    text-align:left!important;
-    white-space:nowrap!important;
   }
-  #taskDetailDrawer .r10-main .r10-objective-card .r10-objective-heading{
-    flex:1 1 auto!important;
+
+  #taskDetailDrawer .r10-section-icon{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    flex:0 0 42px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:11px!important;
+    background:#edf0f2!important;
+    color:#20272c!important;
   }
-  #taskDetailDrawer .r10-main .r10-objective-card .r10-objective-heading>strong,
-  #taskDetailDrawer .r10-main .r10-materials-card .r10-materials-heading>strong{
+  #taskDetailDrawer .r10-section-icon .r10-svg{
+    width:21px!important;
+    height:21px!important;
+    stroke-width:1.9!important;
+  }
+  #taskDetailDrawer .r10-main .r10-objective-heading>strong,
+  #taskDetailDrawer .r10-main .r10-materials-heading>strong{
     display:block!important;
-    flex:0 1 auto!important;
-    min-height:0!important;
     margin:0!important;
     padding:0!important;
-    color:#151a1e!important;
-    font-size:16px!important;
+    color:#12171b!important;
+    font-size:18px!important;
     font-weight:720!important;
     line-height:1.15!important;
-    letter-spacing:-.018em!important;
-    text-align:left!important;
+    letter-spacing:-.022em!important;
     white-space:nowrap!important;
   }
+
   #taskDetailDrawer .r10-main .r10-objective-card .description-area{
     box-sizing:border-box!important;
+    display:block!important;
     width:100%!important;
-    min-height:78px!important;
+    min-height:88px!important;
     margin:0!important;
-    padding:0 20px 22px 71px!important;
+    padding:0 22px 24px 72px!important;
     border:0!important;
     outline:0!important;
     resize:none!important;
     overflow:hidden!important;
-    background:transparent!important;
+    background:#fff!important;
     color:#65717b!important;
-    font:430 13.5px/1.58 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-    letter-spacing:-.005em!important;
+    font:430 15px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    letter-spacing:-.006em!important;
   }
   #taskDetailDrawer .r10-main .r10-objective-card .description-area::placeholder{
-    color:#8b959d!important;
+    color:#7f8a93!important;
     opacity:1!important;
   }
 
@@ -1172,8 +1160,8 @@
     z-index:3!important;
   }
   #taskDetailDrawer .r10-material-count{
-    min-height:28px!important;
-    padding:0 10px!important;
+    min-height:30px!important;
+    padding:0 11px!important;
     display:inline-flex!important;
     align-items:center!important;
     justify-content:center!important;
@@ -1181,92 +1169,90 @@
     border-radius:9px!important;
     background:#f2f4f5!important;
     color:#7b858d!important;
-    font-size:10.5px!important;
+    font-size:11px!important;
     font-weight:600!important;
     line-height:1!important;
     white-space:nowrap!important;
   }
-  #taskDetailDrawer .r10-main .r10-materials-card #attachmentList.r10-material-list{
+
+  #taskDetailDrawer .r10-main .r10-material-list{
     display:flex!important;
     flex-direction:column!important;
     gap:8px!important;
     margin:0!important;
-    padding:2px 18px 18px!important;
+    padding:0 18px 18px!important;
   }
-  #taskDetailDrawer .r10-main .r10-materials-card .file-pill.r10-material-row{
+  #taskDetailDrawer .r10-main .r10-material-item{
     box-sizing:border-box!important;
     min-height:62px!important;
-    margin:0!important;
-    padding:8px 10px!important;
+    width:100%!important;
     display:grid!important;
-    grid-template-columns:38px minmax(0,1fr) auto!important;
-    grid-template-rows:auto auto!important;
-    column-gap:10px!important;
-    row-gap:3px!important;
+    grid-template-columns:40px minmax(0,1fr) 34px!important;
     align-items:center!important;
+    gap:11px!important;
+    margin:0!important;
+    padding:9px 10px!important;
     border:1px solid #e2e7ea!important;
     border-radius:11px!important;
     background:#fff!important;
-    box-shadow:none!important;
+    overflow:hidden!important;
   }
-  #taskDetailDrawer .r10-material-type{
-    grid-column:1!important;
-    grid-row:1 / 3!important;
-    width:34px!important;
-    height:34px!important;
+  #taskDetailDrawer .r10-material-fileicon{
+    width:36px!important;
+    height:36px!important;
     display:grid!important;
     place-items:center!important;
     border-radius:9px!important;
     background:#eef2f4!important;
     color:#68747d!important;
   }
-  #taskDetailDrawer .r10-material-type .r10-svg{
+  #taskDetailDrawer .r10-material-fileicon .r10-svg{
     width:18px!important;
     height:18px!important;
     stroke-width:1.75!important;
   }
-  #taskDetailDrawer .r10-material-row.type-pdf .r10-material-type{
+  #taskDetailDrawer .r10-material-item.type-pdf .r10-material-fileicon{
     background:#fff0f1!important;
     color:#ef3f4d!important;
   }
-  #taskDetailDrawer .r10-material-row.type-archive .r10-material-type{
+  #taskDetailDrawer .r10-material-item.type-archive .r10-material-fileicon{
     background:#fff2df!important;
     color:#e68a1f!important;
   }
-  #taskDetailDrawer .r10-material-row.type-image .r10-material-type{
+  #taskDetailDrawer .r10-material-item.type-image .r10-material-fileicon{
     background:#edf3ff!important;
     color:#3d73de!important;
   }
-  #taskDetailDrawer .r10-material-name{
-    grid-column:2!important;
-    grid-row:1!important;
-    align-self:end!important;
+
+  #taskDetailDrawer .r10-material-copy{
+    min-width:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:3px!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-material-copy>strong{
     min-width:0!important;
     margin:0!important;
     color:#20272d!important;
-    font-size:12.5px!important;
+    font-size:14px!important;
     font-weight:650!important;
     line-height:1.18!important;
+    white-space:nowrap!important;
     overflow:hidden!important;
     text-overflow:ellipsis!important;
-    white-space:nowrap!important;
   }
-  #taskDetailDrawer .r10-material-meta{
-    grid-column:2!important;
-    grid-row:2!important;
-    align-self:start!important;
+  #taskDetailDrawer .r10-material-copy>small{
     margin:0!important;
     color:#7f8991!important;
-    font-size:10.5px!important;
+    font-size:12px!important;
     font-weight:450!important;
     line-height:1.2!important;
+    white-space:nowrap!important;
   }
   #taskDetailDrawer .r10-material-action{
-    grid-column:3!important;
-    grid-row:1 / 3!important;
-    align-self:center!important;
-    width:30px!important;
-    height:30px!important;
+    width:32px!important;
+    height:32px!important;
     display:grid!important;
     place-items:center!important;
     margin:0!important;
@@ -1274,25 +1260,19 @@
     border:0!important;
     border-radius:8px!important;
     background:transparent!important;
-    color:#68747d!important;
+    color:#66727b!important;
     cursor:pointer!important;
     text-decoration:none!important;
   }
+  #taskDetailDrawer .r10-material-action:hover{
+    background:#f4f6f7!important;
+  }
   #taskDetailDrawer .r10-material-action .r10-svg{
-    width:17px!important;
-    height:17px!important;
-    stroke-width:1.8!important;
+    width:18px!important;
+    height:18px!important;
+    stroke-width:1.85!important;
   }
-  #taskDetailDrawer .r10-material-remove{
-    opacity:.45!important;
-  }
-  #taskDetailDrawer .r10-material-row:hover .r10-material-remove{
-    opacity:1!important;
-    background:#f5f7f8!important;
-  }
-  #taskDetailDrawer .r10-material-download+.r10-material-remove{
-    display:none!important;
-  }
+
   #taskDetailDrawer .r10-material-empty{
     box-sizing:border-box!important;
     min-height:62px!important;
@@ -1321,12 +1301,12 @@
   }
   #taskDetailDrawer .r10-material-empty b{
     color:#343d44!important;
-    font-size:11.5px!important;
+    font-size:12px!important;
     font-weight:650!important;
   }
   #taskDetailDrawer .r10-material-empty small{
     color:#8b949b!important;
-    font-size:9.5px!important;
+    font-size:10px!important;
   }
   `;
   document.head.appendChild(r10FlowStyle);
