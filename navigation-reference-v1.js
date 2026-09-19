@@ -216,17 +216,28 @@
       brand.className='ref2-workspace-select';
       workspace.style.setProperty('position','relative','important');
       workspace.style.setProperty('overflow','hidden','important');
-      Object.assign(brand.style,{
-        position:'absolute',
-        inset:'0',
-        width:'100%',
-        height:'100%',
-        margin:'0',
-        padding:'0',
-        opacity:'0',
-        cursor:'pointer',
-        zIndex:'6'
-      });
+      brand.style.setProperty('position','absolute','important');
+      brand.style.setProperty('inset','0','important');
+      brand.style.setProperty('left','0','important');
+      brand.style.setProperty('top','0','important');
+      brand.style.setProperty('right','0','important');
+      brand.style.setProperty('bottom','0','important');
+      brand.style.setProperty('width','100%','important');
+      brand.style.setProperty('height','100%','important');
+      brand.style.setProperty('min-width','0','important');
+      brand.style.setProperty('min-height','0','important');
+      brand.style.setProperty('margin','0','important');
+      brand.style.setProperty('padding','0','important');
+      brand.style.setProperty('opacity','0','important');
+      brand.style.setProperty('visibility','visible','important');
+      brand.style.setProperty('cursor','pointer','important');
+      brand.style.setProperty('z-index','6','important');
+      brand.style.setProperty('border','0','important');
+      brand.style.setProperty('border-radius','0','important');
+      brand.style.setProperty('background','transparent','important');
+      brand.style.setProperty('box-shadow','none','important');
+      brand.style.setProperty('color','transparent','important');
+      brand.style.setProperty('transform','none','important');
       brand.style.setProperty('appearance','auto','important');
       brand.style.setProperty('-webkit-appearance','menulist','important');
       workspace.appendChild(brand);
@@ -257,7 +268,23 @@
     profile.addEventListener('click',()=>toast('Vitor Gutierrez'));
     actions.append(bell,profile);
 
-    toolbar.append(searchWrap,actions);
+    // The topbar must contain ONLY search + actions. If any legacy code
+    // tries to put the old brand selector back here, move the live selector
+    // to the sidebar workspace and discard the legacy wrapper.
+    toolbar.replaceChildren(searchWrap,actions);
+    const allowedToolbarChildren=new Set([searchWrap,actions]);
+    const sanitizeToolbar=()=>{
+      [...toolbar.children].forEach(child=>{
+        if(allowedToolbarChildren.has(child))return;
+        const nestedBrand=child.matches?.('#brandSelect')?child:child.querySelector?.('#brandSelect');
+        if(nestedBrand===brand && brand.parentElement!==workspace)workspace.appendChild(brand);
+        child.remove();
+      });
+      if(brand && toolbar.contains(brand) && brand.parentElement!==workspace)workspace.appendChild(brand);
+    };
+    sanitizeToolbar();
+    const toolbarObserver=new MutationObserver(sanitizeToolbar);
+    toolbarObserver.observe(toolbar,{childList:true});
 
     // Canonical desktop toolbar geometry.
     // Brand selection lives in the sidebar workspace card; search now owns
@@ -270,7 +297,8 @@
       const desiredSearchActionsGap=24;
 
       setImportant(toolbar,'display','block');
-      setImportant(toolbar,'position','relative');
+      setImportant(toolbar,'position','sticky');
+      setImportant(toolbar,'top','12px');
       setImportant(toolbar,'padding','0');
       setImportant(toolbar,'height','66px');
       setImportant(toolbar,'min-height','66px');
