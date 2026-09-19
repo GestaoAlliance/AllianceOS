@@ -41,7 +41,7 @@
       flame:'<path d="M13.5 3.5c.3 3-1.7 4.2-3.2 5.8-1.5 1.6-2.2 3-1.2 5.1.5-1.4 1.5-2.2 2.5-3 .2 2.2 1 3.3 2.2 4.4 1.4 1.2 1.8 3.1.8 4.7 3-.9 5.1-3.6 5.1-6.8 0-4.1-2.8-7.8-6.2-10.2Z"/><path d="M9.7 20.5c-2.5-.8-4.2-3-4.2-5.8 0-2.4 1.1-4.3 2.8-5.9-.2 2.3.6 3.4 1.9 4.5-1 1.3-1.4 2.9-.5 4.3.5.8 1.1 1.5 2 2.2-.6.4-1.2.6-2 .7Z"/>',
       whatsappBrand:'<circle cx="12" cy="12" r="9" fill="#22c86a" stroke="none"/><path d="M8.4 8.7c.7 3 2.8 5.2 5.8 5.9l1.5-1.5 2.1.8-.8 2.2c-.2.7-.8 1.1-1.6 1.1-4.8-.2-8.5-3.9-8.7-8.7 0-.7.4-1.3 1.1-1.6l2.2-.8.8 2.1-1.5 1.5Z" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
       folderSolid:'<path d="M3.8 7.5h6.1l1.8 2H20v8.7a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.2V7.5Z" fill="currentColor" stroke="none"/><path d="M4 7.8V5.9A1.9 1.9 0 0 1 5.9 4h4l1.8 2H18" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>',
-      priorityMark:'<path d="m12 3.8 2.15 1.05 2.38.18 1.04 2.16 1.8 1.57-.52 2.34.52 2.34-1.8 1.57-1.04 2.16-2.38.18L12 20.2l-2.15-1.05-2.38-.18-1.04-2.16-1.8-1.57.52-2.34-.52-2.34 1.8-1.57 1.04-2.16 2.38-.18L12 3.8Z" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.55" fill="#fff" stroke="none"/>',
+      priorityMark:'<circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"/>',
       objectiveTarget:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2v2M22 12h-2M12 22v-2M2 12h2"/>',
       paperclip:'<path d="m8.5 12.5 6.2-6.2a3.1 3.1 0 0 1 4.4 4.4l-7.6 7.6a5 5 0 0 1-7.1-7.1l7.2-7.2"/><path d="m10.2 10.8-4.1 4.1a2.3 2.3 0 1 0 3.3 3.3l7.1-7.1"/>',
       fileText:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/>',
@@ -794,9 +794,9 @@
   #taskDetailDrawer .r10-head-chip.campaign .r10-head-chip-icon .r10-svg,
   #taskDetailDrawer .r10-head-chip.priority .r10-head-chip-icon .r10-svg{
     display:block!important;
-    width:17px!important;
-    height:17px!important;
-    min-width:17px!important;
+    width:12px!important;
+    height:12px!important;
+    min-width:12px!important;
     margin:0!important;
     padding:0!important;
   }
