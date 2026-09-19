@@ -43,6 +43,11 @@
   #taskDetailDrawer .r10-task-head{padding:0 2px 16px!important}
   #taskDetailDrawer .r10-kicker{display:inline-flex!important;align-items:center!important;gap:5px!important;margin-bottom:8px!important;color:#8a939b!important;font-size:8px!important;font-weight:700!important;text-transform:uppercase!important;letter-spacing:.04em!important}
   #taskDetailDrawer .r10-title{margin:0!important;font-size:28px!important;line-height:1.08!important;font-weight:790!important;letter-spacing:-.045em!important;color:#111519!important}
+  #taskDetailDrawer .r10-title-input{display:block!important;width:100%!important;margin:0!important;padding:0!important;border:0!important;outline:0!important;background:transparent!important;color:#111519!important;font:790 28px/1.08 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:-.045em!important;box-shadow:none!important}
+  #taskDetailDrawer .r10-title-input:focus{box-shadow:inset 0 -2px 0 #b9c1c7!important}
+  #taskDetailDrawer .r10-save-slot{display:inline-flex!important;align-items:center!important}
+  #taskDetailDrawer .r10-save-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;height:38px!important;min-width:118px!important;padding:0 14px!important;border:1px solid #171b1e!important;border-radius:10px!important;background:#171b1e!important;color:#fff!important;font-size:10px!important;font-weight:760!important;cursor:pointer!important;opacity:1!important;pointer-events:auto!important}
+  #taskDetailDrawer .r10-save-btn:hover{background:#2a3035!important;border-color:#2a3035!important}
   #taskDetailDrawer .r10-subtitle{margin:8px 0 0!important;color:#78828a!important;font-size:12px!important;line-height:1.45!important}
   #taskDetailDrawer .r10-pills{display:flex!important;flex-wrap:wrap!important;gap:7px!important;margin-top:12px!important}
   #taskDetailDrawer .r10-pill{display:inline-flex!important;align-items:center!important;gap:5px!important;padding:5px 8px!important;border:1px solid #dfe5e9!important;border-radius:8px!important;background:#fff!important;color:#4e5961!important;font-size:9px!important;font-weight:620!important}

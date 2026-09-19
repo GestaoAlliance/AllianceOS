@@ -126,6 +126,8 @@
     if(!body||!oldLayout||!oldMain||!oldSide)return;
 
     const campaign=r10CampaignRecord(t);
+    const titleInput=document.getElementById('taskTitleInput');
+    const saveButton=document.getElementById('taskSaveBtn');
     const rows=r10CampaignTasks(t), index=Math.max(0,rows.findIndex(x=>String(x.id)===String(t.id))), prev=rows[index-1], nextTask=rows[index+1];
     const briefing=oldMain.querySelector('.description-area')&&oldMain.querySelector('.description-area').closest('.v3-section');
     if(briefing){const h=briefing.querySelector('.tsection-head strong'),s=briefing.querySelector('.tsection-head span');if(h)h.textContent='Objetivo';if(s)s.textContent='Resultado esperado e orientação para execução'}
@@ -142,7 +144,21 @@
     const workspace=document.createElement('div');workspace.className='r10-workspace';workspace.insertAdjacentHTML('beforeend',r10FlowHtml(t,rows));
 
     const center=document.createElement('main');center.className='r10-main';
-    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back>←</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more>•••</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev>‹</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next>›</button></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><h1 class="r10-title">'+r10Esc(t.title||'Tarefa')+'</h1><p class="r10-subtitle">'+(t.campaignId?'Execução vinculada à campanha '+r10Esc(campaign?.name||t.project||'Campanha')+'.':'Tarefa avulsa, sem campanha vinculada.')+'</p><div class="r10-pills"><span class="r10-pill">'+r10Esc(t.brand||'Marca')+'</span><span class="r10-pill">'+r10Esc(t.campaignId?(campaign?.name||t.project||'Campanha'):'Tarefa avulsa')+'</span><span class="r10-pill priority">'+r10Esc(r10Priority(t))+'</span></div></header><div class="r10-center-stack"></div>';
+    center.innerHTML='<div class="r10-main-top"><button type="button" class="r10-icon-btn" data-r10-back>←</button><div class="r10-main-nav"><button type="button" class="r10-icon-btn" data-r10-more>•••</button><button type="button" class="r10-icon-btn" '+(prev?'':'disabled')+' data-r10-prev>‹</button><span class="r10-counter">'+(index+1)+' de '+Math.max(rows.length,1)+'</span><button type="button" class="r10-icon-btn" '+(nextTask?'':'disabled')+' data-r10-next>›</button><span class="r10-save-slot"></span></div></div><header class="r10-task-head"><span class="r10-kicker">'+r10Icon('task')+'<span>TAREFA</span></span><div class="r10-title-slot"></div><p class="r10-subtitle">'+(t.campaignId?'Execução vinculada à campanha '+r10Esc(campaign?.name||t.project||'Campanha')+'.':'Tarefa avulsa, sem campanha vinculada.')+'</p><div class="r10-pills"><span class="r10-pill">'+r10Esc(t.brand||'Marca')+'</span><span class="r10-pill">'+r10Esc(t.campaignId?(campaign?.name||t.project||'Campanha'):'Tarefa avulsa')+'</span><span class="r10-pill priority">'+r10Esc(r10Priority(t))+'</span></div></header><div class="r10-center-stack"></div>';
+    const titleSlot=center.querySelector('.r10-title-slot');
+    if(titleInput&&titleSlot){
+      titleInput.classList.add('r10-title-input');
+      titleInput.setAttribute('placeholder','Nome da tarefa');
+      titleSlot.appendChild(titleInput);
+    }else if(titleSlot){
+      titleSlot.innerHTML='<h1 class="r10-title">'+r10Esc(t.title||'Tarefa')+'</h1>';
+    }
+    const saveSlot=center.querySelector('.r10-save-slot');
+    if(saveButton&&saveSlot){
+      saveButton.classList.add('r10-save-btn');
+      saveButton.textContent='Salvar alterações';
+      saveSlot.appendChild(saveButton);
+    }
     const centerStack=center.querySelector('.r10-center-stack');[briefing,incoming,attachments,conferenceSection,delivery,simpleAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
