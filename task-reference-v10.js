@@ -371,6 +371,47 @@
     }
     const incoming=oldMain.querySelector('.v5-incoming-section'), delivery=oldMain.querySelector('.v5-delivery-section');
     const conferenceSection=oldMain.querySelector('#detailChecklist')&&oldMain.querySelector('#detailChecklist').closest('.v3-section');
+
+    if(incoming){
+      incoming.classList.add('r10-incoming-card');
+      const incomingHead=incoming.querySelector('.tsection-head');
+      const incomingItems=[...incoming.querySelectorAll('.v5-material')];
+      const incomingCount=incomingItems.length;
+
+      if(incomingHead){
+        incomingHead.innerHTML='<span class="r10-incoming-heading"><span class="r10-section-icon r10-incoming-icon">'+r10Icon('folderSolid')+'</span><span class="r10-incoming-copy"><strong>Materiais recebidos</strong><small>Das etapas anteriores</small></span></span><span class="r10-material-count">'+incomingCount+' '+(incomingCount===1?'item':'itens')+'</span>';
+      }
+
+      incoming.querySelectorAll('.v5-delivery-card').forEach(card=>card.classList.add('r10-incoming-source-card'));
+
+      incomingItems.forEach(item=>{
+        item.classList.add('r10-delivery-sent-item');
+        const nameEl=item.querySelector('b');
+        const metaEl=item.querySelector('small');
+        const lead=item.querySelector('.v5-material-icon');
+        const kind=String(item.dataset.v5Kind||'file');
+        item.classList.add('type-'+kind);
+
+        if(lead){
+          lead.className='r10-delivery-sent-icon';
+          const iconName=kind==='link'?'link':kind==='text'?'document':kind==='image'?'image':kind==='video'?'videoMedia':kind==='audio'?'audioMedia':kind==='archive'?'archiveFile':'fileText';
+          lead.innerHTML=r10Icon(iconName);
+        }
+        if(nameEl)nameEl.classList.add('r10-delivery-sent-name');
+        if(metaEl)metaEl.classList.add('r10-delivery-sent-meta');
+
+        const actions=item.querySelector('.v5-material-actions');
+        if(actions){
+          actions.classList.add('r10-delivery-sent-actions');
+          actions.querySelectorAll('a,button').forEach(action=>{
+            action.classList.add('r10-delivery-sent-action');
+            if(action.hasAttribute('data-v5-delivery-download'))action.innerHTML=r10Icon('download');
+            else if(action.hasAttribute('data-v5-open-link'))action.innerHTML=r10Icon('arrowUpRight');
+          });
+        }
+      });
+    }
+
     if(delivery){
       delivery.classList.add('r10-delivery-card');
       const head=delivery.querySelector('.tsection-head');
@@ -1585,6 +1626,114 @@
     display:none!important;
   }
 
+  /* Incoming materials — same family as materials/inputs */
+  #taskDetailDrawer .r10-main .r10-incoming-card{
+    margin-top:16px!important;
+    padding:0 0 18px!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:16px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-main .r10-incoming-card>.tsection-head{
+    box-sizing:border-box!important;
+    min-height:70px!important;
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:12px!important;
+    padding:15px 18px 10px!important;
+    border:0!important;
+    background:#fff!important;
+  }
+  #taskDetailDrawer .r10-incoming-heading{
+    min-width:0!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:13px!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  #taskDetailDrawer .r10-incoming-icon{
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    flex:0 0 40px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:0!important;
+    border-radius:11px!important;
+    background:#edf0f2!important;
+    color:#7f8a92!important;
+  }
+  #taskDetailDrawer .r10-incoming-icon .r10-svg{
+    display:block!important;
+    width:21px!important;
+    height:21px!important;
+    min-width:21px!important;
+    margin:0!important;
+    padding:0!important;
+    color:#7f8a92!important;
+    stroke-width:1.65!important;
+  }
+  #taskDetailDrawer .r10-incoming-copy{
+    min-width:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:3px!important;
+  }
+  #taskDetailDrawer .r10-incoming-copy>strong{
+    margin:0!important;
+    color:#12171b!important;
+    font-size:17px!important;
+    font-weight:720!important;
+    line-height:1.15!important;
+    letter-spacing:-.022em!important;
+  }
+  #taskDetailDrawer .r10-incoming-copy>small{
+    margin:0!important;
+    color:#8b959d!important;
+    font-size:10.5px!important;
+    font-weight:450!important;
+    line-height:1.25!important;
+  }
+  #taskDetailDrawer .r10-incoming-card>.v5-delivery-list{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:10px!important;
+    margin:0 18px!important;
+    padding:0!important;
+  }
+  #taskDetailDrawer .r10-incoming-source-card{
+    margin:0!important;
+    padding:12px!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:13px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+  }
+  #taskDetailDrawer .r10-incoming-source-card .v5-delivery-card-head{
+    margin-bottom:10px!important;
+  }
+  #taskDetailDrawer .r10-incoming-source-card .v5-delivery-card-head strong{
+    color:#303a42!important;
+    font-size:12.5px!important;
+    font-weight:650!important;
+    line-height:1.25!important;
+  }
+  #taskDetailDrawer .r10-incoming-source-card .v5-delivery-card-head span{
+    color:#8a949c!important;
+    font-size:10.5px!important;
+  }
+  #taskDetailDrawer .r10-incoming-source-card .v5-materials{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:8px!important;
+  }
+
   /* Delivery — reference layout */
   #taskDetailDrawer .r10-main .r10-delivery-card{
     margin-top:16px!important;
@@ -1986,7 +2135,8 @@
     flex-direction:column!important;
     gap:8px!important;
   }
-  #taskDetailDrawer .r10-delivery-card .r10-delivery-sent-item{
+  #taskDetailDrawer .r10-delivery-card .r10-delivery-sent-item,
+  #taskDetailDrawer .r10-incoming-card .r10-delivery-sent-item{
     box-sizing:border-box!important;
     min-height:60px!important;
     width:100%!important;
@@ -2031,17 +2181,38 @@
     grid-column:2!important;grid-row:2!important;align-self:start!important;min-width:0!important;margin:0!important;color:#7f8991!important;font-size:12px!important;font-weight:450!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important
   }
   #taskDetailDrawer .r10-delivery-sent-actions{
-    grid-column:3!important;grid-row:1 / 3!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;align-self:center!important
+    grid-column:3!important;
+    grid-row:1 / 3!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:8px!important;
+    align-self:center!important;
+    padding-left:6px!important;
   }
   #taskDetailDrawer .r10-delivery-sent-action{
-    box-sizing:border-box!important;width:31px!important;height:31px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#66727b!important;cursor:pointer!important;text-decoration:none!important
+    box-sizing:border-box!important;
+    width:34px!important;
+    height:34px!important;
+    min-width:34px!important;
+    flex:0 0 34px!important;
+    display:grid!important;
+    place-items:center!important;
+    margin:0!important;
+    padding:0!important;
+    border:1px solid transparent!important;
+    border-radius:9px!important;
+    background:transparent!important;
+    color:#66727b!important;
+    cursor:pointer!important;
+    text-decoration:none!important;
   }
   #taskDetailDrawer .r10-delivery-sent-action:hover{background:#f4f6f7!important}
   #taskDetailDrawer .r10-delivery-sent-action.is-delete:hover{background:#fff1f2!important;color:#df4452!important}
   #taskDetailDrawer .r10-delivery-sent-action .r10-svg{width:17px!important;height:17px!important;stroke-width:1.8!important}
-  #taskDetailDrawer .r10-delivery-card-head-actions{display:flex!important;align-items:center!important;gap:7px!important}
+  #taskDetailDrawer .r10-delivery-card-head-actions{display:flex!important;align-items:center!important;gap:10px!important}
   #taskDetailDrawer .r10-delivery-delete{
-    box-sizing:border-box!important;width:28px!important;height:28px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#8a949b!important;cursor:pointer!important
+    box-sizing:border-box!important;width:34px!important;height:34px!important;display:grid!important;place-items:center!important;margin:0!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#8a949b!important;cursor:pointer!important
   }
   #taskDetailDrawer .r10-delivery-delete:hover{background:#fff1f2!important;color:#df4452!important}
   #taskDetailDrawer .r10-delivery-delete .r10-svg{width:15px!important;height:15px!important;stroke-width:1.8!important}
