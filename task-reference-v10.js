@@ -736,7 +736,8 @@
       const status=r10Status(x);
       const tone=status==='Concluída'?'done':status==='Bloqueada'?'blocked':relation==='before'?'waiting':'ready';
       const icon=tone==='done'?r10Icon('done'):(tone==='blocked'||tone==='waiting')?r10Icon('hourglass'):r10Icon('next');
-      return '<button type="button" class="r10-dep-row '+tone+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-icon">'+icon+'</span><span class="r10-dep-copy"><b>'+r10Esc(x.title)+'</b><span class="r10-dep-status '+tone+'">'+r10Esc(status)+'</span></span></button>';
+      const statusIcon=tone==='done'?'<span class="r10-dep-status-icon">'+r10Icon('done')+'</span>':'';
+      return '<button type="button" class="r10-dep-row '+tone+'" data-r10-task="'+r10Esc(x.id)+'"><span class="r10-dep-icon">'+icon+'</span><span class="r10-dep-copy"><b>'+r10Esc(x.title)+'</b><span class="r10-dep-status '+tone+'">'+statusIcon+'<span class="r10-dep-status-text">'+r10Esc(status)+'</span></span></span></button>';
     };
     let depHtml='';
     if(deps.length)depHtml+='<div class="r10-dep-group"><span class="r10-dep-label">Depende de</span><div class="r10-dep-list">'+deps.map(x=>dependencyRow(x,'before')).join('')+'</div></div>';
@@ -754,6 +755,7 @@
       const cc=card.querySelector('.r10-side-card-body');
       const add=comments.querySelector('.v3-comment-add');
       const list=comments.querySelector('#commentList');
+      const history=comments.querySelector('.v3-history');
       if(list){
         list.querySelectorAll('.comment').forEach(row=>{
           const nameEl=row.querySelector('.comment-body>b');
@@ -779,7 +781,7 @@
           });
         }
       }
-      [add,list].filter(Boolean).forEach(x=>cc.appendChild(x));
+      [add,list,history].filter(Boolean).forEach(x=>cc.appendChild(x));
       stack.appendChild(card);
     }
     workspace.appendChild(side);oldLayout.replaceWith(workspace);

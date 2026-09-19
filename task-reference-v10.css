@@ -2393,3 +2393,192 @@
   color:#657783!important;
   letter-spacing:1px!important;
 }
+
+
+/* ===== Task Reference V19 · alinhamento + status concluído + histórico ===== */
+#taskDetailDrawer .r10-dependencies-card>.r10-side-card-body{
+  padding:5px 14px 16px!important;
+}
+
+#taskDetailDrawer .r10-dep-group{
+  grid-template-columns:76px minmax(0,1fr)!important;
+  column-gap:10px!important;
+  align-items:center!important;
+  padding:4px 0!important;
+}
+
+#taskDetailDrawer .r10-dep-label{
+  box-sizing:border-box!important;
+  min-height:62px!important;
+  display:flex!important;
+  align-items:center!important;
+  padding:0!important;
+  margin:0!important;
+  color:#66727b!important;
+  font-size:9.5px!important;
+  font-weight:540!important;
+  line-height:1.2!important;
+}
+
+#taskDetailDrawer .r10-dep-list{
+  width:100%!important;
+  min-width:0!important;
+}
+
+#taskDetailDrawer .r10-dep-row{
+  min-height:62px!important;
+  grid-template-columns:30px minmax(0,1fr)!important;
+  column-gap:10px!important;
+  align-items:center!important;
+  padding:10px 11px!important;
+  margin:0!important;
+  border:1px solid #dfe4e8!important;
+  border-radius:10px!important;
+  background:#fff!important;
+}
+
+#taskDetailDrawer .r10-dep-icon{
+  align-self:center!important;
+  justify-self:start!important;
+  width:28px!important;
+  height:28px!important;
+  min-width:28px!important;
+  margin:0!important;
+}
+
+#taskDetailDrawer .r10-dep-copy{
+  min-height:40px!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  gap:5px!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+#taskDetailDrawer .r10-dep-copy>b{
+  width:100%!important;
+  margin:0!important;
+  color:#293239!important;
+  font-size:10.5px!important;
+  font-weight:620!important;
+  line-height:1.18!important;
+}
+
+#taskDetailDrawer .r10-dep-status{
+  width:auto!important;
+  min-width:0!important;
+  min-height:18px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:4px!important;
+  margin:0!important;
+  padding:2px 7px!important;
+  border-radius:999px!important;
+  font-size:8.5px!important;
+  font-weight:620!important;
+  line-height:1!important;
+}
+
+#taskDetailDrawer .r10-dep-status::before{
+  display:none!important;
+  content:none!important;
+}
+
+#taskDetailDrawer .r10-dep-status.done{
+  background:#e8f6ed!important;
+  color:#3ca664!important;
+}
+
+#taskDetailDrawer .r10-dep-status-icon{
+  box-sizing:border-box!important;
+  width:10px!important;
+  height:10px!important;
+  min-width:10px!important;
+  display:grid!important;
+  place-items:center!important;
+  margin:0!important;
+  border:1px solid currentColor!important;
+  border-radius:50%!important;
+  color:#3ca664!important;
+}
+
+#taskDetailDrawer .r10-dep-status-icon .r10-svg{
+  width:7px!important;
+  height:7px!important;
+  min-width:7px!important;
+  margin:0!important;
+  stroke-width:2.4!important;
+}
+
+#taskDetailDrawer .r10-dep-status-text{
+  display:inline!important;
+  margin:0!important;
+  padding:0!important;
+  color:inherit!important;
+  font:inherit!important;
+  line-height:1!important;
+}
+
+#taskDetailDrawer .r10-observations-card .v3-history{
+  box-sizing:border-box!important;
+  width:100%!important;
+  display:block!important;
+  margin:8px 0 0!important;
+  padding:11px 0 0!important;
+  border-top:1px solid #eef1f3!important;
+  background:transparent!important;
+}
+
+#taskDetailDrawer .r10-observations-card .v3-history::before{
+  content:"Histórico"!important;
+  display:block!important;
+  margin:0 0 6px!important;
+  color:#7d8890!important;
+  font-size:8.5px!important;
+  font-weight:650!important;
+  line-height:1.2!important;
+  letter-spacing:.01em!important;
+}
+
+#taskDetailDrawer .r10-observations-card .activity{
+  box-sizing:border-box!important;
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:52px minmax(0,1fr)!important;
+  column-gap:8px!important;
+  align-items:start!important;
+  margin:0!important;
+  padding:6px 0!important;
+  border:0!important;
+  background:transparent!important;
+}
+
+#taskDetailDrawer .r10-observations-card .activity>b{
+  margin:0!important;
+  padding:1px 0 0!important;
+  color:#97a0a7!important;
+  font-size:8px!important;
+  font-weight:520!important;
+  line-height:1.3!important;
+}
+
+#taskDetailDrawer .r10-observations-card .activity>p{
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+  color:#606b73!important;
+  font-size:9px!important;
+  font-weight:450!important;
+  line-height:1.4!important;
+  overflow-wrap:anywhere!important;
+}
+
+@media (max-width:1120px){
+  #taskDetailDrawer .r10-dep-group{
+    grid-template-columns:66px minmax(0,1fr)!important;
+  }
+}
