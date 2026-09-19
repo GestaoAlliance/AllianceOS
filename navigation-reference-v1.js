@@ -192,8 +192,9 @@
     setActive(initial);
 
     const space=document.createElement('div');space.className='ref2-sidebar-space';
-    const workspace=document.createElement('button');workspace.type='button';workspace.className='ref2-workspace';
-    workspace.innerHTML='<span class="ref2-workspace-icon">♛</span><span class="ref2-workspace-copy"><strong>Botanika</strong><span>6 membros</span></span><span class="ref2-workspace-arrow">›</span>';
+    const workspace=document.createElement('div');workspace.className='ref2-workspace';
+    workspace.setAttribute('aria-label','Selecionar marca');
+    workspace.innerHTML='<span class="ref2-workspace-icon">♛</span><span class="ref2-workspace-copy"><strong>Botanika</strong><span>6 membros</span></span><span class="ref2-workspace-arrow">⌄</span>';
 
     sidebar.prepend(head);
     head.insertAdjacentElement('afterend',nav);
@@ -210,24 +211,33 @@
     const topLogo=document.createElement('div');topLogo.className='ref2-top-logo';
     topLogo.innerHTML='<div class="ref2-top-logo-icon">✱</div><div class="ref2-top-logo-name">AllianceOS</div>';
 
-    const brandWrap=document.createElement('div');brandWrap.className='ref2-brand-wrap tone-default';
-    const brandTone=value=>{
-      const n=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-      return n.includes('botanika')?'botanika':n.includes('revita')?'revita':n.includes('verme')?'vermefree':n.includes('shoty')?'shoty':'default';
-    };
     if(brand){
       ensureBrands(brand);
-      brand.className='ref2-brand-select';
-      brandWrap.appendChild(brand);
+      brand.className='ref2-workspace-select';
+      workspace.style.setProperty('position','relative','important');
+      workspace.style.setProperty('overflow','hidden','important');
+      Object.assign(brand.style,{
+        position:'absolute',
+        inset:'0',
+        width:'100%',
+        height:'100%',
+        margin:'0',
+        padding:'0',
+        opacity:'0',
+        cursor:'pointer',
+        zIndex:'6'
+      });
+      brand.style.setProperty('appearance','auto','important');
+      brand.style.setProperty('-webkit-appearance','menulist','important');
+      workspace.appendChild(brand);
       const syncWorkspace=()=>{
         const value=brand.value;
         const displayValue=/todas/i.test(value)?'Todas as marcas':value;
         const s=q('.ref2-workspace-copy strong');if(s)s.textContent=displayValue;
-        brandWrap.className='ref2-brand-wrap';
-        brand.className='ref2-brand-select tone-'+brandTone(value);
+        workspace.dataset.brand=String(value||'');
+        workspace.setAttribute('aria-label','Marca atual: '+displayValue+'. Clique para trocar.');
       };
       brand.addEventListener('change',syncWorkspace);syncWorkspace();
-      workspace.addEventListener('click',()=>brand.focus());
     }
 
     const searchWrap=document.createElement('label');searchWrap.className='ref2-search';
@@ -247,18 +257,16 @@
     profile.addEventListener('click',()=>toast('Vitor Gutierrez'));
     actions.append(bell,profile);
 
-    toolbar.append(brandWrap,searchWrap,actions);
+    toolbar.append(searchWrap,actions);
 
     // Canonical desktop toolbar geometry.
-    // Keep the selector aligned with the profile's right inset, remove the
-    // selector/search gap, and reserve a stable breathing space before actions.
+    // Brand selection lives in the sidebar workspace card; search now owns
+    // the full available toolbar width up to the notification/profile actions.
     const setImportant=(el,prop,value)=>el?.style.setProperty(prop,value,'important');
     const alignToolbar=()=>{
       if(window.innerWidth<901)return;
 
       const inset=12;
-      const brandWidth=180;
-      const selectorSearchGap=0;
       const desiredSearchActionsGap=24;
 
       setImportant(toolbar,'display','block');
@@ -268,30 +276,6 @@
       setImportant(toolbar,'min-height','66px');
       setImportant(toolbar,'overflow','visible');
 
-      setImportant(brandWrap,'position','absolute');
-      setImportant(brandWrap,'left',inset+'px');
-      setImportant(brandWrap,'top','50%');
-      setImportant(brandWrap,'transform','translateY(-50%)');
-      setImportant(brandWrap,'width',brandWidth+'px');
-      setImportant(brandWrap,'min-width',brandWidth+'px');
-      setImportant(brandWrap,'max-width',brandWidth+'px');
-      setImportant(brandWrap,'height','46px');
-      setImportant(brandWrap,'margin','0');
-      setImportant(brandWrap,'padding','0');
-
-      if(brand){
-        setImportant(brand,'position','absolute');
-        setImportant(brand,'inset','0');
-        setImportant(brand,'left','0');
-        setImportant(brand,'top','0');
-        setImportant(brand,'right','0');
-        setImportant(brand,'bottom','0');
-        setImportant(brand,'transform','none');
-        setImportant(brand,'width','100%');
-        setImportant(brand,'height','100%');
-        setImportant(brand,'margin','0');
-      }
-
       setImportant(actions,'position','absolute');
       setImportant(actions,'right',inset+'px');
       setImportant(actions,'top','50%');
@@ -299,7 +283,7 @@
       setImportant(actions,'margin','0');
 
       setImportant(searchWrap,'position','absolute');
-      setImportant(searchWrap,'left',(inset+brandWidth+selectorSearchGap)+'px');
+      setImportant(searchWrap,'left',inset+'px');
       setImportant(searchWrap,'top','50%');
       setImportant(searchWrap,'transform','translateY(-50%)');
       setImportant(searchWrap,'height','46px');
@@ -312,26 +296,24 @@
         const barRect=toolbar.getBoundingClientRect();
         const actionsRect=actions.getBoundingClientRect();
         const rightReserve=Math.max(
-          0,
+          inset,
           Math.round((barRect.right-actionsRect.left)+desiredSearchActionsGap)
         );
         setImportant(searchWrap,'right',rightReserve+'px');
 
         requestAnimationFrame(()=>{
           const bar=toolbar.getBoundingClientRect();
-          const brandRect=(brand||brandWrap).getBoundingClientRect();
           const searchRect=searchWrap.getBoundingClientRect();
           const actionRect=actions.getBoundingClientRect();
           const metrics={
-            leftInset:Math.round(brandRect.left-bar.left),
-            brandSearchGap:Math.round(searchRect.left-brandRect.right),
+            searchLeftInset:Math.round(searchRect.left-bar.left),
             searchActionsGap:Math.round(actionRect.left-searchRect.right),
             rightInset:Math.round(bar.right-actionRect.right)
           };
           window.__allianceToolbarGeometry=metrics;
           toolbar.dataset.layoutVerified=(
-            Math.abs(metrics.leftInset-metrics.rightInset)<=1 &&
-            Math.abs(metrics.brandSearchGap)<=1 &&
+            Math.abs(metrics.searchLeftInset-inset)<=1 &&
+            Math.abs(metrics.rightInset-inset)<=1 &&
             metrics.searchActionsGap>=desiredSearchActionsGap-1
           )?'1':'0';
           if(toolbar.dataset.layoutVerified!=='1')console.warn('[AllianceOS toolbar geometry]',metrics);
