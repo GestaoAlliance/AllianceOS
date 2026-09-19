@@ -33,10 +33,10 @@ function statusCanon(v?: string | null) {
 function priorityCanon(v?: string | null) {
   if (v == null) return undefined
   const n = norm(v)
-  if (['urgente','urgent'].includes(n)) return 'urgent'
-  if (['alta','high'].includes(n)) return 'high'
+  if (['urgente','urgent'].includes(n)) return 'urgente'
+  if (['alta','high'].includes(n)) return 'alta'
   if (['normal','media','média','medium'].includes(n)) return 'normal'
-  if (['baixa','low'].includes(n)) return 'low'
+  if (['baixa','low'].includes(n)) return 'baixa'
   throw new Error('Prioridade inválida. Use: urgente, alta, normal ou baixa.')
 }
 
@@ -60,7 +60,6 @@ function publicTask(t: AnyRow) {
     lista_id: t.listId ?? null,
     lista: t.project ?? 'Operação',
     marca: t.brand ?? null,
-    projeto: t.project ?? 'Operação',
     campanha_id: t.campaignId ?? null,
     responsaveis: Array.isArray(t.assignees) ? t.assignees : [],
     responsaveis_ids: Array.isArray(t.assigneeIds) ? t.assigneeIds : [],
@@ -69,7 +68,7 @@ function publicTask(t: AnyRow) {
     prazo: t.dueAt ?? t.due ?? null,
     prazo_data: t.due ?? (t.dueAt ? String(t.dueAt).slice(0,10) : null),
     prazo_tem_hora: !!t.dueAt,
-    prioridade: t.priority ?? 'normal',
+    prioridade: priorityCanon(t.priority) ?? 'normal',
     tarefa_mae: t.parentTaskId ?? null,
     recorrencia: recurrenceFromTask(t),
     arquivada: !!t.archivedAt,
@@ -147,6 +146,45 @@ async function notifyUsers(supabase: any, who: AnyRow, ids: string[], kind: stri
 }
 
 
+async function sendInviteEmail(supabase:any,emailInput:string) {
+  const email=String(emailInput||'').toLowerCase().trim()
+  const {data:invite,error:readError}=await supabase.from('equipe_convites')
+    .select('email,aceito_em,enviado_em,tentativas_envio')
+    .eq('email',email).maybeSingle()
+  if(readError||!invite) throw new Error('Convite não encontrado para '+email+'.')
+  if(invite.aceito_em) return {status:'aceito',email,aceito_em:invite.aceito_em,enviado_em:invite.enviado_em||null,erro:null}
+
+  const attemptedAt=nowIso()
+  const attempt=Number(invite.tentativas_envio||0)+1
+  const {error:otpError}=await supabase.auth.signInWithOtp({
+    email,
+    options:{emailRedirectTo:APP_URL,shouldCreateUser:true},
+  })
+  const patch:AnyRow={
+    ultimo_envio_em:attemptedAt,
+    tentativas_envio:attempt,
+    envio_status:otpError?'falhou':'enviado',
+    envio_erro:otpError?String(otpError.message||'Falha desconhecida no envio'):null,
+    atualizado_em:attemptedAt,
+  }
+  if(!otpError) patch.enviado_em=attemptedAt
+  const {data:updated,error:updateError}=await supabase.from('equipe_convites')
+    .update(patch).eq('email',email)
+    .select('email,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em')
+    .single()
+  if(updateError) throw new Error('O e-mail foi processado, mas não foi possível registrar o resultado do envio: '+updateError.message)
+  return {
+    status:updated.aceito_em?'aceito':updated.envio_status,
+    email:updated.email,
+    enviado_em:updated.enviado_em||null,
+    ultimo_envio_em:updated.ultimo_envio_em||null,
+    tentativas_envio:Number(updated.tentativas_envio||0),
+    erro:updated.envio_erro||null,
+    aceito_em:updated.aceito_em||null,
+  }
+}
+
+
 async function listBrands(supabase: any) {
   const { data, error } = await supabase.from('brands').select('id,nome,slug,ativo').eq('ativo',true).order('nome')
   if(error) throw new Error('Não foi possível listar marcas: '+error.message)
@@ -201,13 +239,26 @@ async function memberDirectory(supabase:any) {
     readState(supabase,TASKS_KEY),
     supabase.from('legacy_member_links').select('legacy_name,profile_id'),
     supabase.from('profiles').select('id,nome,email,papel,cargo,ativo').eq('ativo',true).order('nome'),
-    supabase.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,aceito_em').order('nome')
+    supabase.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome')
   ])
   if(profilesResult.error) throw new Error('Não foi possível listar membros: '+profilesResult.error.message)
   const profiles=profilesResult.data||[]
+  const invites=invitesResult.data||[]
+  const inviteByEmail=new Map(invites.map((x:AnyRow)=>[norm(x.email),x]))
   const links=linksResult.data||[]
   const linked=new Set(links.map((x:AnyRow)=>norm(x.legacy_name)))
-  const rows:AnyRow[]=profiles.map((p:AnyRow)=>({id:String(p.id),nome:p.nome||p.email,email:p.email,papel:p.papel,cargo:p.cargo,tipo:'usuario',atribuivel:true}))
+  const rows:AnyRow[]=profiles.map((p:AnyRow)=>{
+    const c=inviteByEmail.get(norm(p.email))
+    return {
+      id:String(p.id),nome:p.nome||p.email,email:p.email,papel:p.papel,cargo:p.cargo,tipo:'usuario',atribuivel:true,
+      convite_status:c?.aceito_em?'aceito':(c?.envio_status||null),
+      convite_enviado_em:c?.enviado_em||null,
+      convite_ultimo_envio_em:c?.ultimo_envio_em||null,
+      convite_erro:c?.envio_erro||null,
+      convite_aceito_em:c?.aceito_em||null,
+      convite_tentativas:Number(c?.tentativas_envio||0),
+    }
+  })
   const known=new Set(rows.map(r=>norm(r.nome)))
   for(const t of tasks){
     for(const name of Array.isArray(t.assignees)?t.assignees:[]){
@@ -216,10 +267,19 @@ async function memberDirectory(supabase:any) {
       rows.push({id:'nome:'+slug(name),nome:name,email:null,papel:null,cargo:null,tipo:'legado',atribuivel:false})
     }
   }
-  for(const c of invitesResult.data||[]){
+  for(const c of invites){
     if(c.aceito_em) continue
     if(profiles.some((p:AnyRow)=>norm(p.email)===norm(c.email))) continue
-    rows.push({id:'convite:'+String(c.email),nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,tipo:'convite_pendente',atribuivel:false,enviado_em:c.enviado_em||null})
+    rows.push({
+      id:'convite:'+String(c.email),nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,
+      tipo:'convite_pendente',atribuivel:false,
+      convite_status:c.envio_status||'pendente',
+      convite_enviado_em:c.enviado_em||null,
+      convite_ultimo_envio_em:c.ultimo_envio_em||null,
+      convite_erro:c.envio_erro||null,
+      convite_aceito_em:c.aceito_em||null,
+      convite_tentativas:Number(c.tentativas_envio||0),
+    })
   }
   return rows
 }
@@ -520,7 +580,7 @@ const protectedHandler = withOAuthProtectedResource(
       }, async () => toolText({ membros: await memberDirectory(supabase) }))
 
       server.registerTool('convidar_membro', {
-        description: 'Admin: registra convite por e-mail, papel (admin ou membro), cargo e marcas; envia link mágico de acesso.',
+        description: 'Admin: registra o convite e tenta enviar um link mágico. A resposta informa explicitamente enviado, falhou ou aceito.',
         inputSchema: z.object({
           nome:z.string().min(1).max(200),
           email:z.string().email(),
@@ -530,29 +590,43 @@ const protectedHandler = withOAuthProtectedResource(
         }),
       }, async (args:AnyRow) => {
         const who=await requireAdmin(supabase)
+        const email=args.email.toLowerCase().trim()
+        const {data:existingProfile}=await supabase.from('profiles').select('id,nome,email,ativo').eq('email',email).maybeSingle()
+        if(existingProfile?.ativo) throw new Error('Este e-mail já possui um usuário real ativo no AllianceOS.')
         const brandIds:string[]=[]
         for(const input of args.marcas||[]){
           const b=await resolveBrand(supabase,input)
           if(!brandIds.includes(String(b.id))) brandIds.push(String(b.id))
         }
         const {error}=await supabase.from('equipe_convites').upsert({
-          email:args.email.toLowerCase().trim(),
+          email,
           nome:args.nome.trim(),
           cargo:args.cargo||null,
           papel:args.papel,
           marcas:brandIds,
           criado_por:who.id,
-          enviado_em:nowIso(),
+          envio_status:'pendente',
+          envio_erro:null,
+          atualizado_em:nowIso(),
         },{onConflict:'email'})
         if(error) throw new Error('Não foi possível registrar o convite: '+error.message)
-        let status='convite registrado'
-        const {error:otpError}=await supabase.auth.signInWithOtp({
-          email:args.email.toLowerCase().trim(),
-          options:{emailRedirectTo:APP_URL},
-        })
-        if(otpError) status+='; envio de e-mail falhou: '+otpError.message
-        await audit(supabase,who,'convidar_membro','membro',args.email,{nome:args.nome,papel:args.papel,marcas:brandIds})
-        return toolText({convite:{email:args.email,nome:args.nome,papel:args.papel,status}})
+        const envio=await sendInviteEmail(supabase,email)
+        await audit(supabase,who,'convidar_membro','membro',email,{nome:args.nome,papel:args.papel,marcas:brandIds,envio_status:envio.status,envio_erro:envio.erro})
+        return toolText({convite:{email,nome:args.nome,papel:args.papel,...envio}})
+      })
+
+      server.registerTool('reenviar_convite', {
+        description: 'Admin: reenvia o link mágico de um convite pendente e registra sucesso ou falha da tentativa.',
+        inputSchema:z.object({email:z.string().email()}),
+      }, async ({email}:{email:string}) => {
+        const who=await requireAdmin(supabase)
+        const normalized=email.toLowerCase().trim()
+        const {data:invite,error}=await supabase.from('equipe_convites').select('email,nome,aceito_em').eq('email',normalized).maybeSingle()
+        if(error||!invite) throw new Error('Convite não encontrado.')
+        if(invite.aceito_em) throw new Error('Este convite já foi aceito.')
+        const envio=await sendInviteEmail(supabase,normalized)
+        await audit(supabase,who,'reenviar_convite','membro',normalized,{envio_status:envio.status,envio_erro:envio.erro})
+        return toolText({convite:{email:normalized,nome:invite.nome,...envio}})
       })
 
       server.registerTool('migrar_responsavel_legado', {
@@ -1005,7 +1079,7 @@ Deno.serve(async (req: Request) => {
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
       oauth_discovery_status,
-      tools: ['listar_marcas','listar_listas','criar_lista','atualizar_lista','consolidar_lista','listar_membros','convidar_membro','migrar_responsavel_legado','buscar_tarefas','obter_tarefa','criar_tarefa','atualizar_tarefa','definir_dependencia','remover_dependencia','definir_checklist','marcar_item_checklist','registrar_entrega','comentar_tarefa','listar_notificacoes','marcar_notificacao_lida'],
+      tools: ['listar_marcas','listar_listas','criar_lista','atualizar_lista','consolidar_lista','listar_membros','convidar_membro','reenviar_convite','migrar_responsavel_legado','buscar_tarefas','obter_tarefa','criar_tarefa','atualizar_tarefa','definir_dependencia','remover_dependencia','definir_checklist','marcar_item_checklist','registrar_entrega','comentar_tarefa','listar_notificacoes','marcar_notificacao_lida'],
       deletion_tool: false,
     })
   }

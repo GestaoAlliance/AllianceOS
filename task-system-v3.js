@@ -140,6 +140,16 @@
     return [...new Set(out.filter(Boolean))];
   };
 
+  function v3PriorityCanon(v){
+    const n=String(v||'normal').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    if(n==='urgent'||n==='urgente')return 'urgente';
+    if(n==='high'||n==='alta')return 'alta';
+    if(n==='low'||n==='baixa')return 'baixa';
+    return 'normal';
+  }
+  function v3PriorityLabel(v){return {urgente:'Urgente',alta:'Alta',normal:'Normal',baixa:'Baixa'}[v3PriorityCanon(v)]||'Normal';}
+  function v3PriorityClass(v){return {urgente:'urgent',alta:'high',normal:'normal',baixa:'low'}[v3PriorityCanon(v)]||'normal';}
+
   function v3NormalizeTask(t){
     if(!Array.isArray(t.assignees)) t.assignees=[];
     if(!Array.isArray(t.dependencies)) t.dependencies=[];
@@ -158,6 +168,7 @@
     if(t.archivedBy===undefined) t.archivedBy=null;
     if(t.blockedReason===undefined) t.blockedReason=null;
     if(t.status==='revisar'||t.status==='revisão') t.status='em revisão';
+    t.priority=v3PriorityCanon(t.priority);
     if(t.dueAt&&!t.due)t.due=String(t.dueAt).slice(0,10);
     if(!t.project) t.project='Operação';
     return t;
@@ -279,7 +290,7 @@
       if(taskState.onlyMe&&!t.assignees.some(a=>meus.some(m=>v3Short(a)===v3Short(m))))return false;
       if(ass&&!t.assignees.includes(ass))return false;
       if(st&&t.status!==st)return false;
-      if(pr&&t.priority!==pr)return false;
+      if(pr&&t.priority!==v3PriorityCanon(pr))return false;
       if(proj&&t.project!==proj)return false;
       const parent=v3Parent(t);
       const hay=`${t.title} ${t.description||''} ${t.project||''} ${t.assignees.join(' ')} ${parent?.title||''}`.toLowerCase();
@@ -336,7 +347,7 @@
     return `<div class="cu-row ${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
       <div class="cu-row-title"><button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button><div class="cu-titletext"><div class="task-title-line"><b>${esc(t.title)}</b>${v3FlowBadges(t)}</div><small>${esc(t.description||t.project||'Sem descrição')}</small></div></div>
       <div>${avatarStack(t.assignees,t.assigneeIds||[])}</div>
-      <div><span class="pri ${t.priority}">${PRIORITY_LABEL[t.priority]||'Normal'}</span></div>
+      <div><span class="pri ${v3PriorityClass(t.priority)}">${v3PriorityLabel(t.priority)}</span></div>
       <div><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}${isOverdue(t)?' · atrasada':''}</span></div>
       <div><span class="tag-project">${esc(t.project||'Operação')}</span></div>
       <div><span class="brand-label">${esc(t.brand||'')}</span></div>
@@ -355,7 +366,7 @@
   renderBoard = function(canvas,data){
     canvas.innerHTML=`<div class="cu-board">${TASK_STATUSES.map(status=>{
       const rows=data.filter(t=>t.status===status);
-      return `<section class="cu-column" data-v3-drop-status="${status}"><div class="cu-colhead" style="--status-color:${STATUS_COLORS[status]}"><span class="bar"></span><b>${status}</b><span>${rows.length}</span></div>${rows.map(t=>`<article class="cu-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" draggable="true" data-drag-id="${esc(t.id)}" data-task-id="${esc(t.id)}"><div class="cu-card-project">${esc(t.project||'Operação')}</div><div class="cu-card-title">${esc(t.title)}</div><div class="cu-card-flow">${v3FlowBadges(t)}</div><div class="cu-card-foot">${avatarStack(t.assignees,t.assigneeIds||[])}<span class="pri ${t.priority}" title="${PRIORITY_LABEL[t.priority]}"></span><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div></article>`).join('')}</section>`;
+      return `<section class="cu-column" data-v3-drop-status="${status}"><div class="cu-colhead" style="--status-color:${STATUS_COLORS[status]}"><span class="bar"></span><b>${status}</b><span>${rows.length}</span></div>${rows.map(t=>`<article class="cu-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" draggable="true" data-drag-id="${esc(t.id)}" data-task-id="${esc(t.id)}"><div class="cu-card-project">${esc(t.project||'Operação')}</div><div class="cu-card-title">${esc(t.title)}</div><div class="cu-card-flow">${v3FlowBadges(t)}</div><div class="cu-card-foot">${avatarStack(t.assignees,t.assigneeIds||[])}<span class="pri ${v3PriorityClass(t.priority)}" title="${v3PriorityLabel(t.priority)}"></span><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div></article>`).join('')}</section>`;
     }).join('')}</div>`;
     bindTaskElements();bindDrag();
   };
@@ -487,7 +498,7 @@
       <div class="tfield" id="detailBlockedReasonField"><label>Motivo do bloqueio</label><input id="detailBlockedReason" value="${esc(t.blockedReason||'')}" placeholder="Ex.: aguardando terceiro"><small>Obrigatório quando o status é bloqueado.</small></div>
       <div class="tfield"><label>Responsável pela execução</label><select id="detailPrimaryAssignee">${v3AssigneeOptions(t.assignees[0]||'')}</select></div>
       <div class="tfield"><label>Apoio / colaboradores</label><div class="v3-support-list">${t.assignees.slice(1).map(a=>`<span>${esc(v3Short(a))}<button type="button" data-remove-assignee="${esc(a)}">×</button></span>`).join('')||'<small>Ninguém adicionado</small>'}</div><select id="detailAddAssignee"><option value="">+ adicionar colaborador</option>${v3TeamUsers().filter(x=>!t.assignees.includes(x)).map(x=>`<option value="${esc(x)}">${esc(v3Short(x))}</option>`).join('')}</select></div>
-      <div class="tfield"><label>Prioridade</label><select id="detailPriority">${Object.entries(PRIORITY_LABEL).map(([v,l])=>`<option value="${v}" ${v===t.priority?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="tfield"><label>Prioridade</label><select id="detailPriority">${["urgente","alta","normal","baixa"].map(v=>`<option value="${v}" ${v===v3PriorityCanon(t.priority)?'selected':''}>${v3PriorityLabel(v)}</option>`).join('')}</select></div>
       <div class="tfield"><label>Data de início</label><input type="date" id="detailStart" value="${t.start||''}"></div>
       <div class="tfield"><label>Prazo com horário</label><input type="datetime-local" id="detailDue" value="${v3ToLocalInput(t.dueAt,t.due)}"><small>${esc(v3DueLabel(t))}</small></div>
       <div class="tfield"><label>Campanha / planejamento</label>${v3DetailCampaign(t)}<small class="v3-field-help">Lista ligada às campanhas da ${esc(t.brand||'marca')}.</small></div>
@@ -504,7 +515,7 @@
     const get=id=>document.getElementById(id);
     if(get('detailStatus')) t.status=get('detailStatus').value;
     if(get('detailBlockedReason')) t.blockedReason=get('detailBlockedReason').value.trim()||null;
-    if(get('detailPriority')) t.priority=get('detailPriority').value;
+    if(get('detailPriority')) t.priority=v3PriorityCanon(get('detailPriority').value);
     if(get('detailRecurrence')){
       const days=[...document.querySelectorAll('#detailRecurrenceDays input:checked')].map(x=>Number(x.value));
       v3ApplyRecurrence(t,get('detailRecurrence').value,days);
@@ -611,7 +622,7 @@
     form.innerHTML=`<div class="v3-new-head"><div><h2>Nova tarefa</h2><p>Crie uma execução clara, com responsável, prazo e vínculo com o planejamento.</p></div></div><div class="newgrid v3-new-grid">
       <div class="newfield full"><label>Título da tarefa</label><input id="newTitle" required placeholder="Ex.: Criar copy do disparo de sexta"></div>
       <div class="newfield"><label>Responsável pela execução</label><select id="newAssignee"></select></div>
-      <div class="newfield"><label>Prioridade</label><select id="newPriority"><option value="urgent">Urgente</option><option value="high">Alta</option><option value="normal" selected>Normal</option><option value="low">Baixa</option></select></div>
+      <div class="newfield"><label>Prioridade</label><select id="newPriority"><option value="urgente">Urgente</option><option value="alta">Alta</option><option value="normal" selected>Normal</option><option value="baixa">Baixa</option></select></div>
       <div class="newfield"><label>Status inicial</label><select id="newStatus">${TASK_STATUSES.filter(x=>x!=='feito').map(x=>`<option>${x}</option>`).join('')}</select></div>
       <div class="newfield"><label>Data de início</label><input id="newStart" type="date"></div>
       <div class="newfield"><label>Prazo com horário</label><input id="newDue" type="datetime-local"><small>O horário faz parte do prazo.</small></div>
@@ -697,7 +708,7 @@
       id,title,status,blockedReason:status==='bloqueado'?blockedReason:null,assignees:[selectedAssignee].filter(Boolean),assigneeIds:selectedMember?[selectedMember.id]:[],
       due:dueAt?String(dueAt).slice(0,10):null,dueAt,start:document.getElementById('newStart').value||null,
       brand,project:campaign?.name||v3NewPreset.project||'Operação',listId:campaign?.listId||null,campaignId:campaign?._structured?(campaign.campaignId||null):(campaign?.id||v3NewPreset.campaignId||null),
-      priority:document.getElementById('newPriority').value,description:document.getElementById('newDescription').value.trim(),
+      priority:v3PriorityCanon(document.getElementById('newPriority').value),description:document.getElementById('newDescription').value.trim(),
       checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada via interface por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:'Agora',text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
       recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'interface',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null,deliveryRequired:!!document.getElementById('newDeliveryRequired')?.checked,archivedAt:null
     });

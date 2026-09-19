@@ -114,7 +114,7 @@
       state.sb.from('areas').select('id,nome').order('nome'),
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),
-      state.sb.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,aceito_em').order('nome'),
+      state.sb.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
       readTasks()
     ]);
     state.profile=profileR.data||null;
@@ -138,7 +138,18 @@
       sessionStorage.setItem('allianceos.rls_tasks_hydrated',String(state.user.id));
     }
     const linked=new Set(state.links.map(x=>norm(x.legacy_name)));
-    state.members=(profilesR.data||[]).map(p=>({...p,tipo:'usuario',atribuivel:true}));
+    const inviteByEmail=new Map(state.invites.map(x=>[norm(x.email),x]));
+    state.members=(profilesR.data||[]).map(p=>{
+      const c=inviteByEmail.get(norm(p.email));
+      return {...p,tipo:'usuario',atribuivel:true,
+        convite_status:c?.aceito_em?'aceito':(c?.envio_status||null),
+        convite_enviado_em:c?.enviado_em||null,
+        convite_ultimo_envio_em:c?.ultimo_envio_em||null,
+        convite_erro:c?.envio_erro||null,
+        convite_aceito_em:c?.aceito_em||null,
+        convite_tentativas:Number(c?.tentativas_envio||0)
+      };
+    });
     const known=new Set(state.members.map(x=>norm(x.nome)));
     for(const t of tasks){
       for(const name of Array.isArray(t.assignees)?t.assignees:[]){
@@ -148,7 +159,9 @@
     }
     for(const c of state.invites){
       if(c.aceito_em||(profilesR.data||[]).some(p=>norm(p.email)===norm(c.email)))continue;
-      state.members.push({id:'convite:'+c.email,nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,tipo:'convite_pendente',atribuivel:false,enviado_em:c.enviado_em});
+      state.members.push({id:'convite:'+c.email,nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,tipo:'convite_pendente',atribuivel:false,
+        convite_status:c.envio_status||'pendente',convite_enviado_em:c.enviado_em||null,convite_ultimo_envio_em:c.ultimo_envio_em||null,
+        convite_erro:c.envio_erro||null,convite_aceito_em:c.aceito_em||null,convite_tentativas:Number(c.tentativas_envio||0)});
     }
     const brandMap=new Map(state.brands.map(b=>[String(b.id),b]));
     state.lists=(listsR.data||[]).map(l=>({...l,marca:brandMap.get(String(l.brand_id))?.nome||'',arquivada:!!l.arquivado_em}));
@@ -466,6 +479,13 @@
   }
 
   function memberBadge(m){return m.tipo==='usuario'?'<span class="aa-badge ok">usuário real</span>':m.tipo==='legado'?'<span class="aa-badge warn">legado</span>':'<span class="aa-badge">convite pendente</span>';}
+  function inviteStatusHtml(m){
+    if(m.convite_aceito_em)return '<span class="aa-badge ok">convite aceito · '+esc(new Date(m.convite_aceito_em).toLocaleString('pt-BR'))+'</span>';
+    if(m.convite_status==='enviado')return '<span class="aa-badge ok">enviado · '+esc(m.convite_enviado_em?new Date(m.convite_enviado_em).toLocaleString('pt-BR'):'agora')+'</span>';
+    if(m.convite_status==='falhou')return '<span class="aa-badge warn" title="'+esc(m.convite_erro||'Falha no envio')+'">falhou · '+esc(m.convite_erro||'erro no envio')+'</span>';
+    if(m.tipo==='convite_pendente')return '<span class="aa-badge">ainda não enviado</span>';
+    return '';
+  }
 
   function teamView(){
     const real=state.members.filter(m=>m.tipo==='usuario');
@@ -474,8 +494,8 @@
     const admin=state.profile?.papel==='admin';
     return '<div class="aa-section"><div class="aa-title"><div><h2>Equipe</h2><p>Somente usuários reais recebem novas atribuições e notificações.</p></div><span>'+real.length+' ativos</span></div>'+
       (admin?'<form id="aaInviteForm" class="aa-form"><input id="aaInviteName" placeholder="Nome" required><input id="aaInviteEmail" type="email" placeholder="E-mail" required><input id="aaInviteRoleName" placeholder="Cargo"><select id="aaInviteRole"><option value="membro">Membro</option><option value="admin">Admin</option></select><select id="aaInviteBrand" multiple>'+state.brands.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.nome)+'</option>').join('')+'</select><button class="primary">Convidar por e-mail</button></form>':'')+
-      '<div class="aa-grid-list">'+real.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+memberBadge(m)+(admin?'<input class="aa-member-cargo" data-aa-member-cargo="'+esc(m.id)+'" value="'+esc(m.cargo||'')+'" placeholder="Cargo"><select data-aa-member-role="'+esc(m.id)+'"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Admin</option></select><button data-aa-save-member="'+esc(m.id)+'">Salvar</button>':'')+'</article>').join('')+'</div>'+
-      (pending.length?'<h3>Convites pendentes</h3><div class="aa-grid-list">'+pending.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+memberBadge(m)+'</article>').join('')+'</div>':'')+
+      '<div class="aa-grid-list">'+real.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+memberBadge(m)+inviteStatusHtml(m)+(admin?'<input class="aa-member-cargo" data-aa-member-cargo="'+esc(m.id)+'" value="'+esc(m.cargo||'')+'" placeholder="Cargo"><select data-aa-member-role="'+esc(m.id)+'"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Admin</option></select><button data-aa-save-member="'+esc(m.id)+'">Salvar</button>':'')+'</article>').join('')+'</div>'+
+      (pending.length?'<h3>Convites pendentes</h3><div class="aa-grid-list">'+pending.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+inviteStatusHtml(m)+(admin?'<button data-aa-resend-invite="'+esc(m.email)+'">Reenviar convite</button>':'')+'</article>').join('')+'</div>':'')+
       (legacy.length?'<h3>Responsáveis legados para migrar</h3><div class="aa-grid-list">'+legacy.map(m=>'<article class="aa-legacy"><div><b>'+esc(m.nome)+'</b><small>Nome importado, sem conta real</small></div><select data-aa-migrate-select="'+esc(m.nome)+'"><option value="">Vincular a usuário…</option>'+real.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.nome)+'</option>').join('')+'</select><button data-aa-migrate="'+esc(m.nome)+'" '+(!admin?'disabled':'')+'>Migrar tarefas</button></article>').join('')+'</div>':'<div class="aa-empty">Nenhum responsável legado pendente.</div>')+
       '</div>';
   }
@@ -517,6 +537,25 @@
     });
   }
 
+  async function sendInviteFromInterface(email){
+    const normalized=String(email||'').toLowerCase().trim();
+    const current=state.invites.find(x=>norm(x.email)===norm(normalized));
+    const attemptedAt=new Date().toISOString();
+    const attempts=Number(current?.tentativas_envio||0)+1;
+    const {error:mailError}=await state.sb.auth.signInWithOtp({email:normalized,options:{emailRedirectTo:APP_URL,shouldCreateUser:true}});
+    const patch={
+      ultimo_envio_em:attemptedAt,
+      tentativas_envio:attempts,
+      envio_status:mailError?'falhou':'enviado',
+      envio_erro:mailError?String(mailError.message||'Falha desconhecida no envio'):null,
+      atualizado_em:attemptedAt
+    };
+    if(!mailError)patch.enviado_em=attemptedAt;
+    const {error:updateError}=await state.sb.from('equipe_convites').update(patch).eq('email',normalized);
+    if(updateError)throw updateError;
+    return {status:patch.envio_status,erro:patch.envio_erro,enviado_em:patch.enviado_em||current?.enviado_em||null,ultimo_envio_em:attemptedAt};
+  }
+
   function bindTeam(){
     $$('[data-aa-save-member]').forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.dataset.aaSaveMember,cargo=$('[data-aa-member-cargo="'+id+'"]')?.value.trim()||null,papel=$('[data-aa-member-role="'+id+'"]')?.value||'membro';
@@ -530,13 +569,22 @@
       e.preventDefault();
       try{
         const email=$('#aaInviteEmail').value.trim().toLowerCase(),nome=$('#aaInviteName').value.trim(),cargo=$('#aaInviteRoleName').value.trim(),papel=$('#aaInviteRole').value,marcas=[...$('#aaInviteBrand').selectedOptions].map(o=>o.value);
-        const {error}=await state.sb.from('equipe_convites').upsert({email,nome,cargo:cargo||null,papel,marcas,criado_por:state.user.id,enviado_em:new Date().toISOString()},{onConflict:'email'});
+        const {error}=await state.sb.from('equipe_convites').upsert({email,nome,cargo:cargo||null,papel,marcas,criado_por:state.user.id,envio_status:'pendente',envio_erro:null,atualizado_em:new Date().toISOString()},{onConflict:'email'});
         if(error)throw error;
-        const {error:mailError}=await state.sb.auth.signInWithOtp({email,options:{emailRedirectTo:APP_URL}});
-        await audit('convidar_membro','membro',email,{nome,papel,marcas});
-        toast(mailError?'Convite salvo; envio de e-mail falhou':'Convite enviado');await refreshAll();
+        const envio=await sendInviteFromInterface(email);
+        await audit('convidar_membro','membro',email,{nome,papel,marcas,envio_status:envio.status,envio_erro:envio.erro});
+        toast(envio.status==='enviado'?'Convite enviado':'Convite registrado; envio falhou: '+(envio.erro||'erro desconhecido'));await refreshAll();
       }catch(err){toast(err.message||String(err));}
     });
+    $$('[data-aa-resend-invite]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const email=btn.dataset.aaResendInvite;btn.disabled=true;
+      try{
+        const envio=await sendInviteFromInterface(email);
+        await audit('reenviar_convite','membro',email,{envio_status:envio.status,envio_erro:envio.erro});
+        toast(envio.status==='enviado'?'Convite reenviado':'Reenvio falhou: '+(envio.erro||'erro desconhecido'));
+        await refreshAll();
+      }catch(err){toast(err.message||String(err));btn.disabled=false;}
+    }));
     $$('[data-aa-migrate]').forEach(btn=>btn.addEventListener('click',async()=>{
       const legacy=btn.dataset.aaMigrate,select=$('[data-aa-migrate-select="'+CSS.escape(legacy)+'"]'),profileId=select?.value;
       if(!profileId){toast('Escolha um usuário real.');return;}
