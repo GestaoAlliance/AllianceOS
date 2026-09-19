@@ -359,7 +359,7 @@
     if(delivery){
       delivery.classList.add('r10-delivery-card');
       const head=delivery.querySelector('.tsection-head');
-      if(head)head.innerHTML='<span class="r10-delivery-heading"><span class="r10-section-icon r10-delivery-head-icon">'+r10Icon('uploadCloud')+'</span><strong>Sua entrega</strong></span>';
+      if(head)head.innerHTML='<span class="r10-delivery-heading"><span class="r10-section-icon r10-delivery-head-icon">'+r10Icon('folderSolid')+'</span><strong>Sua entrega</strong></span>';
 
       const compose=delivery.querySelector('.v5-delivery-compose');
       const fileInput=delivery.querySelector('#v5DeliveryFiles');
@@ -1602,6 +1602,43 @@
     line-height:1.15!important;
     letter-spacing:-.022em!important;
     white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-main .r10-delivery-card>.tsection-head .r10-delivery-heading>strong{
+    display:block!important;
+    margin:0!important;
+    padding:0!important;
+    color:#12171b!important;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    font-size:17px!important;
+    font-weight:720!important;
+    line-height:1.15!important;
+    letter-spacing:-.022em!important;
+    white-space:nowrap!important;
+  }
+  #taskDetailDrawer .r10-main .r10-delivery-card>.tsection-head .r10-delivery-head-icon{
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    flex:0 0 40px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    margin:0!important;
+    padding:0!important;
+    border-radius:11px!important;
+    background:#edf0f2!important;
+    color:#7f8a92!important;
+  }
+  #taskDetailDrawer .r10-main .r10-delivery-card>.tsection-head .r10-delivery-head-icon .r10-svg{
+    display:block!important;
+    width:21px!important;
+    height:21px!important;
+    min-width:21px!important;
+    margin:0!important;
+    padding:0!important;
+    color:#7f8a92!important;
+    stroke-width:1.65!important;
+    transform:none!important;
   }
   #taskDetailDrawer .r10-delivery-card .v5-delivery-state{
     display:none!important;
