@@ -1076,3 +1076,20 @@
 #tasksCanvas .v6-priority-bars.level-3 i:nth-child(3){
   background:currentColor!important;
 }
+
+
+/* ===== Task List V8 · prioridade sincronizada ===== */
+#tasksCanvas .v6-priority-bars{
+  color:currentColor!important;
+}
+#tasksCanvas .v6-priority-bars i{
+  background:#d8dfe4!important;
+}
+#tasksCanvas .v6-priority-bars.level-1 i:nth-child(1),
+#tasksCanvas .v6-priority-bars.level-2 i:nth-child(1),
+#tasksCanvas .v6-priority-bars.level-2 i:nth-child(2),
+#tasksCanvas .v6-priority-bars.level-3 i:nth-child(1),
+#tasksCanvas .v6-priority-bars.level-3 i:nth-child(2),
+#tasksCanvas .v6-priority-bars.level-3 i:nth-child(3){
+  background:currentColor!important;
+}

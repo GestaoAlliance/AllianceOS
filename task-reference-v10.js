@@ -620,7 +620,29 @@
       const dueVisual=r10DueVisual(t);
       dueField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-due-icon">'+r10Icon('calendar')+'</span><button type="button" class="r10-due-display" data-r10-edit-due title="Editar prazo" aria-label="Editar prazo"><strong>'+r10Esc(dueVisual.main)+'</strong><small>'+r10Esc(dueVisual.sub)+'</small></button>');
     }
-    if(priorityField){priorityField.classList.add('r10-field-priority','priority-'+r10Norm(r10Priority(t)));priorityField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-priority-bars">'+r10Icon('priority')+'</span>')}
+    if(priorityField){
+      const prioritySelect=priorityField.querySelector('#detailPriority');
+      const priorityUI=window.AlliancePriorityUI;
+      const applyPriorityVisual=value=>{
+        const canon=priorityUI?.canon?priorityUI.canon(value):String(value||'normal');
+        const level=priorityUI?.level?priorityUI.level(canon):(canon==='baixa'?1:canon==='normal'?2:3);
+        const tone=priorityUI?.tone?priorityUI.tone(canon):(canon==='baixa'?'low':canon==='alta'?'high':canon==='urgente'?'urgent':'normal');
+        priorityField.classList.remove('priority-baixa','priority-normal','priority-alta','priority-urgente','tone-low','tone-normal','tone-high','tone-urgent');
+        priorityField.classList.add('r10-field-priority','priority-'+canon,'tone-'+tone);
+        let bars=priorityField.querySelector('.r10-priority-level-bars');
+        if(!bars){
+          priorityField.insertAdjacentHTML('beforeend','<span class="r10-field-adorn r10-priority-level-bars" aria-hidden="true"><i></i><i></i><i></i></span>');
+          bars=priorityField.querySelector('.r10-priority-level-bars');
+        }
+        bars.classList.remove('level-1','level-2','level-3');
+        bars.classList.add('level-'+level);
+        bars.dataset.priorityLevel=String(level);
+      };
+      applyPriorityVisual(t.priority);
+      prioritySelect?.addEventListener('change',()=>{
+        applyPriorityVisual(prioritySelect.value);
+      });
+    }
     if(campaignField){
       campaignField.classList.add('r10-field-campaign');
       campaignField.querySelector('label').textContent=t.campaignId?'Campanha':'Lista';

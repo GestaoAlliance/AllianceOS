@@ -148,6 +148,25 @@
     return 'normal';
   }
   function v3PriorityLabel(v){return {urgente:'Urgente',alta:'Alta',normal:'Normal',baixa:'Baixa'}[v3PriorityCanon(v)]||'Normal';}
+  function v3PriorityLevel(v){
+    const p=v3PriorityCanon(v);
+    return p==='baixa'?1:p==='normal'?2:3;
+  }
+  function v3PriorityTone(v){
+    return {baixa:'low',normal:'normal',alta:'high',urgente:'urgent'}[v3PriorityCanon(v)]||'normal';
+  }
+  function v3PriorityBarsMarkup(v,className='v6-priority-bars'){
+    const level=v3PriorityLevel(v);
+    return '<span class="'+className+' level-'+level+'" data-priority-level="'+level+'" aria-hidden="true"><i></i><i></i><i></i></span>';
+  }
+  window.AlliancePriorityUI={
+    canon:v3PriorityCanon,
+    label:v3PriorityLabel,
+    level:v3PriorityLevel,
+    tone:v3PriorityTone,
+    bars:v3PriorityBarsMarkup
+  };
+
   function v3PriorityClass(v){return {urgente:'urgent',alta:'high',normal:'normal',baixa:'low'}[v3PriorityCanon(v)]||'normal';}
 
   function v3NormalizeTask(t){
@@ -364,9 +383,7 @@
     return '<span class="v6-signal '+kind+'"><span class="v6-signal-icon">'+v6Icon(kind==='delivery'?'done':kind==='ready'?'deps':kind)+'</span><span>'+esc(label)+'</span></span>';
   }
   function v6PriorityBars(priority){
-    const p=v3PriorityCanon(priority);
-    const level=p==='urgent'||p==='high'?3:p==='normal'?2:1;
-    return '<span class="v6-priority-bars level-'+level+'" aria-hidden="true"><i></i><i></i><i></i></span>';
+    return v3PriorityBarsMarkup(priority,'v6-priority-bars');
   }
   function v4ListBadges(t){
     const deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t);

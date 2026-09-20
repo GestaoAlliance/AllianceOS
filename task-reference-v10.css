@@ -3201,3 +3201,48 @@ body.r10-task-modal-open{
     border-top:0!important;
   }
 }
+
+
+/* ===== Task Reference V28 · prioridade sincronizada com a Lista ===== */
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-bars{
+  display:none!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars{
+  box-sizing:border-box!important;
+  position:absolute!important;
+  left:82px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  width:18px!important;
+  height:18px!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  gap:2px!important;
+  color:#5276b7!important;
+  pointer-events:none!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars i{
+  width:3px!important;
+  border-radius:2px 2px 1px 1px!important;
+  background:#d8dfe4!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars i:nth-child(1){height:6px!important}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars i:nth-child(2){height:10px!important}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars i:nth-child(3){height:14px!important}
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars.level-1 i:nth-child(1),
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars.level-2 i:nth-child(1),
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars.level-2 i:nth-child(2),
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars.level-3 i:nth-child(1),
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars.level-3 i:nth-child(2),
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars.level-3 i:nth-child(3){
+  background:currentColor!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-low .r10-priority-level-bars{color:#67a47a!important}
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-normal .r10-priority-level-bars{color:#5276b7!important}
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-high .r10-priority-level-bars{color:#de861f!important}
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-urgent .r10-priority-level-bars{color:#ef3f4d!important}
+@media(max-width:1120px){
+  #taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars{
+    left:80px!important;
+  }
+}
