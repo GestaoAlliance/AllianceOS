@@ -446,28 +446,102 @@
     bindTaskElements();
   };
 
+  function v11Priority(t,showLabel=true){
+    return '<span class="v11-priority tone-'+v3PriorityTone(t.priority)+'">'+v3PriorityBarsMarkup(t.priority,'v11-bars')+(showLabel?'<span>'+esc(v3PriorityLabel(t.priority))+'</span>':'')+'</span>';
+  }
+  function v11Date(t){
+    const due=v4Due(t);
+    return '<span class="v11-date '+(isOverdue(t)?'over ':'')+(due.empty?'empty':'')+'"><span class="v11-date-icon">'+v6Icon('calendar')+'</span><span class="v11-date-copy"><b>'+esc(due.main)+'</b>'+(due.sub?'<small>'+esc(due.sub)+'</small>':'')+'</span></span>';
+  }
+  function v11Campaign(name){
+    return '<span class="v11-campaign" title="'+esc(name||'Operação')+'"><span>'+v6Icon('folder')+'</span><b>'+esc(name||'Operação')+'</b></span>';
+  }
+  function v11Owner(t,showName=true){
+    const name=t.assignees?.[0]||'Sem responsável',id=t.assigneeIds?.[0];
+    if(name==='Sem responsável')return '<span class="v11-owner empty"><span class="v11-avatar">—</span>'+(showName?'<b>Sem responsável</b>':'')+'</span>';
+    return '<span class="v11-owner"><span class="v11-avatar">'+v3AvatarInner(name,id)+'</span>'+(showName?'<b>'+esc(v3Short(name))+'</b>':'')+'</span>';
+  }
+  function v11Subtask(t){
+    const parent=v3Parent(t);
+    return parent?'<span class="v11-subtask">↳ Subtarefa</span>':'';
+  }
+  function v11Status(status){
+    return '<span class="v11-status-inline"><i style="--v11-status:'+esc(STATUS_COLORS[status]||'#8e989f')+'"></i><span>'+esc(status)+'</span></span>';
+  }
+
   renderBoard = function(canvas,data){
-    canvas.innerHTML=`<div class="cu-board">${TASK_STATUSES.map(status=>{
+    const columns=TASK_STATUSES.map(status=>{
       const rows=data.filter(t=>t.status===status);
-      return `<section class="cu-column" data-v3-drop-status="${status}"><div class="cu-colhead" style="--status-color:${STATUS_COLORS[status]}"><span class="bar"></span><b>${status}</b><span>${rows.length}</span></div>${rows.map(t=>`<article class="cu-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" draggable="true" data-drag-id="${esc(t.id)}" data-task-id="${esc(t.id)}"><div class="cu-card-project">${esc(t.project||'Operação')}</div><div class="cu-card-title">${esc(t.title)}</div><div class="cu-card-flow">${v3FlowBadges(t)}</div><div class="cu-card-foot">${avatarStack(t.assignees,t.assigneeIds||[])}<span class="pri ${v3PriorityClass(t.priority)}" title="${v3PriorityLabel(t.priority)}"></span><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div></article>`).join('')}</section>`;
-    }).join('')}</div>`;
+      const cards=rows.map(t=>{
+        const description=String(t.description||'').trim();
+        return '<article class="cu-card v11-board-card" draggable="true" data-drag-id="'+esc(t.id)+'" data-task-id="'+esc(t.id)+'">'+
+          '<div class="v11-card-top">'+v11Campaign(t.project||'Operação')+v11Subtask(t)+'</div>'+
+          '<div class="cu-card-title">'+esc(t.title)+'</div>'+
+          '<div class="v11-card-desc">'+esc(description||'Sem descrição adicionada')+'</div>'+
+          '<div class="v11-card-meta"><div>'+v11Owner(t,true)+'</div><div>'+v11Priority(t,true)+'</div></div>'+
+          '<div class="v11-card-bottom">'+v11Date(t)+'</div>'+
+        '</article>';
+      }).join('');
+      return '<section class="cu-column v11-board-column" data-v3-drop-status="'+esc(status)+'">'+
+        '<div class="cu-colhead v11-board-head"><div><i style="--v11-status:'+esc(STATUS_COLORS[status]||'#8e989f')+'"></i><b>'+esc(status)+'</b></div><span>'+rows.length+'</span></div>'+
+        '<div class="v11-board-list">'+(cards||'<div class="v11-board-empty">Nenhuma tarefa</div>')+'</div>'+
+      '</section>';
+    }).join('');
+    canvas.innerHTML='<div class="v11-board-scroll"><div class="cu-board v11-board">'+columns+'</div></div>';
     bindTaskElements();bindDrag();
   };
 
   renderCampaign = function(canvas,data){
     const groups=[...new Set(data.map(t=>t.project||'Operação'))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    canvas.innerHTML=`<div class="cu-campaigns-grid">${groups.map(g=>{
-      const rows=data.filter(t=>(t.project||'Operação')===g), done=rows.filter(t=>t.status==='feito').length;
-      return `<section class="cu-campaign-box"><div class="cu-campaign-head"><div><strong>${esc(g)}</strong><span>${rows[0]?.brand||''} · ${done}/${rows.length} concluídas</span></div><span class="count">${rows.length}</span></div>${rows.map(t=>`<div class="cu-campaign-row ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><div><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${t.assignees.map(v3Short).join(', ')||'Sem responsável'}</small></div><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}</span></div>`).join('')}</section>`;
-    }).join('')}</div>`;bindTaskElements();
+    canvas.innerHTML='<div class="cu-campaigns-grid v11-campaigns">'+groups.map(g=>{
+      const rows=data.filter(t=>(t.project||'Operação')===g);
+      const done=rows.filter(t=>t.status==='feito').length,open=rows.length-done,pct=rows.length?Math.round(done/rows.length*100):0;
+      const statusGroups=TASK_STATUSES.map(status=>{
+        const statusRows=rows.filter(t=>t.status===status);
+        if(!statusRows.length)return '';
+        return '<div class="v11-campaign-status">'+
+          '<div class="v11-campaign-status-head"><i style="--v11-status:'+esc(STATUS_COLORS[status]||'#8e989f')+'"></i><b>'+esc(status)+'</b><span>'+statusRows.length+'</span></div>'+
+          statusRows.map(t=>{
+            const description=String(t.description||'').trim();
+            return '<div class="cu-campaign-row v11-campaign-task" data-task-id="'+esc(t.id)+'">'+
+              '<div class="v11-campaign-task-main">'+v11Subtask(t)+'<b>'+esc(t.title)+'</b><small>'+esc(description||'Sem descrição adicionada')+'</small></div>'+
+              '<div class="v11-campaign-task-owner">'+v11Owner(t,true)+'</div>'+
+              '<div class="v11-campaign-task-priority">'+v11Priority(t,true)+'</div>'+
+              '<div class="v11-campaign-task-date">'+v11Date(t)+'</div>'+
+            '</div>';
+          }).join('')+
+        '</div>';
+      }).join('');
+      return '<section class="cu-campaign-box v11-campaign-box">'+
+        '<div class="cu-campaign-head v11-campaign-head">'+
+          '<div class="v11-campaign-heading"><span class="v11-campaign-heading-icon">'+v6Icon('folder')+'</span><div><strong>'+esc(g)+'</strong><span>'+open+' abertas · '+done+' concluídas</span></div></div>'+
+          '<div class="v11-progress"><span>'+done+'/'+rows.length+'</span><i><b style="width:'+pct+'%"></b></i></div>'+
+        '</div>'+statusGroups+
+      '</section>';
+    }).join('')+'</div>';
+    bindTaskElements();
   };
 
   renderPeople = function(canvas,data){
     const names=[...new Set(data.flatMap(t=>t.assignees.length?t.assignees:['Sem responsável']))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
-    canvas.innerHTML=`<div class="cu-people">${names.map(n=>{
-      const rows=data.filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n));
-      return `<section class="cu-person"><div class="cu-person-head"><div class="bigav">${n==='Sem responsável'?'—':v3AvatarInner(n)}</div><div><b>${esc(v3Short(n))}</b><span>${rows.filter(t=>t.status!=='feito').length} abertas · ${rows.filter(isOverdue).length} vencidas</span></div></div>${rows.map(t=>`<div class="cu-person-task ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><b>${esc(t.title)}</b><small>${v3FlowBadges(t)} ${esc(t.status)} · ${dateBr(t.due)} · ${esc(t.project)}</small></div>`).join('')}</section>`;
-    }).join('')}</div>`;bindTaskElements();
+    canvas.innerHTML='<div class="cu-people v11-people">'+names.map(n=>{
+      const rows=data.filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n)).slice().sort((a,b)=>(Number(isOverdue(b))-Number(isOverdue(a)))||(v3PriorityLevel(b.priority)-v3PriorityLevel(a.priority)));
+      const open=rows.filter(t=>t.status!=='feito').length,late=rows.filter(isOverdue).length,urgent=rows.filter(t=>v3PriorityCanon(t.priority)==='urgente').length;
+      const headAvatar=n==='Sem responsável'?'<span class="bigav">—</span>':'<span class="bigav">'+v3AvatarInner(n)+'</span>';
+      return '<section class="cu-person v11-person">'+
+        '<div class="cu-person-head v11-person-head">'+headAvatar+'<div class="v11-person-copy"><b>'+esc(v3Short(n))+'</b><span>'+open+' abertas · '+late+' atrasadas · '+urgent+' urgentes</span></div></div>'+
+        '<div class="v11-person-tasks">'+rows.map(t=>{
+          const description=String(t.description||'').trim();
+          return '<div class="cu-person-task v11-person-task" data-task-id="'+esc(t.id)+'">'+
+            '<div class="v11-person-main">'+v11Subtask(t)+'<b>'+esc(t.title)+'</b><small>'+esc(description||'Sem descrição adicionada')+'</small></div>'+
+            '<div class="v11-person-context">'+v11Campaign(t.project||'Operação')+v11Status(t.status)+'</div>'+
+            '<div class="v11-person-priority">'+v11Priority(t,true)+'</div>'+
+            '<div class="v11-person-date">'+v11Date(t)+'</div>'+
+          '</div>';
+        }).join('')+'</div>'+
+      '</section>';
+    }).join('')+'</div>';
+    bindTaskElements();
   };
 
   renderWeek = function(canvas,data){
@@ -478,8 +552,24 @@
     const firstIso=v3Iso(days[0]), lastIso=v3Iso(days[6]);
     const overdue=data.filter(t=>isOverdue(t));
     const unscheduled=data.filter(t=>t.status!=='feito'&&!t.due);
-    const names=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
-    canvas.innerHTML=`<div class="v3-week-head"><div><button type="button" data-week-shift="-1">‹</button><button type="button" data-week-today>Esta semana</button><button type="button" data-week-shift="1">›</button></div><strong>${dateBr(firstIso)} — ${dateBr(lastIso)}</strong><span>${unscheduled.length} sem prazo</span></div>${overdue.length?`<div class="cu-week-overdue"><b>${overdue.length} tarefa${overdue.length>1?'s':''} vencida${overdue.length>1?'s':''}</b><span>continua${overdue.length>1?'m':''} aberta${overdue.length>1?'s':''}</span><button type="button" id="showOverdueWeek">Ver na Lista</button></div>`:''}<div class="cu-week-wrap"><div class="cu-week">${days.map((d,i)=>{const iso=v3Iso(d), rows=data.filter(t=>t.due===iso);return `<section class="cu-day ${iso===today?'today':''}"><div class="cu-day-head"><div><b>${names[i]}</b><span>${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</span></div>${iso===today?'<em>Hoje</em>':''}</div>${rows.length?rows.map(t=>`<div class="cu-week-card ${(v3Blockers(t).length||t.status==='bloqueado')?'is-blocked':''}" data-task-id="${esc(t.id)}"><div class="week-card-top"><b>${esc(t.title)}</b>${v3Blockers(t).length?'<span>bloqueada</span>':''}</div><small>${esc(t.project)} · ${t.assignees.map(v3Short).join(', ')||'Sem responsável'}</small></div>`).join(''):'<div class="v3-day-empty">Nenhuma tarefa com prazo</div>'}</section>`}).join('')}</div></div>`;
+    const names=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+    canvas.innerHTML='<div class="v3-week-head v11-week-head"><div><button type="button" data-week-shift="-1">‹</button><button type="button" data-week-today>Esta semana</button><button type="button" data-week-shift="1">›</button></div><strong>'+dateBr(firstIso)+' — '+dateBr(lastIso)+'</strong><span>'+unscheduled.length+' sem prazo</span></div>'+
+      (overdue.length?'<div class="cu-week-overdue v11-week-overdue"><div><b>'+overdue.length+' atrasada'+(overdue.length>1?'s':'')+'</b><span>Tarefas abertas fora da semana</span></div><button type="button" id="showOverdueWeek">Ver na Lista</button></div>':'')+
+      '<div class="cu-week-wrap v11-week-wrap"><div class="cu-week v11-week">'+days.map((d,i)=>{
+        const iso=v3Iso(d), rows=data.filter(t=>String(t.dueAt||t.due||'').slice(0,10)===iso);
+        return '<section class="cu-day v11-day '+(iso===today?'today':'')+'">'+
+          '<div class="cu-day-head v11-day-head"><div><span>'+names[i]+'</span><b>'+String(d.getDate()).padStart(2,'0')+'</b></div><div><small>'+rows.length+' tarefa'+(rows.length===1?'':'s')+'</small>'+(iso===today?'<em>Hoje</em>':'')+'</div></div>'+
+          '<div class="v11-day-body">'+(rows.length?rows.map(t=>{
+            const description=String(t.description||'').trim();
+            return '<div class="cu-week-card v11-week-card" data-task-id="'+esc(t.id)+'">'+
+              '<div class="v11-week-card-top">'+v11Campaign(t.project||'Operação')+v11Subtask(t)+'</div>'+
+              '<b>'+esc(t.title)+'</b>'+
+              '<small>'+esc(description||'Sem descrição adicionada')+'</small>'+
+              '<div class="v11-week-card-foot">'+v11Owner(t,false)+v11Priority(t,true)+'</div>'+
+            '</div>';
+          }).join(''):'<div class="v3-day-empty v11-day-empty">Sem tarefas</div>')+'</div>'+
+        '</section>';
+      }).join('')+'</div></div>';
     bindTaskElements();
     document.querySelectorAll('[data-week-shift]').forEach(b=>b.addEventListener('click',()=>{v3WeekOffset+=Number(b.dataset.weekShift||0);renderTasks()}));
     document.querySelector('[data-week-today]')?.addEventListener('click',()=>{v3WeekOffset=0;renderTasks()});
