@@ -364,7 +364,8 @@
     return '<span class="v6-signal '+kind+'"><span class="v6-signal-icon">'+v6Icon(kind==='delivery'?'done':kind==='ready'?'deps':kind)+'</span><span>'+esc(label)+'</span></span>';
   }
   function v6PriorityBars(priority){
-    const p=v3PriorityCanon(priority), level=p==='urgent'?3:p==='high'?2:p==='normal'?1:0;
+    const p=v3PriorityCanon(priority);
+    const level=p==='urgent'||p==='high'?3:p==='normal'?2:1;
     return '<span class="v6-priority-bars level-'+level+'" aria-hidden="true"><i></i><i></i><i></i></span>';
   }
   function v4ListBadges(t){
@@ -398,11 +399,11 @@
           ${parent?`<div class="v4-subtask-context"><span>Subtarefa</span><b>de ${esc(parent.title)}</b></div>`:''}
           <div class="task-title-line"><b>${esc(t.title)}</b></div>
           <small>${esc(description||'Sem descrição adicionada')}</small>
-          <div class="v4-task-signals">${v4ListBadges(t)}<!--v5-delivery-->${metrics(t)}</div>
+          <!-- indicadores operacionais ficam apenas dentro da tarefa -->
         </div>
       </div>
       <div class="v4-owner">${avatarStack(t.assignees,t.assigneeIds||[])}</div>
-      <div class="v4-priority"><span class="v6-priority priority-${v3PriorityCanon(t.priority)}">${v6PriorityBars(t.priority)}<span>${v3PriorityLabel(t.priority)}</span></span></div>
+      <div class="v4-priority"><span class="v6-priority v6-priority--${v3PriorityCanon(t.priority)}">${v6PriorityBars(t.priority)}<span>${v3PriorityLabel(t.priority)}</span></span></div>
       <div class="v4-due"><span class="v6-due ${isOverdue(t)?'over':''} ${due.empty?'empty':''}"><span class="v6-due-icon">${v6Icon('calendar')}</span><span class="v6-due-copy"><strong>${esc(due.main)}</strong>${due.sub?`<small>${esc(due.sub)}</small>`:''}</span></span></div>
       <div class="v4-campaign"><span class="v6-campaign-chip" title="${esc(t.project||'Operação')}"><span class="v6-campaign-icon">${v6Icon('folder')}</span><b>${esc(t.project||'Operação')}</b></span><small><span class="v4-brand-dot"></span>${esc(t.brand||'Sem marca')}</small></div>
     </div>`;

@@ -467,10 +467,10 @@
     v5Normalize(t);
     let html=v5BaseRenderListRow(t);
     const depth=Math.min(v5Depth(t),4);
-    const deliveryBadge=v5NeedsDelivery(t)?`<span class="v6-signal delivery ${v5HasDelivery(t)?'sent':'pending'}"><span class="v6-signal-icon">${v5HasDelivery(t)?'<svg class="v6-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 12 3.4 3.4 7.6-7.6"/></svg>':'<svg class="v6-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v8M12 17h.01"/></svg>'}</span><span>${v5HasDelivery(t)?'Entrega':'Entrega pendente'}</span></span>`:'';
+    const deliveryBadge='';
     html=html.replace('class="cu-row ',`class="cu-row v5-tree-row v5-depth-${depth} `);
     html=html.replace('<!--v5-tree-->',depth?'<span class="v5-list-tree-mark" aria-hidden="true">↳</span>':'');
-    html=html.replace('<!--v5-delivery-->',deliveryBadge);
+    if(deliveryBadge) html=html.replace('<!--v5-delivery-->',deliveryBadge);
     return html;
   };
 

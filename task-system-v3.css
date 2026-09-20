@@ -1034,3 +1034,45 @@
     max-width:170px!important;
   }
 }
+
+
+/* ===== Task List V7 · prioridade limpa e sem tags operacionais ===== */
+#tasksCanvas .v4-task-signals{
+  display:none!important;
+}
+#tasksCanvas .v4-priority,
+#tasksCanvas .v4-priority .v6-priority,
+#tasksCanvas .v4-priority .v6-priority>span{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  outline:0!important;
+  text-decoration:none!important;
+}
+#tasksCanvas .v6-priority{
+  padding:0!important;
+  border-radius:0!important;
+}
+#tasksCanvas .v6-priority--urgent{
+  color:#ef3f4d!important;
+}
+#tasksCanvas .v6-priority--high{
+  color:#de861f!important;
+}
+#tasksCanvas .v6-priority--normal{
+  color:#5276b7!important;
+}
+#tasksCanvas .v6-priority--low{
+  color:#67a47a!important;
+}
+/* níveis: baixa=1, normal=2, alta/urgente=3 */
+#tasksCanvas .v6-priority-bars.level-1 i:nth-child(1),
+#tasksCanvas .v6-priority-bars.level-2 i:nth-child(1),
+#tasksCanvas .v6-priority-bars.level-2 i:nth-child(2),
+#tasksCanvas .v6-priority-bars.level-3 i:nth-child(1),
+#tasksCanvas .v6-priority-bars.level-3 i:nth-child(2),
+#tasksCanvas .v6-priority-bars.level-3 i:nth-child(3){
+  background:currentColor!important;
+}
