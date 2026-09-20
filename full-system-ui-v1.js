@@ -27,20 +27,22 @@
   const campaignRef=c=>c.monthRef||String(c.startAt||c.start||'').slice(0,7);
 
   function channelPlan(c){
-    const structured=c?.tapStructured?.metas_por_canal;
-    if(Array.isArray(structured)&&structured.length)return structured.map(x=>({canal:String(x.canal||''),meta:Number(x.meta_faturamento||0),investimento:Number(x.investimento||0)}));
+    const structured=c?.tapStructured?.metas_por_fonte;
+    if(Array.isArray(structured)&&structured.length)return structured.map(x=>({fonte:String(x.fonte||''),meta:Number(x.meta_faturamento||0),investimento:Number(x.investimento||0),roas:Number(x.roas_alvo||0)||null}));
+    const legacyStructured=c?.tapStructured?.metas_por_canal;
+    if(Array.isArray(legacyStructured)&&legacyStructured.length)return legacyStructured.map(x=>({fonte:String(x.fonte||x.canal||''),meta:Number(x.meta_faturamento||0),investimento:Number(x.investimento||0),roas:Number(x.roas_alvo||0)||null}));
     const sec=(Array.isArray(c?.tap)?c.tap:[]).find(s=>/^metas/i.test(String(s?.title||''))),out=[];
     for(const row of sec?.rows||[]){
       const label=String(row?.[0]||'');
       if(/^meta faturamento\s*[—-]\s*/i.test(label)){
-        const canal=label.replace(/^meta faturamento\s*[—-]\s*/i,'').trim();
-        if(canal&&!/^total$/i.test(canal))out.push({canal,meta:parseMoney(row?.[1]),investimento:0});
+        const fonte=label.replace(/^meta faturamento\s*[—-]\s*/i,'').trim();
+        if(fonte&&!/^total$/i.test(fonte))out.push({fonte,meta:parseMoney(row?.[1]),investimento:0});
       }
     }
     for(const row of sec?.rows||[]){
       const label=String(row?.[0]||'');
       if(/^investimento\s*[—-]\s*/i.test(label)){
-        const canal=label.replace(/^investimento\s*[—-]\s*/i,'').trim(),x=out.find(y=>norm(y.canal)===norm(canal));
+        const fonte=label.replace(/^investimento\s*[—-]\s*/i,'').trim(),x=out.find(y=>norm(y.fonte)===norm(fonte));
         if(x)x.investimento=parseMoney(row?.[1]);
       }
     }
@@ -104,18 +106,26 @@
     const raw=typeof payload==='string'?JSON.parse(payload):payload;
     const arr=Array.isArray(raw)?raw:(Array.isArray(raw?.nos)?raw.nos:(Array.isArray(raw?.nodes)?raw.nodes:null));
     if(!arr?.length)throw new Error('O JSON não contém nós.');
+    const campaigns=campaignRows(),byId=new Map(campaigns.map(c=>[String(c.id),c])),byName=new Map(campaigns.map(c=>[norm(c.name),c])),warnings=[];
     const ids=new Map();arr.forEach((n,i)=>ids.set(String(n.node_key??n.chave??n.id??(i+1)),i+1));
     const nodes=arr.map((n,i)=>{
-      const k=String(n.node_key??n.chave??n.id??(i+1)),p=n.parent_key??n.pai??n.parent??null;
-      return{id:ids.get(k),pai:p==null?null:(ids.get(String(p))||null),t:String(n.texto??n.t??n.title??'sem título'),x:Number.isFinite(Number(n.x))?Number(n.x):520,y:Number.isFinite(Number(n.y))?Number(n.y):320,cor:n.cor??n.color??0,fech:n.aberto!==undefined?!n.aberto:!!n.fech,campId:n.campaign_id??n.campId??undefined};
+      const k=String(n.node_key??n.chave??n.id??(i+1)),p=n.parent_key??n.pai??n.parent??null,text=String(n.texto??n.t??n.title??'sem título'),legacy=n.campaign_id??n.campId??null;
+      let campId;
+      if(legacy!=null&&String(legacy).trim()){
+        const found=byId.get(String(legacy))||byName.get(norm(n.campaign_name??n.campanha??text));
+        if(found)campId=found.id;else warnings.push({no:k,texto:text,campanha_legada:String(legacy)});
+      }
+      return{id:ids.get(k),pai:p==null?null:(ids.get(String(p))||null),t:text,x:Number.isFinite(Number(n.x))?Number(n.x):520,y:Number.isFinite(Number(n.y))?Number(n.y):320,cor:n.cor??n.color??0,fech:n.aberto!==undefined?!n.aberto:!!n.fech,campId};
     });
     const roots=nodes.filter(n=>!n.pai);if(!roots.length)nodes[0].pai=null;else roots.slice(1).forEach(n=>n.pai=roots[0].id);
-    return{v:2,layout:raw?.layout||'direita',prox:nodes.length+1,proxItem:1,nome:raw?.nome||raw?.name||'',itens:Array.isArray(raw?.itens)?raw.itens:[],nos:nodes};
+    return{v:2,layout:raw?.layout||'direita',prox:nodes.length+1,proxItem:1,nome:raw?.nome||raw?.name||'',itens:Array.isArray(raw?.itens)?raw.itens:[],nos:nodes,avisos:warnings};
   }
 
   function importMap(payload){
     const map=normalizeMap(payload),brand=window.MapaMental?.marca?.()||activeBrand(),key='central.planning.map.'+uid()+(brand?'.'+brand:'');
-    localStorage.setItem(key,JSON.stringify(map));window.MapaMental?.recarregar?.();return map;
+    localStorage.setItem(key,JSON.stringify(map));window.MapaMental?.recarregar?.();
+    if(map.avisos?.length){console.warn('[AllianceOS mapa] nós sem campanha:',map.avisos);window.showToast?.(map.avisos.length+' nó(s) ficaram sem vínculo de campanha.')}
+    return map;
   }
   function installMapImport(){
     const bar=document.querySelector('.mp-fer');if(!bar||bar.querySelector('[data-alliance-import-map]'))return;
