@@ -808,3 +808,229 @@
     padding-right:13px!important;
   }
 }
+
+
+/* ===== Task List V6 · mesmo design system do detalhe ===== */
+#tasksCanvas .v4-task-signals{
+  gap:6px!important;
+}
+#tasksCanvas .v4-task-signals .flow-pill{
+  display:none!important;
+}
+#tasksCanvas .v6-signal{
+  box-sizing:border-box!important;
+  height:28px!important;
+  max-width:210px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:0 9px!important;
+  border:1px solid #d9dee3!important;
+  border-radius:9px!important;
+  background:#fff!important;
+  color:#4f5b64!important;
+  font-size:9px!important;
+  font-weight:620!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  box-shadow:none!important;
+}
+#tasksCanvas .v6-signal>span:last-child{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#tasksCanvas .v6-signal-icon{
+  width:15px!important;
+  height:15px!important;
+  min-width:15px!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#7b8790!important;
+}
+#tasksCanvas .v6-svg{
+  width:15px!important;
+  height:15px!important;
+  display:block!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.8!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+#tasksCanvas .v6-signal.blocked{
+  border-color:#efcfc8!important;
+  color:#9c594b!important;
+}
+#tasksCanvas .v6-signal.blocked .v6-signal-icon{color:#e68b67!important}
+#tasksCanvas .v6-signal.ready,
+#tasksCanvas .v6-signal.delivery.sent{
+  border-color:#d2e5da!important;
+  color:#47745a!important;
+}
+#tasksCanvas .v6-signal.ready .v6-signal-icon,
+#tasksCanvas .v6-signal.delivery.sent .v6-signal-icon{color:#5aaa75!important}
+#tasksCanvas .v6-signal.next{
+  border-color:#dfd8eb!important;
+  color:#6d5b82!important;
+}
+#tasksCanvas .v6-signal.next .v6-signal-icon{color:#826aa0!important}
+#tasksCanvas .v6-signal.delivery.pending{
+  border-color:#ead6cc!important;
+  color:#91604d!important;
+}
+#tasksCanvas .v6-signal.delivery.pending .v6-signal-icon{color:#db8a63!important}
+
+/* Priority = three bars, filled by level, exactly the task-detail language. */
+#tasksCanvas .v6-priority{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  color:#5f6a72!important;
+  font-size:10px!important;
+  font-weight:620!important;
+  white-space:nowrap!important;
+}
+#tasksCanvas .v6-priority-bars{
+  width:17px!important;
+  height:17px!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  gap:2px!important;
+  color:#7c878f!important;
+}
+#tasksCanvas .v6-priority-bars i{
+  width:3px!important;
+  border-radius:2px 2px 1px 1px!important;
+  background:#d6dce0!important;
+}
+#tasksCanvas .v6-priority-bars i:nth-child(1){height:6px!important}
+#tasksCanvas .v6-priority-bars i:nth-child(2){height:10px!important}
+#tasksCanvas .v6-priority-bars i:nth-child(3){height:14px!important}
+#tasksCanvas .v6-priority-bars.level-1 i:nth-child(1),
+#tasksCanvas .v6-priority-bars.level-2 i:nth-child(-n+2),
+#tasksCanvas .v6-priority-bars.level-3 i{
+  background:currentColor!important;
+}
+#tasksCanvas .v6-priority.priority-urgent{
+  color:#ef3f4d!important;
+}
+#tasksCanvas .v6-priority.priority-high{
+  color:#de861f!important;
+}
+#tasksCanvas .v6-priority.priority-normal{
+  color:#5276b7!important;
+}
+#tasksCanvas .v6-priority.priority-low{
+  color:#67a47a!important;
+}
+
+/* Due date uses the same outlined calendar icon from the task detail. */
+#tasksCanvas .v6-due{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-width:0!important;
+  color:#465159!important;
+}
+#tasksCanvas .v6-due-icon{
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#4f5d66!important;
+}
+#tasksCanvas .v6-due-icon .v6-svg{
+  width:17px!important;
+  height:17px!important;
+  stroke-width:1.75!important;
+}
+#tasksCanvas .v6-due-copy{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:2px!important;
+}
+#tasksCanvas .v6-due-copy strong{
+  color:inherit!important;
+  font-size:10.5px!important;
+  font-weight:640!important;
+  line-height:1.05!important;
+}
+#tasksCanvas .v6-due-copy small{
+  color:#c94a4a!important;
+  font-size:7.8px!important;
+  font-weight:650!important;
+}
+#tasksCanvas .v6-due.over{color:#d44848!important}
+#tasksCanvas .v6-due.empty{color:#9aa2a8!important}
+
+/* Campaign becomes the same white bordered chip used in the task header. */
+#tasksCanvas .v4-campaign{
+  gap:5px!important;
+}
+#tasksCanvas .v6-campaign-chip{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  height:34px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  padding:0 9px!important;
+  border:1px solid #d9dee3!important;
+  border-radius:9px!important;
+  background:#fff!important;
+  color:#263039!important;
+  box-shadow:none!important;
+}
+#tasksCanvas .v6-campaign-chip:hover{
+  background:#f8faff!important;
+  border-color:#cbd7ec!important;
+}
+#tasksCanvas .v6-campaign-icon{
+  width:16px!important;
+  height:16px!important;
+  min-width:16px!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#246bfe!important;
+}
+#tasksCanvas .v6-campaign-icon .v6-svg{
+  width:15px!important;
+  height:15px!important;
+}
+#tasksCanvas .v6-campaign-chip>b{
+  min-width:0!important;
+  overflow:hidden!important;
+  color:#313a41!important;
+  font-size:9.5px!important;
+  font-weight:610!important;
+  white-space:nowrap!important;
+  text-overflow:ellipsis!important;
+}
+#tasksCanvas .v4-campaign>small{
+  padding-left:3px!important;
+  color:#8c969d!important;
+  font-size:8.2px!important;
+}
+
+/* Remove legacy metadata visuals so only one design language remains. */
+#tasksCanvas .v4-priority>.pri,
+#tasksCanvas .v4-due>.due-date,
+#tasksCanvas .v4-campaign-main{
+  display:none!important;
+}
+
+@media(max-width:1320px){
+  #tasksCanvas .v6-campaign-chip{
+    padding-left:7px!important;
+    padding-right:7px!important;
+  }
+  #tasksCanvas .v6-signal{
+    max-width:170px!important;
+  }
+}

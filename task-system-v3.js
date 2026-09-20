@@ -349,13 +349,31 @@
     return `<div class="row-metrics">${total?`<span title="Checklist">✓ ${done}/${total}</span>`:''}${deps?`<span title="Dependências">↳ ${deps}</span>`:''}${(t.comments||[]).length?`<span title="Comentários">◌ ${(t.comments||[]).length}</span>`:''}</div>`;
   };
 
+  function v6Icon(name){
+    const p={
+      blocked:'<path d="M7 3h10M7 21h10M8 3c0 4 1 6 4 9-3 3-4 5-4 9M16 3c0 4-1 6-4 9 3 3 4 5 4 9"/>',
+      done:'<path d="m6.5 12 3.4 3.4 7.6-7.6"/>',
+      next:'<path d="m9 6 6 6-6 6"/>',
+      deps:'<path d="M7 7h4v4H7zM13 13h4v4h-4z"/><path d="M11 9h2a3 3 0 0 1 3 3v1"/>',
+      calendar:'<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16"/>',
+      folder:'<path d="M3.8 7.5h6l1.7 2H20v8.7a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.2V7.5Z"/><path d="M4 8V5.8A1.8 1.8 0 0 1 5.8 4h4l1.7 2H18"/>'
+    }[name]||'';
+    return '<svg class="v6-svg" viewBox="0 0 24 24" aria-hidden="true">'+p+'</svg>';
+  }
+  function v6Signal(kind,label){
+    return '<span class="v6-signal '+kind+'"><span class="v6-signal-icon">'+v6Icon(kind==='delivery'?'done':kind==='ready'?'deps':kind)+'</span><span>'+esc(label)+'</span></span>';
+  }
+  function v6PriorityBars(priority){
+    const p=v3PriorityCanon(priority), level=p==='urgent'?3:p==='high'?2:p==='normal'?1:0;
+    return '<span class="v6-priority-bars level-'+level+'" aria-hidden="true"><i></i><i></i><i></i></span>';
+  }
   function v4ListBadges(t){
     const deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t);
     const out=[];
-    if(t.status==='bloqueado') out.push(`<span class="flow-pill blocked">Bloqueada · ${esc(t.blockedReason||'sem motivo')}</span>`);
-    else if(blockers.length) out.push(`<span class="flow-pill blocked">Bloqueada por ${blockers.length}</span>`);
-    else if(deps.length) out.push('<span class="flow-pill ready">Dependências concluídas</span>');
-    if(next.length) out.push(`<span class="flow-pill next">Libera ${next.length}</span>`);
+    if(t.status==='bloqueado') out.push(v6Signal('blocked','Bloqueada · '+String(t.blockedReason||'sem motivo')));
+    else if(blockers.length) out.push(v6Signal('blocked','Bloqueada por '+blockers.length));
+    else if(deps.length) out.push(v6Signal('ready','Dependências concluídas'));
+    if(next.length) out.push(v6Signal('next','Libera '+next.length));
     return out.join('');
   }
 
@@ -384,9 +402,9 @@
         </div>
       </div>
       <div class="v4-owner">${avatarStack(t.assignees,t.assigneeIds||[])}</div>
-      <div class="v4-priority"><span class="pri ${v3PriorityClass(t.priority)}">${v3PriorityLabel(t.priority)}</span></div>
-      <div class="v4-due"><span class="due-date ${isOverdue(t)?'over':''} ${due.empty?'empty':''}"><strong>${esc(due.main)}</strong>${due.sub?`<small>${esc(due.sub)}</small>`:''}</span></div>
-      <div class="v4-campaign"><span class="v4-campaign-main"><span class="v4-campaign-icon">${v4CampaignIcon()}</span><b>${esc(t.project||'Operação')}</b></span><small><span class="v4-brand-dot"></span>${esc(t.brand||'Sem marca')}</small></div>
+      <div class="v4-priority"><span class="v6-priority priority-${v3PriorityCanon(t.priority)}">${v6PriorityBars(t.priority)}<span>${v3PriorityLabel(t.priority)}</span></span></div>
+      <div class="v4-due"><span class="v6-due ${isOverdue(t)?'over':''} ${due.empty?'empty':''}"><span class="v6-due-icon">${v6Icon('calendar')}</span><span class="v6-due-copy"><strong>${esc(due.main)}</strong>${due.sub?`<small>${esc(due.sub)}</small>`:''}</span></span></div>
+      <div class="v4-campaign"><span class="v6-campaign-chip" title="${esc(t.project||'Operação')}"><span class="v6-campaign-icon">${v6Icon('folder')}</span><b>${esc(t.project||'Operação')}</b></span><small><span class="v4-brand-dot"></span>${esc(t.brand||'Sem marca')}</small></div>
     </div>`;
   };
 
