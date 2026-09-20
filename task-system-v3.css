@@ -1480,7 +1480,7 @@
   font-size:13px!important;
   font-weight:690!important;
 }
-#tasksCanvas .v11-campaign-heading span{
+#tasksCanvas .v11-campaign-heading>div>span{
   display:block!important;
   margin-top:3px!important;
   color:#89939a!important;
@@ -2020,4 +2020,51 @@
     grid-template-columns:minmax(230px,1fr) 120px 96px 104px!important;
     column-gap:9px!important;
   }
+}
+
+
+/* ===== Task Views V13 · ícone de campanha centralizado ===== */
+#tasksCanvas .v11-campaign-heading-icon{
+  box-sizing:border-box!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  min-height:34px!important;
+  flex:0 0 34px!important;
+  display:grid!important;
+  place-items:center!important;
+  align-items:center!important;
+  justify-items:center!important;
+  padding:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  line-height:0!important;
+  border-radius:9px!important;
+  background:#eef4ff!important;
+  color:#246bfe!important;
+}
+#tasksCanvas .v11-campaign-heading-icon .v6-svg{
+  box-sizing:border-box!important;
+  width:16px!important;
+  height:16px!important;
+  min-width:16px!important;
+  min-height:16px!important;
+  display:block!important;
+  position:static!important;
+  inset:auto!important;
+  margin:0!important;
+  padding:0!important;
+  transform:none!important;
+  overflow:visible!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.8!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+#tasksCanvas .v11-campaign-heading{
+  align-items:center!important;
+}
+#tasksCanvas .v11-campaign-heading>div{
+  min-width:0!important;
 }
