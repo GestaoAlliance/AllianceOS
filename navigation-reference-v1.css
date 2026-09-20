@@ -952,3 +952,52 @@
     margin:0 0 var(--alliance-shell-edge) var(--alliance-shell-edge)!important;
   }
 }
+
+
+/* ===== Navigation Reference V15 · geometria real do shell ===== */
+@media (min-width:901px){
+  html body .app,
+  html body .sidebar,
+  html body .main,
+  html body .global-toolbar{
+    box-sizing:border-box!important;
+  }
+
+  html body .app{
+    width:100%!important;
+    max-width:none!important;
+    min-height:100vh!important;
+    align-items:start!important;
+  }
+
+  html body .sidebar{
+    box-sizing:border-box!important;
+    width:var(--alliance-sidebar-card,224px)!important;
+    height:calc(100vh - (var(--alliance-shell-edge,12px) * 2))!important;
+    min-height:0!important;
+    max-height:calc(100vh - (var(--alliance-shell-edge,12px) * 2))!important;
+    margin-left:var(--alliance-shell-edge,12px)!important;
+    margin-right:0!important;
+    margin-top:0!important;
+    margin-bottom:var(--alliance-shell-edge,12px)!important;
+  }
+
+  html body .main{
+    box-sizing:border-box!important;
+    width:auto!important;
+    min-width:0!important;
+    margin-top:var(--alliance-shell-edge,12px)!important;
+    margin-right:var(--alliance-shell-edge,12px)!important;
+    margin-bottom:var(--alliance-shell-edge,12px)!important;
+    margin-left:0!important;
+  }
+
+  html body .global-toolbar{
+    box-sizing:border-box!important;
+    width:100%!important;
+    margin-top:0!important;
+    margin-right:0!important;
+    margin-left:0!important;
+    margin-bottom:var(--alliance-shell-gap,12px)!important;
+  }
+}

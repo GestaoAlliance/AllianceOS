@@ -963,13 +963,43 @@
     document.body.classList.toggle('r10-task-modal-open',locked);
   };
   openTaskDetail=function(id){
+    r10SyncShellGeometry();
     r10SetTaskModalLock(true);
     r10BaseOpenTaskDetail(id);
+    requestAnimationFrame(r10SyncShellGeometry);
   };
   closeTaskDetail=function(){
     r10BaseCloseTaskDetail();
     r10SetTaskModalLock(false);
   };
+  const r10SyncShellGeometry=()=>{
+    const root=document.documentElement;
+    const main=document.querySelector('.main');
+    const toolbar=document.querySelector('.global-toolbar');
+    const sidebar=document.querySelector('.sidebar');
+    if(!main||!toolbar)return;
+    const mainRect=main.getBoundingClientRect();
+    const barRect=toolbar.getBoundingClientRect();
+    const sideRect=sidebar?.getBoundingClientRect();
+    const gap=Math.max(8,Math.round(mainRect.left-(sideRect?.right??(mainRect.left-12))));
+    const right=Math.max(8,Math.round(window.innerWidth-mainRect.right));
+    const bottom=Math.max(8,Math.round(window.innerHeight-mainRect.bottom));
+    root.style.setProperty('--r10-shell-left',Math.round(mainRect.left)+'px');
+    root.style.setProperty('--r10-shell-right',right+'px');
+    root.style.setProperty('--r10-shell-top',Math.round(barRect.bottom+gap)+'px');
+    root.style.setProperty('--r10-shell-bottom',bottom+'px');
+    root.style.setProperty('--r10-shell-gap',gap+'px');
+  };
+  r10SyncShellGeometry();
+  window.addEventListener('resize',r10SyncShellGeometry,{passive:true});
+  const r10ShellObserver=new ResizeObserver(()=>r10SyncShellGeometry());
+  const r10MainShell=document.querySelector('.main');
+  const r10ToolbarShell=document.querySelector('.global-toolbar');
+  const r10SidebarShell=document.querySelector('.sidebar');
+  if(r10MainShell)r10ShellObserver.observe(r10MainShell);
+  if(r10ToolbarShell)r10ShellObserver.observe(r10ToolbarShell);
+  if(r10SidebarShell)r10ShellObserver.observe(r10SidebarShell);
+
   const r10Drawer=document.getElementById('taskDetailDrawer');
   if(r10Drawer&&!r10Drawer.dataset.r10ScrollGuard){
     r10Drawer.dataset.r10ScrollGuard='1';

@@ -3146,3 +3146,42 @@ body.r10-task-modal-open{
     left:var(--alliance-sidebar-col,226px)!important;
   }
 }
+
+
+/* ===== Task Reference V26 · shell medido e alinhamento único ===== */
+@media (min-width:901px){
+  #taskDetailDrawer .tdrawer-panel{
+    box-sizing:border-box!important;
+    left:var(--r10-shell-left,var(--alliance-sidebar-col,248px))!important;
+    right:var(--r10-shell-right,var(--alliance-shell-edge,12px))!important;
+    top:var(--r10-shell-top,var(--alliance-task-top,90px))!important;
+    bottom:var(--r10-shell-bottom,var(--alliance-shell-edge,12px))!important;
+    width:auto!important;
+    height:auto!important;
+    max-width:none!important;
+    max-height:none!important;
+    margin:0!important;
+  }
+
+  #taskDetailDrawer .r10-workspace{
+    height:100%!important;
+    min-height:0!important;
+    align-items:stretch!important;
+  }
+
+  #taskDetailDrawer .r10-flow,
+  #taskDetailDrawer .r10-main,
+  #taskDetailDrawer .r10-side{
+    box-sizing:border-box!important;
+    height:100%!important;
+    min-height:0!important;
+    padding-top:18px!important;
+    margin-top:0!important;
+  }
+
+  #taskDetailDrawer .r10-flow-head,
+  #taskDetailDrawer .r10-main-top,
+  #taskDetailDrawer .r10-side-stack{
+    margin-top:0!important;
+  }
+}
