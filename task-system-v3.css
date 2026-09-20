@@ -1093,3 +1093,20 @@
 #tasksCanvas .v6-priority-bars.level-3 i:nth-child(3){
   background:currentColor!important;
 }
+
+
+/* ===== Task List V9 · barras de prioridade centralizadas ===== */
+#tasksCanvas .v6-priority-bars{
+  box-sizing:border-box!important;
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  justify-content:center!important;
+  gap:2px!important;
+  padding:0 0 2px!important;
+  margin:0!important;
+  line-height:0!important;
+  vertical-align:middle!important;
+}

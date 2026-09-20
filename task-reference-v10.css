@@ -3246,3 +3246,31 @@ body.r10-task-modal-open{
     left:80px!important;
   }
 }
+
+
+/* ===== Task Reference V29 · prioridade perfeitamente alinhada ===== */
+#taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars{
+  box-sizing:border-box!important;
+  left:86px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  justify-content:center!important;
+  gap:2px!important;
+  padding:0 0 2px!important;
+  margin:0!important;
+  line-height:0!important;
+  z-index:3!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority select{
+  padding-left:38px!important;
+}
+@media(max-width:1120px){
+  #taskDetailDrawer .r10-status-card .r10-field-priority .r10-priority-level-bars{
+    left:75px!important;
+  }
+}
