@@ -349,24 +349,53 @@
     return `<div class="row-metrics">${total?`<span title="Checklist">✓ ${done}/${total}</span>`:''}${deps?`<span title="Dependências">↳ ${deps}</span>`:''}${(t.comments||[]).length?`<span title="Comentários">◌ ${(t.comments||[]).length}</span>`:''}</div>`;
   };
 
+  const v4MonthNames=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  function v4Due(t){
+    const raw=String(t.dueAt||t.due||'').slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return {main:'Sem prazo',sub:'',empty:true};
+    const [,m,d]=raw.split('-');
+    return {main:Number(d)+' '+(v4MonthNames[Number(m)-1]||m),sub:isOverdue(t)?'Atrasada':'',empty:false};
+  }
+  function v4CampaignIcon(){
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V6.5Z"/><path d="M3.5 9h17"/></svg>';
+  }
+
   renderListRow = function(t){
-    const blockers=v3Blockers(t);
-    return `<div class="cu-row ${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
-      <div class="cu-row-title"><button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button><div class="cu-titletext"><div class="task-title-line"><b>${esc(t.title)}</b>${v3FlowBadges(t)}</div><small>${esc(t.description||t.project||'Sem descrição')}</small></div></div>
-      <div>${avatarStack(t.assignees,t.assigneeIds||[])}</div>
-      <div><span class="pri ${v3PriorityClass(t.priority)}">${v3PriorityLabel(t.priority)}</span></div>
-      <div><span class="due-date ${isOverdue(t)?'over':''}">${dateBr(t.due)}${isOverdue(t)?' · atrasada':''}</span></div>
-      <div><span class="tag-project">${esc(t.project||'Operação')}</span></div>
-      <div><span class="brand-label">${esc(t.brand||'')}</span></div>
-      <div>${metrics(t)}</div>
+    const blockers=v3Blockers(t),due=v4Due(t),description=String(t.description||'').trim();
+    return `<div class="cu-row v4-work-row ${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
+      <div class="cu-row-title">
+        <!--v5-tree-->
+        <button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button>
+        <div class="cu-titletext">
+          <div class="task-title-line"><b>${esc(t.title)}</b></div>
+          <small>${esc(description||'Sem descrição adicionada')}</small>
+          <div class="v4-task-signals">${v3FlowBadges(t)}<!--v5-delivery-->${metrics(t)}</div>
+        </div>
+      </div>
+      <div class="v4-owner">${avatarStack(t.assignees,t.assigneeIds||[])}</div>
+      <div class="v4-priority"><span class="pri ${v3PriorityClass(t.priority)}">${v3PriorityLabel(t.priority)}</span></div>
+      <div class="v4-due"><span class="due-date ${isOverdue(t)?'over':''} ${due.empty?'empty':''}"><strong>${esc(due.main)}</strong>${due.sub?`<small>${esc(due.sub)}</small>`:''}</span></div>
+      <div class="v4-campaign"><span class="v4-campaign-main"><span class="v4-campaign-icon">${v4CampaignIcon()}</span><b>${esc(t.project||'Operação')}</b></span><small><span class="v4-brand-dot"></span>${esc(t.brand||'Sem marca')}</small></div>
     </div>`;
   };
 
   renderList = function(canvas,data){
-    canvas.innerHTML=TASK_STATUSES.map(status=>{
+    const groups=TASK_STATUSES.map(status=>{
       const rows=data.filter(t=>t.status===status);
-      return `<section class="cu-list-group" style="--group-color:${STATUS_COLORS[status]}"><div class="cu-group-head"><strong>${status}</strong><span>${rows.length}</span><button class="cu-add-inline" type="button" data-inline-new="${status}">＋ Nova tarefa</button></div><div class="cu-table-head"><span>Tarefa</span><span>Responsável</span><span>Prioridade</span><span>Prazo</span><span>Campanha</span><span>Marca</span><span></span></div>${rows.length?rows.map(renderListRow).join(''):'<div class="v3-empty-row">Nenhuma tarefa aqui.</div>'}</section>`;
+      return `<section class="cu-list-group v4-status-group ${rows.length?'':'is-empty'}" style="--group-color:${STATUS_COLORS[status]}">
+        <div class="cu-group-head">
+          <span class="v4-group-dot" aria-hidden="true"></span>
+          <strong>${status}</strong>
+          <span class="v4-group-count">${rows.length} ${rows.length===1?'tarefa':'tarefas'}</span>
+          <button class="cu-add-inline" type="button" data-inline-new="${status}">＋ Nova tarefa</button>
+        </div>
+        ${rows.length?rows.map(renderListRow).join(''):'<div class="v4-empty-group">Nenhuma tarefa neste status.</div>'}
+      </section>`;
     }).join('');
+    canvas.innerHTML=`<div class="v4-list-shell">
+      <div class="v4-list-header"><span>Tarefa</span><span>Responsável</span><span>Prioridade</span><span>Prazo</span><span>Campanha</span></div>
+      <div class="v4-list-groups">${groups}</div>
+    </div>`;
     bindTaskElements();
   };
 
