@@ -1840,3 +1840,184 @@
     grid-template-columns:minmax(260px,1fr) 115px 88px 96px!important;
   }
 }
+
+
+/* ===== Task Views V12 · limpeza visual e alinhamento ===== */
+
+/* QUADRO
+   O status já está na coluna; não repetir tags operacionais dentro dos cards. */
+#tasksCanvas .cu-board .cu-card-flow,
+#tasksCanvas .cu-board .flow-pill,
+#tasksCanvas .cu-board .v6-signal,
+#tasksCanvas .cu-board .brand-label,
+#tasksCanvas .cu-board .tag-project,
+#tasksCanvas .cu-board .cu-card-foot .pri{
+  display:none!important;
+}
+
+/* Cabeçalho do Kanban: só ponto de cor + texto legível. */
+#tasksCanvas .v11-board-head b,
+#tasksCanvas .cu-board .cu-colhead b{
+  height:auto!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  color:#333d44!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  letter-spacing:0!important;
+  text-transform:capitalize!important;
+}
+#tasksCanvas .v11-board-head i{
+  display:block!important;
+}
+#tasksCanvas .cu-board .cu-colhead .bar{
+  display:block!important;
+  width:8px!important;
+  height:8px!important;
+  min-width:8px!important;
+  border-radius:50%!important;
+  background:var(--status-color,#8e989f)!important;
+}
+#tasksCanvas .v11-board-card,
+#tasksCanvas .cu-board .cu-card{
+  background:#fff!important;
+  background-image:none!important;
+}
+
+/* PRIORIDADE
+   Cor apenas nas barrinhas/texto. Nunca criar caixa/fundo atrás. */
+#tasksCanvas .v11-priority,
+#tasksCanvas .v11-priority>span,
+#tasksCanvas .v11-priority .v11-bars,
+#tasksCanvas .v11-priority .v11-bars i{
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+#tasksCanvas .v11-priority,
+#tasksCanvas .v11-priority>span,
+#tasksCanvas .v11-priority .v11-bars{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  outline:0!important;
+  border-radius:0!important;
+}
+#tasksCanvas .v11-priority{
+  padding:0!important;
+  margin:0!important;
+  min-height:18px!important;
+  line-height:1!important;
+}
+
+/* POR CAMPANHA
+   Mesma linha-base para responsável, prioridade e prazo. */
+#tasksCanvas .v11-campaign-task{
+  grid-template-columns:minmax(0,1fr) 155px 112px 122px!important;
+  column-gap:18px!important;
+  padding-top:12px!important;
+  padding-bottom:12px!important;
+}
+#tasksCanvas .v11-campaign-task-owner,
+#tasksCanvas .v11-campaign-task-priority,
+#tasksCanvas .v11-campaign-task-date{
+  box-sizing:border-box!important;
+  min-width:0!important;
+  height:100%!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  padding:0!important;
+  margin:0!important;
+}
+#tasksCanvas .v11-campaign-task-priority .v11-priority,
+#tasksCanvas .v11-campaign-task-date .v11-date,
+#tasksCanvas .v11-campaign-task-owner .v11-owner{
+  margin:0!important;
+  align-self:center!important;
+}
+#tasksCanvas .v11-campaign-task-date .v11-date-icon,
+#tasksCanvas .v11-campaign-task-priority .v11-bars{
+  display:flex!important;
+  align-items:flex-end!important;
+  justify-content:center!important;
+  flex:0 0 auto!important;
+}
+#tasksCanvas .v11-campaign-status-head{
+  box-sizing:border-box!important;
+  height:38px!important;
+  min-height:38px!important;
+}
+
+/* POR PESSOA
+   Uma pessoa por linha: evita corte e dá espaço real para título/campanha/prazo. */
+#tasksCanvas .v11-people{
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:14px!important;
+}
+#tasksCanvas .v11-person{
+  width:100%!important;
+  min-width:0!important;
+}
+#tasksCanvas .v11-person-task{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  grid-template-columns:minmax(300px,1fr) minmax(170px,230px) 115px 120px!important;
+  column-gap:16px!important;
+  padding:12px 16px!important;
+}
+#tasksCanvas .v11-person-main,
+#tasksCanvas .v11-person-context,
+#tasksCanvas .v11-person-priority,
+#tasksCanvas .v11-person-date{
+  min-width:0!important;
+}
+#tasksCanvas .v11-person-priority,
+#tasksCanvas .v11-person-date{
+  height:100%!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+}
+#tasksCanvas .v11-person-context .v11-campaign{
+  width:100%!important;
+  max-width:100%!important;
+}
+#tasksCanvas .v11-person-main>b{
+  white-space:normal!important;
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+}
+#tasksCanvas .v11-person-main>small{
+  max-width:100%!important;
+}
+
+/* SEMANA também herda prioridade sem fundo. */
+#tasksCanvas .v11-week-card .v11-priority{
+  background:transparent!important;
+}
+
+/* Notebook / viewport menor: preserva tudo sem invadir ou cortar. */
+@media(max-width:1320px){
+  #tasksCanvas .v11-campaign-task{
+    grid-template-columns:minmax(250px,1fr) 135px 104px 112px!important;
+    column-gap:12px!important;
+  }
+  #tasksCanvas .v11-person-task{
+    grid-template-columns:minmax(250px,1fr) minmax(150px,200px) 105px 110px!important;
+    column-gap:12px!important;
+  }
+}
+@media(max-width:1050px){
+  #tasksCanvas .v11-campaign-task,
+  #tasksCanvas .v11-person-task{
+    grid-template-columns:minmax(230px,1fr) 120px 96px 104px!important;
+    column-gap:9px!important;
+  }
+}
