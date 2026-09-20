@@ -3274,3 +3274,34 @@ body.r10-task-modal-open{
     left:75px!important;
   }
 }
+
+
+/* ===== Task Reference V30 · prioridade sem fundo semântico ===== */
+#taskDetailDrawer .r10-status-card .r10-field-priority,
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-low,
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-normal,
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-high,
+#taskDetailDrawer .r10-status-card .r10-field-priority.tone-urgent,
+#taskDetailDrawer .r10-status-card .r10-field-priority.priority-baixa,
+#taskDetailDrawer .r10-status-card .r10-field-priority.priority-normal,
+#taskDetailDrawer .r10-status-card .r10-field-priority.priority-alta,
+#taskDetailDrawer .r10-status-card .r10-field-priority.priority-urgente{
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority>label{
+  background:transparent!important;
+  color:#68747d!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority select{
+  background:#fff!important;
+  background-color:#fff!important;
+  background-image:none!important;
+  color:#252d33!important;
+}
+#taskDetailDrawer .r10-status-card .r10-field-priority select:focus{
+  background:#fff!important;
+  border-color:#b9c5cc!important;
+  box-shadow:0 0 0 2px rgba(64,92,110,.055)!important;
+}

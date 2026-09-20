@@ -420,9 +420,9 @@
         </div>
       </div>
       <div class="v4-owner">${avatarStack(t.assignees,t.assigneeIds||[])}</div>
-      <div class="v4-priority"><span class="v6-priority v6-priority--${v3PriorityCanon(t.priority)}">${v6PriorityBars(t.priority)}<span>${v3PriorityLabel(t.priority)}</span></span></div>
+      <div class="v4-priority"><span class="v6-priority tone-${v3PriorityTone(t.priority)}">${v6PriorityBars(t.priority)}<span>${v3PriorityLabel(t.priority)}</span></span></div>
       <div class="v4-due"><span class="v6-due ${isOverdue(t)?'over':''} ${due.empty?'empty':''}"><span class="v6-due-icon">${v6Icon('calendar')}</span><span class="v6-due-copy"><strong>${esc(due.main)}</strong>${due.sub?`<small>${esc(due.sub)}</small>`:''}</span></span></div>
-      <div class="v4-campaign"><span class="v6-campaign-chip" title="${esc(t.project||'Operação')}"><span class="v6-campaign-icon">${v6Icon('folder')}</span><b>${esc(t.project||'Operação')}</b></span><small><span class="v4-brand-dot"></span>${esc(t.brand||'Sem marca')}</small></div>
+      <div class="v4-campaign"><span class="v6-campaign-chip" title="${esc(t.project||'Operação')}"><span class="v6-campaign-icon">${v6Icon('folder')}</span><b>${esc(t.project||'Operação')}</b></span></div>
     </div>`;
   };
 

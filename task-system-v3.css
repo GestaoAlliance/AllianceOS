@@ -1110,3 +1110,28 @@
   line-height:0!important;
   vertical-align:middle!important;
 }
+
+
+/* ===== Task List V10 · cores sincronizadas e campanha limpa ===== */
+#tasksCanvas .v6-priority.tone-low{color:#67a47a!important}
+#tasksCanvas .v6-priority.tone-normal{color:#5276b7!important}
+#tasksCanvas .v6-priority.tone-high{color:#de861f!important}
+#tasksCanvas .v6-priority.tone-urgent{color:#ef3f4d!important}
+
+#tasksCanvas .v4-campaign{
+  justify-content:center!important;
+}
+#tasksCanvas .v6-campaign-chip{
+  height:34px!important;
+  max-width:100%!important;
+  background:#fff!important;
+  border-color:#d9e0e5!important;
+  color:#313a41!important;
+}
+#tasksCanvas .v6-campaign-icon{
+  color:#246bfe!important;
+}
+#tasksCanvas .v4-campaign>small,
+#tasksCanvas .v4-brand-dot{
+  display:none!important;
+}
