@@ -2359,3 +2359,116 @@
     padding-right:14px!important;
   }
 }
+
+
+/* ===== Task Views V16 · Por pessoa sem overflow ===== */
+#tasksCanvas .v12-people-shell,
+#tasksCanvas .v12-people-groups,
+#tasksCanvas .v12-person-group,
+#tasksCanvas .v12-person-rows,
+#tasksCanvas .v12-person-row,
+#tasksCanvas .v12-people-columns{
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+}
+
+#tasksCanvas .v12-person-group,
+#tasksCanvas .v12-person-row{
+  overflow:hidden!important;
+}
+
+/* Mesma hierarquia da Lista, mas totalmente fluida. */
+#tasksCanvas .v12-people-columns,
+#tasksCanvas .v12-person-row{
+  grid-template-columns:
+    minmax(0,2.65fr)
+    minmax(110px,.72fr)
+    minmax(96px,.58fr)
+    minmax(92px,.55fr)
+    minmax(150px,1fr)!important;
+  column-gap:14px!important;
+}
+
+#tasksCanvas .v12-person-task,
+#tasksCanvas .v12-person-execution,
+#tasksCanvas .v12-person-priority,
+#tasksCanvas .v12-person-date,
+#tasksCanvas .v12-person-campaign{
+  min-width:0!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+}
+
+#tasksCanvas .v12-person-campaign{
+  width:100%!important;
+}
+
+#tasksCanvas .v12-person-campaign .v11-campaign{
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  padding-left:9px!important;
+  padding-right:9px!important;
+}
+
+#tasksCanvas .v12-person-campaign .v11-campaign>b{
+  min-width:0!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
+#tasksCanvas .v12-person-execution .v11-status-inline,
+#tasksCanvas .v12-person-priority .v11-priority,
+#tasksCanvas .v12-person-date .v11-date{
+  max-width:100%!important;
+  overflow:hidden!important;
+}
+
+#tasksCanvas .v12-person-row{
+  padding-left:18px!important;
+  padding-right:18px!important;
+}
+
+#tasksCanvas .v12-people-columns{
+  padding-left:18px!important;
+  padding-right:18px!important;
+}
+
+/* Notebook: reduz os mínimos em vez de deixar a campanha sair da caixa. */
+@media(max-width:1450px){
+  #tasksCanvas .v12-people-columns,
+  #tasksCanvas .v12-person-row{
+    grid-template-columns:
+      minmax(0,2.45fr)
+      minmax(96px,.68fr)
+      minmax(88px,.56fr)
+      minmax(84px,.52fr)
+      minmax(135px,.95fr)!important;
+    column-gap:11px!important;
+  }
+}
+
+@media(max-width:1180px){
+  #tasksCanvas .v12-people-columns,
+  #tasksCanvas .v12-person-row{
+    grid-template-columns:
+      minmax(0,2.25fr)
+      minmax(88px,.66fr)
+      minmax(82px,.54fr)
+      minmax(78px,.5fr)
+      minmax(120px,.9fr)!important;
+    column-gap:9px!important;
+  }
+
+  #tasksCanvas .v12-person-row,
+  #tasksCanvas .v12-people-columns{
+    padding-left:13px!important;
+    padding-right:13px!important;
+  }
+}
