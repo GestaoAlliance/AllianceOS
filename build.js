@@ -74,6 +74,50 @@ async function main() {
         }
 
         if (ent.name === 'base.html') {
+          // AllianceOS: campanhas podem vir do MCP/Supabase com campos opcionais.
+          // Normaliza os registros antes de renderizar para que a listagem e o
+          // workspace individual nunca quebrem por owner/channels/etc ausentes.
+          const oldFilteredCampaigns = "  function filteredCampaigns(){const q=(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();const st=document.getElementById('campaignStatusFilter')?.value||'';const brand=getSelectedBrand();return campaignData.filter(c=>{if(brand&&c.brand!==brand)return false;if(st&&c.status!==st)return false;if(q&&!\`\${c.name} \${c.type} \${c.owner} \${c.offer} \${c.channels.join(' ')}\`.toLowerCase().includes(q))return false;return true})}";
+          const newFilteredCampaigns = `  function normalizeCampaign(c){
+    if(!c||typeof c!=='object')c={};
+    c.name=String(c.name||c.nome||'Campanha');
+    c.brand=String(c.brand||c.marca||getSelectedBrand()||'Botanika');
+    c.type=String(c.type||c.tipo||'Campanha');
+    c.start=String(c.start||c.startDate||c.data_inicio||c.dataInicio||'');
+    c.end=String(c.end||c.endDate||c.data_fim||c.dataFim||c.start||'');
+    c.owner=String(c.owner||c.responsible||c.responsavel||c.responsável||'Sem responsável');
+    c.status=String(c.status||'Planejamento');
+    c.goal=Number(c.goal??c.meta??c.meta_faturamento??0)||0;
+    c.budget=Number(c.budget??c.investment??c.investimento??c.investimento_total??0)||0;
+    c.progress=Math.max(0,Math.min(100,Number(c.progress??c.progresso??0)||0));
+    c.color=String(c.color||c.cor||'#121415');
+    c.offer=String(c.offer||c.oferta||'');
+    c.objective=String(c.objective||c.objetivo||'');
+    c.channels=Array.isArray(c.channels)?c.channels:(Array.isArray(c.canais)?c.canais:[]);
+    c.products=Array.isArray(c.products)?c.products:(Array.isArray(c.produtos)?c.produtos:[]);
+    c.benefits=Array.isArray(c.benefits)?c.benefits:(Array.isArray(c.beneficios)?c.beneficios:[]);
+    c.schedule=Array.isArray(c.schedule)?c.schedule:(Array.isArray(c.cronograma)?c.cronograma:[]);
+    return c;
+  }
+  function filteredCampaigns(){const q=(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();const st=document.getElementById('campaignStatusFilter')?.value||'';const brand=getSelectedBrand();return campaignData.map(normalizeCampaign).filter(c=>{if(brand&&c.brand!==brand)return false;if(st&&c.status!==st)return false;if(q&&!\`\${c.name} \${c.type} \${c.owner} \${c.offer} \${c.channels.join(' ')}\`.toLowerCase().includes(q))return false;return true})}`;
+          if (!s.includes(oldFilteredCampaigns)) throw new Error('Não encontrei filteredCampaigns legado para normalizar');
+          s = s.replace(oldFilteredCampaigns, newFilteredCampaigns);
+
+          const oldCampaignRow = "  function renderCampaignRow(c){return \`<article class=\"camp-row\" data-campaign-id=\"\${c.id}\" style=\"--cc:\${c.color}\"><div class=\"camp-name\"><i class=\"camp-color\"></i><div class=\"camp-name-text\"><b>\${cesc(c.name)}</b><small>\${cesc(c.type)} · \${cesc(c.offer)}</small></div></div><span class=\"camp-chip \${statusClass(c.status)}\">\${cesc(c.status)}</span><div><span class=\"camp-meta-val\">\${cDate(c.start)} — \${cDate(c.end)}</span><span class=\"camp-meta-sub\">\${Math.max(1,Math.round((new Date(c.end)-new Date(c.start))/86400000)+1)} dias</span></div><div class=\"camp-owner\"><i class=\"miniav\">\${cInitials(c.owner)}</i><span>\${cesc(c.owner.split(' ')[0])}</span></div><div><span class=\"camp-meta-val\">\${cMoney(c.goal)}</span><span class=\"camp-meta-sub\">faturamento</span></div><div><span class=\"camp-meta-val\">\${cMoney(c.budget)}</span><span class=\"camp-meta-sub\">mídia / ação</span></div><div class=\"camp-progress\"><div class=\"camp-progress-line\"><i style=\"width:\${Math.min(100,c.progress)}%\"></i></div><span>\${c.progress}%</span></div><button class=\"camp-more\" type=\"button\">›</button></article>\`}";
+          const newCampaignRow = `  function renderCampaignRow(raw){const c=normalizeCampaign(raw);const ownerFirst=c.owner.split(/\\s+/)[0]||'Sem responsável';const a=new Date(c.start),b=new Date(c.end);const validDates=!Number.isNaN(a.getTime())&&!Number.isNaN(b.getTime());const days=validDates?Math.max(1,Math.round((b-a)/86400000)+1):'—';return \`<article class="camp-row" data-campaign-id="\${cesc(c.id)}" style="--cc:\${cesc(c.color)}"><div class="camp-name"><i class="camp-color"></i><div class="camp-name-text"><b>\${cesc(c.name)}</b><small>\${cesc(c.type)}\${c.offer?' · '+cesc(c.offer):''}</small></div></div><span class="camp-chip \${statusClass(c.status)}">\${cesc(c.status)}</span><div><span class="camp-meta-val">\${cDate(c.start)} — \${cDate(c.end)}</span><span class="camp-meta-sub">\${days==='—'?'Período não definido':days+' dias'}</span></div><div class="camp-owner"><i class="miniav">\${cInitials(c.owner)}</i><span>\${cesc(ownerFirst)}</span></div><div><span class="camp-meta-val">\${cMoney(c.goal)}</span><span class="camp-meta-sub">faturamento</span></div><div><span class="camp-meta-val">\${cMoney(c.budget)}</span><span class="camp-meta-sub">mídia / ação</span></div><div class="camp-progress"><div class="camp-progress-line"><i style="width:\${c.progress}%"></i></div><span>\${c.progress}%</span></div><button class="camp-more" type="button" aria-label="Abrir \${cesc(c.name)}">›</button></article>\`}`;
+          if (!s.includes(oldCampaignRow)) throw new Error('Não encontrei renderCampaignRow legado para corrigir');
+          s = s.replace(oldCampaignRow, newCampaignRow);
+
+          const oldCalendar = "  function renderCalendar(data){const days=[7,8,9,10,11,12,13];const names=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];document.getElementById('campaignCalendar').innerHTML=days.map((d,i)=>{const iso=\`2026-09-\${String(d).padStart(2,'0')}\`;const items=data.filter(c=>c.start<=iso&&c.end>=iso);return \`<section class=\"camp-day \${d===7?'today':''}\"><div class=\"camp-day-head\"><b>\${names[i]} · \${String(d).padStart(2,'0')}</b>\${d===7?'<span>Hoje</span>':'<span>Setembro</span>'}</div>\${items.map(c=>\`<article class=\"camp-cal-item\" data-campaign-id=\"\${c.id}\" style=\"--cc:\${c.color}\"><b>\${cesc(c.name)}</b><span>\${cesc(c.status)} · \${cesc(c.owner.split(' ')[0])}</span></article>\`).join('')||'<div style=\"padding:12px 4px;color:#a2a6aa;font-size:7px\">Sem campanha ativa</div>'}</section>\`}).join('')}";
+          const newCalendar = `  function renderCalendar(data){const days=[7,8,9,10,11,12,13];const names=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];document.getElementById('campaignCalendar').innerHTML=days.map((d,i)=>{const iso=\`2026-09-\${String(d).padStart(2,'0')}\`;const items=data.map(normalizeCampaign).filter(c=>c.start&&c.end&&c.start<=iso&&c.end>=iso);return \`<section class="camp-day \${d===7?'today':''}"><div class="camp-day-head"><b>\${names[i]} · \${String(d).padStart(2,'0')}</b>\${d===7?'<span>Hoje</span>':'<span>Setembro</span>'}</div>\${items.map(c=>{const ownerFirst=c.owner.split(/\\s+/)[0]||'Sem responsável';return \`<article class="camp-cal-item" data-campaign-id="\${cesc(c.id)}" style="--cc:\${cesc(c.color)}"><b>\${cesc(c.name)}</b><span>\${cesc(c.status)} · \${cesc(ownerFirst)}</span></article>\`}).join('')||'<div style="padding:12px 4px;color:#a2a6aa;font-size:7px">Sem campanha ativa</div>'}</section>\`}).join('')}`;
+          if (!s.includes(oldCalendar)) throw new Error('Não encontrei renderCalendar legado para corrigir');
+          s = s.replace(oldCalendar, newCalendar);
+
+          const oldOpenCampaign = "  function openCampaignWorkspace(id){const c=campaignData.find(x=>String(x.id)===String(id));if(!c)return;campaignState.selected=c.id;campaignState.workspaceTab='summary';document.getElementById('campaignOverviewList').classList.add('hidden');document.getElementById('campaignWorkspace').classList.add('active');renderWorkspace();location.hash='campaigns'}";
+          const newOpenCampaign = "  function openCampaignWorkspace(id){const raw=campaignData.find(x=>String(x.id)===String(id));if(!raw)return;const c=normalizeCampaign(raw);campaignState.selected=c.id;campaignState.workspaceTab='summary';document.getElementById('campaignOverviewList').classList.add('hidden');document.getElementById('campaignWorkspace').classList.add('active');renderWorkspace();location.hash='campaigns'}";
+          if (!s.includes(oldOpenCampaign)) throw new Error('Não encontrei openCampaignWorkspace legado para corrigir');
+          s = s.replace(oldOpenCampaign, newOpenCampaign);
+
           const taskAnchor = '  function showHome(){';
           if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas');
           s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskFocusJs}\n\n${taskReferenceV10Js}\n\n${taskAnchor}`);
