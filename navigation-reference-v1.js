@@ -180,6 +180,10 @@
         (key==='notifications'?'<span class="ref2-nav-badge">37</span>':'');
       b.addEventListener('click',()=>{
         setActive(key);
+        if(key==='campaigns'){
+          openStrategyMap();
+          return;
+        }
         if(target)target.click();
         else toast(label+' · módulo em preparação.');
       });
