@@ -3022,3 +3022,53 @@
     font-size:9px!important;
   }
 }
+
+
+/* ===== Task Reference V22 · título e descrição responsivos ===== */
+#taskDetailDrawer .r10-title-slot{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+}
+#taskDetailDrawer .r10-title-input{
+  box-sizing:border-box!important;
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  min-height:38px!important;
+  height:auto;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  outline:0!important;
+  resize:none!important;
+  overflow:hidden!important;
+  background:transparent!important;
+  white-space:pre-wrap!important;
+  overflow-wrap:break-word!important;
+  word-break:normal!important;
+}
+#taskDetailDrawer .r10-subtitle{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:break-word!important;
+  word-break:normal!important;
+}
+@media (min-width:901px) and (max-width:1500px){
+  #taskDetailDrawer .r10-title,
+  #taskDetailDrawer .r10-title-input{
+    font-size:clamp(28px,2.2vw,32px)!important;
+    line-height:1.1!important;
+  }
+  #taskDetailDrawer .r10-subtitle{
+    font-size:13px!important;
+    line-height:1.5!important;
+  }
+}

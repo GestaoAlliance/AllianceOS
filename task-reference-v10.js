@@ -688,16 +688,29 @@
     const titleSlot=center.querySelector('.r10-title-slot');
     let visibleTitleInput=null;
     if(titleSlot){
-      visibleTitleInput=document.createElement('input');
-      visibleTitleInput.type='text';
+      visibleTitleInput=document.createElement('textarea');
+      visibleTitleInput.rows=1;
       visibleTitleInput.className='r10-title-input';
       visibleTitleInput.setAttribute('aria-label','Título da tarefa');
       visibleTitleInput.setAttribute('placeholder','Nome da tarefa');
+      visibleTitleInput.setAttribute('wrap','soft');
       visibleTitleInput.value=t.title||'';
+      const fitVisibleTitle=()=>{
+        visibleTitleInput.style.setProperty('height','auto','important');
+        visibleTitleInput.style.setProperty('height',Math.max(38,visibleTitleInput.scrollHeight)+'px','important');
+      };
       visibleTitleInput.addEventListener('input',()=>{
-        if(legacyTitleInput)legacyTitleInput.value=visibleTitleInput.value;
+        if(legacyTitleInput)legacyTitleInput.value=visibleTitleInput.value.replace(/\s*\n\s*/g,' ');
+        fitVisibleTitle();
+      });
+      visibleTitleInput.addEventListener('keydown',e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          visibleTitleInput.blur();
+        }
       });
       titleSlot.appendChild(visibleTitleInput);
+      requestAnimationFrame(fitVisibleTitle);
     }
     const saveSlot=center.querySelector('.r10-save-slot');
     if(saveSlot){
@@ -709,7 +722,7 @@
         e.preventDefault();
         e.stopPropagation();
         const id=String(taskState.selected||t.id);
-        if(legacyTitleInput&&visibleTitleInput)legacyTitleInput.value=visibleTitleInput.value;
+        if(legacyTitleInput&&visibleTitleInput)legacyTitleInput.value=visibleTitleInput.value.replace(/\s*\n\s*/g,' ');
         try{
           saveCurrentTask();
         }catch(err){
@@ -806,7 +819,7 @@
       if(!current)return;
       const input=workspace.querySelector('.r10-title-input');
       if(input){
-        current.title=input.value.trim()||current.title;
+        current.title=input.value.replace(/\s*\n\s*/g,' ').trim()||current.title;
         if(legacyTitleInput)legacyTitleInput.value=input.value;
       }
     };
@@ -1046,26 +1059,55 @@
     flex:0 0 11px!important;
     stroke-width:1.8!important;
   }
+  #taskDetailDrawer .r10-title-slot{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
   #taskDetailDrawer .r10-title,
   #taskDetailDrawer .r10-title-input{
-    font-size:34px!important;
-    line-height:1.06!important;
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    font-size:clamp(28px,2.2vw,34px)!important;
+    line-height:1.08!important;
     font-weight:720!important;
     letter-spacing:-.045em!important;
     color:#101418!important;
+    white-space:pre-wrap!important;
+    overflow-wrap:break-word!important;
+    word-break:normal!important;
   }
   #taskDetailDrawer .r10-title-input{
+    display:block!important;
     min-height:38px!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    outline:0!important;
+    resize:none!important;
+    overflow:hidden!important;
+    background:transparent!important;
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    box-shadow:none!important;
   }
   #taskDetailDrawer .r10-subtitle{
-    max-width:760px!important;
-    margin:9px 0 0!important;
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:10px 0 0!important;
     color:#6f7a84!important;
-    font-size:14px!important;
-    line-height:1.48!important;
+    font-size:clamp(13px,.95vw,14px)!important;
+    line-height:1.5!important;
     font-weight:430!important;
     white-space:normal!important;
-    overflow-wrap:anywhere!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+    overflow-wrap:break-word!important;
+    word-break:normal!important;
   }
   #taskDetailDrawer .r10-pills{
     display:flex!important;
