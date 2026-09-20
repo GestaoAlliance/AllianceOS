@@ -956,6 +956,31 @@
     if(beforeStatus==='feito'&&t.status!=='feito'&&t.completedAt){delete t.completedAt;return true;}
     return false;
   }
+  const r10BaseOpenTaskDetail=openTaskDetail;
+  const r10BaseCloseTaskDetail=closeTaskDetail;
+  const r10SetTaskModalLock=locked=>{
+    document.documentElement.classList.toggle('r10-task-modal-open',locked);
+    document.body.classList.toggle('r10-task-modal-open',locked);
+  };
+  openTaskDetail=function(id){
+    r10SetTaskModalLock(true);
+    r10BaseOpenTaskDetail(id);
+  };
+  closeTaskDetail=function(){
+    r10BaseCloseTaskDetail();
+    r10SetTaskModalLock(false);
+  };
+  const r10Drawer=document.getElementById('taskDetailDrawer');
+  if(r10Drawer&&!r10Drawer.dataset.r10ScrollGuard){
+    r10Drawer.dataset.r10ScrollGuard='1';
+    r10Drawer.addEventListener('wheel',e=>{
+      if(!e.target.closest('.tdrawer-panel'))e.preventDefault();
+    },{passive:false});
+    r10Drawer.addEventListener('touchmove',e=>{
+      if(!e.target.closest('.tdrawer-panel'))e.preventDefault();
+    },{passive:false});
+  }
+
   const r10BaseSaveCurrentTask=saveCurrentTask;
   saveCurrentTask=function(){
     const t=r10Task(taskState.selected), before=t?.status;

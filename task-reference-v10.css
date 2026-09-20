@@ -3072,3 +3072,22 @@
     line-height:1.5!important;
   }
 }
+
+
+/* ===== Task Reference V24 · drawer sem scroll do fundo ===== */
+html.r10-task-modal-open,
+body.r10-task-modal-open{
+  overflow:hidden!important;
+  overscroll-behavior:none!important;
+}
+@media (min-width:901px){
+  #taskDetailDrawer.open{
+    pointer-events:auto!important;
+    overscroll-behavior:contain!important;
+  }
+  #taskDetailDrawer.open>.tdrawer-panel,
+  #taskDetailDrawer.open .tdrawer-panel{
+    pointer-events:auto!important;
+    overscroll-behavior:contain!important;
+  }
+}
