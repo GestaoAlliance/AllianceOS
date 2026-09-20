@@ -1001,3 +1001,29 @@
     margin-bottom:var(--alliance-shell-gap,12px)!important;
   }
 }
+
+
+/* ===== Navigation Reference V16 · mesma grade da tarefa ===== */
+:root{
+  --alliance-task-flow-col:300px;
+  --alliance-task-side-col:350px;
+  --alliance-shell-inner:18px;
+}
+@media (min-width:901px) and (max-width:1450px){
+  :root{
+    --alliance-task-flow-col:280px;
+    --alliance-task-side-col:320px;
+  }
+}
+@media (min-width:901px){
+  html body .global-toolbar > .ref2-search{
+    left:var(--alliance-shell-inner)!important;
+    right:calc(var(--alliance-task-side-col) + var(--alliance-shell-inner))!important;
+  }
+  html body .global-toolbar > .ref2-top-actions{
+    left:calc(100% - var(--alliance-task-side-col) + var(--alliance-shell-inner))!important;
+    right:var(--alliance-shell-inner)!important;
+    width:auto!important;
+    justify-content:flex-end!important;
+  }
+}

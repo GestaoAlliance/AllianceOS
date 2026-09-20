@@ -3185,3 +3185,19 @@ body.r10-task-modal-open{
     margin-top:0!important;
   }
 }
+
+
+/* ===== Task Reference V27 · uma única grade visual ===== */
+@media (min-width:901px){
+  #taskDetailDrawer .r10-workspace{
+    grid-template-columns:var(--alliance-task-flow-col,300px) minmax(0,1fr) var(--alliance-task-side-col,350px)!important;
+  }
+  #taskDetailDrawer .r10-flow,
+  #taskDetailDrawer .r10-main,
+  #taskDetailDrawer .r10-side{
+    padding-top:18px!important;
+  }
+  #taskDetailDrawer .r10-progress-copy{
+    border-top:0!important;
+  }
+}

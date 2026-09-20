@@ -2586,6 +2586,39 @@
     }
   }
 
+  /* ===== Runtime V27 · grade final ===== */
+  @media (min-width:901px){
+    #taskDetailDrawer .r10-workspace{
+      grid-template-columns:var(--alliance-task-flow-col,300px) minmax(0,1fr) var(--alliance-task-side-col,350px)!important;
+    }
+    #taskDetailDrawer .r10-flow{
+      box-sizing:border-box!important;
+      padding:18px 18px 24px!important;
+      border-right:1px solid #e4e8eb!important;
+    }
+    #taskDetailDrawer .r10-main{
+      box-sizing:border-box!important;
+      padding:18px 22px 30px!important;
+    }
+    #taskDetailDrawer .r10-side{
+      box-sizing:border-box!important;
+      padding:18px 16px 26px!important;
+      border-left:1px solid #e4e8eb!important;
+    }
+    #taskDetailDrawer .r10-flow-head,
+    #taskDetailDrawer .r10-main-top,
+    #taskDetailDrawer .r10-side-stack{
+      margin-top:0!important;
+    }
+    #taskDetailDrawer .r10-progress-copy{
+      margin-left:0!important;
+      margin-right:0!important;
+      padding-left:0!important;
+      padding-right:0!important;
+      border-top:0!important;
+    }
+  }
+
   body.v5-conference-modal-open{overflow:hidden!important}
   .v5-conference-modal{position:fixed!important;inset:0!important;z-index:2147483000!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:24px!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
   .v5-conference-backdrop{position:absolute!important;inset:0!important;background:rgba(17,24,39,.38)!important;backdrop-filter:blur(2px)!important}
