@@ -449,9 +449,9 @@
   function v11Priority(t,showLabel=true){
     return '<span class="v11-priority tone-'+v3PriorityTone(t.priority)+'">'+v3PriorityBarsMarkup(t.priority,'v11-bars')+(showLabel?'<span>'+esc(v3PriorityLabel(t.priority))+'</span>':'')+'</span>';
   }
-  function v11Date(t){
+  function v11Date(t,showSub=true){
     const due=v4Due(t);
-    return '<span class="v11-date '+(isOverdue(t)?'over ':'')+(due.empty?'empty':'')+'"><span class="v11-date-icon">'+v6Icon('calendar')+'</span><span class="v11-date-copy"><b>'+esc(due.main)+'</b>'+(due.sub?'<small>'+esc(due.sub)+'</small>':'')+'</span></span>';
+    return '<span class="v11-date '+(isOverdue(t)?'over ':'')+(due.empty?'empty':'')+'"><span class="v11-date-icon">'+v6Icon('calendar')+'</span><span class="v11-date-copy"><b>'+esc(due.main)+'</b>'+(showSub&&due.sub?'<small>'+esc(due.sub)+'</small>':'')+'</span></span>';
   }
   function v11Campaign(name){
     return '<span class="v11-campaign" title="'+esc(name||'Operação')+'"><span>'+v6Icon('folder')+'</span><b>'+esc(name||'Operação')+'</b></span>';
@@ -534,9 +534,9 @@
           const description=String(t.description||'').trim();
           return '<div class="cu-person-task v11-person-task" data-task-id="'+esc(t.id)+'">'+
             '<div class="v11-person-main">'+v11Subtask(t)+'<b>'+esc(t.title)+'</b><small>'+esc(description||'Sem descrição adicionada')+'</small></div>'+
-            '<div class="v11-person-context">'+v11Campaign(t.project||'Operação')+v11Status(t.status)+'</div>'+
+            '<div class="v11-person-context">'+v11Campaign(t.project||'Operação')+'</div>'+
             '<div class="v11-person-priority">'+v11Priority(t,true)+'</div>'+
-            '<div class="v11-person-date">'+v11Date(t)+'</div>'+
+            '<div class="v11-person-date">'+v11Date(t,false)+'</div>'+
           '</div>';
         }).join('')+'</div>'+
       '</section>';

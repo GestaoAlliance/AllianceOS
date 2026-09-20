@@ -2068,3 +2068,31 @@
 #tasksCanvas .v11-campaign-heading>div{
   min-width:0!important;
 }
+
+
+/* ===== Task Views V14 · Por pessoa segue a Lista ===== */
+#tasksCanvas .v11-person-context{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  gap:0!important;
+}
+#tasksCanvas .v11-person-context .v11-status-inline{
+  display:none!important;
+}
+#tasksCanvas .v11-person-date .v11-date{
+  align-items:center!important;
+}
+#tasksCanvas .v11-person-date .v11-date-copy{
+  display:block!important;
+}
+#tasksCanvas .v11-person-date .v11-date-copy>small{
+  display:none!important;
+}
+/* Quando atrasada, só a data fica vermelha; o calendário permanece neutro. */
+#tasksCanvas .v11-person-date .v11-date.over .v11-date-icon{
+  color:#5b6871!important;
+}
+#tasksCanvas .v11-person-date .v11-date.over .v11-date-copy>b{
+  color:#d44848!important;
+}
