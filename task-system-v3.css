@@ -2472,3 +2472,294 @@
     padding-right:13px!important;
   }
 }
+
+
+/* ===== Task Views V17 · Pessoa + Campanha ===== */
+#tasksCanvas .v13-pc-shell{width:100%;min-width:0}
+#tasksCanvas .v13-pc-controls{
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:12px;
+  padding:7px 9px;
+  border:1px solid #e1e5e8;
+  border-radius:11px;
+  background:#fff;
+}
+#tasksCanvas .v13-pc-controls>span{
+  color:#8b949b;
+  font-size:8.5px;
+  font-weight:650;
+  text-transform:uppercase;
+  letter-spacing:.045em;
+}
+#tasksCanvas .v13-pc-controls>div{
+  display:flex;
+  gap:3px;
+  padding:3px;
+  border-radius:8px;
+  background:#f0f2f3;
+}
+#tasksCanvas .v13-pc-controls button{
+  height:28px;
+  border:0;
+  border-radius:6px;
+  padding:0 10px;
+  background:transparent;
+  color:#727c84;
+  font-size:8.5px;
+  font-weight:650;
+}
+#tasksCanvas .v13-pc-controls button.active{
+  background:#fff;
+  color:#252c31;
+  box-shadow:0 1px 3px rgba(20,26,30,.08);
+}
+#tasksCanvas .v13-pc-body{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+#tasksCanvas .v13-pc-person,
+#tasksCanvas .v13-pc-campaign-first{
+  overflow:hidden;
+  border:1px solid #e1e5e8;
+  border-radius:15px;
+  background:#fff;
+}
+#tasksCanvas .v13-pc-person-head,
+#tasksCanvas .v13-pc-campaign-first-head{
+  min-height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:11px 17px;
+  border-bottom:1px solid #e8ecef;
+  background:#fbfcfc;
+}
+#tasksCanvas .v13-pc-person-id{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+#tasksCanvas .v13-pc-avatar{
+  width:36px;
+  height:36px;
+  min-width:36px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border-radius:50%;
+  background:#edf0f2;
+  color:#6d7880;
+  font-size:9px;
+  font-weight:700;
+}
+#tasksCanvas .v13-pc-avatar img{width:100%;height:100%;object-fit:cover}
+#tasksCanvas .v13-pc-person-id b,
+#tasksCanvas .v13-pc-campaign-title b{
+  display:block;
+  color:#283037;
+  font-size:11.5px;
+  font-weight:690;
+}
+#tasksCanvas .v13-pc-person-id span,
+#tasksCanvas .v13-pc-campaign-title small,
+#tasksCanvas .v13-pc-inner-person-head span{
+  display:block;
+  margin-top:3px;
+  color:#8f989f;
+  font-size:8.2px;
+}
+#tasksCanvas .v13-pc-person-progress,
+#tasksCanvas .v13-pc-progress{
+  width:190px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+#tasksCanvas .v13-pc-person-progress>span,
+#tasksCanvas .v13-pc-progress>span{
+  min-width:62px;
+  color:#747f87;
+  font-size:8.3px;
+  font-weight:620;
+  text-align:right;
+}
+#tasksCanvas .v13-pc-person-progress>i,
+#tasksCanvas .v13-pc-progress>i{
+  height:6px;
+  flex:1;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e9edf0;
+}
+#tasksCanvas .v13-pc-person-progress>i>b,
+#tasksCanvas .v13-pc-progress>i>b{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:#20262b;
+}
+#tasksCanvas .v13-pc-person-campaigns,
+#tasksCanvas .v13-pc-inner-people{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:12px;
+  background:#f7f8f9;
+}
+#tasksCanvas .v13-pc-campaign,
+#tasksCanvas .v13-pc-inner-person{
+  overflow:hidden;
+  border:1px solid #e2e6e9;
+  border-radius:12px;
+  background:#fff;
+}
+#tasksCanvas .v13-pc-campaign-head,
+#tasksCanvas .v13-pc-inner-person-head{
+  min-height:54px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:9px 13px;
+  border-bottom:1px solid #e9edef;
+  background:#fff;
+}
+#tasksCanvas .v13-pc-campaign-title{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+#tasksCanvas .v13-pc-campaign-title>span{
+  width:30px;
+  height:30px;
+  min-width:30px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#246bfe;
+}
+#tasksCanvas .v13-pc-campaign-title .v6-svg{
+  width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round
+}
+#tasksCanvas .v13-pc-inner-person-head{
+  justify-content:flex-start;
+}
+#tasksCanvas .v13-pc-inner-person-head>div{
+  min-width:0;
+}
+#tasksCanvas .v13-pc-inner-person-head b{
+  display:block;
+  color:#303940;
+  font-size:10px;
+  font-weight:670;
+}
+#tasksCanvas .v13-pc-columns,
+#tasksCanvas .v13-pc-task{
+  display:grid;
+  grid-template-columns:minmax(0,2.65fr) minmax(110px,.72fr) minmax(96px,.58fr) minmax(92px,.55fr);
+  column-gap:14px;
+  align-items:center;
+}
+#tasksCanvas .v13-pc-columns{
+  min-height:34px;
+  padding:0 14px;
+  color:#949ca2;
+  font-size:7.8px;
+  font-weight:700;
+  letter-spacing:.045em;
+  text-transform:uppercase;
+  background:#fbfcfc;
+  border-bottom:1px solid #eef1f3;
+}
+#tasksCanvas .v13-pc-task{
+  min-height:76px;
+  padding:10px 14px;
+  border-bottom:1px solid #eef1f3;
+  cursor:pointer;
+}
+#tasksCanvas .v13-pc-task:last-child{border-bottom:0}
+#tasksCanvas .v13-pc-task:hover{background:#fafbfb}
+#tasksCanvas .v13-pc-main{min-width:0}
+#tasksCanvas .v13-pc-main>strong{
+  display:block;
+  overflow:hidden;
+  color:#242b30;
+  font-size:10.5px;
+  font-weight:650;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+#tasksCanvas .v13-pc-main>small{
+  display:block;
+  margin-top:4px;
+  overflow:hidden;
+  color:#929ba1;
+  font-size:8.2px;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+#tasksCanvas .v13-pc-sub{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin-bottom:4px;
+}
+#tasksCanvas .v13-pc-sub>span{
+  flex:0 0 auto;
+  padding:2px 5px;
+  border:1px solid #dbe6ed;
+  border-radius:5px;
+  background:#eef4f7;
+  color:#597285;
+  font-size:7.5px;
+  font-weight:680;
+  text-transform:uppercase;
+}
+#tasksCanvas .v13-pc-sub>b{
+  min-width:0;
+  overflow:hidden;
+  color:#75828c;
+  font-size:7.8px;
+  font-weight:560;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+#tasksCanvas .v13-pc-execution,
+#tasksCanvas .v13-pc-priority,
+#tasksCanvas .v13-pc-date{
+  min-width:0;
+  display:flex;
+  align-items:center;
+}
+#tasksCanvas .v13-pc-execution .v11-status-inline{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  color:#68737b;
+  font-size:9px;
+  font-weight:620;
+  text-transform:capitalize;
+}
+#tasksCanvas .v13-pc-execution .v11-status-inline i{
+  width:8px;height:8px;min-width:8px;display:block;border-radius:50%;background:var(--v11-status,#8e989f)
+}
+#tasksCanvas .v13-pc-date .v11-date-copy>small{display:none}
+#tasksCanvas .v13-pc-date .v11-date.over .v11-date-icon{color:#5b6871!important}
+#tasksCanvas .v13-pc-date .v11-date.over .v11-date-copy>b{color:#d44848!important}
+
+@media(max-width:1320px){
+  #tasksCanvas .v13-pc-columns,
+  #tasksCanvas .v13-pc-task{
+    grid-template-columns:minmax(0,2.35fr) minmax(96px,.68fr) minmax(88px,.56fr) minmax(84px,.52fr);
+    column-gap:10px;
+  }
+}

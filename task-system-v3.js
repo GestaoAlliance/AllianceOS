@@ -5,6 +5,7 @@
 {
   let v3WeekOffset = 0;
   let v3NewPreset = {};
+  let v3PeopleCampaignOrder = 'person-campaign';
   window.AllianceOSDirectory=window.AllianceOSDirectory||{members:[],lists:[],brands:[]};
 
   // AllianceOS V2: status operacionais, horário, recorrência e arquivamento.
@@ -569,6 +570,92 @@
     bindTaskElements();
   };
 
+  renderPeopleCampaign = function(canvas,data){
+    const personNames=[...new Set(data.flatMap(t=>t.assignees.length?t.assignees:['Sem responsável']))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
+    const campaignNames=[...new Set(data.map(t=>t.project||'Operação'))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+    const taskRow=t=>{
+      const description=String(t.description||'').trim();
+      const parent=v3Parent(t);
+      return '<div class="v13-pc-task '+(parent?'is-subtask ':'')+'" data-task-id="'+esc(t.id)+'">'+
+        '<div class="v13-pc-main">'+
+          (parent?'<div class="v13-pc-sub"><span>Subtarefa</span><b>de '+esc(parent.title)+'</b></div>':'')+
+          '<strong>'+esc(t.title)+'</strong>'+
+          '<small>'+esc(description||'Sem descrição adicionada')+'</small>'+
+        '</div>'+
+        '<div class="v13-pc-execution">'+v11Status(t.status)+'</div>'+
+        '<div class="v13-pc-priority">'+v11Priority(t,true)+'</div>'+
+        '<div class="v13-pc-date">'+v11Date(t,false)+'</div>'+
+      '</div>';
+    };
+
+    const campaignBlock=(campaign,rows)=>{
+      const done=rows.filter(t=>t.status==='feito').length;
+      const pct=rows.length?Math.round(done/rows.length*100):0;
+      return '<section class="v13-pc-campaign">'+
+        '<div class="v13-pc-campaign-head">'+
+          '<div class="v13-pc-campaign-title"><span>'+v6Icon('folder')+'</span><div><b>'+esc(campaign)+'</b><small>'+((rows.length-done))+' abertas · '+done+' concluídas</small></div></div>'+
+          '<div class="v13-pc-progress"><span>'+done+'/'+rows.length+'</span><i><b style="width:'+pct+'%"></b></i></div>'+
+        '</div>'+
+        '<div class="v13-pc-columns"><span>Tarefa</span><span>Execução</span><span>Prioridade</span><span>Prazo</span></div>'+
+        '<div class="v13-pc-tasks">'+rows.map(taskRow).join('')+'</div>'+
+      '</section>';
+    };
+
+    const personBlock=(name,rows)=>{
+      const done=rows.filter(t=>t.status==='feito').length;
+      const late=rows.filter(isOverdue).length;
+      const pct=rows.length?Math.round(done/rows.length*100):0;
+      const avatar=name==='Sem responsável'?'<span class="v13-pc-avatar empty">—</span>':'<span class="v13-pc-avatar">'+v3AvatarInner(name)+'</span>';
+      const campaigns=[...new Set(rows.map(t=>t.project||'Operação'))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+      return '<section class="v13-pc-person">'+
+        '<div class="v13-pc-person-head">'+
+          '<div class="v13-pc-person-id">'+avatar+'<div><b>'+esc(v3Short(name))+'</b><span>'+rows.filter(t=>t.status!=='feito').length+' abertas · '+late+' atrasadas · '+campaigns.length+' campanha'+(campaigns.length===1?'':'s')+'</span></div></div>'+
+          '<div class="v13-pc-person-progress"><span>'+done+'/'+rows.length+' concluídas</span><i><b style="width:'+pct+'%"></b></i></div>'+
+        '</div>'+
+        '<div class="v13-pc-person-campaigns">'+campaigns.map(c=>campaignBlock(c,rows.filter(t=>(t.project||'Operação')===c))).join('')+'</div>'+
+      '</section>';
+    };
+
+    const personInsideCampaign=(name,rows)=>{
+      const avatar=name==='Sem responsável'?'<span class="v13-pc-avatar empty">—</span>':'<span class="v13-pc-avatar">'+v3AvatarInner(name)+'</span>';
+      return '<section class="v13-pc-inner-person">'+
+        '<div class="v13-pc-inner-person-head">'+avatar+'<div><b>'+esc(v3Short(name))+'</b><span>'+rows.filter(t=>t.status!=='feito').length+' abertas · '+rows.filter(t=>t.status==='feito').length+' concluídas</span></div></div>'+
+        '<div class="v13-pc-columns"><span>Tarefa</span><span>Execução</span><span>Prioridade</span><span>Prazo</span></div>'+
+        '<div class="v13-pc-tasks">'+rows.map(taskRow).join('')+'</div>'+
+      '</section>';
+    };
+
+    let body='';
+    if(v3PeopleCampaignOrder==='campaign-person'){
+      body=campaignNames.map(campaign=>{
+        const rows=data.filter(t=>(t.project||'Operação')===campaign);
+        const done=rows.filter(t=>t.status==='feito').length,pct=rows.length?Math.round(done/rows.length*100):0;
+        const names=[...new Set(rows.flatMap(t=>t.assignees.length?t.assignees:['Sem responsável']))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
+        return '<section class="v13-pc-campaign-first">'+
+          '<div class="v13-pc-campaign-first-head">'+
+            '<div class="v13-pc-campaign-title"><span>'+v6Icon('folder')+'</span><div><b>'+esc(campaign)+'</b><small>'+names.length+' pessoa'+(names.length===1?'':'s')+' · '+(rows.length-done)+' abertas</small></div></div>'+
+            '<div class="v13-pc-progress"><span>'+done+'/'+rows.length+'</span><i><b style="width:'+pct+'%"></b></i></div>'+
+          '</div>'+
+          '<div class="v13-pc-inner-people">'+names.map(n=>personInsideCampaign(n,rows.filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n)))).join('')+'</div>'+
+        '</section>';
+      }).join('');
+    }else{
+      body=personNames.map(n=>personBlock(n,data.filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n)))).join('');
+    }
+
+    canvas.innerHTML='<div class="v13-pc-shell">'+
+      '<div class="v13-pc-controls"><span>Agrupar por</span><div><button type="button" data-pc-order="person-campaign" class="'+(v3PeopleCampaignOrder==='person-campaign'?'active':'')+'">Pessoa → Campanha</button><button type="button" data-pc-order="campaign-person" class="'+(v3PeopleCampaignOrder==='campaign-person'?'active':'')+'">Campanha → Pessoa</button></div></div>'+
+      '<div class="v13-pc-body">'+body+'</div>'+
+    '</div>';
+
+    bindTaskElements();
+    canvas.querySelectorAll('[data-pc-order]').forEach(b=>b.addEventListener('click',()=>{
+      v3PeopleCampaignOrder=b.dataset.pcOrder;
+      renderPeopleCampaign(canvas,data);
+    }));
+  };
+
   renderWeek = function(canvas,data){
     const now=new Date(); now.setHours(12,0,0,0);
     const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)+(v3WeekOffset*7));
@@ -609,7 +696,7 @@
     document.querySelectorAll('.cu-view').forEach(b=>b.classList.toggle('active',b.dataset.view===taskState.view));
     const canvas=document.getElementById('tasksCanvas'); if(!canvas)return;
     if(!data.length){canvas.innerHTML='<div class="cu-empty"><b>Nenhuma tarefa nessa visão.</b><br><span>Ajuste os filtros ou crie uma nova tarefa.</span></div>';return;}
-    if(taskState.view==='board')renderBoard(canvas,data);else if(taskState.view==='campaign')renderCampaign(canvas,data);else if(taskState.view==='people')renderPeople(canvas,data);else if(taskState.view==='week')renderWeek(canvas,data);else renderList(canvas,data);
+    if(taskState.view==='board')renderBoard(canvas,data);else if(taskState.view==='campaign')renderCampaign(canvas,data);else if(taskState.view==='people')renderPeople(canvas,data);else if(taskState.view==='people-campaign')renderPeopleCampaign(canvas,data);else if(taskState.view==='week')renderWeek(canvas,data);else renderList(canvas,data);
   };
 
   function v3CompletionProblem(t){
@@ -926,6 +1013,16 @@
       if(document.getElementById('newTaskModal')?.classList.contains('open'))v3PopulateNewTaskForm(document.getElementById('newStatus')?.value||'a fazer');
     }catch(e){console.warn('[AllianceOS directory refresh]',e);}
   });
+  const v13Views=document.querySelector('.cu-views');
+  if(v13Views&&!v13Views.querySelector('[data-view="people-campaign"]')){
+    const weekBtn=v13Views.querySelector('[data-view="week"]');
+    const b=document.createElement('button');
+    b.className='cu-view';
+    b.type='button';
+    b.dataset.view='people-campaign';
+    b.textContent='Pessoa + campanha';
+    if(weekBtn)v13Views.insertBefore(b,weekBtn);else v13Views.appendChild(b);
+  }
   v3RebuildNewTaskForm();
   v3MigrateLegacySubtasks();
 }
