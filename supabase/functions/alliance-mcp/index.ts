@@ -912,7 +912,7 @@ function registerFullSystemTools(server:any,supabase:any){
   server.registerTool('criar_tag',{description:'Cria tag para tarefas/campanhas.',inputSchema:z.object({nome:z.string().min(1),marca:z.string().nullable().optional(),cor:z.string().nullable().optional()})},async(a:any)=>{const who=await actor(supabase),b=a.marca?await fullBrand(supabase,a.marca):null,{data,error}=await supabase.from('alliance_tags').insert({brand_id:b?.id||null,nome:a.nome,cor:a.cor||null,origem:'mcp',criado_por:who.id,atualizado_por:who.id}).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'criar_tag','tag',data.id,{});return toolText({tag:{id:String(data.id),link:APP_URL+'/#tasks',nome:data.nome,cor:data.cor,marca:b?.nome||null}})})
   server.registerTool('listar_tags',{description:'Lista tags.',inputSchema:z.object({marca:z.string().optional(),incluir_globais:z.boolean().default(true),incluir_arquivadas:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async(a:any)=>{let q=supabase.from('alliance_tags').select('*');if(!a.incluir_arquivadas)q=q.is('arquivado_em',null);if(a.marca){const b=await fullBrand(supabase,a.marca);q=a.incluir_globais?q.or('brand_id.eq.'+b.id+',brand_id.is.null'):q.eq('brand_id',b.id)}const{data,error}=await q.order('nome');if(error)throw new Error(error.message);return toolText({tags:(data||[]).map((x:any)=>({id:String(x.id),nome:x.nome,cor:x.cor,marca_id:x.brand_id,arquivada:!!x.arquivado_em}))})})
   server.registerTool('atualizar_tag',{description:'Atualiza, arquiva ou desarquiva tag; nunca exclui.',inputSchema:z.object({id:z.string().uuid(),nome:z.string().min(1).optional(),cor:z.string().nullable().optional(),marca:z.string().nullable().optional(),arquivada:z.boolean().optional()})},async(a:any)=>{const who=await actor(supabase),{data:old}=await supabase.from('alliance_tags').select('*').eq('id',a.id).maybeSingle();if(!old)throw new Error('Tag não encontrada.');const p:any={atualizado_por:who.id};if(a.nome!==undefined)p.nome=a.nome;if(a.cor!==undefined)p.cor=a.cor;if(a.marca!==undefined)p.brand_id=a.marca?(await fullBrand(supabase,a.marca)).id:null;if(a.arquivada!==undefined){p.arquivado_em=a.arquivada?(old.arquivado_em||nowIso()):null;p.arquivado_por=a.arquivada?who.id:null}const{data,error}=await supabase.from('alliance_tags').update(p).eq('id',a.id).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'atualizar_tag','tag',a.id,{arquivada:!!data.arquivado_em});return toolText({tag:{id:String(data.id),link:APP_URL+'/#tasks',nome:data.nome,cor:data.cor,marca_id:data.brand_id,arquivada:!!data.arquivado_em,historico:await fullAuditHistory(supabase,'tag',a.id)}})})
-  server.registerTool('marcar_tag',{description:'Marca tag em tarefa ou campanha.',inputSchema:z.object({tag:z.string(),tipo:z.enum(['tarefa','campanha']),registro_id:z.string()})},async(a:any)=>{const who=await actor(supabase),tag=await fullTag(supabase,a.tag),obj={id:String(tag.id),nome:tag.nome,cor:tag.cor||null};if(a.tipo==='tarefa'){const ts=await readState(supabase,TASKS_KEY),t=findTask(ts,a.registro_id);t.tags=Array.isArray(t.tags)?t.tags:[];if(!t.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))t.tags.push(obj);t.history=t.history||[];t.history.unshift({at:nowIso(),text:'Tag '+tag.nome+' adicionada via MCP por '+who.nome+'.'});await writeTasks(supabase,ts);await audit(supabase,who,'marcar_tag','tarefa',t.id,{tag_id:tag.id});return toolText({tarefa:publicTask(t)})}const cs=await fullCampaigns(supabase),c=fullCampaign(cs,a.registro_id);c.tags=Array.isArray(c.tags)?c.tags:[];if(!c.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))c.tags.push(obj);fullHistory(c,'Tag '+tag.nome+' adicionada via MCP.',who);await fullSaveCampaigns(supabase,cs);await audit(supabase,who,'marcar_tag','campanha',c.id,{tag_id:tag.id});return toolText({campanha:fullPublicCampaign(c)})})
+  server.registerTool('marcar_tag',{description:'Marca tag em tarefa ou campanha.',inputSchema:z.object({tag:z.string(),tipo:z.enum(['tarefa','campanha']),registro_id:z.string()})},async(a:any)=>{const who=await actor(supabase),tag=await fullTag(supabase,a.tag),obj={id:String(tag.id),nome:tag.nome,cor:tag.cor||null};if(a.tipo==='tarefa'){const ts=await readState(supabase,TASKS_KEY),t=findTask(ts,a.registro_id);t.tags=Array.isArray(t.tags)?t.tags:[];if(!t.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))t.tags.push(obj);t.history=t.history||[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tag '+tag.nome+' adicionada via MCP por '+who.nome+'.'});await writeTasks(supabase,ts);await audit(supabase,who,'marcar_tag','tarefa',t.id,{tag_id:tag.id});return toolText({tarefa:publicTask(t)})}const cs=await fullCampaigns(supabase),c=fullCampaign(cs,a.registro_id);c.tags=Array.isArray(c.tags)?c.tags:[];if(!c.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))c.tags.push(obj);fullHistory(c,'Tag '+tag.nome+' adicionada via MCP.',who);await fullSaveCampaigns(supabase,cs);await audit(supabase,who,'marcar_tag','campanha',c.id,{tag_id:tag.id});return toolText({campanha:fullPublicCampaign(c)})})
   server.registerTool('desmarcar_tag',{description:'Desmarca tag sem excluir a tag.',inputSchema:z.object({tag:z.string(),tipo:z.enum(['tarefa','campanha']),registro_id:z.string()})},async(a:any)=>{const who=await actor(supabase),tag=await fullTag(supabase,a.tag),keep=(x:any)=>String(x?.id||x)!==String(tag.id)&&norm(x?.nome||x)!==norm(tag.nome);if(a.tipo==='tarefa'){const ts=await readState(supabase,TASKS_KEY),t=findTask(ts,a.registro_id);t.tags=(t.tags||[]).filter(keep);await writeTasks(supabase,ts);await audit(supabase,who,'desmarcar_tag','tarefa',t.id,{tag_id:tag.id});return toolText({tarefa:publicTask(t)})}const cs=await fullCampaigns(supabase),c=fullCampaign(cs,a.registro_id);c.tags=(c.tags||[]).filter(keep);await fullSaveCampaigns(supabase,cs);await audit(supabase,who,'desmarcar_tag','campanha',c.id,{tag_id:tag.id});return toolText({campanha:fullPublicCampaign(c)})})
 
   const batchTask=z.object({id_temporario:z.string().min(1).optional(),nome:z.string().min(1),descricao_markdown:z.string().default(''),lista:z.string(),campanha_id:z.string().nullable().optional(),responsaveis:z.array(z.string()).default([]),prazo:dt.optional(),prioridade:z.string().default('normal'),status:z.string().default('a fazer'),motivo_bloqueio:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).default([]),checklist:z.array(z.string()).default([]),checklist_obrigatoria:z.boolean().default(false),entrega_obrigatoria:z.boolean().default(false),canal:z.string().nullable().optional(),recorrencia:recurrenceSchema})
@@ -1108,7 +1108,7 @@ const protectedHandler = withOAuthProtectedResource(
           t.brand=dest.marca
           if(!directCampaign){t.campaignId=dest.campanha_id||null;t.campaignSource='list'}
           t.history=Array.isArray(t.history)?t.history:[]
-          t.history.unshift({at:nowIso(),text:'Tarefa movida da lista "'+source.nome+'" para "'+dest.nome+'" via MCP por '+who.nome+'.'})
+          t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tarefa movida da lista "'+source.nome+'" para "'+dest.nome+'" via MCP por '+who.nome+'.'})
           count++
         }
         if(!count) throw new Error('Nenhuma tarefa foi encontrada na lista de origem.')
@@ -1205,7 +1205,7 @@ const protectedHandler = withOAuthProtectedResource(
           t.assigneeIds=Array.isArray(t.assigneeIds)?t.assigneeIds:[]
           if(!t.assigneeIds.includes(String(p.id))) t.assigneeIds.push(String(p.id))
           t.history=Array.isArray(t.history)?t.history:[]
-          t.history.unshift({at:nowIso(),text:'Responsável legado "'+args.nome_legado+'" vinculado a '+p.nome+' por '+who.nome+'.'})
+          t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Responsável legado "'+args.nome_legado+'" vinculado a '+p.nome+' por '+who.nome+'.'})
           count++
         }
         if(count) await writeTasks(supabase,tasks)
@@ -1367,7 +1367,7 @@ const protectedHandler = withOAuthProtectedResource(
         if(!t.dependencies.some((x:string)=>String(x)===String(dep.id))) t.dependencies.push(String(dep.id))
         const who=await actor(supabase)
         t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),text:'Dependência adicionada via MCP por '+who.nome+': "'+dep.title+'".'})
+        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Dependência adicionada via MCP por '+who.nome+': "'+dep.title+'".'})
         await writeTasks(supabase,tasks)
         await audit(supabase,who,'definir_dependencia','tarefa',String(t.id),{tarefa_que_bloqueia:dep.id})
         return toolText({tarefa:publicTask(t),dependencia:publicTask(dep)})
@@ -1386,7 +1386,7 @@ const protectedHandler = withOAuthProtectedResource(
         t.dependencies=(Array.isArray(t.dependencies)?t.dependencies:[]).filter((x:string)=>String(x)!==String(dep.id))
         const who=await actor(supabase)
         t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),text:'Dependência removida via MCP por '+who.nome+': "'+dep.title+'".'})
+        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Dependência removida via MCP por '+who.nome+': "'+dep.title+'".'})
         await writeTasks(supabase,tasks)
         await audit(supabase,who,'remover_dependencia','tarefa',String(t.id),{tarefa_que_bloqueia:dep.id})
         return toolText({tarefa:publicTask(t)})
@@ -1406,7 +1406,7 @@ const protectedHandler = withOAuthProtectedResource(
         t.conferenceRequired=!!args.obrigatoria
         const who=await actor(supabase)
         t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),text:'Checklist definida via MCP por '+who.nome+' com '+t.checklist.length+' item(ns).'})
+        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Checklist definida via MCP por '+who.nome+' com '+t.checklist.length+' item(ns).'})
         await writeTasks(supabase,tasks)
         await audit(supabase,who,'definir_checklist','tarefa',String(t.id),{itens:t.checklist.length,obrigatoria:t.conferenceRequired})
         return toolText({tarefa:{...publicTask(t),checklist:t.checklist,lista_conferencia_obrigatoria:t.conferenceRequired}})
@@ -1428,7 +1428,7 @@ const protectedHandler = withOAuthProtectedResource(
         item.updatedAt=nowIso()
         const who=await actor(supabase)
         t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),text:'Checklist atualizado via MCP por '+who.nome+': "'+item.text+'" = '+(item.done?'concluído':'pendente')+'.'})
+        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Checklist atualizado via MCP por '+who.nome+': "'+item.text+'" = '+(item.done?'concluído':'pendente')+'.'})
         await writeTasks(supabase,tasks)
         await audit(supabase,who,'marcar_item_checklist','tarefa',String(t.id),{item_id:item.id,concluido:item.done})
         return toolText({tarefa:{...publicTask(t),checklist:t.checklist}})
@@ -1465,7 +1465,7 @@ const protectedHandler = withOAuthProtectedResource(
         const comment={id:'mcp-comment-'+crypto.randomUUID(),author:who.nome,authorId:who.id,text:comentario.trim(),at:nowIso(),source:'mcp'}
         t.comments.unshift(comment)
         t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),text:'Comentário via MCP por '+who.nome+'.'})
+        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Comentário via MCP por '+who.nome+'.'})
         await writeTasks(supabase,tasks)
         await notifyUsers(supabase,who,t.assigneeIds||[],'task_comment','Novo comentário: '+t.title,comentario.trim().slice(0,500),String(t.id),null)
         await audit(supabase,who,'comentar_tarefa','tarefa',String(t.id),{comment_id:comment.id})
