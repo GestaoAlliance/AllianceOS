@@ -980,19 +980,10 @@
   }
   const r10BaseOpenTaskDetail=openTaskDetail;
   const r10BaseCloseTaskDetail=closeTaskDetail;
+  let r10RestorePageScroll=null;
   const r10SetTaskModalLock=locked=>{
     document.documentElement.classList.toggle('r10-task-modal-open',locked);
     document.body.classList.toggle('r10-task-modal-open',locked);
-  };
-  openTaskDetail=function(id){
-    r10SyncShellGeometry();
-    r10SetTaskModalLock(true);
-    r10BaseOpenTaskDetail(id);
-    requestAnimationFrame(r10SyncShellGeometry);
-  };
-  closeTaskDetail=function(){
-    r10BaseCloseTaskDetail();
-    r10SetTaskModalLock(false);
   };
   const r10SyncShellGeometry=()=>{
     const root=document.documentElement;
@@ -1003,14 +994,46 @@
     const mainRect=main.getBoundingClientRect();
     const barRect=toolbar.getBoundingClientRect();
     const sideRect=sidebar?.getBoundingClientRect();
-    const gap=Math.max(8,Math.round(mainRect.left-(sideRect?.right??(mainRect.left-12))));
-    const right=Math.max(8,Math.round(window.innerWidth-mainRect.right));
-    const bottom=Math.max(8,Math.round(window.innerHeight-mainRect.bottom));
+    const styles=getComputedStyle(root);
+    const shellEdge=Math.max(8,parseFloat(styles.getPropertyValue('--alliance-shell-edge'))||12);
+    const gap=Math.max(8,Math.round(mainRect.left-(sideRect?.right??(mainRect.left-shellEdge))));
+    const right=Math.max(shellEdge,Math.round(window.innerWidth-mainRect.right));
+    /* Never derive the modal's vertical position from the document scroll.
+       The toolbar may be far above the viewport when a lower task is clicked. */
+    const stableTop=Math.round(shellEdge+barRect.height+gap);
     root.style.setProperty('--r10-shell-left',Math.round(mainRect.left)+'px');
     root.style.setProperty('--r10-shell-right',right+'px');
-    root.style.setProperty('--r10-shell-top',Math.round(barRect.bottom+gap)+'px');
-    root.style.setProperty('--r10-shell-bottom',bottom+'px');
+    root.style.setProperty('--r10-shell-top',stableTop+'px');
+    root.style.setProperty('--r10-shell-bottom',shellEdge+'px');
     root.style.setProperty('--r10-shell-gap',gap+'px');
+  };
+  const r10ResetTaskScroll=()=>{
+    const drawer=document.getElementById('taskDetailDrawer');
+    drawer?.querySelectorAll('.r10-flow,.r10-main,.r10-side').forEach(el=>{el.scrollTop=0;});
+    const body=drawer?.querySelector('.tdrawer-body');
+    if(body)body.scrollTop=0;
+  };
+  openTaskDetail=function(id){
+    if(r10RestorePageScroll===null){
+      r10RestorePageScroll={x:window.scrollX||0,y:window.scrollY||0};
+    }
+    /* Open every task from the same shell origin. Restore the list position on close. */
+    if(window.scrollY||window.scrollX)window.scrollTo({left:0,top:0,behavior:'auto'});
+    r10SyncShellGeometry();
+    r10SetTaskModalLock(true);
+    r10BaseOpenTaskDetail(id);
+    requestAnimationFrame(()=>{
+      r10SyncShellGeometry();
+      r10ResetTaskScroll();
+      requestAnimationFrame(r10ResetTaskScroll);
+    });
+  };
+  closeTaskDetail=function(){
+    r10BaseCloseTaskDetail();
+    r10SetTaskModalLock(false);
+    const restore=r10RestorePageScroll;
+    r10RestorePageScroll=null;
+    if(restore)requestAnimationFrame(()=>window.scrollTo({left:restore.x,top:restore.y,behavior:'auto'}));
   };
   r10SyncShellGeometry();
   window.addEventListener('resize',r10SyncShellGeometry,{passive:true});
