@@ -201,7 +201,7 @@ with task_state as (
   )
 )
 update public.operacional_estado d
-set valor=d.valor+a.items,atualizado_em=now()
+set valor=d.valor || a.items,atualizado_em=now()
 from delivery_state ds,additions a
 where d.ctid=ds.ctid and jsonb_array_length(a.items)>0;
 
