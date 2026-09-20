@@ -524,23 +524,48 @@
 
   renderPeople = function(canvas,data){
     const names=[...new Set(data.flatMap(t=>t.assignees.length?t.assignees:['Sem responsável']))].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
-    canvas.innerHTML='<div class="cu-people v11-people">'+names.map(n=>{
-      const rows=data.filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n)).slice().sort((a,b)=>(Number(isOverdue(b))-Number(isOverdue(a)))||(v3PriorityLevel(b.priority)-v3PriorityLevel(a.priority)));
-      const open=rows.filter(t=>t.status!=='feito').length,late=rows.filter(isOverdue).length,urgent=rows.filter(t=>v3PriorityCanon(t.priority)==='urgente').length;
-      const headAvatar=n==='Sem responsável'?'<span class="bigav">—</span>':'<span class="bigav">'+v3AvatarInner(n)+'</span>';
-      return '<section class="cu-person v11-person">'+
-        '<div class="cu-person-head v11-person-head">'+headAvatar+'<div class="v11-person-copy"><b>'+esc(v3Short(n))+'</b><span>'+open+' abertas · '+late+' atrasadas · '+urgent+' urgentes</span></div></div>'+
-        '<div class="v11-person-tasks">'+rows.map(t=>{
+    const groups=names.map(n=>{
+      const rows=data
+        .filter(t=>(t.assignees.length?t.assignees:['Sem responsável']).includes(n))
+        .slice()
+        .sort((a,b)=>{
+          const sa=TASK_STATUSES.indexOf(a.status),sb=TASK_STATUSES.indexOf(b.status);
+          if(sa!==sb)return sa-sb;
+          const od=Number(isOverdue(b))-Number(isOverdue(a));
+          if(od)return od;
+          return v3PriorityLevel(b.priority)-v3PriorityLevel(a.priority);
+        });
+      const done=rows.filter(t=>t.status==='feito').length;
+      const open=rows.length-done;
+      const late=rows.filter(isOverdue).length;
+      const pct=rows.length?Math.round(done/rows.length*100):0;
+      const avatar=n==='Sem responsável'?'<span class="v12-person-avatar empty">—</span>':'<span class="v12-person-avatar">'+v3AvatarInner(n)+'</span>';
+      return '<section class="v12-person-group">'+
+        '<div class="v12-person-head">'+
+          '<div class="v12-person-ident">'+avatar+'<div><b>'+esc(v3Short(n))+'</b><span>'+open+' abertas · '+late+' atrasadas</span></div></div>'+
+          '<div class="v12-person-progress"><span>'+done+'/'+rows.length+' concluídas</span><i><b style="width:'+pct+'%"></b></i></div>'+
+        '</div>'+
+        '<div class="v12-person-rows">'+rows.map(t=>{
           const description=String(t.description||'').trim();
-          return '<div class="cu-person-task v11-person-task" data-task-id="'+esc(t.id)+'">'+
-            '<div class="v11-person-main">'+v11Subtask(t)+'<b>'+esc(t.title)+'</b><small>'+esc(description||'Sem descrição adicionada')+'</small></div>'+
-            '<div class="v11-person-context">'+v11Campaign(t.project||'Operação')+'</div>'+
-            '<div class="v11-person-priority">'+v11Priority(t,true)+'</div>'+
-            '<div class="v11-person-date">'+v11Date(t,false)+'</div>'+
+          const parent=v3Parent(t);
+          return '<div class="v12-person-row '+(parent?'is-subtask ':'')+'" data-task-id="'+esc(t.id)+'">'+
+            '<div class="v12-person-task">'+
+              (parent?'<div class="v12-subtask-line"><span>Subtarefa</span><b>de '+esc(parent.title)+'</b></div>':'')+
+              '<strong>'+esc(t.title)+'</strong>'+
+              '<small>'+esc(description||'Sem descrição adicionada')+'</small>'+
+            '</div>'+
+            '<div class="v12-person-execution">'+v11Status(t.status)+'</div>'+
+            '<div class="v12-person-priority">'+v11Priority(t,true)+'</div>'+
+            '<div class="v12-person-date">'+v11Date(t,false)+'</div>'+
+            '<div class="v12-person-campaign">'+v11Campaign(t.project||'Operação')+'</div>'+
           '</div>';
         }).join('')+'</div>'+
       '</section>';
-    }).join('')+'</div>';
+    }).join('');
+    canvas.innerHTML='<div class="v12-people-shell">'+
+      '<div class="v12-people-columns"><span>Tarefa</span><span>Execução</span><span>Prioridade</span><span>Prazo</span><span>Campanha</span></div>'+
+      '<div class="v12-people-groups">'+groups+'</div>'+
+    '</div>';
     bindTaskElements();
   };
 

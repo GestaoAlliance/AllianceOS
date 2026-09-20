@@ -2096,3 +2096,266 @@
 #tasksCanvas .v11-person-date .v11-date.over .v11-date-copy>b{
   color:#d44848!important;
 }
+
+
+/* ===== Task Views V15 · Por pessoa no mesmo padrão da Lista ===== */
+#tasksCanvas .v12-people-shell{
+  width:100%!important;
+  min-width:0!important;
+}
+#tasksCanvas .v12-people-columns,
+#tasksCanvas .v12-person-row{
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:minmax(500px,2.55fr) 150px 120px 120px minmax(190px,1fr)!important;
+  column-gap:18px!important;
+  align-items:center!important;
+}
+#tasksCanvas .v12-people-columns{
+  min-height:42px!important;
+  padding:0 20px!important;
+  color:#8d969e!important;
+  font-size:9px!important;
+  font-weight:720!important;
+  letter-spacing:.055em!important;
+  text-transform:uppercase!important;
+}
+#tasksCanvas .v12-people-groups{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:14px!important;
+}
+#tasksCanvas .v12-person-group{
+  overflow:hidden!important;
+  border:1px solid #e1e5e8!important;
+  border-radius:15px!important;
+  background:#fff!important;
+  box-shadow:0 1px 2px rgba(24,31,36,.018)!important;
+}
+#tasksCanvas .v12-person-head{
+  box-sizing:border-box!important;
+  min-height:58px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:20px!important;
+  padding:10px 18px!important;
+  border-bottom:1px solid #e8ecef!important;
+  background:#fbfcfc!important;
+}
+#tasksCanvas .v12-person-ident{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+}
+#tasksCanvas .v12-person-avatar{
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  display:grid!important;
+  place-items:center!important;
+  overflow:hidden!important;
+  border-radius:50%!important;
+  background:#edf0f2!important;
+  color:#6d7880!important;
+  font-size:9px!important;
+  font-weight:700!important;
+}
+#tasksCanvas .v12-person-avatar img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+}
+#tasksCanvas .v12-person-ident>div{
+  min-width:0!important;
+}
+#tasksCanvas .v12-person-ident b{
+  display:block!important;
+  color:#283037!important;
+  font-size:11.5px!important;
+  font-weight:690!important;
+}
+#tasksCanvas .v12-person-ident span{
+  display:block!important;
+  margin-top:3px!important;
+  color:#8f989f!important;
+  font-size:8.5px!important;
+}
+#tasksCanvas .v12-person-progress{
+  width:205px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+}
+#tasksCanvas .v12-person-progress>span{
+  min-width:66px!important;
+  color:#737e86!important;
+  font-size:8.5px!important;
+  font-weight:620!important;
+  text-align:right!important;
+}
+#tasksCanvas .v12-person-progress>i{
+  height:6px!important;
+  flex:1!important;
+  overflow:hidden!important;
+  border-radius:999px!important;
+  background:#e9edf0!important;
+}
+#tasksCanvas .v12-person-progress>i>b{
+  display:block!important;
+  height:100%!important;
+  border-radius:inherit!important;
+  background:#20262b!important;
+}
+#tasksCanvas .v12-person-row{
+  min-height:88px!important;
+  padding:12px 20px!important;
+  border-bottom:1px solid #edf0f2!important;
+  background:#fff!important;
+  cursor:pointer!important;
+}
+#tasksCanvas .v12-person-row:last-child{
+  border-bottom:0!important;
+}
+#tasksCanvas .v12-person-row:hover{
+  background:#fafbfb!important;
+}
+#tasksCanvas .v12-person-task{
+  min-width:0!important;
+}
+#tasksCanvas .v12-person-task>strong{
+  display:-webkit-box!important;
+  overflow:hidden!important;
+  color:#20262b!important;
+  font-size:13px!important;
+  font-weight:670!important;
+  line-height:1.28!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+}
+#tasksCanvas .v12-person-task>small{
+  display:block!important;
+  max-width:680px!important;
+  margin-top:5px!important;
+  overflow:hidden!important;
+  color:#8c959c!important;
+  font-size:9.5px!important;
+  line-height:1.35!important;
+  white-space:nowrap!important;
+  text-overflow:ellipsis!important;
+}
+#tasksCanvas .v12-subtask-line{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  margin:0 0 5px!important;
+}
+#tasksCanvas .v12-subtask-line>span{
+  flex:0 0 auto!important;
+  padding:2px 5px!important;
+  border:1px solid #dbe6ed!important;
+  border-radius:5px!important;
+  background:#eef4f7!important;
+  color:#597285!important;
+  font-size:8px!important;
+  font-weight:680!important;
+  text-transform:uppercase!important;
+  letter-spacing:.035em!important;
+}
+#tasksCanvas .v12-subtask-line>b{
+  min-width:0!important;
+  max-width:390px!important;
+  overflow:hidden!important;
+  color:#75828c!important;
+  font-size:8.2px!important;
+  font-weight:560!important;
+  white-space:nowrap!important;
+  text-overflow:ellipsis!important;
+}
+#tasksCanvas .v12-person-row.is-subtask .v12-person-task{
+  position:relative!important;
+  padding-left:26px!important;
+}
+#tasksCanvas .v12-person-row.is-subtask .v12-person-task:before{
+  content:''!important;
+  position:absolute!important;
+  left:7px!important;
+  top:-12px!important;
+  bottom:50%!important;
+  width:1px!important;
+  background:#dbe1e5!important;
+}
+#tasksCanvas .v12-person-row.is-subtask .v12-person-task:after{
+  content:''!important;
+  position:absolute!important;
+  left:7px!important;
+  top:13px!important;
+  width:14px!important;
+  height:1px!important;
+  background:#dbe1e5!important;
+}
+#tasksCanvas .v12-person-execution,
+#tasksCanvas .v12-person-priority,
+#tasksCanvas .v12-person-date,
+#tasksCanvas .v12-person-campaign{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+}
+#tasksCanvas .v12-person-execution .v11-status-inline{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  color:#68737b!important;
+  font-size:9.5px!important;
+  font-weight:620!important;
+  text-transform:capitalize!important;
+}
+#tasksCanvas .v12-person-execution .v11-status-inline i{
+  width:8px!important;
+  height:8px!important;
+  min-width:8px!important;
+  display:block!important;
+  border-radius:50%!important;
+  background:var(--v11-status,#8e989f)!important;
+}
+#tasksCanvas .v12-person-priority .v11-priority{
+  background:transparent!important;
+}
+#tasksCanvas .v12-person-date .v11-date-copy>small{
+  display:none!important;
+}
+#tasksCanvas .v12-person-date .v11-date.over .v11-date-icon{
+  color:#5b6871!important;
+}
+#tasksCanvas .v12-person-date .v11-date.over .v11-date-copy>b{
+  color:#d44848!important;
+}
+#tasksCanvas .v12-person-campaign .v11-campaign{
+  width:100%!important;
+  max-width:100%!important;
+  height:34px!important;
+  border-radius:9px!important;
+}
+#tasksCanvas .v12-person-campaign .v11-campaign>b{
+  font-size:9.5px!important;
+}
+
+@media(max-width:1320px){
+  #tasksCanvas .v12-people-columns,
+  #tasksCanvas .v12-person-row{
+    grid-template-columns:minmax(390px,2.35fr) 130px 105px 100px minmax(150px,.85fr)!important;
+    column-gap:12px!important;
+  }
+  #tasksCanvas .v12-person-row{
+    padding-left:14px!important;
+    padding-right:14px!important;
+  }
+  #tasksCanvas .v12-people-columns{
+    padding-left:14px!important;
+    padding-right:14px!important;
+  }
+}
