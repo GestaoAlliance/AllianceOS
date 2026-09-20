@@ -497,6 +497,19 @@
       },60);
     }
 
+    function openCampaignDirectory(){
+      syncTaskCampaignIds();
+      window.__centralShowCampaigns?.();
+      setActive('campaigns');
+      setTimeout(()=>{
+        const overview=document.querySelector('#campaignsView [data-camp-view="overview"]');
+        if(overview) overview.click();
+        document.getElementById('campaignOverviewList')?.classList.remove('hidden');
+        document.getElementById('campaignWorkspace')?.classList.remove('active');
+        installUnifiedStrategyNav('campaigns');
+      },45);
+    }
+
     /* Unified strategy navigation
        One hierarchy: Mapa mental -> Campanhas -> Mês -> Semana.
        Campaign details remain the dedicated workspace already used by the app. */
@@ -518,10 +531,7 @@
         b.textContent=label;
         b.addEventListener('click',()=>{
           if(key==='campaigns'){
-            syncTaskCampaignIds();
-            window.__centralShowCampaigns?.();
-            setActive('campaigns');
-            setTimeout(()=>installUnifiedStrategyNav('campaigns'),30);
+            openCampaignDirectory();
             return;
           }
           if(targets.planning)targets.planning.click();
@@ -615,7 +625,7 @@
     // Expose the root flow for any future breadcrumb/back buttons.
     window.AllianceOSStrategy={
       mapa:openStrategyMap,
-      campanhas:()=>{window.__centralShowCampaigns?.();setTimeout(()=>installUnifiedStrategyNav('campaigns'),30)},
+      campanhas:openCampaignDirectory,
       mes:()=>document.querySelector('.ref-strategy-tabs [data-strategy-tab="month"]')?.click(),
       semana:()=>document.querySelector('.ref-strategy-tabs [data-strategy-tab="week"]')?.click()
     };
