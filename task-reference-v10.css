@@ -3091,3 +3091,58 @@ body.r10-task-modal-open{
     overscroll-behavior:contain!important;
   }
 }
+
+
+/* ===== Task Reference V25 · alinhamento com navegação e topbar ===== */
+@media (min-width:901px){
+  #taskDetailDrawer .tdrawer-panel{
+    left:var(--alliance-sidebar-col,248px)!important;
+    right:var(--alliance-shell-edge,12px)!important;
+    top:var(--alliance-task-top,90px)!important;
+    bottom:var(--alliance-shell-edge,12px)!important;
+    border-radius:18px!important;
+  }
+
+  /* As três colunas começam na mesma linha visual. */
+  #taskDetailDrawer .r10-flow{
+    padding-top:18px!important;
+    padding-bottom:26px!important;
+  }
+  #taskDetailDrawer .r10-main{
+    padding-top:18px!important;
+    padding-bottom:30px!important;
+  }
+  #taskDetailDrawer .r10-side{
+    padding-top:18px!important;
+    padding-bottom:26px!important;
+  }
+
+  /* Gutter consistente em volta do conteúdo principal. */
+  #taskDetailDrawer .r10-flow{
+    padding-left:18px!important;
+    padding-right:18px!important;
+  }
+  #taskDetailDrawer .r10-main{
+    padding-left:22px!important;
+    padding-right:22px!important;
+  }
+  #taskDetailDrawer .r10-side{
+    padding-left:16px!important;
+    padding-right:16px!important;
+  }
+
+  #taskDetailDrawer .r10-main-top{
+    margin-top:0!important;
+  }
+  #taskDetailDrawer .r10-flow-head,
+  #taskDetailDrawer .r10-main-top,
+  #taskDetailDrawer .r10-side-stack{
+    box-sizing:border-box!important;
+  }
+}
+/* Mesma coluna reduzida da navegação em notebooks estreitos. */
+@media (min-width:901px) and (max-width:1250px){
+  #taskDetailDrawer .tdrawer-panel{
+    left:var(--alliance-sidebar-col,226px)!important;
+  }
+}
