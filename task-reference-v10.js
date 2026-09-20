@@ -380,9 +380,10 @@
         textarea.setAttribute('aria-label','Objetivo da tarefa');
         textarea.setAttribute('placeholder','Descreva o resultado esperado desta tarefa, o contexto necessário para executar e como saber que ficou pronto.');
         const fit=()=>{
-          textarea.style.height='auto';
-          textarea.style.height=Math.max(78,textarea.scrollHeight)+'px';
+          textarea.style.setProperty('height','auto','important');
+          textarea.style.setProperty('height',Math.max(78,textarea.scrollHeight)+'px','important');
         };
+        textarea._r10Fit=fit;
         textarea.addEventListener('input',fit);
         requestAnimationFrame(fit);
       }
@@ -739,6 +740,11 @@
     }
     if(legacySaveButton)legacySaveButton.hidden=true;
     const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,completionAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
+    const objectiveTextarea=briefing?.querySelector('.description-area');
+    if(objectiveTextarea?._r10Fit){
+      requestAnimationFrame(()=>{objectiveTextarea._r10Fit();requestAnimationFrame(()=>objectiveTextarea._r10Fit());});
+      window.addEventListener('resize',objectiveTextarea._r10Fit,{passive:true,once:false});
+    }
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');
     const info=document.createElement('section');info.className='r10-side-card r10-status-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('statusPanel')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
@@ -1519,6 +1525,11 @@
     box-shadow:none!important;
     overflow:hidden!important;
   }
+  #taskDetailDrawer .r10-main .r10-objective-card{
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+  }
 
   #taskDetailDrawer .r10-main .r10-objective-card .tsection-head,
   #taskDetailDrawer .r10-main .r10-materials-card .tsection-head{
@@ -1609,6 +1620,8 @@
     padding:0 22px 22px 72px!important;
     border:0!important;
     outline:0!important;
+    height:auto;
+    max-height:none!important;
     resize:none!important;
     overflow:hidden!important;
     background:#fff!important;
