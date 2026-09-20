@@ -469,7 +469,7 @@
     const depth=Math.min(v5Depth(t),4);
     const deliveryBadge=v5NeedsDelivery(t)?`<span class="flow-pill v5-delivery-pill ${v5HasDelivery(t)?'sent':'pending'}">${v5HasDelivery(t)?'Entrega ✓':'Entrega pendente'}</span>`:'';
     html=html.replace('class="cu-row ',`class="cu-row v5-tree-row v5-depth-${depth} `);
-    html=html.replace('<!--v5-tree-->',`<span class="v5-list-tree-mark" aria-hidden="true">${depth?'':'•'}</span>`);
+    html=html.replace('<!--v5-tree-->',depth?'<span class="v5-list-tree-mark" aria-hidden="true">↳</span>':'');
     html=html.replace('<!--v5-delivery-->',deliveryBadge);
     return html;
   };

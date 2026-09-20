@@ -349,6 +349,16 @@
     return `<div class="row-metrics">${total?`<span title="Checklist">✓ ${done}/${total}</span>`:''}${deps?`<span title="Dependências">↳ ${deps}</span>`:''}${(t.comments||[]).length?`<span title="Comentários">◌ ${(t.comments||[]).length}</span>`:''}</div>`;
   };
 
+  function v4ListBadges(t){
+    const deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t);
+    const out=[];
+    if(t.status==='bloqueado') out.push(`<span class="flow-pill blocked">Bloqueada · ${esc(t.blockedReason||'sem motivo')}</span>`);
+    else if(blockers.length) out.push(`<span class="flow-pill blocked">Bloqueada por ${blockers.length}</span>`);
+    else if(deps.length) out.push('<span class="flow-pill ready">Dependências concluídas</span>');
+    if(next.length) out.push(`<span class="flow-pill next">Libera ${next.length}</span>`);
+    return out.join('');
+  }
+
   const v4MonthNames=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   function v4Due(t){
     const raw=String(t.dueAt||t.due||'').slice(0,10);
@@ -361,15 +371,16 @@
   }
 
   renderListRow = function(t){
-    const blockers=v3Blockers(t),due=v4Due(t),description=String(t.description||'').trim();
-    return `<div class="cu-row v4-work-row ${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
+    const blockers=v3Blockers(t),due=v4Due(t),description=String(t.description||'').trim(),parent=v3Parent(t);
+    return `<div class="cu-row v4-work-row ${parent?'v4-is-subtask ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
       <div class="cu-row-title">
         <!--v5-tree-->
         <button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button>
         <div class="cu-titletext">
+          ${parent?`<div class="v4-subtask-context"><span>Subtarefa</span><b>de ${esc(parent.title)}</b></div>`:''}
           <div class="task-title-line"><b>${esc(t.title)}</b></div>
           <small>${esc(description||'Sem descrição adicionada')}</small>
-          <div class="v4-task-signals">${v3FlowBadges(t)}<!--v5-delivery-->${metrics(t)}</div>
+          <div class="v4-task-signals">${v4ListBadges(t)}<!--v5-delivery-->${metrics(t)}</div>
         </div>
       </div>
       <div class="v4-owner">${avatarStack(t.assignees,t.assigneeIds||[])}</div>

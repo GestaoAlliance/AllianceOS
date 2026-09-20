@@ -66,3 +66,53 @@
   height:1px!important;
   background:#dbe1e5!important;
 }
+
+
+/* ===== Task Flow V7 · subtarefa inequívoca ===== */
+#tasksCanvas .v4-work-row.v5-depth-0 .v5-list-tree-mark{
+  display:none!important;
+}
+#tasksCanvas .v4-work-row.v5-depth-1 .cu-row-title,
+#tasksCanvas .v4-work-row.v5-depth-2 .cu-row-title,
+#tasksCanvas .v4-work-row.v5-depth-3 .cu-row-title,
+#tasksCanvas .v4-work-row.v5-depth-4 .cu-row-title{
+  padding-left:32px!important;
+}
+#tasksCanvas .v4-work-row.v5-tree-row.v5-depth-1 .v5-list-tree-mark,
+#tasksCanvas .v4-work-row.v5-tree-row.v5-depth-2 .v5-list-tree-mark,
+#tasksCanvas .v4-work-row.v5-tree-row.v5-depth-3 .v5-list-tree-mark,
+#tasksCanvas .v4-work-row.v5-tree-row.v5-depth-4 .v5-list-tree-mark{
+  position:absolute!important;
+  left:7px!important;
+  top:1px!important;
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  margin:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:#eef2f4!important;
+  color:#78858e!important;
+  font-size:10px!important;
+  font-weight:700!important;
+}
+#tasksCanvas .v4-work-row.v5-depth-1 .cu-row-title:before,
+#tasksCanvas .v4-work-row.v5-depth-2 .cu-row-title:before,
+#tasksCanvas .v4-work-row.v5-depth-3 .cu-row-title:before,
+#tasksCanvas .v4-work-row.v5-depth-4 .cu-row-title:before{
+  left:15px!important;
+  top:-13px!important;
+  bottom:50%!important;
+  background:#d9e0e5!important;
+}
+#tasksCanvas .v4-work-row.v5-depth-1 .cu-row-title:after,
+#tasksCanvas .v4-work-row.v5-depth-2 .cu-row-title:after,
+#tasksCanvas .v4-work-row.v5-depth-3 .cu-row-title:after,
+#tasksCanvas .v4-work-row.v5-depth-4 .cu-row-title:after{
+  left:15px!important;
+  top:10px!important;
+  width:12px!important;
+  background:#d9e0e5!important;
+}
