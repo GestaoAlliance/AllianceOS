@@ -1,6 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 
-import { createMcpHandler, McpServer } from 'npm:@modelcontextprotocol/server@2.0.0'
+import { createMcpHandler, InMemoryServerEventBus, McpServer } from 'npm:@modelcontextprotocol/server@2.0.0'
 import { withOAuthProtectedResource, withSupabase } from 'npm:@supabase/server@1.6.0'
 import { z } from 'npm:zod@4.3.6'
 import { hasOwn, cloneBatchItem } from './batch-patch.ts'
@@ -11,6 +11,8 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
+const TOOL_SCHEMA_VERSION = '2026-09-21.1'
+const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
 
@@ -333,7 +335,8 @@ function completionProblem(t: AnyRow, tasks: AnyRow[]) {
     if (!items.length) return 'A lista de conferência obrigatória está sem itens.'
     if (pending.length) return `A lista de conferência tem ${pending.length} item(ns) pendente(s).`
   }
-  if (t.deliveryRequired && !(Array.isArray(t.deliveries) && t.deliveries.length)) {
+  const activeDeliveries=(Array.isArray(t.deliveries)?t.deliveries:[]).filter((d:AnyRow)=>!d?.archivedAt&&!d?.arquivado_em)
+  if (t.deliveryRequired && !activeDeliveries.length) {
     return 'A tarefa exige uma entrega antes de ser concluída.'
   }
   return ''
@@ -795,7 +798,7 @@ async function fullSyncMap(s:any,map:any){
   for(const n of live){const id=/^\d+$/.test(String(n.node_key))?Number(n.node_key):String(n.node_key),p=n.parent_key==null?null:(/^\d+$/.test(String(n.parent_key))?Number(n.parent_key):String(n.parent_key));if(typeof id==='number')mx=Math.max(mx,id);legacy.nos.push({id,pai:p,t:n.texto,cor:n.cor??0,x:Number(n.x),y:Number(n.y),fech:!n.aberto,campId:n.campaign_id||undefined})}legacy.prox=mx+1;await fullWriteOperational(s,'central.planning.map.vitor-gutierrez'+(b?.nome?'.'+b.nome:''),legacy)
 }
 async function fullMapPayload(s:any,map:any){const[nodes,month,bs]=await Promise.all([fullMapNodes(s,map.id,true),s.from('planning_months').select('*').eq('id',map.month_id).single(),listBrands(s)]),b=bs.find((x:any)=>String(x.id)===String(map.brand_id));return{id:String(map.id),link:fullLinks('mapa',String(map.id)),nome:map.nome,marca:b?.nome||null,ano:month.data?.ano,mes:month.data?.mes,layout:map.layout,nos:nodes.map((n:any)=>({id:String(n.id),chave:n.node_key,pai:n.parent_key,texto:n.texto,x:Number(n.x),y:Number(n.y),cor:n.cor,aberto:n.aberto,campanha_id:n.campaign_id||null,arquivado:!!n.arquivado_em})),arquivado:!!map.arquivado_em}}
-function fullDelivery(d:any,tasks:any[],campaigns:any[]){const x=fullNormalizeDeliveryShape(d,false),t=tasks.find(q=>String(q.id)===String(x.sourceTaskId)),cid=x.campaignId||x.campanha_id||t?.campaignId||null,c=cid?campaigns.find(q=>String(q.id)===String(cid)):null;return{id:String(x.id),link:fullLinks('entrega',String(x.id)),tarefa_id:x.sourceTaskId||null,proxima_tarefa_id:x.targetTaskId||null,titulo:x.title||x.taskTitle||'Entrega',campanha_id:c?.id||cid||null,marca:x.brand||t?.brand||null,de:x.from||null,para:x.to||null,mensagem:x.note||'',status:fullDeliveryStatus(x.status),versao:Number(x.version||1),criada_em:x.createdAt||null,criada_em_original:x.createdAtOriginal||null,atualizada_em:x.updatedAt||null,atualizada_em_original:x.updatedAtOriginal||null,arquivos:x.files||[],links:x.links||[],historico:x.events||[],comentario_ajuste:x.adjustmentNote||null}}
+function fullDelivery(d:any,tasks:any[],campaigns:any[]){const x=fullNormalizeDeliveryShape(d,false),t=tasks.find(q=>String(q.id)===String(x.sourceTaskId)),cid=hasOwn(x,'campaignId')?x.campaignId:(hasOwn(x,'campanha_id')?x.campanha_id:(t?.campaignId||null)),c=cid?campaigns.find(q=>String(q.id)===String(cid)):null;return{id:String(x.id),link:fullLinks('entrega',String(x.id)),tarefa_id:x.sourceTaskId||null,proxima_tarefa_id:x.targetTaskId||null,titulo:x.title||x.taskTitle||'Entrega',campanha_id:c?.id||cid||null,marca:x.brand||t?.brand||null,de:x.from||null,para:x.to||null,mensagem:x.note||'',status:fullDeliveryStatus(x.status),versao:Number(x.version||1),criada_em:x.createdAt||null,criada_em_original:x.createdAtOriginal||null,atualizada_em:x.updatedAt||null,atualizada_em_original:x.updatedAtOriginal||null,arquivos:x.files||[],links:x.links||[],historico:x.events||[],comentario_ajuste:x.adjustmentNote||null,arquivada:!!x.archivedAt,arquivada_em:x.archivedAt||null,arquivada_por:x.archivedBy||null}}
 async function fullResults(s:any,filter:any){
   let q=s.from('campaign_results').select('*').order('data')
   if(filter.campaign_id)q=q.eq('campaign_id',filter.campaign_id)
@@ -832,7 +835,7 @@ async function fullSyncRevenueSources(s:any,c:any,who:any){
 }
 
 async function fullTag(s:any,input:string){const{data,error}=await s.from('alliance_tags').select('*').is('arquivado_em',null);if(error)throw new Error(error.message);const n=norm(input),m=(data||[]).filter((t:any)=>String(t.id)===String(input)||norm(t.nome)===n);if(!m.length)throw new Error('Tag não encontrada.');if(m.length>1&&!m.some((t:any)=>String(t.id)===String(input)))throw new Error('Tag ambígua; use id.');return m.find((t:any)=>String(t.id)===String(input))||m[0]}
-function fullCompletion(t:any,tasks:any[]){const b=(t.dependencies||[]).map((id:any)=>tasks.find(x=>String(x.id)===String(id))).filter(Boolean).filter((x:any)=>x.status!=='feito');if(b.length)return'Há dependências pendentes.';if(t.conferenceRequired){const p=(t.checklist||[]).filter((x:any)=>!x.done);if(!(t.checklist||[]).length)return'Checklist obrigatória sem itens.';if(p.length)return'Checklist obrigatória pendente.'}if(t.deliveryRequired&&!(t.deliveries||[]).length)return'Entrega obrigatória pendente.';return''}
+function fullCompletion(t:any,tasks:any[]){const b=(t.dependencies||[]).map((id:any)=>tasks.find(x=>String(x.id)===String(id))).filter(Boolean).filter((x:any)=>x.status!=='feito');if(b.length)return'Há dependências pendentes.';if(t.conferenceRequired){const p=(t.checklist||[]).filter((x:any)=>!x.done);if(!(t.checklist||[]).length)return'Checklist obrigatória sem itens.';if(p.length)return'Checklist obrigatória pendente.'}const active=(t.deliveries||[]).filter((d:any)=>!d?.archivedAt&&!d?.arquivado_em);if(t.deliveryRequired&&!active.length)return'Entrega obrigatória pendente.';return''}
 
 const fullTapSchema=z.object({
   sobre_evento:z.object({nome:z.string().max(300).default(''),formato:z.string().max(1000).default(''),cupom_automatico:z.string().max(1000).default(''),bonus_universal:z.string().max(2000).default(''),bonus_influencer:z.string().max(2000).default(''),observacoes:z.string().max(10000).default('')}),
@@ -1003,7 +1006,24 @@ function registerFullSystemTools(server:any,supabase:any){
   })
   server.registerTool('arquivar_no',{description:'Arquiva/desarquiva nó. Nunca exclui.',inputSchema:z.object({id:z.string().uuid(),arquivado:z.boolean().default(true)})},async(a:any)=>{const who=await actor(supabase),{data:old}=await supabase.from('planning_map_nodes').select('*').eq('id',a.id).maybeSingle();if(!old)throw new Error('Nó não encontrado.');const{data,error}=await supabase.from('planning_map_nodes').update({arquivado_em:a.arquivado?(old.arquivado_em||nowIso()):null,arquivado_por:a.arquivado?who.id:null,atualizado_por:who.id}).eq('id',a.id).select('*').single();if(error)throw new Error(error.message);await fullSyncMap(supabase,await fullMap(supabase,data.map_id));await audit(supabase,who,'arquivar_no','mapa_no',data.id,{arquivado:a.arquivado});return toolText({no:{id:String(data.id),link:fullLinks('mapa',data.map_id),arquivado:!!data.arquivado_em}})})
 
-  server.registerTool('listar_entregas',{description:'Lista a mesma coleção da tela Entregas.',inputSchema:z.object({campanha_id:z.string().optional(),tarefa_id:z.string().optional(),responsavel:z.string().optional(),inicio:dt.optional(),fim:dt.optional(),status:z.string().optional(),limite:z.number().int().min(1).max(500).default(100)}),annotations:{readOnlyHint:true}},async(a:any)=>{const[d,t,c]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)]);let r=d;if(a.tarefa_id)r=r.filter((x:any)=>String(x.sourceTaskId)===a.tarefa_id||String(x.targetTaskId)===a.tarefa_id);if(a.campanha_id)r=r.filter((x:any)=>String(t.find((q:any)=>String(q.id)===String(x.sourceTaskId))?.campaignId||'')===String(a.campanha_id));if(a.responsavel){const n=norm(a.responsavel);r=r.filter((x:any)=>norm(x.from)===n||norm(x.to)===n)}if(a.status)r=r.filter((x:any)=>norm(x.status)===norm(a.status));if(a.inicio)r=r.filter((x:any)=>x.createdAt&&new Date(x.createdAt)>=new Date(a.inicio));if(a.fim)r=r.filter((x:any)=>x.createdAt&&new Date(x.createdAt)<=new Date(a.fim));return toolText({entregas:r.slice(0,a.limite).map((x:any)=>fullDelivery(x,t,c))})})
+  server.registerTool('listar_entregas',{
+    description:'Lista a mesma coleção da tela Entregas. Arquivadas ficam fora por padrão.',
+    inputSchema:z.object({campanha_id:z.string().optional(),tarefa_id:z.string().optional(),responsavel:z.string().optional(),inicio:dt.optional(),fim:dt.optional(),status:z.string().optional(),incluir_arquivadas:z.boolean().default(false),limite:z.number().int().min(1).max(500).default(100)}),
+    annotations:{readOnlyHint:true}
+  },async(a:any)=>{
+    const[d,t,c]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)])
+    let rows=d.filter((x:any)=>a.incluir_arquivadas||!x.archivedAt)
+    if(a.tarefa_id)rows=rows.filter((x:any)=>String(x.sourceTaskId)===a.tarefa_id||String(x.targetTaskId)===a.tarefa_id)
+    if(a.campanha_id){
+      exactCampaign(c,a.campanha_id)
+      rows=rows.filter((x:any)=>{const task=t.find((q:any)=>String(q.id)===String(x.sourceTaskId));const cid=hasOwn(x,'campaignId')?x.campaignId:(hasOwn(x,'campanha_id')?x.campanha_id:(task?.campaignId||null));return String(cid||'')===String(a.campanha_id)})
+    }
+    if(a.responsavel){const n=norm(a.responsavel);rows=rows.filter((x:any)=>norm(x.from)===n||norm(x.to)===n)}
+    if(a.status)rows=rows.filter((x:any)=>norm(fullDeliveryStatus(x.status))===norm(a.status))
+    if(a.inicio)rows=rows.filter((x:any)=>x.createdAt&&new Date(x.createdAt)>=new Date(a.inicio))
+    if(a.fim)rows=rows.filter((x:any)=>x.createdAt&&new Date(x.createdAt)<=new Date(a.fim))
+    return toolText({entregas:rows.slice(0,a.limite).map((x:any)=>fullDelivery(x,t,c)),total:rows.length})
+  })
   server.registerTool('obter_entrega',{description:'Obtém entrega com anexos e histórico.',inputSchema:z.object({id:z.string()}),annotations:{readOnlyHint:true}},async({id}:any)=>{const[d,t,c]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)]),x=d.find((q:any)=>String(q.id)===String(id));if(!x)throw new Error('Entrega não encontrada.');const out=fullDelivery(x,t,c);for(const f of out.arquivos||[]){if(f.storage_path){const{data}=await supabase.storage.from('alliance-deliveries').createSignedUrl(f.storage_path,3600);f.url=data?.signedUrl||null}}return toolText({entrega:out})})
   server.registerTool('registrar_entrega',{
     description:'Registra entrega com link ou arquivo base64 na mesma coleção da tela Entregas. Valida o vínculo de campanha da tarefa e grava datas ISO com fuso.',
@@ -1014,15 +1034,44 @@ function registerFullSystemTools(server:any,supabase:any){
     const ass=await resolveAssignees(supabase,[a.destinatario]),to=ass.names[0];if(a.proxima_tarefa_id)findTask(tasks,a.proxima_tarefa_id);if(a.concluir_tarefa){const p=fullCompletion(t,tasks);if(p)throw new Error(p)}
     const ds=await fullDeliveries(supabase),id='del-'+Date.now()+'-'+crypto.randomUUID().slice(0,8),files=[] as any[],web=[] as any[]
     for(const x of a.anexos){if(x.tipo==='link'){web.push({id:'l-'+crypto.randomUUID().slice(0,8),label:x.nome,url:x.url});continue}let bytes;try{bytes=Uint8Array.from(atob(x.conteudo_base64),(c:string)=>c.charCodeAt(0))}catch{throw new Error('base64 inválido em '+x.nome)}const path=who.id+'/'+id+'/'+crypto.randomUUID().slice(0,8)+'-'+x.nome.replace(/[^A-Za-z0-9._-]+/g,'_'),{error}=await supabase.storage.from('alliance-deliveries').upload(path,bytes,{contentType:x.mime_type,upsert:false});if(error)throw new Error(error.message);files.push({id:'f-'+crypto.randomUUID().slice(0,8),name:x.nome,type:x.mime_type,size:bytes.length,storage_path:path})}
-    const ts=nowIso(),d:any={id,sourceTaskId:String(t.id),targetTaskId:String(a.proxima_tarefa_id||''),campaignId:campaignId||null,title:a.titulo||'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:who.nome,to,note:a.mensagem,status:'enviado',createdAt:ts,updatedAt:ts,version:ds.filter((x:any)=>String(x.sourceTaskId)===String(t.id)&&norm(x.to)===norm(to)).length+1,completeTask:a.concluir_tarefa,files,links:web,events:[{at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega enviada para '+to+'.'}],origin:'mcp'}
-    ds.unshift(d);t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];t.deliveries.unshift({id,deliveryId:id,text:d.title,at:ts,author:who.nome,authorId:who.id,source:'mcp',status:'enviado'});t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega registrada via MCP por '+who.nome+'.'});if(a.concluir_tarefa)t.status='feito'
+    const ts=nowIso(),d:any={id,sourceTaskId:String(t.id),targetTaskId:String(a.proxima_tarefa_id||''),campaignId:campaignId||null,campaignSource:'task',title:a.titulo||'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:who.nome,to,note:a.mensagem,status:'enviado',createdAt:ts,updatedAt:ts,version:ds.filter((x:any)=>String(x.sourceTaskId)===String(t.id)&&norm(x.to)===norm(to)).length+1,completeTask:a.concluir_tarefa,files,links:web,events:[{at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega enviada para '+to+'.'}],origin:'mcp',archivedAt:null,archivedBy:null}
+    ds.unshift(d);t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];t.deliveries.unshift({id,deliveryId:id,text:d.title,note:d.note,at:ts,author:who.nome,authorId:who.id,source:'mcp',status:'enviado',campaignId:d.campaignId,targetTaskId:d.targetTaskId,links:structuredClone(d.links),archivedAt:null,archivedBy:null});t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega registrada via MCP por '+who.nome+'.'});if(a.concluir_tarefa)t.status='feito'
     await writeTasks(supabase,tasks);await fullSaveDeliveries(supabase,ds);await audit(supabase,who,'registrar_entrega','entrega',id,{tarefa_id:t.id,campanha_id:campaignId||null});return toolText({entrega:fullDelivery(d,tasks,campaigns),tarefa:publicTask(t)})
+  })
+  server.registerTool('atualizar_entrega',{
+    description:'Edita ou arquiva/desarquiva uma entrega sem excluir. Permite título, mensagem, destinatário, campanha, próxima tarefa e links; sincroniza a cópia na tarefa.',
+    inputSchema:z.object({id:z.string(),titulo:z.string().min(1).optional(),mensagem:z.string().optional(),destinatario:z.string().optional(),campanha_id:z.string().nullable().optional(),proxima_tarefa_id:z.string().nullable().optional(),links:z.array(z.object({nome:z.string().default('Link'),url:z.string().url()})).max(50).optional(),arquivada:z.boolean().optional()})
+  },async(a:any)=>{
+    const who=await actor(supabase),[ds,tasks,campaigns]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)]),d=ds.find((x:any)=>String(x.id)===String(a.id))
+    if(!d)throw new Error('Entrega não encontrada.')
+    const t=tasks.find((x:any)=>String(x.id)===String(d.sourceTaskId)),changes:string[]=[]
+    if(hasOwn(a,'titulo')){d.title=a.titulo;changes.push('título')}
+    if(hasOwn(a,'mensagem')){d.note=a.mensagem;changes.push('mensagem')}
+    if(hasOwn(a,'destinatario')){const ass=await resolveAssignees(supabase,[a.destinatario]);d.to=ass.names[0];changes.push('destinatário')}
+    if(hasOwn(a,'campanha_id')){
+      if(a.campanha_id===null){d.campaignId=null;d.campaignSource='direct'}
+      else{const c=t?await exactCampaignForBrand(supabase,a.campanha_id,t.brand):exactCampaign(campaigns,a.campanha_id);d.campaignId=String(c.id);d.campaignSource='direct'}
+      changes.push('campanha')
+    }
+    if(hasOwn(a,'proxima_tarefa_id')){if(a.proxima_tarefa_id)findTask(tasks,a.proxima_tarefa_id);d.targetTaskId=String(a.proxima_tarefa_id||'');changes.push('próxima tarefa')}
+    if(hasOwn(a,'links')){d.links=(a.links||[]).map((x:any)=>({id:'l-'+crypto.randomUUID().slice(0,8),label:x.nome,url:x.url}));changes.push('links')}
+    if(hasOwn(a,'arquivada')){d.archivedAt=a.arquivada?(d.archivedAt||nowIso()):null;d.archivedBy=a.arquivada?who.id:null;changes.push(a.arquivada?'arquivamento':'desarquivamento')}
+    d.updatedAt=nowIso();d.events=Array.isArray(d.events)?d.events:[];d.events.push({at:d.updatedAt,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega atualizada via MCP: '+(changes.join(', ')||'sem alteração de campos')+'.'})
+    if(t){
+      t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[]
+      const embedded=t.deliveries.find((x:any)=>String(x.id||x.deliveryId)===String(d.id))
+      if(embedded){embedded.text=d.title;embedded.note=d.note;embedded.to=d.to;embedded.status=fullDeliveryStatus(d.status);embedded.campaignId=hasOwn(d,'campaignId')?d.campaignId:null;embedded.targetTaskId=d.targetTaskId;embedded.links=structuredClone(d.links||[]);embedded.archivedAt=d.archivedAt||null;embedded.archivedBy=d.archivedBy||null;embedded.updatedAt=d.updatedAt}
+      t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:d.updatedAt,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega atualizada via MCP: '+(changes.join(', ')||'sem alteração de campos')+'.'})
+      await writeTasks(supabase,tasks)
+    }
+    await fullSaveDeliveries(supabase,ds);await audit(supabase,who,'atualizar_entrega','entrega',String(d.id),{tarefa_id:d.sourceTaskId||null,campos:changes,arquivada:!!d.archivedAt,campanha_id:hasOwn(d,'campaignId')?d.campaignId:null})
+    return toolText({entrega:fullDelivery(d,tasks,campaigns)})
   })
   server.registerTool('aprovar_ou_reprovar_entrega',{
     description:'Aprova ou reprova entrega com comentário e sincroniza a cópia dentro da tarefa.',
     inputSchema:z.object({id:z.string(),decisao:z.enum(['aprovar','reprovar']),comentario:z.string().default('')})
   },async(a:any)=>{
-    const who=await actor(supabase),ds=await fullDeliveries(supabase),d=ds.find((x:any)=>String(x.id)===String(a.id));if(!d)throw new Error('Entrega não encontrada.')
+    const who=await actor(supabase),ds=await fullDeliveries(supabase),d=ds.find((x:any)=>String(x.id)===String(a.id));if(!d)throw new Error('Entrega não encontrada.');if(d.archivedAt)throw new Error('A entrega está arquivada. Desarquive antes de aprovar ou reprovar.')
     d.status=a.decisao==='aprovar'?'aprovado':'ajustes';d.updatedAt=nowIso();d.events=Array.isArray(d.events)?d.events:[];d.events.push({at:d.updatedAt,by:who.nome,authorId:who.id,origin:'mcp',text:a.decisao==='aprovar'?'Entrega aprovada'+(a.comentario?': '+a.comentario:'.'):'Entrega reprovada'+(a.comentario?': '+a.comentario:'.')});if(a.decisao==='reprovar')d.adjustmentNote=a.comentario
     const tasks=await readState(supabase,TASKS_KEY),t=tasks.find((x:any)=>String(x.id)===String(d.sourceTaskId))
     if(t){
@@ -1189,7 +1238,7 @@ function registerFullSystemTools(server:any,supabase:any){
     const{data:nodes,error}=await supabase.from('planning_map_nodes').select('id,map_id,node_key,texto,campaign_id').not('campaign_id','is',null);if(error)throw new Error(error.message)
     if(resultsQuery.error)throw new Error(resultsQuery.error.message)
     const invalidNodes=(nodes||[]).filter((x:any)=>!ids.has(String(x.campaign_id))).map((x:any)=>({id:String(x.id),mapa_id:String(x.map_id),chave:x.node_key,texto:x.texto,campanha_id:x.campaign_id}))
-    const invalidDeliveries=deliveries.map((d:any)=>{const t=byTask.get(String(d.sourceTaskId)),cid=d.campaignId||d.campanha_id||t?.campaignId||null;return{id:String(d.id),titulo:d.title||d.taskTitle||'Entrega',tarefa_id:d.sourceTaskId||null,campanha_id:cid}}).filter((d:any)=>d.campanha_id&&!ids.has(String(d.campanha_id)))
+    const invalidDeliveries=deliveries.map((d:any)=>{const t=byTask.get(String(d.sourceTaskId)),cid=hasOwn(d,'campaignId')?d.campaignId:(hasOwn(d,'campanha_id')?d.campanha_id:(t?.campaignId||null));return{id:String(d.id),titulo:d.title||d.taskTitle||'Entrega',tarefa_id:d.sourceTaskId||null,campanha_id:cid}}).filter((d:any)=>d.campanha_id&&!ids.has(String(d.campanha_id)))
     const invalidResults=(resultsQuery.data||[]).filter((r:any)=>r.campaign_id&&!ids.has(String(r.campaign_id))).map((r:any)=>({id:String(r.id),campanha_id:r.campaign_id,data:r.data,canal:r.canal||null,fonte_receita:r.fonte_receita||null}))
     return toolText({listas_invalidas:invalidLists,tarefas_invalidas:invalidTasks,nos_invalidos:invalidNodes,entregas_invalidas:invalidDeliveries,resultados_invalidos:invalidResults})
   })
@@ -1212,8 +1261,25 @@ function registerFullSystemTools(server:any,supabase:any){
     const cs=cs0.filter((c:any)=>norm(c.brand)===norm(b.nome)&&fullMonthRef(c)===ref&&(a.incluir_arquivados||!c.archivedAt)),ids=new Set(cs.map((c:any)=>String(c.id))),byList=new Map(ls.map((l:any)=>[String(l.id),l])),brandTasks=ts0.filter((t:any)=>norm(t.brand)===norm(b.nome)&&(a.incluir_arquivados||!t.archivedAt)),monthTasks=brandTasks.filter((t:any)=>ids.has(String(taskCampaignFromLists(t,byList)||''))||taskMonthRef(t,byList)===ref),taskIds=new Set(monthTasks.map((t:any)=>String(t.id))),relevantListIds=new Set(monthTasks.map((t:any)=>String(t.listId||'')).filter(Boolean)),monthLists=ls.filter((l:any)=>norm(l.marca)===norm(b.nome)&&(ids.has(String(l.campanha_id||''))||relevantListIds.has(String(l.id))||String(l.criado_em||'').slice(0,7)===ref)&&(a.incluir_arquivados||!l.arquivada)),deliveries=ds.filter((d:any)=>taskIds.has(String(d.sourceTaskId))||taskIds.has(String(d.targetTaskId))),results=rs.filter((r:any)=>ids.has(String(r.campaign_id)))
     const out:any={versao:3,gerado_em:nowIso(),marca:b.nome,ano:a.ano,mes:a.mes,modo:a.modo,secoes:a.secoes,paginacao:{cursor:a.cursor||null,limite:a.limite,offset,proximo_cursor:null,totais:{}}};let maxTotal=0
     const addPage=(key:string,rows:any[],map:(x:any)=>any=x=>x)=>{out.paginacao.totais[key]=rows.length;maxTotal=Math.max(maxTotal,rows.length);if(selected.has(key as any))out[key]=rows.slice(offset,offset+a.limite).map(map)}
-    if(selected.has('mes'))out.mes=mr.data?await fullMonthPayload(supabase,mr.data):null;addPage('campanhas',cs,fullPublicCampaign);addPage('taps',cs,(c:any)=>({campanha_id:String(c.id),campanha:c.name,tap:fullTapForMode(c,a.modo),avisos:fullCampaignWarnings(c)}));addPage('listas',monthLists);addPage('tarefas',monthTasks,(t:any)=>{const cid=taskCampaignFromLists(t,byList);return a.modo==='resumo'?fullTaskSummary(t,cid):({...publicTask(t),campanha_id:cid})});addPage('entregas',deliveries,(d:any)=>fullDelivery(d,monthTasks,cs));addPage('resultados',results,fullResultPublic);if(offset+a.limite<maxTotal)out.paginacao.proximo_cursor=fullCursor(offset+a.limite);return toolText(out)
+    if(selected.has('mes'))out.mes=mr.data?await fullMonthPayload(supabase,mr.data):null;addPage('campanhas',cs,fullPublicCampaign);addPage('taps',cs,(c:any)=>({campanha_id:String(c.id),campanha:c.name,tap:fullTapForMode(c,a.modo),avisos:fullCampaignWarnings(c)}));addPage('listas',monthLists);addPage('tarefas',monthTasks,(t:any)=>{const cid=taskCampaignFromLists(t,byList);return a.modo==='resumo'?fullTaskSummary(t,cid):({...publicTask(t),campanha_id:cid})});addPage('entregas',deliveries,(d:any)=>fullDelivery(d,monthTasks,cs));addPage('resultados',results,fullResultPublic);if(offset+a.limite<maxTotal){out.paginacao.proximo_cursor=fullCursor(offset+a.limite);out.paginacao.restantes=Math.max(0,maxTotal-(offset+a.limite));out.paginacao.instrucao='Há mais itens. Chame exportar_mes novamente com cursor="'+out.paginacao.proximo_cursor+'" e os mesmos modo/secoes/limite.'}else{out.paginacao.restantes=0;out.paginacao.instrucao='Fim da exportação: não há próxima página.'}return toolText(out)
   })
+}
+
+
+function assertAdvertisedToolSchemas(server:any){
+  const requireFields=(name:string,fields:string[])=>{
+    const schema=server.toolInputSchemaJson(name)
+    if(!schema)throw new Error('Ferramenta não anunciada em tools/list: '+name)
+    const props=(schema as any).properties||{}
+    const missing=fields.filter(f=>!Object.prototype.hasOwnProperty.call(props,f))
+    if(missing.length)throw new Error('Schema MCP desatualizado em '+name+': faltam '+missing.join(', '))
+  }
+  requireFields('listar_resultados',['cursor','limite','incluir_arquivados'])
+  requireFields('atualizar_resultado',['id','arquivado'])
+  requireFields('exportar_mes',['modo','secoes','cursor','limite'])
+  requireFields('obter_campanha',['modo','secoes','cursor','limite'])
+  requireFields('buscar_tarefas',['cursor','limite'])
+  requireFields('atualizar_entrega',['id','campanha_id','arquivada'])
 }
 
 
@@ -1221,8 +1287,12 @@ function registerFullSystemTools(server:any,supabase:any){
 
 const protectedHandler = withOAuthProtectedResource(
   withSupabase({ auth: 'user' }, async (req: Request, { supabase }: any) => {
+    let mcpMethod:string|null=null
+    if(req.method==='POST'){
+      try{const body:any=await req.clone().json();mcpMethod=Array.isArray(body)?String(body[0]?.method||''):String(body?.method||'')}catch{}
+    }
     const handler = createMcpHandler(() => {
-      const server = new McpServer({ name: 'AllianceOS Gestão', version: '2.0.0' })
+      const server = new McpServer({ name: 'AllianceOS Gestão', version: '2.1.0' })
 
       
       server.registerTool('listar_marcas', {
@@ -1671,9 +1741,14 @@ const protectedHandler = withOAuthProtectedResource(
       })
 
       registerFullSystemTools(server,supabase)
+      assertAdvertisedToolSchemas(server)
       return server
-    })
-    return handler.fetch(req)
+    },{bus:MCP_EVENT_BUS})
+    const response=await handler.fetch(req)
+    if(mcpMethod==='notifications/initialized'||mcpMethod==='subscriptions/listen'){
+      queueMicrotask(()=>{try{void handler.notify.toolsChanged()}catch(e){console.error('tools/list_changed',e)}})
+    }
+    return response
   })
 )
 
@@ -1692,7 +1767,9 @@ Deno.serve(async (req: Request) => {
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
       oauth_discovery_status,
-      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
+      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","atualizar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
+      tool_schema_version: TOOL_SCHEMA_VERSION,
+      tools_list_changed: true,
       deletion_tool: false,
     })
   }

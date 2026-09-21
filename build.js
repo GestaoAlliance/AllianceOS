@@ -118,6 +118,22 @@ async function main() {
           if (!s.includes(oldOpenCampaign)) throw new Error('Não encontrei openCampaignWorkspace legado para corrigir');
           s = s.replace(oldOpenCampaign, newOpenCampaign);
 
+          // AllianceOS: entregas arquivadas continuam persistidas, mas saem das listagens padrão da interface.
+          const oldFilteredDeliveries = "  function filteredDeliveries(){let data=[...deliveries];";
+          const newFilteredDeliveries = "  function filteredDeliveries(){let data=deliveries.filter(d=>!d.archivedAt&&!d.arquivado_em);";
+          if (!s.includes(oldFilteredDeliveries)) throw new Error('Não encontrei filteredDeliveries legado para aplicar arquivamento');
+          s = s.replace(oldFilteredDeliveries, newFilteredDeliveries);
+
+          const oldDeliveryNavCount = "  function renderNavCount(){const n=deliveries.filter(d=>d.to===CURRENT_NAME&&d.status!=='aprovado').length;";
+          const newDeliveryNavCount = "  function renderNavCount(){const n=deliveries.filter(d=>!d.archivedAt&&!d.arquivado_em&&d.to===CURRENT_NAME&&d.status!=='aprovado').length;";
+          if (!s.includes(oldDeliveryNavCount)) throw new Error('Não encontrei renderNavCount legado para aplicar arquivamento');
+          s = s.replace(oldDeliveryNavCount, newDeliveryNavCount);
+
+          const oldRenderDeliveries = "  function renderDeliveries(){const all=deliveries,received=all.filter";
+          const newRenderDeliveries = "  function renderDeliveries(){const all=deliveries.filter(d=>!d.archivedAt&&!d.arquivado_em),received=all.filter";
+          if (!s.includes(oldRenderDeliveries)) throw new Error('Não encontrei renderDeliveries legado para aplicar arquivamento');
+          s = s.replace(oldRenderDeliveries, newRenderDeliveries);
+
           const taskAnchor = '  function showHome(){';
           if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas');
           s = s.replace(taskAnchor, `${taskV3Js}\n\n${taskV5Js}\n\n${taskFocusJs}\n\n${taskReferenceV10Js}\n\n${taskAnchor}`);
