@@ -202,6 +202,9 @@
   const v3CurrentNames = () => {
     const out=[];
     try {
+      const currentId=window.AllianceOSSession?.user?.id||window.user?.id||null;
+      const member=(window.AllianceOSDirectory?.members||[]).find(x=>String(x?.id||'')===String(currentId||''));
+      if(member?.nome)out.push(member.nome);
       if(window.CentralEu?.nome) out.push(window.CentralEu.nome);
       const eu=window.CentralEu;
       if(eu && window.Acessos) {
@@ -425,11 +428,12 @@
     const proj=document.getElementById('projectFilter')?.value||'';
     const brand=brandFilter();
     const meus=v3CurrentNames();
+    const meuId=window.AllianceOSSession?.user?.id||window.user?.id||null;
     return taskData.filter(t=>{
       v3NormalizeTask(t);
       if(t.archivedAt&&!q)return false;
       if(brand&&t.brand!==brand)return false;
-      if(taskState.onlyMe&&!t.assignees.some(a=>meus.some(m=>v3Short(a)===v3Short(m))))return false;
+      if(taskState.onlyMe&&!((meuId&&(t.assigneeIds||[]).some(id=>String(id)===String(meuId)))||t.assignees.some(a=>meus.some(m=>v3Short(a)===v3Short(m)))))return false;
       if(ass&&!t.assignees.includes(ass))return false;
       if(st&&t.status!==st)return false;
       if(pr&&t.priority!==v3PriorityCanon(pr))return false;

@@ -98,82 +98,39 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
     const admin = adminClient()
+    const userDb = await authenticatedClient(req)
+    if (!userDb) return ok({ error: 'authentication_required' }, 401)
+    const { data: authData, error: authError } = await userDb.auth.getUser()
+    if (authError || !authData?.user) return ok({ error: 'authentication_required' }, 401)
+    const actorId = authData.user.id
+    const { data: profile, error: profileError } = await userDb.from('profiles').select('id,papel,ativo,tipo_membro').eq('id', actorId).maybeSingle()
+    if (profileError || !profile?.ativo || profile?.papel === 'externo' || profile?.tipo_membro === 'servico') return ok({ error: 'access_not_allowed' }, 403)
     if (req.method === 'GET') {
-      const { data, error } = await admin.from('operacional_estado')
-        .select('chave,valor,atualizado_em')
-        .is('dono', null)
-        .or('chave.like.central.%,chave.like.allianceos.%')
-        .order('chave')
+      const { data, error } = await userDb.from('operacional_estado').select('chave,valor,atualizado_em').is('dono', null).or('chave.like.central.%,chave.like.allianceos.%').order('chave')
       if (error) throw error
-      const items = (data || []).filter((row) => !PROTECTED_KEYS.has(String(row.chave)))
-      const userDb = await authenticatedClient(req)
-      if (userDb) {
-        const { data: protectedRows, error: protectedError } = await userDb.from('operacional_estado')
-          .select('chave,valor,atualizado_em')
-          .is('dono', null)
-          .in('chave', [...PROTECTED_KEYS])
-        if (protectedError) throw protectedError
-        items.push(...(protectedRows || []))
-      }
-      items.sort((a,b)=>String(a.chave).localeCompare(String(b.chave)))
-      return ok({ items })
+      return ok({ items: data || [], user_id: actorId })
     }
-
     if (req.method !== 'POST') return ok({ error: 'method_not_allowed' }, 405)
     const raw = await req.text()
     if (raw.length > 5_000_000) return ok({ error: 'payload_too_large' }, 413)
     const body = JSON.parse(raw || '{}')
     const chave = String(body.chave || '')
     if (!validKey(chave)) return ok({ error: 'invalid_key' }, 400)
-    const protectedKey = PROTECTED_KEYS.has(chave)
-    const db = protectedKey ? await authenticatedClient(req) : admin
-    if (protectedKey && !db) return ok({ error: 'authentication_required' }, 401)
-
     if (body.deleted === true) {
-      let actorId: string | null = null
-      try {
-        const userDb = await authenticatedClient(req)
-        if (userDb) {
-          const { data: u } = await userDb.auth.getUser()
-          actorId = u?.user?.id || null
-        }
-      } catch {}
-      try {
-        await admin.from('physical_delete_attempts').insert({
-          actor_id: actorId,
-          origin: 'interface',
-          entity_type: 'operacional_estado',
-          entity_id: chave,
-          details: { route: 'public-state', blocked: true },
-        })
-      } catch {}
+      try { await admin.from('physical_delete_attempts').insert({actor_id:actorId,origin:'interface',entity_type:'operacional_estado',entity_id:chave,details:{route:'public-state',blocked:true}}) } catch {}
       return ok({ error: 'physical_delete_forbidden_use_archive', chave }, 405)
     }
-
-    const { data: currentRow, error: readError } = await db.from('operacional_estado')
-      .select('valor').eq('chave', chave).is('dono', null).maybeSingle()
+    const { data: currentRow, error: readError } = await userDb.from('operacional_estado').select('valor').eq('chave', chave).is('dono', null).maybeSingle()
     if (readError) throw readError
     const removalAttempts: RemovalAttempt[] = []
     const finalValue = currentRow ? merge(body.base, body.valor, currentRow.valor, removalAttempts, "$") : body.valor
     if (removalAttempts.length) {
-      try {
-        const userDb = await authenticatedClient(req)
-        const { data: u } = userDb ? await userDb.auth.getUser() : { data: { user: null } } as any
-        await admin.from('physical_delete_attempts').insert(removalAttempts.slice(0,200).map((a) => ({
-          actor_id: u?.user?.id || null,
-          origin: 'interface',
-          entity_type: 'operacional_estado_item',
-          entity_id: a.id,
-          details: { chave, path: a.path, blocked: true, reason: 'item_omitted_from_shared_state' },
-        })))
-      } catch {}
+      try { await admin.from('physical_delete_attempts').insert(removalAttempts.slice(0,200).map((a)=>({actor_id:actorId,origin:'interface',entity_type:'operacional_estado_item',entity_id:a.id,details:{chave,path:a.path,blocked:true,reason:'item_omitted_from_shared_state'}}))) } catch {}
     }
-    const row = { chave, dono: null, valor: finalValue, atualizado_em: new Date().toISOString() }
-    const { data, error } = await db.from('operacional_estado')
-      .upsert(row, { onConflict: 'chave,dono' })
-      .select('chave,valor,atualizado_em').single()
+    const row={chave,dono:null,valor:finalValue,atualizado_em:new Date().toISOString()}
+    const { data, error } = await userDb.from('operacional_estado').upsert(row,{onConflict:'chave,dono'}).select('chave,valor,atualizado_em').single()
     if (error) throw error
-    return ok({ ok: true, item: data })
+    return ok({ok:true,item:data})
   } catch (e) {
     console.error(e)
     return ok({ error: e instanceof Error ? e.message : String(e) }, 500)

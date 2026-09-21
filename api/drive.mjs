@@ -1,3 +1,4 @@
+import {requireAllianceUser,authError} from './_lib/auth.mjs';
 import {createSign} from 'node:crypto';
 
 const BRAND='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-brand';
@@ -14,6 +15,7 @@ async function drive(caminho,params={}){const u=new URL(`https://www.googleapis.
 async function dentroDe(id,raiz){if(!id||id===raiz)return true;let atual=id;for(let i=0;i<12;i++){const f=await drive(`files/${encodeURIComponent(atual)}`,{fields:'id,parents'}),pais=f.parents||[];if(!pais.length)return false;if(pais.includes(raiz))return true;atual=pais[0]}return false}
 const aspas=t=>String(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 export default async function handler(req,res){try{
+  await requireAllianceUser(req);
   const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
   if(req.method==='POST'){
     const nome=String(body.marca||'Botanika'),raw=String(body.drive_pasta||body.pasta||'').trim(),limpo=raw.replace(/^https?:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//,'').split(/[?#]/)[0].trim();
@@ -33,4 +35,4 @@ export default async function handler(req,res){try{
   const trilha=[];if(pasta!==raiz){let atual=pasta;for(let i=0;i<12;i++){const f=await drive(`files/${encodeURIComponent(atual)}`,{fields:'id,name,parents'});trilha.unshift({id:f.id,nome:f.name});if(f.id===raiz||!(f.parents||[]).length||(f.parents||[]).includes(raiz))break;atual=f.parents[0]}}
   const arquivos=(lista.files||[]).map(f=>({id:f.id,nome:f.name,tipo:f.mimeType,pasta:f.mimeType===PASTA,link:f.webViewLink||`https://drive.google.com/file/d/${f.id}/view`,icone:f.iconLink||'',miniatura:f.thumbnailLink||'',em:f.modifiedTime||'',tamanho:f.size?+f.size:null,dono:f.owners?.[0]?.displayName||''}));
   return send(res,200,{ligado:true,marca:m.marca,raiz,pasta,trilha,arquivos,proxima:lista.nextPageToken||null,busca:busca||null});
-}catch(e){if(e.faltaChave)return send(res,200,{ligado:false,semChave:true,erro:'A AllianceOS ainda não tem a chave da conta de serviço do Google.'});console.error('[drive]',e);const msg=String(e.message||e).slice(0,240);if(/File not found|notFound|insufficient/i.test(msg))return send(res,200,{ligado:false,semAcesso:true,erro:'O Drive não encontra a pasta. Confira se ela foi compartilhada com a conta de serviço.'});return send(res,e.status||502,{erro:msg})}}
+}catch(e){if(e?.status===401||e?.status===403)return authError(res,e);if(e.faltaChave)return send(res,200,{ligado:false,semChave:true,erro:'A AllianceOS ainda não tem a chave da conta de serviço do Google.'});console.error('[drive]',e);const msg=String(e.message||e).slice(0,240);if(/File not found|notFound|insufficient/i.test(msg))return send(res,200,{ligado:false,semAcesso:true,erro:'O Drive não encontra a pasta. Confira se ela foi compartilhada com a conta de serviço.'});return send(res,e.status||502,{erro:msg})}}

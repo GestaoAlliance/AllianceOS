@@ -7,6 +7,14 @@
     {
       "source": "/oauth/consent",
       "destination": "/"
+    },
+    {
+      "source": "/login",
+      "destination": "/"
+    },
+    {
+      "source": "/cadastro",
+      "destination": "/"
     }
   ]
 }

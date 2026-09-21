@@ -20,6 +20,8 @@ const NAV_REFERENCE_JS = path.join(__dirname, 'navigation-reference-v1.js');
 const ALLIANCE_ADMIN_JS = path.join(__dirname, 'alliance-admin.js');
 const ALLIANCE_ADMIN_CSS = path.join(__dirname, 'alliance-admin.css');
 const FULL_SYSTEM_UI = path.join(__dirname, 'full-system-ui-v1.js');
+const AUTH_GATE_JS = path.join(__dirname, 'auth-gate.js');
+const AUTH_GATE_CSS = path.join(__dirname, 'auth-gate.css');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
 
@@ -44,6 +46,8 @@ async function main() {
   const allianceAdminJs = fs.readFileSync(ALLIANCE_ADMIN_JS, 'utf8');
   const allianceAdminCss = fs.readFileSync(ALLIANCE_ADMIN_CSS, 'utf8');
   const fullSystemUi = fs.readFileSync(FULL_SYSTEM_UI, 'utf8');
+  const authGateJs = fs.readFileSync(AUTH_GATE_JS, 'utf8');
+  const authGateCss = fs.readFileSync(AUTH_GATE_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -204,14 +208,14 @@ async function main() {
 
   let html = fs.readFileSync(path.join(op, 'dist', 'index.html'), 'utf8');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
-  html = html.replace('</head>', () => `<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</head>', () => `<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
   html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  console.log('AllianceOS pronto em dist/index.html (tarefas Cilo/Liquid Glass + aberto + Supabase compartilhado + APIs sem login)');
+  console.log('AllianceOS pronto em dist/index.html (autenticação obrigatória + usuários reais + Supabase/RLS)');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

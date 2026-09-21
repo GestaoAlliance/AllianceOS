@@ -22,6 +22,13 @@
   };
 
   async function initClient(){
+    if(window.AllianceOSAuth?.ready){
+      const gate=await window.AllianceOSAuth.ready;
+      state.sb=window.AllianceOSAuth.client;
+      state.user=gate?.authenticated?gate.session?.user||null:null;
+      window.AllianceOSSession={...(window.AllianceOSSession||{}),user:state.user};
+      return;
+    }
     const cfgRes=await fetch(CONFIG_URL,{cache:'no-store'});
     if(!cfgRes.ok)throw new Error('Não foi possível carregar a configuração do AllianceOS.');
     const cfg=await cfgRes.json();
@@ -30,13 +37,6 @@
     const {data:{session}}=await state.sb.auth.getSession();
     state.user=session?.user||null;
     window.AllianceOSSession={user:state.user};
-    state.sb.auth.onAuthStateChange((_event,session)=>{
-      const before=state.user?.id||null;
-      state.user=session?.user||null;
-      window.AllianceOSSession={user:state.user};
-      if(before!==state.user?.id)sessionStorage.removeItem('allianceos.rls_tasks_hydrated');
-      setTimeout(refreshAll,20);
-    });
   }
 
   async function audit(action,entityType,entityId,details={}){
@@ -373,7 +373,7 @@
       '<div class="aa-profile-photo-row"><div class="aa-profile-photo" id="aaProfilePreview">'+avatarInner(p,p.nome)+'</div><div class="aa-profile-photo-actions"><input id="aaProfilePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><small>Escolha a foto e depois ajuste o rosto dentro do círculo.</small><div class="aa-profile-photo-buttons"><button class="aa-profile-btn" id="aaProfileAdjustPhoto" type="button" '+(!photo?'disabled':'')+'>Ajustar enquadramento</button><button class="aa-profile-btn danger" id="aaProfileRemovePhoto" type="button" '+(!photo?'disabled':'')+'>Remover foto</button></div></div></div>'+
       '<div class="aa-profile-crop" id="aaProfileCropWrap" hidden><div class="aa-profile-crop-head"><div><b>Ajuste seu enquadramento</b><span>Arraste a foto até o rosto ficar onde você quer dentro do círculo.</span></div></div><div class="aa-crop-stage"><canvas id="aaProfileCropCanvas" width="280" height="280"></canvas></div><div class="aa-crop-zoom"><span>−</span><input id="aaProfileZoom" type="range" min="1" max="3" step="0.01" value="1" aria-label="Zoom da foto"><span>+</span></div><div class="aa-crop-actions"><button class="aa-profile-btn" type="button" id="aaProfileCropCancel">Cancelar</button><button class="aa-profile-btn primary" type="button" id="aaProfileCropApply">Aplicar enquadramento</button></div></div>'+
       '<div class="aa-profile-grid"><div class="aa-profile-field full"><label>Nome</label><input id="aaProfileName" value="'+esc(p.nome||'')+'" maxlength="200"></div><div class="aa-profile-field"><label>Cargo</label><input id="aaProfileCargo" value="'+esc(p.cargo||'')+'" maxlength="200" placeholder="Ex.: Gestão de projetos"></div><div class="aa-profile-field"><label>Área</label><select id="aaProfileArea">'+areaOptions+'</select></div><div class="aa-profile-field"><label>E-mail</label><input value="'+esc(p.email||'')+'" readonly></div><div class="aa-profile-field"><label>Papel</label><input value="'+esc(p.papel==='admin'?'Administrador':'Membro')+'" readonly></div></div>'+
-      '<div class="aa-profile-actions"><button class="aa-profile-btn" type="button" data-aa-profile-close-inside>Cancelar</button><button class="aa-profile-btn primary" id="aaProfileSave" type="button">Salvar perfil</button></div>';
+      '<div class="aa-profile-actions"><button class="aa-profile-btn danger" id="aaProfileLogout" type="button">Sair</button><span style="flex:1"></span><button class="aa-profile-btn" type="button" data-aa-profile-close-inside>Cancelar</button><button class="aa-profile-btn primary" id="aaProfileSave" type="button">Salvar perfil</button></div>';
     profileRemovePhoto=false;profilePhotoBlob=null;profileCrop.image=null;profileCrop.zoom=1;profileCrop.offsetX=0;profileCrop.offsetY=0;
     $('[data-aa-profile-close-inside]',body)?.addEventListener('click',closeProfileModal);
     const input=$('#aaProfilePhoto',body),preview=$('#aaProfilePreview',body),remove=$('#aaProfileRemovePhoto',body),adjust=$('#aaProfileAdjustPhoto',body);
@@ -393,6 +393,7 @@
     $('#aaProfileCropApply',body)?.addEventListener('click',profileApplyCrop);
     $('#aaProfileCropCancel',body)?.addEventListener('click',()=>{const crop=$('#aaProfileCropWrap');if(crop)crop.hidden=true;});
     $('#aaProfileSave',body)?.addEventListener('click',saveProfile);
+    $('#aaProfileLogout',body)?.addEventListener('click',()=>window.AllianceOSAuth?.signOut?.());
     profileBindCrop();
   }
 

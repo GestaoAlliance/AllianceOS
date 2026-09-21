@@ -1,7 +1,9 @@
 (() => {
   'use strict';
 
+  if(location.pathname==='/oauth/consent') return;
   const ENDPOINT = 'https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-state';
+  const authReady=async()=>{try{if(window.AllianceOSAuth?.ready)await window.AllianceOSAuth.ready}catch{}return authToken()};
   const PREFIXES = ['central.', 'allianceos.'];
   const LOCAL_ONLY = new Set([
     'central.theme', 'allianceos.theme',
@@ -49,7 +51,8 @@
   migrateLocalAliases();
 
   async function request(options = {}) {
-    const token=authToken();
+    const token=await authReady();
+    if(!token)throw new Error('authentication_required');
     const headers={...(options.headers||{})};
     if(token)headers.Authorization='Bearer '+token;
     const res = await fetch(ENDPOINT, { cache: 'no-store', ...options, headers });
@@ -115,6 +118,8 @@
   };
 
   async function hydrate() {
+    const token=await authReady();
+    if(!token){ready=true;pending.clear();return;}
     const data = await request();
     const rows = Array.isArray(data?.items) ? data.items : [];
     const remote = new Map(rows.map((row) => [row.chave, row.valor]));
@@ -165,7 +170,7 @@
   }
 
   async function checkRemote() {
-    if (!ready || checking || document.hidden) return;
+    if (!ready || checking || document.hidden || !authToken()) return;
     checking = true;
     try {
       const data = await request();
