@@ -11,7 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const TOOL_SCHEMA_VERSION = '2026-09-21.5'
+const TOOL_SCHEMA_VERSION = '2026-09-21.6'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -92,6 +92,48 @@ function publicTask(t: AnyRow) {
 
 function toolText(value: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] }
+}
+
+
+function fieldChanges(before:any,after:any,spec:Array<[string,string]>){
+  const out:any[]=[]
+  for(const [key,label] of spec){
+    const a=before?.[key]??null,b=after?.[key]??null
+    if(JSON.stringify(a)===JSON.stringify(b))continue
+    out.push({campo:label,antes:a,depois:b})
+  }
+  return out
+}
+function changeAuditDetails(changes:any[],extra:AnyRow={}){
+  return {...extra,mudancas:changes}
+}
+function prependEntityChanges(target:any,who:any,changes:any[],origin='mcp'){
+  target.history=Array.isArray(target.history)?target.history:[]
+  for(const ch of [...changes].reverse()){
+    target.history.unshift({
+      at:nowIso(),by:who.nome,authorId:who.id,origin,
+      campo:ch.campo,antes:ch.antes,depois:ch.depois,
+      text:ch.campo+': '+historyDisplay(ch.antes)+' → '+historyDisplay(ch.depois)+'.'
+    })
+  }
+}
+function nameWarnings(name:any,warnAt=120){
+  const n=String(name??'').trim().length
+  return n>warnAt?['Nome com '+n+' caracteres; revise para manter as listagens legíveis.']:[]
+}
+function duplicateTaskWarnings(tasks:any[],name:any,brand:any,monthRef?:string|null,excludeId?:string|null){
+  const n=norm(name),matches=tasks.filter(t=>!t.archivedAt&&String(t.id)!==String(excludeId||'')&&norm(t.title)===n&&taskHasBrand(t,String(brand||''))&&(!monthRef||taskMonthRef(t)===monthRef))
+  return matches.length?['Já existe tarefa com o mesmo nome na mesma marca'+(monthRef?' e mês':'')+': '+matches.slice(0,3).map(t=>String(t.id)).join(', ')+'.']:[]
+}
+async function duplicateListWarnings(s:any,name:any,brandId:any,excludeId?:string|null){
+  const {data,error}=await s.from('task_lists').select('id,nome').eq('brand_id',brandId).is('arquivado_em',null)
+  if(error)return[]
+  const matches=(data||[]).filter((x:any)=>String(x.id)!==String(excludeId||'')&&norm(x.nome)===norm(name))
+  return matches.length?['Já existe lista com o mesmo nome na mesma marca: '+matches.slice(0,3).map((x:any)=>String(x.id)).join(', ')+'.']:[]
+}
+function duplicateCampaignWarnings(rows:any[],name:any,brand:any,monthRef:any,excludeId?:string|null){
+  const matches=rows.filter(c=>!c.archivedAt&&String(c.id)!==String(excludeId||'')&&norm(c.name)===norm(name)&&norm(c.brand)===norm(brand)&&fullMonthRef(c)===String(monthRef||''))
+  return matches.length?['Já existe campanha com o mesmo nome na mesma marca e mês: '+matches.slice(0,3).map(c=>String(c.id)).join(', ')+'.']:[]
 }
 
 
@@ -761,7 +803,7 @@ function fullNormalizeActivityEntry(input:any){
   return x
 }
 function fullNormalizeActivityList(rows:any){
-  return (Array.isArray(rows)?rows:[]).map(fullNormalizeActivityEntry)
+  return (Array.isArray(rows)?rows:[]).filter((x:any)=>!x?.duplicado).map(fullNormalizeActivityEntry)
 }
 
 function fullHasOffsetDateTime(v:any){
@@ -1047,12 +1089,12 @@ function registerFullSystemTools(server:any,supabase:any){
     return toolText({campanha:{id:String(c.id),nome:c.name},fontes:[...by.values()],fontes_oficiais:oficiais})
   })
 
-  server.registerTool('criar_campanha',{description:'Cria campanha na mesma coleção usada pela tela Campanhas.',inputSchema:z.object({nome:z.string().min(1),marca:z.string().min(1),tipo:z.string(),inicio:dt,fim:dt,meta_faturamento:z.number().min(0).default(0),investimento_total:z.number().min(0).default(0),status:z.string().default('planejamento'),mes_referencia:z.string().regex(/^\d{4}-\d{2}$/).optional(),mes_id:z.string().uuid().nullable().optional(),canais:z.array(z.string()).max(10).default([]),cliente_id:z.string().uuid().nullable().optional()})},async(a:any)=>{const who=await actor(supabase),b=await fullBrand(supabase,a.marca),rows=await fullCampaigns(supabase);if(new Date(a.fim)<new Date(a.inicio))throw new Error('fim anterior a início.');const monthRef=a.mes_referencia||String(a.inicio).slice(0,7),month=await fullResolveMonth(supabase,b,monthRef,a.mes_id||null),id='camp-'+Date.now()+'-'+crypto.randomUUID().slice(0,8),c:any={id,name:a.nome.trim(),brand:b.nome,type:fullCampaignType(a.tipo),start:String(a.inicio).slice(0,10),end:String(a.fim).slice(0,10),startAt:a.inicio,endAt:a.fim,goal:a.meta_faturamento,budget:a.investimento_total,status:fullCampaignStatus(a.status),monthRef:month.ano+'-'+String(month.mes).padStart(2,'0'),monthId:month.id,channels:a.canais.map(fullChannelCanon),clientId:a.cliente_id||null,tags:[],tapStructured:null,origin:'mcp',history:[],archivedAt:null};fullHistory(c,'Campanha criada via MCP.',who);rows.unshift(c);await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'criar_campanha','campanha',id,{marca:b.nome});return toolText({campanha:fullPublicCampaign(c),avisos:fullCampaignWarnings(c)})})
+  server.registerTool('criar_campanha',{description:'Cria campanha na mesma coleção usada pela tela Campanhas. Nome limitado a 120 caracteres; duplicidade na mesma marca/mês gera aviso.',inputSchema:z.object({nome:z.string().min(1).max(120),marca:z.string().min(1),tipo:z.string(),inicio:dt,fim:dt,meta_faturamento:z.number().min(0).default(0),investimento_total:z.number().min(0).default(0),status:z.string().default('planejamento'),mes_referencia:z.string().regex(/^\d{4}-\d{2}$/).optional(),mes_id:z.string().uuid().nullable().optional(),canais:z.array(z.string()).max(10).default([]),cliente_id:z.string().uuid().nullable().optional()})},async(a:any)=>{const who=await actor(supabase),b=await fullBrand(supabase,a.marca),rows=await fullCampaigns(supabase);if(new Date(a.fim)<new Date(a.inicio))throw new Error('fim anterior a início.');const monthRef=a.mes_referencia||String(a.inicio).slice(0,7),month=await fullResolveMonth(supabase,b,monthRef,a.mes_id||null),canonicalMonth=month.ano+'-'+String(month.mes).padStart(2,'0'),avisos=[...duplicateCampaignWarnings(rows,a.nome,b.nome,canonicalMonth)],id='camp-'+Date.now()+'-'+crypto.randomUUID().slice(0,8),c:any={id,name:a.nome.trim(),brand:b.nome,type:fullCampaignType(a.tipo),start:String(a.inicio).slice(0,10),end:String(a.fim).slice(0,10),startAt:a.inicio,endAt:a.fim,goal:a.meta_faturamento,budget:a.investimento_total,status:fullCampaignStatus(a.status),monthRef:canonicalMonth,monthId:month.id,channels:a.canais.map(fullChannelCanon),clientId:a.cliente_id||null,tags:[],tapStructured:null,origin:'mcp',history:[],archivedAt:null};fullHistory(c,'Campanha criada via MCP.',who);rows.unshift(c);await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'criar_campanha','campanha',id,{marca:b.nome,avisos});return toolText({campanha:fullPublicCampaign(c),avisos:[...avisos,...fullCampaignWarnings(c)]})})
   server.registerTool('atualizar_campanha',{
     description:'Atualiza ou arquiva campanha. Tipo/status são normalizados e o mês é vinculado automaticamente quando existir. Nunca exclui.',
-    inputSchema:z.object({id:z.string(),nome:z.string().min(1).optional(),marca:z.string().optional(),tipo:z.string().optional(),inicio:dt.optional(),fim:dt.optional(),meta_faturamento:z.number().min(0).optional(),investimento_total:z.number().min(0).optional(),status:z.string().optional(),mes_referencia:z.string().regex(/^\d{4}-\d{2}$/).optional(),mes_id:z.string().uuid().nullable().optional(),canais:z.array(z.string()).optional(),cliente_id:z.string().uuid().nullable().optional(),arquivada:z.boolean().optional()})
+    inputSchema:z.object({id:z.string(),nome:z.string().min(1).max(120).optional(),marca:z.string().optional(),tipo:z.string().optional(),inicio:dt.optional(),fim:dt.optional(),meta_faturamento:z.number().min(0).optional(),investimento_total:z.number().min(0).optional(),status:z.string().optional(),mes_referencia:z.string().regex(/^\d{4}-\d{2}$/).optional(),mes_id:z.string().uuid().nullable().optional(),canais:z.array(z.string()).optional(),cliente_id:z.string().uuid().nullable().optional(),arquivada:z.boolean().optional()})
   },async(a:any)=>{
-    const who=await actor(supabase),rows=await fullCampaigns(supabase),c=fullCampaign(rows,a.id)
+    const who=await actor(supabase),rows=await fullCampaigns(supabase),c=fullCampaign(rows,a.id),before=structuredClone(fullCampaign(rows,a.id))
     if(a.nome!==undefined)c.name=a.nome.trim();if(a.marca)c.brand=(await fullBrand(supabase,a.marca)).nome;if(a.tipo)c.type=fullCampaignType(a.tipo);else c.type=fullCampaignType(c.type)
     if(a.inicio){c.startAt=a.inicio;c.start=String(a.inicio).slice(0,10)}else c.startAt=fullCampaignBoundary(c.startAt||c.start,'inicio')
     if(a.fim){c.endAt=a.fim;c.end=String(a.fim).slice(0,10)}else c.endAt=fullCampaignBoundary(c.endAt||c.end,'fim')
@@ -1064,7 +1106,9 @@ function registerFullSystemTools(server:any,supabase:any){
     else if(ref){const m=String(ref).match(/^(\d{4})-(\d{2})$/);if(m){const{data}=await supabase.from('planning_months').select('*').eq('brand_id',brand.id).eq('ano',Number(m[1])).eq('mes',Number(m[2])).is('arquivado_em',null).maybeSingle();month=data||null}}
     if(month){c.monthId=month.id;c.monthRef=month.ano+'-'+String(month.mes).padStart(2,'0')}else if(a.mes_id===null){c.monthId=null;if(a.mes_referencia)c.monthRef=a.mes_referencia}else if(a.mes_referencia)c.monthRef=a.mes_referencia
     if(a.arquivada!==undefined){c.archivedAt=a.arquivada?(c.archivedAt||nowIso()):null;c.archivedBy=a.arquivada?who.id:null}
-    fullHistory(c,'Campanha atualizada via MCP.',who);await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'atualizar_campanha','campanha',String(c.id),{arquivada:!!c.archivedAt,mes_id:c.monthId||null,tipo:c.type,status:c.status});return toolText({campanha:fullPublicCampaign(c),avisos:fullCampaignWarnings(c)})
+    const changes=fieldChanges(before,c,[['name','nome'],['brand','marca'],['type','tipo'],['startAt','início'],['endAt','fim'],['goal','meta_faturamento'],['budget','investimento_total'],['status','status'],['monthId','mês'],['channels','canais'],['clientId','cliente'],['archivedAt','arquivamento']]);prependEntityChanges(c,who,changes)
+    const avisos=[...fullCampaignWarnings(c),...(hasOwn(a,'nome')?duplicateCampaignWarnings(rows,c.name,c.brand,c.monthRef,String(c.id)):[])]
+    await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'atualizar_campanha','campanha',String(c.id),changeAuditDetails(changes,{avisos}));return toolText({campanha:fullPublicCampaign(c),avisos})
   })
   server.registerTool('listar_campanhas',{description:'Lista campanhas por marca, mês, tipo e status. Campanhas em execução com fim ultrapassado são encerradas de forma idempotente.',inputSchema:z.object({marca:z.string().optional(),mes:z.string().regex(/^\d{4}-\d{2}$/).optional(),tipo:z.string().optional(),status:z.string().optional(),incluir_arquivadas:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async(a:any)=>{
     let rows=await fullCampaigns(supabase);await fullCloseExpiredCampaigns(supabase,rows)
@@ -1376,7 +1420,7 @@ function registerFullSystemTools(server:any,supabase:any){
   server.registerTool('marcar_tag',{description:'Marca tag em tarefa ou campanha.',inputSchema:z.object({tag:z.string(),tipo:z.enum(['tarefa','campanha']),registro_id:z.string()})},async(a:any)=>{const who=await actor(supabase),tag=await fullTag(supabase,a.tag),obj={id:String(tag.id),nome:tag.nome,cor:tag.cor||null};if(a.tipo==='tarefa'){const ts=await readState(supabase,TASKS_KEY),t=findTask(ts,a.registro_id);t.tags=Array.isArray(t.tags)?t.tags:[];if(!t.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))t.tags.push(obj);t.history=t.history||[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tag '+tag.nome+' adicionada via MCP por '+who.nome+'.'});await writeTasks(supabase,ts);await audit(supabase,who,'marcar_tag','tarefa',t.id,{tag_id:tag.id});return toolText({tarefa:publicTask(t)})}const cs=await fullCampaigns(supabase),c=fullCampaign(cs,a.registro_id);c.tags=Array.isArray(c.tags)?c.tags:[];if(!c.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))c.tags.push(obj);fullHistory(c,'Tag '+tag.nome+' adicionada via MCP.',who);await fullSaveCampaigns(supabase,cs);await audit(supabase,who,'marcar_tag','campanha',c.id,{tag_id:tag.id});return toolText({campanha:fullPublicCampaign(c)})})
   server.registerTool('desmarcar_tag',{description:'Desmarca tag sem excluir a tag.',inputSchema:z.object({tag:z.string(),tipo:z.enum(['tarefa','campanha']),registro_id:z.string()})},async(a:any)=>{const who=await actor(supabase),tag=await fullTag(supabase,a.tag),keep=(x:any)=>String(x?.id||x)!==String(tag.id)&&norm(x?.nome||x)!==norm(tag.nome);if(a.tipo==='tarefa'){const ts=await readState(supabase,TASKS_KEY),t=findTask(ts,a.registro_id);t.tags=(t.tags||[]).filter(keep);await writeTasks(supabase,ts);await audit(supabase,who,'desmarcar_tag','tarefa',t.id,{tag_id:tag.id});return toolText({tarefa:publicTask(t)})}const cs=await fullCampaigns(supabase),c=fullCampaign(cs,a.registro_id);c.tags=(c.tags||[]).filter(keep);await fullSaveCampaigns(supabase,cs);await audit(supabase,who,'desmarcar_tag','campanha',c.id,{tag_id:tag.id});return toolText({campanha:fullPublicCampaign(c)})})
 
-  const batchTask=z.object({id_temporario:z.string().min(1).optional(),nome:z.string().min(1),descricao_markdown:z.string().default(''),lista:z.string(),campanha_id:z.string().nullable().optional(),responsaveis:z.array(z.string()).default([]),prazo:dt.optional(),confirmar_prazo_passado:z.boolean().default(false),prioridade:z.string().default('normal'),status:z.string().default('a fazer'),motivo_bloqueio:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).default([]),checklist:z.array(z.string()).default([]),checklist_obrigatoria:z.boolean().default(false),entrega_obrigatoria:z.boolean().default(false),canal:z.string().nullable().optional(),recorrencia:recurrenceSchema})
+  const batchTask=z.object({id_temporario:z.string().min(1).optional(),nome:z.string().min(1).max(150),descricao_markdown:z.string().default(''),lista:z.string(),campanha_id:z.string().nullable().optional(),responsaveis:z.array(z.string()).default([]),prazo:dt.optional(),confirmar_prazo_passado:z.boolean().default(false),prioridade:z.string().default('normal'),status:z.string().default('a fazer'),motivo_bloqueio:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).default([]),checklist:z.array(z.string()).default([]),checklist_obrigatoria:z.boolean().default(false),entrega_obrigatoria:z.boolean().default(false),canal:z.string().nullable().optional(),recorrencia:recurrenceSchema})
   server.registerTool('criar_tarefas_em_lote',{
     description:'Cria até 200 tarefas. tarefa_mae/dependencias podem usar id_temporario ou nome único de outra tarefa do mesmo lote.',
     inputSchema:z.object({tarefas:z.array(batchTask).min(1).max(200)})
@@ -1414,7 +1458,7 @@ function registerFullSystemTools(server:any,supabase:any){
   })
   server.registerTool('atualizar_tarefas_em_lote',{
     description:'Atualiza até 200 tarefas. Cada item altera somente campos presentes nele; nenhum valor é herdado entre itens.',
-    inputSchema:z.object({tarefas:z.array(z.object({id:z.string(),nome:z.string().optional(),descricao_markdown:z.string().optional(),responsaveis:z.array(z.string()).optional(),prazo:dt.nullable().optional(),status:z.string().optional(),motivo_bloqueio:z.string().nullable().optional(),prioridade:z.string().optional(),canal:z.string().nullable().optional(),lista:z.string().optional(),campanha_id:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).optional(),checklist:z.array(z.string()).optional(),tags:z.array(z.any()).optional(),entrega_obrigatoria:z.boolean().optional(),arquivada:z.boolean().optional(),confirmar_mudanca:z.boolean().default(false),confirmar_prazo_passado:z.boolean().default(false)})).min(1).max(200)})
+    inputSchema:z.object({tarefas:z.array(z.object({id:z.string(),nome:z.string().min(1).max(150).optional(),descricao_markdown:z.string().optional(),responsaveis:z.array(z.string()).optional(),prazo:dt.nullable().optional(),status:z.string().optional(),motivo_bloqueio:z.string().nullable().optional(),prioridade:z.string().optional(),canal:z.string().nullable().optional(),lista:z.string().optional(),campanha_id:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).optional(),checklist:z.array(z.string()).optional(),tags:z.array(z.any()).optional(),entrega_obrigatoria:z.boolean().optional(),arquivada:z.boolean().optional(),confirmar_mudanca:z.boolean().default(false),confirmar_prazo_passado:z.boolean().default(false)})).min(1).max(200)})
   },async(a:any)=>{
     const who=await actor(supabase),ts=await readState(supabase,TASKS_KEY),out:any[]=[]
     for(const raw of a.tarefas){
@@ -1535,19 +1579,20 @@ const protectedHandler = withOAuthProtectedResource(
       })
 
       server.registerTool('criar_lista',{
-        description:'Cria uma lista operacional com marca e campanha opcional. campanha_id aceita somente id existente.',
-        inputSchema:z.object({nome:z.string().min(1).max(200),marca:z.string().min(1),campanha_id:z.string().min(1).nullable().optional()})
+        description:'Cria uma lista operacional com marca e campanha opcional. campanha_id aceita somente id existente. Nome limitado a 150 caracteres; duplicidade gera aviso sem bloquear.',
+        inputSchema:z.object({nome:z.string().min(1).max(150),marca:z.string().min(1),campanha_id:z.string().min(1).nullable().optional()})
       },async(args:AnyRow)=>{
         const who=await actor(supabase),b=await resolveBrand(supabase,args.marca);let campaignId:any=null
         if(args.campanha_id)campaignId=String((await exactCampaignForBrand(supabase,args.campanha_id,b.nome)).id)
+        const avisos=[...nameWarnings(args.nome),...(await duplicateListWarnings(supabase,args.nome,b.id))]
         const{data,error}=await supabase.from('task_lists').insert({nome:args.nome.trim(),brand_id:b.id,campanha_id:campaignId,criado_por:who.id}).select('id,nome,brand_id,campanha_id,arquivado_em').single()
         if(error)throw new Error('Não foi possível criar a lista: '+error.message)
-        await audit(supabase,who,'criar_lista','lista',String(data.id),{nome:data.nome,marca:b.nome,campanha_id:data.campanha_id})
-        return toolText({lista:{id:String(data.id),link:listLink(String(data.id)),nome:data.nome,marca:b.nome,marca_id:b.id,campanha_id:data.campanha_id,arquivada:false}})
+        await audit(supabase,who,'criar_lista','lista',String(data.id),{nome:data.nome,marca:b.nome,campanha_id:data.campanha_id,avisos})
+        return toolText({lista:{id:String(data.id),link:listLink(String(data.id)),nome:data.nome,marca:b.nome,marca_id:b.id,campanha_id:data.campanha_id,arquivada:false,historico:await fullAuditHistory(supabase,'lista',String(data.id))},avisos})
       })
       server.registerTool('atualizar_lista',{
         description:'Renomeia, troca marca/campanha, arquiva ou desarquiva lista. campanha_id precisa existir; nunca exclui.',
-        inputSchema:z.object({id:z.string().min(1),nome:z.string().min(1).max(200).optional(),marca:z.string().min(1).optional(),campanha_id:z.string().nullable().optional(),arquivada:z.boolean().optional()})
+        inputSchema:z.object({id:z.string().min(1),nome:z.string().min(1).max(150).optional(),marca:z.string().min(1).optional(),campanha_id:z.string().nullable().optional(),arquivada:z.boolean().optional()})
       },async(args:AnyRow)=>{
         const who=await actor(supabase),old=await resolveList(supabase,args.id,true),b=args.marca?await resolveBrand(supabase,args.marca):{id:old.marca_id,nome:old.marca};let canonicalCampaign:any=old.campanha_id||null
         if(hasOwn(args,'campanha_id'))canonicalCampaign=args.campanha_id===null?null:String((await exactCampaignForBrand(supabase,args.campanha_id,b.nome)).id)
@@ -1562,14 +1607,16 @@ const protectedHandler = withOAuthProtectedResource(
           const tasks=await readState(supabase,TASKS_KEY);let changed=0
           for(const t of tasks){
             const match=String(t.listId||'')===String(old.id)||(!t.listId&&norm(t.brand)===norm(old.marca)&&norm(t.project||'Operação')===norm(old.nome));if(!match)continue
-            const direct=taskCampaignIsDirect(t,old.campanha_id);t.listId=String(old.id);t.project=data.nome;t.brand=b.nome
+            const tb=structuredClone(t),direct=taskCampaignIsDirect(t,old.campanha_id);t.listId=String(old.id);t.project=data.nome;t.brand=b.nome
             if(!direct){t.campaignId=data.campanha_id||null;t.campaignSource='list'}
-            t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Lista atualizada via MCP por '+who.nome+'.'});changed++
+            recordTaskChanges(t,tb,who);changed++
           }
           if(changed)await writeTasks(supabase,tasks)
         }
-        await audit(supabase,who,'atualizar_lista','lista',String(data.id),patch)
-        return toolText({lista:{id:String(data.id),link:listLink(String(data.id)),nome:data.nome,marca:b.nome,marca_id:b.id,campanha_id:data.campanha_id,arquivada:!!data.arquivado_em}})
+        const changes=fieldChanges({nome:old.nome,brand_id:old.marca_id,campanha_id:old.campanha_id,arquivada:!!old.arquivada},{nome:data.nome,brand_id:data.brand_id,campanha_id:data.campanha_id,arquivada:!!data.arquivado_em},[['nome','nome'],['brand_id','marca'],['campanha_id','campanha'],['arquivada','arquivamento']])
+        const avisos=hasOwn(args,'nome')?[...nameWarnings(args.nome),...(await duplicateListWarnings(supabase,args.nome,b.id,String(data.id)))]:[]
+        await audit(supabase,who,'atualizar_lista','lista',String(data.id),changeAuditDetails(changes,{avisos}))
+        return toolText({lista:{id:String(data.id),link:listLink(String(data.id)),nome:data.nome,marca:b.nome,marca_id:b.id,campanha_id:data.campanha_id,arquivada:!!data.arquivado_em,historico:await fullAuditHistory(supabase,'lista',String(data.id))},avisos})
       })
       server.registerTool('consolidar_lista', {
         description: 'Admin: move todas as tarefas de uma lista importada para uma lista destino e arquiva a lista de origem. Não exclui dados.',
@@ -1710,6 +1757,37 @@ const protectedHandler = withOAuthProtectedResource(
         return toolText({migracao:{nome_legado:args.nome_legado,usuario:{id:p.id,nome:p.nome,email:p.email},tarefas_migradas:count}})
       })
 
+      server.registerTool('listar_responsaveis_legados_pendentes',{
+        description:'Admin: mostra nomes legados ainda presentes nas tarefas e quantas tarefas aguardam vínculo com um usuário real.',
+        inputSchema:z.object({}),
+        annotations:{readOnlyHint:true},
+      },async()=>{
+        await requireAdmin(supabase)
+        const tasks=await readState(supabase,TASKS_KEY),members=await memberDirectory(supabase),legacy=members.filter((m:any)=>m.tipo==='legado')
+        return toolText({pendentes:legacy.map((m:any)=>({nome:m.nome,tarefas:tasks.filter(t=>(t.assignees||[]).some((a:string)=>norm(a)===norm(m.nome))&&!(t.assigneeIds||[]).length).length,atribuivel:false})).filter((x:any)=>x.tarefas>0),instrucao:'Cadastre/vincule o usuário real e execute migrar_responsavel_legado. Nenhum id é inventado.'})
+      })
+
+      server.registerTool('reimportar_dados_clickup',{
+        description:'Admin: reimporta descrição e prioridade das tarefas clickup-backup pelo id preservado, sem criar duplicatas e sem tocar campos não enviados.',
+        inputSchema:z.object({itens:z.array(z.object({id:z.string().min(1),descricao_markdown:z.string().max(50000).optional(),prioridade:z.string().optional()})).min(1).max(500)})
+      },async({itens}:any)=>{
+        const who=await requireAdmin(supabase),tasks=await readState(supabase,TASKS_KEY),atualizadas:any[]=[],nao_casaram:any[]=[],ignoradas:any[]=[]
+        for(const item of itens){
+          const t=tasks.find((x:any)=>String(x.id)===String(item.id))
+          if(!t){nao_casaram.push({id:item.id,motivo:'id não encontrado'});continue}
+          if(String(t.source||'')!=='clickup-backup'){ignoradas.push({id:item.id,motivo:'origem não é clickup-backup'});continue}
+          if(!hasOwn(item,'descricao_markdown')&&!hasOwn(item,'prioridade')){ignoradas.push({id:item.id,motivo:'nenhum campo de reimportação enviado'});continue}
+          const before=structuredClone(t)
+          if(hasOwn(item,'descricao_markdown'))t.description=item.descricao_markdown
+          if(hasOwn(item,'prioridade'))t.priority=priorityCanon(item.prioridade)
+          recordTaskChanges(t,before,who)
+          atualizadas.push({id:String(t.id),descricao_atualizada:hasOwn(item,'descricao_markdown'),prioridade_atualizada:hasOwn(item,'prioridade')})
+        }
+        if(atualizadas.length)await writeTasks(supabase,tasks)
+        await audit(supabase,who,'reimportar_dados_clickup','tarefa_lote','clickup-'+Date.now(),{atualizadas:atualizadas.length,nao_casaram:nao_casaram.length,ignoradas:ignoradas.length})
+        return toolText({atualizadas,nao_casaram,ignoradas,criou_duplicatas:false})
+      })
+
       
       server.registerTool('buscar_tarefas', {
         description:'Busca tarefas visíveis ao usuário com filtros de marca, atraso e paginação. Por padrão ignora arquivadas.',
@@ -1759,7 +1837,7 @@ const protectedHandler = withOAuthProtectedResource(
       server.registerTool('criar_tarefa',{
         description:'Cria tarefa/subtarefa. A subtarefa deve permanecer na lista/marca/campanha da mãe. Dependências entre marcas são recusadas. Prazo no passado exige confirmação.',
         inputSchema:z.object({
-          nome:z.string().min(1).max(300),descricao_markdown:z.string().max(50000).default(''),lista:z.string().min(1),campanha_id:z.string().nullable().optional(),
+          nome:z.string().min(1).max(150),descricao_markdown:z.string().max(50000).default(''),lista:z.string().min(1),campanha_id:z.string().nullable().optional(),
           responsaveis:z.array(z.string().min(1)).default([]),prazo:dt.optional(),confirmar_prazo_passado:z.boolean().default(false),prioridade:z.string().default('normal'),status:z.string().optional(),motivo_bloqueio:z.string().max(500).nullable().optional(),
           tarefa_mae:z.string().min(1).optional(),recorrencia:recurrenceSchema,checklist:z.array(z.string().min(1).max(500)).max(100).default([]),checklist_obrigatoria:z.boolean().default(false),
           dependencias:z.array(z.string().min(1)).max(100).default([]),entrega_obrigatoria:z.boolean().default(false),canal:z.string().nullable().optional()
@@ -1785,7 +1863,7 @@ const protectedHandler = withOAuthProtectedResource(
           dependencies:deps.map((d:AnyRow)=>String(d.id)),parentTaskId:parent?String(parent.id):null,deliveries:[],deliveryRequired:!!args.entrega_obrigatoria,archivedAt:null,archivedBy:null
         }
         applyRecurrence(t,args.recorrencia)
-        const avisos=taskDeadlineWarnings(t,[...tasks,t])
+        const avisos=[...nameWarnings(args.nome),...duplicateTaskWarnings(tasks,args.nome,l.marca,args.prazo?String(args.prazo).slice(0,7):null),...taskDeadlineWarnings(t,[...tasks,t])]
         tasks.unshift(t);await writeTasks(supabase,tasks)
         await notifyUsers(supabase,who,t.assigneeIds,'task_assigned','Nova tarefa atribuída',t.title,String(t.id),'assigned:'+String(t.id));await audit(supabase,who,'criar_tarefa','tarefa',String(t.id),{lista_id:t.listId,campanha_id:t.campaignId,responsaveis_ids:t.assigneeIds,avisos})
         return toolText({tarefa:publicTask(t),avisos})
@@ -1793,7 +1871,7 @@ const protectedHandler = withOAuthProtectedResource(
       server.registerTool('atualizar_tarefa',{
         description:'Atualiza somente os campos enviados. Preserva campos ausentes; protege hierarquia, marca/campanha, prazos e arquivamento de subtarefas.',
         inputSchema:z.object({
-          id:z.string().min(1),nome:z.string().min(1).max(300).optional(),descricao_markdown:z.string().max(50000).optional(),lista:z.string().min(1).optional(),campanha_id:z.string().nullable().optional(),
+          id:z.string().min(1),nome:z.string().min(1).max(150).optional(),descricao_markdown:z.string().max(50000).optional(),lista:z.string().min(1).optional(),campanha_id:z.string().nullable().optional(),
           confirmar_mudanca:z.boolean().default(false),confirmar_prazo_passado:z.boolean().default(false),concluir_subtarefas:z.boolean().default(false),filhas:z.enum(['arquivar','desvincular']).optional(),
           responsaveis:z.array(z.string().min(1)).optional(),prazo:dt.nullable().optional(),prioridade:z.string().optional(),tarefa_mae:z.string().min(1).nullable().optional(),status:z.string().optional(),
           motivo_bloqueio:z.string().max(500).nullable().optional(),recorrencia:recurrenceSchema,entrega_obrigatoria:z.boolean().optional(),canal:z.string().nullable().optional(),arquivada:z.boolean().optional()
@@ -2047,7 +2125,7 @@ Deno.serve(async (req: Request) => {
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
       oauth_discovery_status,
-      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","atualizar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","listar_gatilhos","listar_acoes","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
+      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","listar_responsaveis_legados_pendentes","reimportar_dados_clickup","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","atualizar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","listar_gatilhos","listar_acoes","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
       tool_schema_version: TOOL_SCHEMA_VERSION,
       tools_list_changed: true,
       deletion_tool: false,
