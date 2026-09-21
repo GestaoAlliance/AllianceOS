@@ -97,7 +97,7 @@
         '<div class="showcase-grid"></div>'+
         '<div class="showcase-shape shape-a"></div><div class="showcase-shape shape-b"></div>'+
         '<div class="showcase-copy">'+
-          '<p class="showcase-quote">“Bem-vindo ao time. O AllianceOS foi criado para deixar nossa operação organizada, clara e com todo mundo na mesma página.”</p>'+
+          '<p class="showcase-quote">“Bem-vindo ao time — o AllianceOS existe para deixar nossa operação clara, organizada e com todo mundo na mesma página.”</p>'+
           '<div class="showcase-person">'+
             '<img class="showcase-avatar" src="https://lpnyrzsdiyzjnhovpduk.supabase.co/storage/v1/object/public/profile-avatars/395ed61f-dde7-4fb6-a6da-ea5301304765/avatar?v=1789839612699" alt="Vitor Gutierrez">'+
             '<div><strong>Vitor Gutierrez</strong><span>Gestor de operações</span></div>'+
