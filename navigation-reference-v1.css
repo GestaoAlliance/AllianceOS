@@ -1027,3 +1027,7 @@
     justify-content:flex-end!important;
   }
 }
+
+/* AllianceOS canonical brand mark */
+.ref2-sidebar-logo,.ref2-top-logo-icon{background:transparent!important;box-shadow:none!important;overflow:hidden!important}
+.ref2-sidebar-logo img,.ref2-top-logo-icon img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important}

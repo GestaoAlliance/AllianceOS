@@ -11,7 +11,7 @@
       <main id="oauthConsentRoot" style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f6f8;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#15191d">
         <section style="width:min(520px,100%);background:#fff;border:1px solid #e3e8eb;border-radius:22px;box-shadow:0 18px 60px rgba(25,32,38,.08);padding:30px">
           <div style="display:flex;align-items:center;gap:13px;margin-bottom:24px">
-            <div style="width:46px;height:46px;border-radius:13px;background:#111519;color:#fff;display:grid;place-items:center;font-size:23px">✱</div>
+            <img src="/api/brand-icon?v=20260921-1" alt="AllianceOS" style="width:46px;height:46px;display:block;object-fit:contain">
             <div><strong style="display:block;font-size:20px;letter-spacing:-.03em">AllianceOS</strong><span style="font-size:12px;color:#8a939b">Conectar aplicativo</span></div>
           </div>
           <div id="oauthStatus" style="font-size:13px;color:#69737b">Carregando solicitação de acesso…</div>
@@ -158,7 +158,7 @@
     q('.ref2-workspace',sidebar)?.remove();
 
     const head=document.createElement('div');head.className='ref2-sidebar-head';
-    head.innerHTML='<div class="ref2-sidebar-logo">✱</div><div class="ref2-sidebar-name">AllianceOS</div>';
+    head.innerHTML='<div class="ref2-sidebar-logo"><img src="/api/brand-icon?v=20260921-1" alt="" aria-hidden="true"></div><div class="ref2-sidebar-name">AllianceOS</div>';
 
     const nav=document.createElement('nav');nav.className='ref2-nav';
     const items=[
@@ -213,7 +213,7 @@
     toolbar.replaceChildren();
 
     const topLogo=document.createElement('div');topLogo.className='ref2-top-logo';
-    topLogo.innerHTML='<div class="ref2-top-logo-icon">✱</div><div class="ref2-top-logo-name">AllianceOS</div>';
+    topLogo.innerHTML='<div class="ref2-top-logo-icon"><img src="/api/brand-icon?v=20260921-1" alt="" aria-hidden="true"></div><div class="ref2-top-logo-name">AllianceOS</div>';
 
     if(brand){
       ensureBrands(brand);

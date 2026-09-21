@@ -5,6 +5,30 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/favicon.ico",
+      "destination": "/api/brand-icon"
+    },
+    {
+      "source": "/favicon.png",
+      "destination": "/api/brand-icon"
+    },
+    {
+      "source": "/apple-touch-icon.png",
+      "destination": "/api/brand-icon?variant=maskable"
+    },
+    {
+      "source": "/icon-192.png",
+      "destination": "/api/brand-icon"
+    },
+    {
+      "source": "/icon-512.png",
+      "destination": "/api/brand-icon"
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "destination": "/api/manifest"
+    },
+    {
       "source": "/oauth/consent",
       "destination": "/"
     },

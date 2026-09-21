@@ -11,6 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
+const MCP_ICON_URL = 'https://alliance-os-sooty.vercel.app/api/brand-icon?v=20260921-1'
 const TOOL_SCHEMA_VERSION = '2026-09-21.8'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
@@ -1571,7 +1572,14 @@ const protectedHandler = withOAuthProtectedResource(
       try{const body:any=await req.clone().json();mcpMethod=Array.isArray(body)?String(body[0]?.method||''):String(body?.method||'')}catch{}
     }
     const handler = createMcpHandler(() => {
-      const server = new McpServer({ name: 'AllianceOS Gestão', version: '2.3.0' })
+      const server = new McpServer({
+        name: 'AllianceOS Gestão',
+        title: 'AllianceOS',
+        version: '2.3.1',
+        description: 'Sistema operacional da Alliance para tarefas, campanhas, entregas, planejamento e automações.',
+        websiteUrl: APP_URL,
+        icons: [{ src: MCP_ICON_URL, mimeType: 'image/png', sizes: ['512x512'] }],
+      })
 
       
       server.registerTool('listar_marcas', {
@@ -2130,6 +2138,8 @@ Deno.serve(async (req: Request) => {
     return Response.json({
       ok: true,
       service: 'AllianceOS MCP',
+      title: 'AllianceOS',
+      icon: MCP_ICON_URL,
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
       oauth_discovery_status,
