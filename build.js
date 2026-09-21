@@ -207,6 +207,7 @@ async function main() {
   });
 
   let html = fs.readFileSync(path.join(op, 'dist', 'index.html'), 'utf8');
+  html = html.replace('<html lang="pt-BR">','<html lang="pt-BR" class="alliance-auth-pending">');
   const sync = fs.readFileSync(PUBLIC_SYNC, 'utf8');
   html = html.replace('</head>', () => `<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
   html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n</body>`);

@@ -1175,6 +1175,12 @@
 
   window.addEventListener('allianceos:directory',()=>{
     try{
+      const profile=window.AllianceOSSession?.profile||null;
+      const defaultKey=profile?.id?'allianceos.default-own-view:'+profile.id:'';
+      if(profile&&profile.papel!=='admin'&&defaultKey&&!sessionStorage.getItem(defaultKey)){
+        taskState.onlyMe=true;
+        sessionStorage.setItem(defaultKey,'1');
+      }
       populateFilters();
       renderTasks();
       if(document.getElementById('newTaskModal')?.classList.contains('open'))v3PopulateNewTaskForm(document.getElementById('newStatus')?.value||'a fazer');
