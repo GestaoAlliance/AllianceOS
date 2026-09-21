@@ -11,7 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const TOOL_SCHEMA_VERSION = '2026-09-21.7'
+const TOOL_SCHEMA_VERSION = '2026-09-21.8'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -195,20 +195,18 @@ async function audit(supabase: any, who: AnyRow, action: string, entityType: str
 async function notifyUsers(supabase: any, who: AnyRow, ids: string[], kind: string, title: string, body: string | null, taskId: string | null, eventKey?: string | null, includeActor=false) {
   const unique=[...new Set((ids||[]).filter(Boolean).filter(id=>includeActor||id!==who.id))]
   if(!unique.length) return
-  let pending=[...unique]
-  if(eventKey){
-    let q=supabase.from('notifications').select('user_id').in('user_id',unique).eq('kind',kind).eq('event_key',eventKey)
-    q=taskId===null?q.is('task_id',null):q.eq('task_id',taskId)
-    const {data,error}=await q
-    if(!error){
-      const existing=new Set((data||[]).map((x:AnyRow)=>String(x.user_id)))
-      pending=unique.filter(id=>!existing.has(String(id)))
-    }
+  for(const userId of unique){
+    const {error}=await supabase.rpc('enqueue_notification',{
+      p_user_id:userId,
+      p_kind:kind,
+      p_title:title,
+      p_body:body,
+      p_task_id:taskId,
+      p_event_key:eventKey||null,
+      p_window:'24 hours',
+    })
+    if(error) console.error('notifications',error.message)
   }
-  if(!pending.length) return
-  const rows=pending.map(user_id=>({user_id,actor_id:who.id,kind,title,body,task_id:taskId,event_key:eventKey||null}))
-  const { error } = await supabase.from('notifications').insert(rows)
-  if(error && !String(error.message).toLowerCase().includes('duplicate')) console.error('notifications',error.message)
 }
 
 
@@ -1009,7 +1007,16 @@ async function fullSyncMap(s:any,map:any){
   for(const n of live){const id=/^\d+$/.test(String(n.node_key))?Number(n.node_key):String(n.node_key),p=n.parent_key==null?null:(/^\d+$/.test(String(n.parent_key))?Number(n.parent_key):String(n.parent_key));if(typeof id==='number')mx=Math.max(mx,id);legacy.nos.push({id,pai:p,t:n.texto,cor:n.cor??0,x:Number(n.x),y:Number(n.y),fech:!n.aberto,campId:n.campaign_id||undefined})}legacy.prox=mx+1;await fullWriteOperational(s,'central.planning.map.vitor-gutierrez'+(b?.nome?'.'+b.nome:''),legacy)
 }
 async function fullMapPayload(s:any,map:any){const[nodes,month,bs]=await Promise.all([fullMapNodes(s,map.id,true),s.from('planning_months').select('*').eq('id',map.month_id).single(),listBrands(s)]),b=bs.find((x:any)=>String(x.id)===String(map.brand_id));return{id:String(map.id),link:fullLinks('mapa',String(map.id)),nome:map.nome,marca:b?.nome||null,ano:month.data?.ano,mes:month.data?.mes,layout:map.layout,nos:nodes.map((n:any)=>({id:String(n.id),chave:n.node_key,pai:n.parent_key,texto:n.texto,x:Number(n.x),y:Number(n.y),cor:n.cor,aberto:n.aberto,campanha_id:n.campaign_id||null,arquivado:!!n.arquivado_em})),arquivado:!!map.arquivado_em}}
-function fullDelivery(d:any,tasks:any[],campaigns:any[]){const x=fullNormalizeDeliveryShape(d,false),t=tasks.find(q=>String(q.id)===String(x.sourceTaskId)),cid=hasOwn(x,'campaignId')?x.campaignId:(hasOwn(x,'campanha_id')?x.campanha_id:(t?.campaignId||null)),c=cid?campaigns.find(q=>String(q.id)===String(cid)):null;return{id:String(x.id),link:fullLinks('entrega',String(x.id)),tarefa_id:x.sourceTaskId||null,proxima_tarefa_id:x.targetTaskId||null,titulo:x.title||x.taskTitle||'Entrega',campanha_id:c?.id||cid||null,marca:x.brand||t?.brand||null,de:x.from||null,para:x.to||null,mensagem:x.note||'',status:fullDeliveryStatus(x.status),versao:Number(x.version||1),criada_em:x.createdAt||null,criada_em_original:x.createdAtOriginal||null,atualizada_em:x.updatedAt||null,atualizada_em_original:x.updatedAtOriginal||null,arquivos:x.files||[],links:x.links||[],historico:x.events||[],comentario_ajuste:x.adjustmentNote||null,arquivada:!!x.archivedAt,arquivada_em:x.archivedAt||null,arquivada_por:x.archivedBy||null}}
+function fullDeliveryFile(file:any,includeEmbedded=false){
+  const f=structuredClone(file||{}),embeddedKeys=['dataUrl','data_url','conteudo_base64','base64','content','conteudo']
+  let omitted=false
+  if(!includeEmbedded){
+    for(const key of embeddedKeys)if(typeof f[key]==='string'&&f[key].length){delete f[key];omitted=true}
+  }
+  if(omitted)f.conteudo_embutido_omitido=true
+  return f
+}
+function fullDelivery(d:any,tasks:any[],campaigns:any[],includeEmbedded=false){const x=fullNormalizeDeliveryShape(d,false),t=tasks.find(q=>String(q.id)===String(x.sourceTaskId)),cid=hasOwn(x,'campaignId')?x.campaignId:(hasOwn(x,'campanha_id')?x.campanha_id:(t?.campaignId||null)),c=cid?campaigns.find(q=>String(q.id)===String(cid)):null;return{id:String(x.id),link:fullLinks('entrega',String(x.id)),tarefa_id:x.sourceTaskId||null,proxima_tarefa_id:x.targetTaskId||null,titulo:x.title||x.taskTitle||'Entrega',campanha_id:c?.id||cid||null,marca:x.brand||t?.brand||null,de:x.from||null,para:x.to||null,mensagem:x.note||'',status:fullDeliveryStatus(x.status),versao:Number(x.version||1),criada_em:x.createdAt||null,criada_em_original:x.createdAtOriginal||null,atualizada_em:x.updatedAt||null,atualizada_em_original:x.updatedAtOriginal||null,arquivos:(x.files||[]).map((f:any)=>fullDeliveryFile(f,includeEmbedded)),links:x.links||[],historico:x.events||[],comentario_ajuste:x.adjustmentNote||null,arquivada:!!x.archivedAt,arquivada_em:x.archivedAt||null,arquivada_por:x.archivedBy||null}}
 async function fullResults(s:any,filter:any){
   let q=s.from('campaign_results').select('*').order('data')
   if(filter.campaign_id)q=q.eq('campaign_id',filter.campaign_id)
@@ -1258,7 +1265,7 @@ function registerFullSystemTools(server:any,supabase:any){
     if(a.fim)rows=rows.filter((x:any)=>x.createdAt&&new Date(x.createdAt)<=new Date(a.fim))
     return toolText({entregas:rows.slice(0,a.limite).map((x:any)=>fullDelivery(x,t,c)),total:rows.length})
   })
-  server.registerTool('obter_entrega',{description:'Obtém entrega com anexos e histórico.',inputSchema:z.object({id:z.string()}),annotations:{readOnlyHint:true}},async({id}:any)=>{const[d,t,c]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)]),x=d.find((q:any)=>String(q.id)===String(id));if(!x)throw new Error('Entrega não encontrada.');const out=fullDelivery(x,t,c);for(const f of out.arquivos||[]){if(f.storage_path){const{data}=await supabase.storage.from('alliance-deliveries').createSignedUrl(f.storage_path,3600);f.url=data?.signedUrl||null}}return toolText({entrega:out})})
+  server.registerTool('obter_entrega',{description:'Obtém entrega com anexos e histórico. Conteúdo base64 legado fica omitido por padrão; peça incluir_conteudo_embutido somente quando realmente necessário.',inputSchema:z.object({id:z.string(),incluir_conteudo_embutido:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async({id,incluir_conteudo_embutido}:any)=>{const[d,t,c]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)]),x=d.find((q:any)=>String(q.id)===String(id));if(!x)throw new Error('Entrega não encontrada.');const out=fullDelivery(x,t,c,!!incluir_conteudo_embutido);for(const f of out.arquivos||[]){if(f.storage_path){const{data}=await supabase.storage.from('alliance-deliveries').createSignedUrl(f.storage_path,3600);f.url=data?.signedUrl||null}}return toolText({entrega:out})})
   server.registerTool('registrar_entrega',{
     description:'Registra entrega com link ou arquivo base64 na mesma coleção da tela Entregas. Valida o vínculo de campanha da tarefa e grava datas ISO com fuso.',
     inputSchema:z.object({tarefa_id:z.string(),destinatario:z.string(),titulo:z.string().optional(),mensagem:z.string().default(''),proxima_tarefa_id:z.string().nullable().optional(),anexos:z.array(z.discriminatedUnion('tipo',[z.object({tipo:z.literal('link'),nome:z.string().default('Link'),url:z.string().url()}),z.object({tipo:z.literal('arquivo'),nome:z.string(),mime_type:z.string().default('application/octet-stream'),conteudo_base64:z.string()})])).max(20).default([]),concluir_tarefa:z.boolean().default(false)})
@@ -1547,6 +1554,8 @@ function assertAdvertisedToolSchemas(server:any){
   requireFields('exportar_mes',['modo','secoes','cursor','limite'])
   requireFields('obter_campanha',['modo','secoes','cursor','limite'])
   requireFields('buscar_tarefas',['cursor','limite','marca','atrasadas'])
+  requireFields('atualizar_tarefa',['id','confirmar_mudanca','concluir_subtarefas','filhas'])
+  requireFields('obter_entrega',['id','incluir_conteudo_embutido'])
   requireFields('listar_gatilhos',[])
   requireFields('listar_acoes',[])
   requireFields('atualizar_entrega',['id','campanha_id','arquivada'])

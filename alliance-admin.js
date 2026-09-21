@@ -56,15 +56,18 @@
   }
 
   async function insertNotificationOnce(row){
-    if(!row?.event_key){
-      const {error}=await state.sb.from('notifications').insert(row);
-      if(error&&!String(error.message).toLowerCase().includes('duplicate'))console.warn('[AllianceOS notifications]',error.message);
-      return !error;
-    }
-    if(await notificationExists(row.user_id,row.kind,row.task_id,row.event_key))return false;
-    const {error}=await state.sb.from('notifications').insert(row);
-    if(error&&!String(error.message).toLowerCase().includes('duplicate'))console.warn('[AllianceOS notifications]',error.message);
-    return !error;
+    if(!state.sb||!state.user)return false;
+    const {data,error}=await state.sb.rpc('enqueue_notification',{
+      p_user_id:row.user_id,
+      p_kind:row.kind,
+      p_title:row.title,
+      p_body:row.body||null,
+      p_task_id:row.task_id||null,
+      p_event_key:row.event_key||null,
+      p_window:'24 hours'
+    });
+    if(error){console.warn('[AllianceOS notifications]',error.message);return false;}
+    return data!=null;
   }
 
   async function notify(ids,kind,title,body,taskId,eventKey=null){
