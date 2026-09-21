@@ -88,7 +88,7 @@
     try{
       const host=document.getElementById('painelView');if(!host)return;
       const p=await snapshot(),ids=p.campaigns.map(c=>String(c.id));let rows=[];
-      if(ids.length){const {data,error}=await p.s.from('campaign_results').select('*').in('campaign_id',ids);if(error)throw error;rows=data||[]}
+      if(ids.length){const {data,error}=await p.s.from('campaign_results').select('*').in('campaign_id',ids).is('arquivado_em',null);if(error)throw error;rows=data||[]}
       const fat=rows.reduce((n,r)=>n+Number(r.faturamento||0),0),inv=rows.reduce((n,r)=>n+Number(r.investimento||0),0);
       let card=document.getElementById('alliance-plan-real-card');
       if(!card){card=document.createElement('section');card.id='alliance-plan-real-card';host.prepend(card)}

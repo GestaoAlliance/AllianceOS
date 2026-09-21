@@ -242,11 +242,12 @@ async function resolveList(supabase:any,input:string,allowArchived=false) {
 }
 
 async function memberDirectory(supabase:any) {
-  const [tasks,linksResult,profilesResult,invitesResult]=await Promise.all([
+  const [tasks,linksResult,profilesResult,invitesResult,legacyResult]=await Promise.all([
     readState(supabase,TASKS_KEY),
     supabase.from('legacy_member_links').select('legacy_name,profile_id'),
     supabase.from('profiles').select('id,nome,email,papel,cargo,ativo').eq('ativo',true).order('nome'),
-    supabase.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome')
+    supabase.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
+    supabase.from('legacy_member_names').select('id,nome,cargo,observacoes,arquivado_em').is('arquivado_em',null).order('nome')
   ])
   if(profilesResult.error) throw new Error('Não foi possível listar membros: '+profilesResult.error.message)
   const profiles=profilesResult.data||[]
@@ -270,6 +271,11 @@ async function memberDirectory(supabase:any) {
     }
   })
   const known=new Set(rows.map(r=>norm(r.nome)))
+  for(const legacy of legacyResult.data||[]){
+    if(!legacy?.nome||known.has(norm(legacy.nome))||linked.has(norm(legacy.nome)))continue
+    known.add(norm(legacy.nome))
+    rows.push({id:'nome:'+slug(legacy.nome),nome:legacy.nome,email:null,papel:null,cargo:legacy.cargo||null,tipo:'legado',atribuivel:false,observacoes:legacy.observacoes||null})
+  }
   for(const t of tasks){
     for(const name of Array.isArray(t.assignees)?t.assignees:[]){
       if(!name||known.has(norm(name))||linked.has(norm(name))) continue
@@ -582,6 +588,70 @@ function fullSearchValues(v:any):string[]{
   return[]
 }
 
+
+const FULL_EXPORT_SECTIONS=['mes','campanhas','taps','listas','tarefas','entregas','resultados'] as const
+function fullCursorOffset(cursor:any){
+  if(cursor==null||String(cursor).trim()==='')return 0
+  try{
+    const decoded=atob(String(cursor)),n=Number(decoded)
+    if(Number.isInteger(n)&&n>=0)return n
+  }catch{}
+  throw new Error('Cursor inválido.')
+}
+function fullCursor(offset:number){return btoa(String(Math.max(0,offset)))}
+function fullPage<T>(rows:T[],cursor:any,limit:number){
+  const offset=fullCursorOffset(cursor),items=rows.slice(offset,offset+limit),next=offset+limit<rows.length?fullCursor(offset+limit):null
+  return{items,total:rows.length,offset,limite:limit,proximo_cursor:next}
+}
+function fullTaskSummary(t:any,campaignId?:string|null){
+  return{id:String(t.id),nome:t.title??'',lista_id:t.listId??null,lista:t.project??'Operação',campanha_id:campaignId??t.campaignId??null,responsaveis:Array.isArray(t.assignees)?t.assignees:[],status:t.status??'a fazer',prazo:t.dueAt??t.due??null,prioridade:priorityCanon(t.priority)??'normal',arquivada:!!t.archivedAt}
+}
+function fullTapForMode(c:any,mode:'completo'|'resumo'){
+  const t=fullTapTotals(c)
+  if(mode==='resumo'&&t&&typeof t==='object'){
+    const x=structuredClone(t)
+    delete x.legacy_sections
+    return x
+  }
+  return t
+}
+function fullResultPublic(r:any){
+  return{id:String(r.id),link:fullLinks('relatorio',String(r.campaign_id)),campanha_id:String(r.campaign_id),marca_id:r.brand_id,fonte_receita:r.fonte_receita||null,canal:r.canal||null,data:r.data,faturamento:Number(r.faturamento||0),investimento:Number(r.investimento||0),roas:Number(r.investimento)?Number(r.faturamento)/Number(r.investimento):null,observacoes:r.observacoes||null,arquivado:!!r.arquivado_em,arquivado_em:r.arquivado_em||null,arquivado_por:r.arquivado_por||null,historico:Array.isArray(r.historico)?r.historico:[],origem:r.origem||null}
+}
+function fullDeliveryStatus(v:any){
+  const n=norm(v)
+  if(['sent','enviado','enviada'].includes(n))return'enviado'
+  if(['approved','aprovado','aprovada'].includes(n))return'aprovado'
+  if(['rejected','ajustes','reprovado','reprovada'].includes(n))return'ajustes'
+  return String(v||'enviado')
+}
+function fullLegacyPhaseDate(raw:any,c:any){
+  const text=String(raw??'').trim()
+  if(!text||['—','-','nao tem','não tem'].includes(text.toLowerCase()))return null
+  const m=text.match(/(\d{1,2})\/(\d{1,2})(?:\s*[·\-]\s*(\d{1,2})(?::(\d{2}))?\s*h?)?/i)
+  if(!m)return null
+  const year=Number(String(c.startAt||c.start||new Date().getFullYear()).slice(0,4))||new Date().getFullYear()
+  const hh=m[3]?Number(m[3]):0,mm=m[4]?Number(m[4]):0
+  return year+'-'+String(Number(m[2])).padStart(2,'0')+'-'+String(Number(m[1])).padStart(2,'0')+'T'+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+':00-03:00'
+}
+function fullLegacyPeople(raw:any){
+  const text=String(raw??'').trim()
+  if(!text)return[]
+  const matches=text.match(/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+/g)||[]
+  const stop=new Set(['Equipe','Base','CTA','SKU'])
+  return[...new Set(matches.filter(x=>!stop.has(x)))]
+}
+function fullLegacyOfferProducts(c:any,offer:any){
+  const rows=Array.isArray(offer?.rows)?offer.rows:[]
+  const current=Array.isArray(c.products)?c.products:[]
+  if(!rows.length)return current.map((p:any)=>({sku:String(p.sku||''),nome:String(p.name||p.nome||''),preco:Number(p.price??p.preco??0),desconto:Number(p.discount??p.desconto??0)}))
+  return rows.map((r:any,i:number)=>{
+    const detail=String(r?.[1]||''),sku=(detail.match(/\bSKU\s+([^·\s]+(?:\.[^·\s]+)*)/i)||[])[1]||String(current[i]?.sku||'')
+    const pm=(detail.match(/R\$\s*([\d.,]+)/i)||[])[1]
+    return{sku:String(sku||''),nome:String(r?.[0]||current[i]?.name||current[i]?.nome||''),preco:pm?fullMoney(pm):Number(current[i]?.price??current[i]?.preco??0),desconto:fullMoney(r?.[2]??current[i]?.discount??current[i]?.desconto??0)}
+  })
+}
+
 function fullLegacyTap(c:any){
   if(c.tapStructured&&typeof c.tapStructured==='object'){
     const t=structuredClone(c.tapStructured)
@@ -590,52 +660,54 @@ function fullLegacyTap(c:any){
       t.metas_por_fonte=legacy.map((x:any)=>({fonte:fullRevenueSourceName(x.fonte??x.canal),investimento:Number(x.investimento||0),meta_faturamento:Number(x.meta_faturamento||0),roas_alvo:x.roas_alvo==null?null:Number(x.roas_alvo),responsavel:x.responsavel??null}))
     }
     if(!Array.isArray(t.fases)||!t.fases.length)t.fases=fullDefaultPhases(c.type)
+    t.fases=(t.fases||[]).map((x:any)=>({...x,data:x.data||fullLegacyPhaseDate(x.data_legada,c),data_legada:x.data_legada??null}))
+    t.cronograma=(t.cronograma||[]).map((x:any)=>({...x,responsaveis:Array.isArray(x.responsaveis)&&x.responsaveis.length?x.responsaveis:fullLegacyPeople(x.quem_faz),quem_faz:x.quem_faz??null}))
     return t
   }
   const sections=Array.isArray(c.tap)?c.tap:[]
   const sec=(re:RegExp)=>sections.find((x:any)=>re.test(String(x?.title||'')))
   const kv=(x:any)=>Object.fromEntries((x?.rows||[]).filter((r:any)=>Array.isArray(r)&&r.length).map((r:any)=>[norm(r[0]),r[1]??'']))
-  const ev=kv(sec(/SOBRE O EVENTO/i)),team=sec(/^EQUIPE/i),ph=sec(/^FASES/i),tick=sec(/TICKET/i),cron=sec(/CANAIS.*CRONOGRAMA/i),met=sec(/^METAS/i)
-  const products=(Array.isArray(c.products)?c.products:[]).map((p:any)=>({sku:String(p.sku||''),nome:String(p.name||p.nome||''),preco:Number(p.price??p.preco??0),desconto:Number(p.discount??p.desconto??0)}))
+  const ev=kv(sec(/SOBRE O EVENTO/i)),team=sec(/^EQUIPE/i),ph=sec(/^FASES/i),offerSec=sec(/SOBRE A OFERTA/i),tick=sec(/TICKET/i),cron=sec(/CANAIS.*CRONOGRAMA/i),met=sec(/^METAS/i)
+  const products=fullLegacyOfferProducts(c,offerSec)
   const schedule:any[]=[]
   if(cron?.columns?.length)for(const r of cron.rows||[]){
     const canal=(FULL_CHANNELS as readonly string[]).find(x=>norm(x)===norm(r?.[0]))
     if(!canal)continue
+    const quem=String(r?.[cron.columns.length-1]||'')
     for(let i=2;i<cron.columns.length-1;i++){
       const content=String(r?.[i]??'').trim()
-      if(content&&!['—','-','0','nao tem'].includes(norm(content)))schedule.push({canal,periodo:String(cron.columns[i]),periodo_inicio:null,periodo_fim:null,conteudo:content,responsaveis:[],prazo:null,quem_faz:String(r?.[cron.columns.length-1]||'')})
+      if(content&&!['—','-','0','nao tem'].includes(norm(content)))schedule.push({canal,periodo:String(cron.columns[i]),periodo_inicio:null,periodo_fim:null,conteudo:content,responsaveis:fullLegacyPeople(quem),prazo:null,quem_faz:quem})
     }
   }
-  const goalBy=new Map<string,any>(),invBy=new Map<string,number>()
-  let campaignRoas:number|null=null
+  const goalBy=new Map<string,any>(),invBy=new Map<string,number>();let campaignRoas:number|null=null
   for(const r of met?.rows||[]){
     const label=String(r?.[0]||'').trim(),n=norm(label)
     if(/^meta faturamento\s*[—-]\s*/i.test(label)){
       const name=label.replace(/^meta faturamento\s*[—-]\s*/i,'').trim()
       if(name&&!/^total$/i.test(name))goalBy.set(norm(name),{fonte:fullRevenueSourceName(name),investimento:0,meta_faturamento:fullMoney(r?.[1]),roas_alvo:null,responsavel:String(r?.[2]||'')||null})
     }else if(/^investimento\s*[—-]\s*/i.test(label)){
-      const name=label.replace(/^investimento\s*[—-]\s*/i,'').trim()
-      if(name)invBy.set(norm(name),fullMoney(r?.[1]))
+      const name=label.replace(/^investimento\s*[—-]\s*/i,'').trim();if(name)invBy.set(norm(name),fullMoney(r?.[1]))
     }else if(n==='roas alvo')campaignRoas=fullMoney(r?.[1])||null
   }
   for(const [k,v] of invBy){const x=goalBy.get(k);if(x)x.investimento=v}
   for(const x of goalBy.values())if(x.roas_alvo==null&&campaignRoas!=null)x.roas_alvo=campaignRoas
-  const metas=[...goalBy.values()]
-  return {
+  const phases=(ph?.rows||[]).length?(ph?.rows||[]).map((r:any)=>{const legacy=String(r?.[2]??'');return{nome:String(r?.[0]||'').replace(/^Fase\s*\d+\s*:\s*/i,''),tem:/^sim$/i.test(String(r?.[1]||'')),data:fullLegacyPhaseDate(legacy,c),data_legada:legacy||null}}).filter((x:any)=>x.nome):fullDefaultPhases(c.type)
+  return{
     sobre_evento:{nome:String(ev['nome da campanha']||c.name||''),formato:String(ev['formato da campanha']||c.objective||''),cupom_automatico:String(ev['cupom automatico']||''),bonus_universal:String(ev['bonus universal']||''),bonus_influencer:String(ev['bonus via influencer']||''),observacoes:''},
     equipe:(team?.rows||[]).map((r:any)=>({quem:String(r?.[0]||''),responsabilidade:String(r?.[1]||'')})).filter((x:any)=>x.quem),
-    fases:(ph?.rows||[]).length?(ph?.rows||[]).map((r:any)=>({nome:String(r?.[0]||''),tem:/^sim$/i.test(String(r?.[1]||'')),data:null,data_legada:r?.[2]??null})).filter((x:any)=>x.nome):fullDefaultPhases(c.type),
+    fases:phases,
     oferta:{produtos:products,desconto_geral:Number(products[0]?.desconto||0),desconto_por_sku:{},frete:String(ev['frete']||''),brinde:'',bonus_universal:String(ev['bonus universal']||''),bonus_influencer:String(ev['bonus via influencer']||'')},
     aumento_ticket:(tick?.rows||[]).map((r:any)=>({estrategia:String(r?.[0]||''),detalhe:String(r?.[1]||''),desconto:fullPercentPreserve(r?.[2])})).filter((x:any)=>x.estrategia),
-    metas_por_fonte:metas,cronograma:schedule,roas_alvo_campanha:campaignRoas,legacy_sections:sections
+    metas_por_fonte:[...goalBy.values()],cronograma:schedule,roas_alvo_campanha:campaignRoas,legacy_sections:sections
   }
 }
+
 function fullGoal(c:any){const t=fullLegacyTap(c),sum=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0);return sum>0?sum:Number(c.goal||0)}
 function fullInvestment(c:any){const t=fullLegacyTap(c),sum=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.investimento||0),0);return sum>0?sum:Number(c.budget||0)}
-function fullPublicCampaign(c:any){return{id:String(c.id),link:fullLinks('campanha',String(c.id)),nome:c.name||'',marca:c.brand||null,tipo:c.type||null,inicio:c.startAt||c.start||null,fim:c.endAt||c.end||null,meta_faturamento:fullGoal(c),meta_manual:Number(c.goal||0),investimento_total:fullInvestment(c),status:c.status||'planejamento',mes_referencia:c.monthRef||String(c.startAt||c.start||'').slice(0,7)||null,mes_id:c.monthId||null,canais:Array.isArray(c.channels)?c.channels:[],cliente_id:c.clientId||null,tags:Array.isArray(c.tags)?c.tags:[],arquivada:!!c.archivedAt,arquivada_em:c.archivedAt||null,origem:c.origin||c.source||null}}
+function fullPublicCampaign(c:any){let tipo=c.type||null,status=c.status||'planejamento';try{tipo=fullCampaignType(tipo)}catch{}try{status=fullCampaignStatus(status)}catch{}return{id:String(c.id),link:fullLinks('campanha',String(c.id)),nome:c.name||'',marca:c.brand||null,tipo,inicio:c.startAt||c.start||null,fim:c.endAt||c.end||null,meta_faturamento:fullGoal(c),meta_manual:Number(c.goal||0),investimento_total:fullInvestment(c),status,mes_referencia:c.monthRef||String(c.startAt||c.start||'').slice(0,7)||null,mes_id:c.monthId||null,canais:Array.isArray(c.channels)?c.channels:[],cliente_id:c.clientId||null,tags:Array.isArray(c.tags)?c.tags:[],arquivada:!!c.archivedAt,arquivada_em:c.archivedAt||null,origem:c.origin||c.source||null}}
 function fullMonthRef(c:any){return c.monthRef||String(c.startAt||c.start||'').slice(0,7)||null}
 function fullTapTotals(c:any){const t=fullLegacyTap(c),fat=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0),inv=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.investimento||0),0);return{...t,totais:{faturamento:fat,investimento:inv,lucro_aproximado:fat-inv,roas:inv?fat/inv:null}}}
-function fullCampaignWarnings(c:any){const t=fullLegacyTap(c),sum=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0),manual=Number(c.goal||0),a=[] as string[];if(sum>0&&manual>0&&Math.abs(sum-manual)>.01)a.push('A meta manual é R$ '+manual.toFixed(2)+', mas as metas por fonte somam R$ '+sum.toFixed(2)+'. Vale a soma por fonte de receita.');return a}
+function fullCampaignWarnings(c:any){const t=fullLegacyTap(c),plans=t.metas_por_fonte||[],sum=plans.reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0),manual=Number(c.goal||0),a=[] as string[];if(sum>0&&manual>0&&Math.abs(sum-manual)>.01)a.push('A meta manual é R$ '+manual.toFixed(2)+', mas as metas por fonte somam R$ '+sum.toFixed(2)+'. Vale a soma por fonte de receita.');for(const x of plans){const meta=Number(x.meta_faturamento||0),inv=Number(x.investimento||0),target=x.roas_alvo==null?null:Number(x.roas_alvo);if(meta>0&&inv>0&&target!=null&&target>=0){const calc=meta/inv,diff=calc?Math.abs(target-calc)/calc:0;if(diff>.20)a.push('ROAS alvo de '+String(x.fonte)+' ('+target.toFixed(2)+') difere mais de 20% do ROAS calculado ('+calc.toFixed(2)+').')}}return a}
 
 async function fullAuditHistory(s:any,entityType:string,entityId:string){
   const {data,error}=await s.from('task_action_audit').select('id,actor_id,origin,action,details,created_at').eq('entity_type',entityType).eq('entity_id',String(entityId)).order('created_at',{ascending:false}).limit(100)
@@ -674,7 +746,7 @@ async function fullSyncMap(s:any,map:any){
   for(const n of live){const id=/^\d+$/.test(String(n.node_key))?Number(n.node_key):String(n.node_key),p=n.parent_key==null?null:(/^\d+$/.test(String(n.parent_key))?Number(n.parent_key):String(n.parent_key));if(typeof id==='number')mx=Math.max(mx,id);legacy.nos.push({id,pai:p,t:n.texto,cor:n.cor??0,x:Number(n.x),y:Number(n.y),fech:!n.aberto,campId:n.campaign_id||undefined})}legacy.prox=mx+1;await fullWriteOperational(s,'central.planning.map.vitor-gutierrez'+(b?.nome?'.'+b.nome:''),legacy)
 }
 async function fullMapPayload(s:any,map:any){const[nodes,month,bs]=await Promise.all([fullMapNodes(s,map.id,true),s.from('planning_months').select('*').eq('id',map.month_id).single(),listBrands(s)]),b=bs.find((x:any)=>String(x.id)===String(map.brand_id));return{id:String(map.id),link:fullLinks('mapa',String(map.id)),nome:map.nome,marca:b?.nome||null,ano:month.data?.ano,mes:month.data?.mes,layout:map.layout,nos:nodes.map((n:any)=>({id:String(n.id),chave:n.node_key,pai:n.parent_key,texto:n.texto,x:Number(n.x),y:Number(n.y),cor:n.cor,aberto:n.aberto,campanha_id:n.campaign_id||null,arquivado:!!n.arquivado_em})),arquivado:!!map.arquivado_em}}
-function fullDelivery(d:any,tasks:any[],campaigns:any[]){const t=tasks.find(x=>String(x.id)===String(d.sourceTaskId)),c=t?.campaignId?campaigns.find(x=>String(x.id)===String(t.campaignId)):null;return{id:String(d.id),link:fullLinks('entrega',String(d.id)),tarefa_id:d.sourceTaskId||null,proxima_tarefa_id:d.targetTaskId||null,titulo:d.title||d.taskTitle||'Entrega',campanha_id:c?.id||t?.campaignId||null,marca:d.brand||t?.brand||null,de:d.from||null,para:d.to||null,mensagem:d.note||'',status:d.status||'enviado',versao:Number(d.version||1),criada_em:d.createdAt||null,atualizada_em:d.updatedAt||null,arquivos:d.files||[],links:d.links||[],historico:d.events||[],comentario_ajuste:d.adjustmentNote||null}}
+function fullDelivery(d:any,tasks:any[],campaigns:any[]){const t=tasks.find(x=>String(x.id)===String(d.sourceTaskId)),c=t?.campaignId?campaigns.find(x=>String(x.id)===String(t.campaignId)):null;return{id:String(d.id),link:fullLinks('entrega',String(d.id)),tarefa_id:d.sourceTaskId||null,proxima_tarefa_id:d.targetTaskId||null,titulo:d.title||d.taskTitle||'Entrega',campanha_id:c?.id||t?.campaignId||null,marca:d.brand||t?.brand||null,de:d.from||null,para:d.to||null,mensagem:d.note||'',status:fullDeliveryStatus(d.status),versao:Number(d.version||1),criada_em:d.createdAt||null,atualizada_em:d.updatedAt||null,arquivos:d.files||[],links:d.links||[],historico:d.events||[],comentario_ajuste:d.adjustmentNote||null}}
 async function fullResults(s:any,filter:any){
   let q=s.from('campaign_results').select('*').order('data')
   if(filter.campaign_id)q=q.eq('campaign_id',filter.campaign_id)
@@ -683,6 +755,7 @@ async function fullResults(s:any,filter:any){
   if(filter.fonte_receita)q=q.eq('fonte_receita',filter.fonte_receita)
   if(filter.inicio)q=q.gte('data',filter.inicio)
   if(filter.fim)q=q.lte('data',filter.fim)
+  if(!filter.incluir_arquivados)q=q.is('arquivado_em',null)
   const{data,error}=await q;if(error)throw new Error(error.message);return data||[]
 }
 function fullAgg(rows:any[]){
@@ -715,12 +788,12 @@ function fullCompletion(t:any,tasks:any[]){const b=(t.dependencies||[]).map((id:
 const fullTapSchema=z.object({
   sobre_evento:z.object({nome:z.string().max(300).default(''),formato:z.string().max(1000).default(''),cupom_automatico:z.string().max(1000).default(''),bonus_universal:z.string().max(2000).default(''),bonus_influencer:z.string().max(2000).default(''),observacoes:z.string().max(10000).default('')}),
   equipe:z.array(z.object({quem:z.string().min(1),responsabilidade:z.string().min(1),usuario_id:z.string().nullable().optional()})).max(100).default([]),
-  fases:z.array(z.object({nome:z.string().min(1),tem:z.boolean(),data:dt.nullable().optional()})).max(100).default([]),
+  fases:z.array(z.object({nome:z.string().min(1),tem:z.boolean(),data:dt.nullable().optional(),data_legada:z.string().nullable().optional()})).max(100).default([]),
   oferta:z.object({produtos:z.array(z.object({sku:z.string().default(''),nome:z.string().min(1),preco:z.number().min(0),desconto:z.number().min(0).default(0)})).max(500).default([]),desconto_geral:z.number().min(0).default(0),desconto_por_sku:z.record(z.string(),z.number().min(0)).default({}),frete:z.string().default(''),brinde:z.string().default(''),bonus_universal:z.string().default(''),bonus_influencer:z.string().default('')}),
   aumento_ticket:z.array(z.object({estrategia:z.string().min(1),detalhe:z.string().default(''),desconto:z.union([z.number().min(0),z.string().max(100)]).nullable().default(null)})).max(100).default([]),
   metas_por_fonte:z.array(z.object({fonte:z.string().min(1),investimento:z.number().min(0).default(0),meta_faturamento:z.number().min(0).default(0),roas_alvo:z.number().min(0).nullable().optional(),responsavel:z.string().nullable().optional()})).max(100).default([]),
   metas_por_canal:z.array(z.object({canal:z.string(),investimento:z.number().min(0).default(0),meta_faturamento:z.number().min(0).default(0),roas_alvo:z.number().min(0).nullable().optional(),responsavel:z.string().nullable().optional()})).max(100).optional().describe('Obsoleto: use metas_por_fonte.'),
-  cronograma:z.array(z.object({canal:z.string(),periodo:z.string().min(1),periodo_inicio:dt.nullable().optional(),periodo_fim:dt.nullable().optional(),conteudo:z.string().default(''),responsaveis:z.array(z.string()).max(20).default([]),prazo:dt.nullable().optional()})).max(1000).default([])
+  cronograma:z.array(z.object({canal:z.string(),periodo:z.string().min(1),periodo_inicio:dt.nullable().optional(),periodo_fim:dt.nullable().optional(),conteudo:z.string().default(''),responsaveis:z.array(z.string()).max(20).default([]),prazo:dt.nullable().optional(),quem_faz:z.string().nullable().optional()})).max(1000).default([])
 })
 
 function registerFullSystemTools(server:any,supabase:any){
@@ -743,16 +816,39 @@ function registerFullSystemTools(server:any,supabase:any){
   })
 
   server.registerTool('criar_campanha',{description:'Cria campanha na mesma coleção usada pela tela Campanhas.',inputSchema:z.object({nome:z.string().min(1),marca:z.string().min(1),tipo:z.string(),inicio:dt,fim:dt,meta_faturamento:z.number().min(0).default(0),investimento_total:z.number().min(0).default(0),status:z.string().default('planejamento'),mes_referencia:z.string().regex(/^\d{4}-\d{2}$/).optional(),mes_id:z.string().uuid().nullable().optional(),canais:z.array(z.string()).max(10).default([]),cliente_id:z.string().uuid().nullable().optional()})},async(a:any)=>{const who=await actor(supabase),b=await fullBrand(supabase,a.marca),rows=await fullCampaigns(supabase);if(new Date(a.fim)<new Date(a.inicio))throw new Error('fim anterior a início.');const monthRef=a.mes_referencia||String(a.inicio).slice(0,7),month=await fullResolveMonth(supabase,b,monthRef,a.mes_id||null),id='camp-'+Date.now()+'-'+crypto.randomUUID().slice(0,8),c:any={id,name:a.nome.trim(),brand:b.nome,type:fullCampaignType(a.tipo),start:String(a.inicio).slice(0,10),end:String(a.fim).slice(0,10),startAt:a.inicio,endAt:a.fim,goal:a.meta_faturamento,budget:a.investimento_total,status:fullCampaignStatus(a.status),monthRef:month.ano+'-'+String(month.mes).padStart(2,'0'),monthId:month.id,channels:a.canais.map(fullChannelCanon),clientId:a.cliente_id||null,tags:[],tapStructured:null,origin:'mcp',history:[],archivedAt:null};fullHistory(c,'Campanha criada via MCP.',who);rows.unshift(c);await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'criar_campanha','campanha',id,{marca:b.nome});return toolText({campanha:fullPublicCampaign(c),avisos:fullCampaignWarnings(c)})})
-  server.registerTool('atualizar_campanha',{description:'Atualiza ou arquiva campanha. Nunca exclui.',inputSchema:z.object({id:z.string(),nome:z.string().min(1).optional(),marca:z.string().optional(),tipo:z.string().optional(),inicio:dt.optional(),fim:dt.optional(),meta_faturamento:z.number().min(0).optional(),investimento_total:z.number().min(0).optional(),status:z.string().optional(),mes_referencia:z.string().regex(/^\d{4}-\d{2}$/).optional(),mes_id:z.string().uuid().nullable().optional(),canais:z.array(z.string()).optional(),cliente_id:z.string().uuid().nullable().optional(),arquivada:z.boolean().optional()})},async(a:any)=>{const who=await actor(supabase),rows=await fullCampaigns(supabase),c=fullCampaign(rows,a.id);if(a.nome!==undefined)c.name=a.nome.trim();if(a.marca)c.brand=(await fullBrand(supabase,a.marca)).nome;if(a.tipo)c.type=fullCampaignType(a.tipo);if(a.inicio){c.startAt=a.inicio;c.start=String(a.inicio).slice(0,10)}if(a.fim){c.endAt=a.fim;c.end=String(a.fim).slice(0,10)}if(a.meta_faturamento!==undefined)c.goal=a.meta_faturamento;if(a.investimento_total!==undefined)c.budget=a.investimento_total;if(a.status)c.status=fullCampaignStatus(a.status);if(a.mes_referencia)c.monthRef=a.mes_referencia;if(a.mes_id!==undefined)c.monthId=a.mes_id;if(a.canais)c.channels=a.canais.map(fullChannelCanon);if(a.cliente_id!==undefined)c.clientId=a.cliente_id;if(a.arquivada!==undefined){c.archivedAt=a.arquivada?(c.archivedAt||nowIso()):null;c.archivedBy=a.arquivada?who.id:null}fullHistory(c,'Campanha atualizada via MCP.',who);await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'atualizar_campanha','campanha',String(c.id),{arquivada:!!c.archivedAt});return toolText({campanha:fullPublicCampaign(c),avisos:fullCampaignWarnings(c)})})
+  server.registerTool('atualizar_campanha',{
+    description:'Atualiza ou arquiva campanha. Tipo/status são normalizados e o mês é vinculado automaticamente quando existir. Nunca exclui.',
+    inputSchema:z.object({id:z.string(),nome:z.string().min(1).optional(),marca:z.string().optional(),tipo:z.string().optional(),inicio:dt.optional(),fim:dt.optional(),meta_faturamento:z.number().min(0).optional(),investimento_total:z.number().min(0).optional(),status:z.string().optional(),mes_referencia:z.string().regex(/^\d{4}-\d{2}$/).optional(),mes_id:z.string().uuid().nullable().optional(),canais:z.array(z.string()).optional(),cliente_id:z.string().uuid().nullable().optional(),arquivada:z.boolean().optional()})
+  },async(a:any)=>{
+    const who=await actor(supabase),rows=await fullCampaigns(supabase),c=fullCampaign(rows,a.id)
+    if(a.nome!==undefined)c.name=a.nome.trim();if(a.marca)c.brand=(await fullBrand(supabase,a.marca)).nome;if(a.tipo)c.type=fullCampaignType(a.tipo);else c.type=fullCampaignType(c.type)
+    if(a.inicio){c.startAt=a.inicio;c.start=String(a.inicio).slice(0,10)}if(a.fim){c.endAt=a.fim;c.end=String(a.fim).slice(0,10)}if(c.startAt&&c.endAt&&new Date(c.endAt)<new Date(c.startAt))throw new Error('fim anterior a início.')
+    if(a.meta_faturamento!==undefined)c.goal=a.meta_faturamento;if(a.investimento_total!==undefined)c.budget=a.investimento_total;if(a.status)c.status=fullCampaignStatus(a.status);else c.status=fullCampaignStatus(c.status||'planejamento')
+    if(a.canais)c.channels=a.canais.map(fullChannelCanon);if(a.cliente_id!==undefined)c.clientId=a.cliente_id
+    const brand=await fullBrand(supabase,c.brand),ref=a.mes_referencia||c.monthRef||String(c.startAt||c.start||'').slice(0,7);let month:any=null
+    if(a.mes_id){const{data}=await supabase.from('planning_months').select('*').eq('id',a.mes_id).is('arquivado_em',null).maybeSingle();if(!data)throw new Error('Mês informado não encontrado.');if(String(data.brand_id)!==String(brand.id))throw new Error('O mês informado pertence a outra marca.');month=data}
+    else if(ref){const m=String(ref).match(/^(\d{4})-(\d{2})$/);if(m){const{data}=await supabase.from('planning_months').select('*').eq('brand_id',brand.id).eq('ano',Number(m[1])).eq('mes',Number(m[2])).is('arquivado_em',null).maybeSingle();month=data||null}}
+    if(month){c.monthId=month.id;c.monthRef=month.ano+'-'+String(month.mes).padStart(2,'0')}else if(a.mes_id===null){c.monthId=null;if(a.mes_referencia)c.monthRef=a.mes_referencia}else if(a.mes_referencia)c.monthRef=a.mes_referencia
+    if(a.arquivada!==undefined){c.archivedAt=a.arquivada?(c.archivedAt||nowIso()):null;c.archivedBy=a.arquivada?who.id:null}
+    fullHistory(c,'Campanha atualizada via MCP.',who);await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'atualizar_campanha','campanha',String(c.id),{arquivada:!!c.archivedAt,mes_id:c.monthId||null,tipo:c.type,status:c.status});return toolText({campanha:fullPublicCampaign(c),avisos:fullCampaignWarnings(c)})
+  })
   server.registerTool('listar_campanhas',{description:'Lista campanhas por marca, mês, tipo e status.',inputSchema:z.object({marca:z.string().optional(),mes:z.string().regex(/^\d{4}-\d{2}$/).optional(),tipo:z.string().optional(),status:z.string().optional(),incluir_arquivadas:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async(a:any)=>{let rows=await fullCampaigns(supabase);if(!a.incluir_arquivadas)rows=rows.filter((c:any)=>!c.archivedAt);if(a.marca){const b=await fullBrand(supabase,a.marca);rows=rows.filter((c:any)=>norm(c.brand)===norm(b.nome))}if(a.mes)rows=rows.filter((c:any)=>fullMonthRef(c)===a.mes);if(a.tipo){const t=fullCampaignType(a.tipo);rows=rows.filter((c:any)=>c.type===t)}if(a.status){const st=fullCampaignStatus(a.status);rows=rows.filter((c:any)=>norm(c.status)===norm(st))}return toolText({campanhas:rows.map((c:any)=>({...fullPublicCampaign(c),avisos:fullCampaignWarnings(c)}))})})
   server.registerTool('obter_campanha',{
-    description:'Obtém campanha completa com listas, tarefas, TAP, oferta, cronograma e metas por fonte.',
-    inputSchema:z.object({id:z.string()}),annotations:{readOnlyHint:true}
-  },async({id}:any)=>{
-    const[camps,lists,tasks]=await Promise.all([fullCampaigns(supabase),buildLists(supabase,true),readState(supabase,TASKS_KEY)])
-    const c=fullCampaign(camps,id),ls=lists.filter((l:any)=>String(l.campanha_id||'')===String(c.id)),byList=new Map(lists.map((l:any)=>[String(l.id),l]))
-    const ts=tasks.filter((t:any)=>String(taskCampaignFromLists(t,byList)||'')===String(c.id))
-    return toolText({campanha:{...fullPublicCampaign(c),listas:ls,tarefas:ts.map(publicTask),tap:fullTapTotals(c),historico:c.history||[]},avisos:fullCampaignWarnings(c)})
+    description:'Obtém campanha com paginação. Permite escolher seções e modo completo/resumo sem repetir tarefas.',
+    inputSchema:z.object({id:z.string(),secoes:z.array(z.enum(['campanha','tap','listas','tarefas','entregas','resultados','historico'])).default(['campanha','tap','listas','tarefas','entregas','resultados','historico']),modo:z.enum(['completo','resumo']).default('completo'),cursor:z.string().optional(),limite:z.number().int().min(1).max(100).default(50),incluir_arquivados:z.boolean().default(false)}),annotations:{readOnlyHint:true}
+  },async(a:any)=>{
+    const[camps,lists,tasks,deliveries]=await Promise.all([fullCampaigns(supabase),buildLists(supabase,true),readState(supabase,TASKS_KEY),fullDeliveries(supabase)])
+    const c=fullCampaign(camps,a.id),byList=new Map(lists.map((l:any)=>[String(l.id),l])),selected=new Set(a.secoes),offset=fullCursorOffset(a.cursor)
+    const ls=lists.filter((l:any)=>String(l.campanha_id||'')===String(c.id)&&(a.incluir_arquivados||!l.arquivada))
+    const ts=tasks.filter((t:any)=>String(taskCampaignFromLists(t,byList)||'')===String(c.id)&&(a.incluir_arquivados||!t.archivedAt))
+    const taskIds=new Set(ts.map((t:any)=>String(t.id))),ds=deliveries.filter((d:any)=>taskIds.has(String(d.sourceTaskId))||taskIds.has(String(d.targetTaskId))),rs=await fullResults(supabase,{campaign_id:String(c.id),incluir_arquivados:a.incluir_arquivados})
+    const out:any={avisos:fullCampaignWarnings(c),paginacao:{cursor:a.cursor||null,limite:a.limite,offset,proximo_cursor:null,totais:{}}};let maxTotal=0
+    const addPage=(key:string,rows:any[],map:(x:any)=>any=x=>x)=>{out.paginacao.totais[key]=rows.length;maxTotal=Math.max(maxTotal,rows.length);if(selected.has(key as any))out[key]=rows.slice(offset,offset+a.limite).map(map)}
+    if(selected.has('campanha'))out.campanha=fullPublicCampaign(c);if(selected.has('tap'))out.tap=fullTapForMode(c,a.modo)
+    addPage('listas',ls);addPage('tarefas',ts,(t:any)=>a.modo==='resumo'?fullTaskSummary(t,String(c.id)):({...publicTask(t),campanha_id:String(c.id)}));addPage('entregas',ds,(d:any)=>fullDelivery(d,tasks,camps));addPage('resultados',rs,fullResultPublic)
+    if(selected.has('historico')){out.historico=(c.history||[]).slice(offset,offset+a.limite);out.paginacao.totais.historico=(c.history||[]).length;maxTotal=Math.max(maxTotal,(c.history||[]).length)}
+    if(offset+a.limite<maxTotal)out.paginacao.proximo_cursor=fullCursor(offset+a.limite)
+    return toolText(out)
   })
   server.registerTool('criar_mes',{description:'Cria mês da marca com três metas, meta ativa e ticket médio previsto.',inputSchema:z.object({marca:z.string(),ano:z.number().int().min(2000).max(2200),mes:z.number().int().min(1).max(12),meta1:z.number().min(0).default(0),meta2:z.number().min(0).default(0),meta3:z.number().min(0).default(0),meta_ativa:z.number().int().min(1).max(3).default(1),ticket_medio_previsto:z.number().min(0).default(0)})},async(a:any)=>{const who=await actor(supabase),b=await fullBrand(supabase,a.marca);const{data:old}=await supabase.from('planning_months').select('id').eq('brand_id',b.id).eq('ano',a.ano).eq('mes',a.mes).maybeSingle();if(old)throw new Error('Mês já existe.');const{data,error}=await supabase.from('planning_months').insert({brand_id:b.id,ano:a.ano,mes:a.mes,meta1:a.meta1,meta2:a.meta2,meta3:a.meta3,meta_ativa:a.meta_ativa,ticket_medio_previsto:a.ticket_medio_previsto,origem:'mcp',criado_por:who.id,atualizado_por:who.id}).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'criar_mes','mes',data.id,{marca:b.nome});return toolText({mes:await fullMonthPayload(supabase,data)})})
   server.registerTool('atualizar_mes',{description:'Atualiza ou arquiva mês.',inputSchema:z.object({id:z.string().uuid(),meta1:z.number().min(0).optional(),meta2:z.number().min(0).optional(),meta3:z.number().min(0).optional(),meta_ativa:z.number().int().min(1).max(3).optional(),ticket_medio_previsto:z.number().min(0).optional(),arquivado:z.boolean().optional()})},async(a:any)=>{const who=await actor(supabase);const{data:old,error:e}=await supabase.from('planning_months').select('*').eq('id',a.id).maybeSingle();if(e||!old)throw new Error('Mês não encontrado.');const p:any={atualizado_por:who.id};for(const k of ['meta1','meta2','meta3','meta_ativa','ticket_medio_previsto'])if(a[k]!==undefined)p[k]=a[k];if(a.arquivado!==undefined){p.arquivado_em=a.arquivado?(old.arquivado_em||nowIso()):null;p.arquivado_por=a.arquivado?who.id:null}const{data,error}=await supabase.from('planning_months').update(p).eq('id',a.id).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'atualizar_mes','mes',a.id,{arquivado:!!data.arquivado_em});return toolText({mes:await fullMonthPayload(supabase,data)})})
@@ -859,7 +955,19 @@ function registerFullSystemTools(server:any,supabase:any){
   server.registerTool('listar_entregas',{description:'Lista a mesma coleção da tela Entregas.',inputSchema:z.object({campanha_id:z.string().optional(),tarefa_id:z.string().optional(),responsavel:z.string().optional(),inicio:dt.optional(),fim:dt.optional(),status:z.string().optional(),limite:z.number().int().min(1).max(500).default(100)}),annotations:{readOnlyHint:true}},async(a:any)=>{const[d,t,c]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)]);let r=d;if(a.tarefa_id)r=r.filter((x:any)=>String(x.sourceTaskId)===a.tarefa_id||String(x.targetTaskId)===a.tarefa_id);if(a.campanha_id)r=r.filter((x:any)=>String(t.find((q:any)=>String(q.id)===String(x.sourceTaskId))?.campaignId||'')===String(a.campanha_id));if(a.responsavel){const n=norm(a.responsavel);r=r.filter((x:any)=>norm(x.from)===n||norm(x.to)===n)}if(a.status)r=r.filter((x:any)=>norm(x.status)===norm(a.status));if(a.inicio)r=r.filter((x:any)=>x.createdAt&&new Date(x.createdAt)>=new Date(a.inicio));if(a.fim)r=r.filter((x:any)=>x.createdAt&&new Date(x.createdAt)<=new Date(a.fim));return toolText({entregas:r.slice(0,a.limite).map((x:any)=>fullDelivery(x,t,c))})})
   server.registerTool('obter_entrega',{description:'Obtém entrega com anexos e histórico.',inputSchema:z.object({id:z.string()}),annotations:{readOnlyHint:true}},async({id}:any)=>{const[d,t,c]=await Promise.all([fullDeliveries(supabase),readState(supabase,TASKS_KEY),fullCampaigns(supabase)]),x=d.find((q:any)=>String(q.id)===String(id));if(!x)throw new Error('Entrega não encontrada.');const out=fullDelivery(x,t,c);for(const f of out.arquivos||[]){if(f.storage_path){const{data}=await supabase.storage.from('alliance-deliveries').createSignedUrl(f.storage_path,3600);f.url=data?.signedUrl||null}}return toolText({entrega:out})})
   server.registerTool('registrar_entrega',{description:'Registra entrega com link ou arquivo base64 na mesma coleção da tela Entregas.',inputSchema:z.object({tarefa_id:z.string(),destinatario:z.string(),titulo:z.string().optional(),mensagem:z.string().default(''),proxima_tarefa_id:z.string().nullable().optional(),anexos:z.array(z.discriminatedUnion('tipo',[z.object({tipo:z.literal('link'),nome:z.string().default('Link'),url:z.string().url()}),z.object({tipo:z.literal('arquivo'),nome:z.string(),mime_type:z.string().default('application/octet-stream'),conteudo_base64:z.string()})])).max(20).default([]),concluir_tarefa:z.boolean().default(false)})},async(a:any)=>{const who=await actor(supabase),tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,a.tarefa_id),ass=await resolveAssignees(supabase,[a.destinatario]),to=ass.names[0];if(a.proxima_tarefa_id)findTask(tasks,a.proxima_tarefa_id);if(a.concluir_tarefa){const p=fullCompletion(t,tasks);if(p)throw new Error(p)}const ds=await fullDeliveries(supabase),id='del-'+Date.now()+'-'+crypto.randomUUID().slice(0,8),files=[] as any[],web=[] as any[];for(const x of a.anexos){if(x.tipo==='link'){web.push({id:'l-'+crypto.randomUUID().slice(0,8),label:x.nome,url:x.url});continue}let bytes;try{bytes=Uint8Array.from(atob(x.conteudo_base64),(c:string)=>c.charCodeAt(0))}catch{throw new Error('base64 inválido em '+x.nome)}const path=who.id+'/'+id+'/'+crypto.randomUUID().slice(0,8)+'-'+x.nome.replace(/[^A-Za-z0-9._-]+/g,'_'),{error}=await supabase.storage.from('alliance-deliveries').upload(path,bytes,{contentType:x.mime_type,upsert:false});if(error)throw new Error(error.message);files.push({id:'f-'+crypto.randomUUID().slice(0,8),name:x.nome,type:x.mime_type,size:bytes.length,storage_path:path})}const ts=nowIso(),d:any={id,sourceTaskId:String(t.id),targetTaskId:String(a.proxima_tarefa_id||''),title:a.titulo||'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:who.nome,to,note:a.mensagem,status:'enviado',createdAt:ts,updatedAt:ts,version:ds.filter((x:any)=>String(x.sourceTaskId)===String(t.id)&&norm(x.to)===norm(to)).length+1,completeTask:a.concluir_tarefa,files,links:web,events:[{at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega enviada para '+to+'.'}],origin:'mcp'};ds.unshift(d);t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];t.deliveries.unshift({id,deliveryId:id,text:d.title,at:ts,author:who.nome,source:'mcp',status:'enviado'});t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:ts,text:'Entrega registrada via MCP por '+who.nome+'.'});if(a.concluir_tarefa)t.status='feito';await writeTasks(supabase,tasks);await fullSaveDeliveries(supabase,ds);await audit(supabase,who,'registrar_entrega','entrega',id,{tarefa_id:t.id});return toolText({entrega:fullDelivery(d,tasks,await fullCampaigns(supabase)),tarefa:publicTask(t)})})
-  server.registerTool('aprovar_ou_reprovar_entrega',{description:'Aprova ou reprova entrega com comentário.',inputSchema:z.object({id:z.string(),decisao:z.enum(['aprovar','reprovar']),comentario:z.string().default('')})},async(a:any)=>{const who=await actor(supabase),ds=await fullDeliveries(supabase),d=ds.find((x:any)=>String(x.id)===String(a.id));if(!d)throw new Error('Entrega não encontrada.');d.status=a.decisao==='aprovar'?'aprovado':'ajustes';d.updatedAt=nowIso();d.events=Array.isArray(d.events)?d.events:[];d.events.push({at:d.updatedAt,by:who.nome,authorId:who.id,origin:'mcp',text:a.decisao==='aprovar'?'Entrega aprovada'+(a.comentario?': '+a.comentario:'.'):'Ajustes solicitados'+(a.comentario?': '+a.comentario:'.')});if(a.decisao==='reprovar')d.adjustmentNote=a.comentario;await fullSaveDeliveries(supabase,ds);await audit(supabase,who,'aprovar_ou_reprovar_entrega','entrega',d.id,{decisao:a.decisao});return toolText({entrega:{id:d.id,link:fullLinks('entrega',d.id),status:d.status,comentario:a.comentario}})})
+  server.registerTool('aprovar_ou_reprovar_entrega',{description:'Aprova ou reprova entrega com comentário e sincroniza a cópia dentro da tarefa.',inputSchema:z.object({id:z.string(),decisao:z.enum(['aprovar','reprovar']),comentario:z.string().default('')})},async(a:any)=>{
+    const who=await actor(supabase),ds=await fullDeliveries(supabase),d=ds.find((x:any)=>String(x.id)===String(a.id));if(!d)throw new Error('Entrega não encontrada.')
+    d.status=a.decisao==='aprovar'?'aprovado':'ajustes';d.updatedAt=nowIso();d.events=Array.isArray(d.events)?d.events:[];d.events.push({at:d.updatedAt,by:who.nome,authorId:who.id,origin:'mcp',text:a.decisao==='aprovar'?'Entrega aprovada'+(a.comentario?': '+a.comentario:'.'):'Ajustes solicitados'+(a.comentario?': '+a.comentario:'.')});if(a.decisao==='reprovar')d.adjustmentNote=a.comentario
+    const tasks=await readState(supabase,TASKS_KEY),t=tasks.find((x:any)=>String(x.id)===String(d.sourceTaskId))
+    if(t){
+      t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[]
+      const embedded=t.deliveries.find((x:any)=>String(x.id||x.deliveryId)===String(d.id))
+      if(embedded){embedded.status=d.status;embedded.updatedAt=d.updatedAt;embedded.adjustmentNote=d.adjustmentNote||null;embedded.events=Array.isArray(embedded.events)?embedded.events:[];embedded.events.push({at:d.updatedAt,by:who.nome,authorId:who.id,origin:'mcp',text:'Status sincronizado com a entrega oficial: '+d.status+'.'})}
+      t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:d.updatedAt,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega '+d.status+' via MCP.'})
+      await writeTasks(supabase,tasks)
+    }
+    await fullSaveDeliveries(supabase,ds);await audit(supabase,who,'aprovar_ou_reprovar_entrega','entrega',d.id,{decisao:a.decisao,tarefa_id:d.sourceTaskId||null});return toolText({entrega:{id:d.id,link:fullLinks('entrega',d.id),status:d.status,comentario:a.comentario}})
+  })
 
   server.registerTool('criar_cliente',{description:'Cria cliente: marca atendida ou cliente externo.',inputSchema:z.object({nome:z.string().min(1),tipo:z.enum(['marca','externo']),marca:z.string().nullable().optional(),contato_nome:z.string().nullable().optional(),email:z.string().email().nullable().optional(),telefone:z.string().nullable().optional(),observacoes:z.string().nullable().optional(),status:z.enum(['ativo','inativo']).default('ativo')})},async(a:any)=>{const who=await actor(supabase),b=a.marca?await fullBrand(supabase,a.marca):null;if(a.tipo==='marca'&&!b)throw new Error('tipo marca exige marca.');const{data,error}=await supabase.from('alliance_clients').insert({nome:a.nome,tipo:a.tipo,brand_id:b?.id||null,contato_nome:a.contato_nome||null,email:a.email||null,telefone:a.telefone||null,observacoes:a.observacoes||null,status:a.status,origem:'mcp',criado_por:who.id,atualizado_por:who.id}).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'criar_cliente','cliente',data.id,{});return toolText({cliente:{...data,id:String(data.id),link:fullLinks('cliente',String(data.id)),marca:b?.nome||null}})})
   server.registerTool('atualizar_cliente',{description:'Atualiza/arquiva cliente; nunca exclui.',inputSchema:z.object({id:z.string().uuid(),nome:z.string().optional(),tipo:z.enum(['marca','externo']).optional(),marca:z.string().nullable().optional(),contato_nome:z.string().nullable().optional(),email:z.string().email().nullable().optional(),telefone:z.string().nullable().optional(),observacoes:z.string().nullable().optional(),status:z.enum(['ativo','inativo']).optional(),arquivado:z.boolean().optional()})},async(a:any)=>{const who=await actor(supabase),{data:old}=await supabase.from('alliance_clients').select('*').eq('id',a.id).maybeSingle();if(!old)throw new Error('Cliente não encontrado.');const p:any={atualizado_por:who.id};for(const k of ['nome','tipo','contato_nome','email','telefone','observacoes','status'])if(a[k]!==undefined)p[k]=a[k];if(a.marca!==undefined)p.brand_id=a.marca?(await fullBrand(supabase,a.marca)).id:null;if(a.arquivado!==undefined){p.arquivado_em=a.arquivado?(old.arquivado_em||nowIso()):null;p.arquivado_por=a.arquivado?who.id:null}const{data,error}=await supabase.from('alliance_clients').update(p).eq('id',a.id).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'atualizar_cliente','cliente',a.id,{arquivado:!!data.arquivado_em});return toolText({cliente:{...data,id:String(data.id),link:fullLinks('cliente',String(data.id))}})})
@@ -874,35 +982,53 @@ function registerFullSystemTools(server:any,supabase:any){
   server.registerTool('ativar_ou_pausar_automacao',{description:'Ativa ou pausa automação.',inputSchema:z.object({id:z.string().uuid(),status:z.enum(['ativa','pausada'])})},async(a:any)=>{const who=await actor(supabase),{data,error}=await supabase.from('alliance_automations').update({status:a.status,atualizado_por:who.id}).eq('id',a.id).is('arquivado_em',null).select('*').maybeSingle();if(error||!data)throw new Error('Automação não encontrada.');await audit(supabase,who,'ativar_ou_pausar_automacao','automacao',a.id,{status:a.status});return toolText({automacao:{id:String(data.id),link:fullLinks('automacao',String(data.id)),status:data.status}})})
 
   server.registerTool('registrar_resultado',{
-    description:'Registra faturamento/investimento realizado com fonte de receita e/ou canal de execução.',
+    description:'Registra faturamento/investimento realizado com fonte de receita e/ou canal de execução. Resultados arquivados nunca são reaproveitados.',
     inputSchema:z.object({campanha_id:z.string(),fonte_receita:z.string().optional(),canal:z.string().optional(),data:dt,faturamento:z.number().min(0).default(0),investimento:z.number().min(0).default(0),observacoes:z.string().nullable().optional()}).refine(x=>!!x.fonte_receita||!!x.canal,{message:'Informe fonte_receita e/ou canal.'})
   },async(a:any)=>{
-    const who=await actor(supabase),c=fullCampaign(await fullCampaigns(supabase),a.campanha_id),b=await fullBrand(supabase,c.brand),canal=a.canal?fullChannelCanon(a.canal):null,fonte=a.fonte_receita?fullRevenueSourceName(a.fonte_receita):null
-    let q=supabase.from('campaign_results').select('*').eq('campaign_id',String(c.id)).eq('data',a.data);q=canal?q.eq('canal',canal):q.is('canal',null);q=fonte?q.eq('fonte_receita',fonte):q.is('fonte_receita',null)
-    const{data:old}=await q.maybeSingle(),payload:any={canal,fonte_receita:fonte,faturamento:a.faturamento,investimento:a.investimento,observacoes:a.observacoes||null,atualizado_por:who.id,origem:'mcp'};let row:any,error:any
-    if(old)({data:row,error}=await supabase.from('campaign_results').update(payload).eq('id',old.id).select('*').single())
-    else({data:row,error}=await supabase.from('campaign_results').insert({...payload,campaign_id:String(c.id),brand_id:b.id,data:a.data,criado_por:who.id}).select('*').single())
-    if(error)throw new Error(error.message);await audit(supabase,who,'registrar_resultado','resultado',row.id,{campanha_id:c.id,canal,fonte_receita:fonte})
-    return toolText({resultado:{id:String(row.id),link:fullLinks('relatorio',String(c.id)),campanha_id:c.id,fonte_receita:row.fonte_receita||null,canal:row.canal||null,data:row.data,faturamento:Number(row.faturamento),investimento:Number(row.investimento),roas:Number(row.investimento)?Number(row.faturamento)/Number(row.investimento):null}})
+    const who=await actor(supabase),c=fullCampaign(await fullCampaigns(supabase),a.campanha_id),b=await fullBrand(supabase,c.brand),canal=a.canal?fullChannelCanon(a.canal):null,fonte=a.fonte_receita?fullRevenueSourceName(a.fonte_receita):null,at=nowIso()
+    let q=supabase.from('campaign_results').select('*').eq('campaign_id',String(c.id)).eq('data',a.data).is('arquivado_em',null);q=canal?q.eq('canal',canal):q.is('canal',null);q=fonte?q.eq('fonte_receita',fonte):q.is('fonte_receita',null)
+    const{data:old}=await q.maybeSingle(),event={at,by:who.nome,authorId:who.id,origin:'mcp',text:old?'Resultado atualizado por novo registro via MCP.':'Resultado registrado via MCP.'},payload:any={canal,fonte_receita:fonte,faturamento:a.faturamento,investimento:a.investimento,observacoes:a.observacoes||null,atualizado_por:who.id,origem:'mcp'};let row:any,error:any
+    if(old)({data:row,error}=await supabase.from('campaign_results').update({...payload,historico:[event,...(Array.isArray(old.historico)?old.historico:[])]}).eq('id',old.id).select('*').single())
+    else({data:row,error}=await supabase.from('campaign_results').insert({...payload,campaign_id:String(c.id),brand_id:b.id,data:a.data,criado_por:who.id,historico:[event]}).select('*').single())
+    if(error)throw new Error(error.message);await audit(supabase,who,'registrar_resultado','resultado',row.id,{campanha_id:c.id,canal,fonte_receita:fonte});return toolText({resultado:fullResultPublic(row)})
+  })
+  server.registerTool('listar_resultados',{
+    description:'Lista resultados com filtros e paginação. Arquivados ficam fora por padrão.',
+    inputSchema:z.object({campanha_id:z.string().optional(),marca:z.string().optional(),ano:z.number().int().optional(),mes:z.number().int().min(1).max(12).optional(),canal:z.string().optional(),fonte_receita:z.string().optional(),incluir_arquivados:z.boolean().default(false),cursor:z.string().optional(),limite:z.number().int().min(1).max(200).default(50)}),annotations:{readOnlyHint:true}
+  },async(a:any)=>{
+    const filter:any={incluir_arquivados:a.incluir_arquivados};if(a.campanha_id)filter.campaign_id=String(fullCampaign(await fullCampaigns(supabase),a.campanha_id).id);if(a.marca)filter.brand_id=(await fullBrand(supabase,a.marca)).id;if(a.canal)filter.canal=fullChannelCanon(a.canal);if(a.fonte_receita)filter.fonte_receita=fullRevenueSourceName(a.fonte_receita)
+    if(a.ano&&a.mes){const mm=String(a.mes).padStart(2,'0'),last=new Date(Date.UTC(a.ano,a.mes,0)).getUTCDate();filter.inicio=a.ano+'-'+mm+'-01T00:00:00-03:00';filter.fim=a.ano+'-'+mm+'-'+String(last).padStart(2,'0')+'T23:59:59-03:00'}
+    const rows=await fullResults(supabase,filter),page=fullPage(rows,a.cursor,a.limite);return toolText({total:page.total,cursor:a.cursor||null,proximo_cursor:page.proximo_cursor,resultados:page.items.map(fullResultPublic)})
+  })
+  server.registerTool('atualizar_resultado',{
+    description:'Corrige resultado ou arquiva/desarquiva sem excluir. Registra autor, data e alteração no histórico.',
+    inputSchema:z.object({id:z.string().uuid(),data:dt.optional(),canal:z.string().nullable().optional(),fonte_receita:z.string().nullable().optional(),faturamento:z.number().min(0).optional(),investimento:z.number().min(0).optional(),observacoes:z.string().nullable().optional(),arquivado:z.boolean().optional()})
+  },async(a:any)=>{
+    const who=await actor(supabase),{data:old,error:e}=await supabase.from('campaign_results').select('*').eq('id',a.id).maybeSingle();if(e||!old)throw new Error('Resultado não encontrado.')
+    const patch:any={atualizado_por:who.id},changes:string[]=[];if(hasOwn(a,'data')){patch.data=a.data;changes.push('data')}if(hasOwn(a,'canal')){patch.canal=a.canal===null?null:fullChannelCanon(a.canal);changes.push('canal')}if(hasOwn(a,'fonte_receita')){patch.fonte_receita=a.fonte_receita===null?null:fullRevenueSourceName(a.fonte_receita);changes.push('fonte_receita')}if(hasOwn(a,'faturamento')){patch.faturamento=a.faturamento;changes.push('faturamento')}if(hasOwn(a,'investimento')){patch.investimento=a.investimento;changes.push('investimento')}if(hasOwn(a,'observacoes')){patch.observacoes=a.observacoes;changes.push('observacoes')}
+    const finalCanal=hasOwn(a,'canal')?patch.canal:old.canal,finalFonte=hasOwn(a,'fonte_receita')?patch.fonte_receita:old.fonte_receita;if(!finalCanal&&!finalFonte)throw new Error('O resultado precisa manter fonte_receita e/ou canal.')
+    if(hasOwn(a,'arquivado')){patch.arquivado_em=a.arquivado?(old.arquivado_em||nowIso()):null;patch.arquivado_por=a.arquivado?who.id:null;changes.push(a.arquivado?'arquivado':'desarquivado')}
+    const event={at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Resultado '+(changes.length?changes.join(', '):'revisado')+' via MCP.'};patch.historico=[event,...(Array.isArray(old.historico)?old.historico:[])]
+    const{data,error}=await supabase.from('campaign_results').update(patch).eq('id',a.id).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'atualizar_resultado','resultado',a.id,{campos:changes,arquivado:!!data.arquivado_em});return toolText({resultado:fullResultPublic(data)})
   })
   server.registerTool('obter_resultado_campanha',{
     description:'Obtém planejado versus realizado por fonte de receita, mantendo canal como dimensão de execução.',
-    inputSchema:z.object({campanha_id:z.string(),inicio:dt.optional(),fim:dt.optional()}),annotations:{readOnlyHint:true}
+    inputSchema:z.object({campanha_id:z.string(),inicio:dt.optional(),fim:dt.optional(),incluir_arquivados:z.boolean().default(false)}),annotations:{readOnlyHint:true}
   },async(a:any)=>{
-    const c=fullCampaign(await fullCampaigns(supabase),a.campanha_id),rows=await fullResults(supabase,{campaign_id:String(c.id),inicio:a.inicio,fim:a.fim}),agg=fullAgg(rows),plans=fullLegacyTap(c).metas_por_fonte||[]
+    const c=fullCampaign(await fullCampaigns(supabase),a.campanha_id),rows=await fullResults(supabase,{campaign_id:String(c.id),inicio:a.inicio,fim:a.fim,incluir_arquivados:a.incluir_arquivados}),agg=fullAgg(rows),plans=fullLegacyTap(c).metas_por_fonte||[]
     const names=[...new Set([...plans.map((x:any)=>x.fonte),...agg.por_fonte.map((x:any)=>x.fonte_receita)])]
     const sources=names.map((fonte:any)=>{const p=plans.find((x:any)=>norm(x.fonte)===norm(fonte))||{},rr=agg.por_fonte.find((x:any)=>norm(x.fonte_receita)===norm(fonte))||{};return{fonte_receita:fonte,meta:Number(p.meta_faturamento||0),realizado:Number(rr.faturamento||0),diferenca:Number(rr.faturamento||0)-Number(p.meta_faturamento||0),investimento_previsto:Number(p.investimento||0),investimento_realizado:Number(rr.investimento||0),roas_previsto:p.roas_alvo??(Number(p.investimento)?Number(p.meta_faturamento)/Number(p.investimento):null),roas_realizado:rr.roas??null}})
     return toolText({campanha:fullPublicCampaign(c),planejado:{meta:fullGoal(c),investimento:fullInvestment(c),roas:fullInvestment(c)?fullGoal(c)/fullInvestment(c):null},realizado:agg,diferenca_faturamento:agg.faturamento-fullGoal(c),por_fonte:sources,por_canal_realizado:agg.por_canal})
   })
-  server.registerTool('obter_resultado_mes',{description:'Obtém resultado consolidado do mês.',inputSchema:z.object({marca:z.string(),ano:z.number().int(),mes:z.number().int().min(1).max(12)}),annotations:{readOnlyHint:true}},async(a:any)=>{const b=await fullBrand(supabase,a.marca),ref=a.ano+'-'+String(a.mes).padStart(2,'0'),cs=(await fullCampaigns(supabase)).filter((c:any)=>!c.archivedAt&&norm(c.brand)===norm(b.nome)&&fullMonthRef(c)===ref),ids=new Set(cs.map((c:any)=>String(c.id))),rows=(await fullResults(supabase,{brand_id:b.id})).filter((r:any)=>ids.has(String(r.campaign_id))),agg=fullAgg(rows),meta=cs.reduce((n:number,c:any)=>n+fullGoal(c),0),inv=cs.reduce((n:number,c:any)=>n+fullInvestment(c),0);return toolText({marca:b.nome,ano:a.ano,mes:a.mes,planejado:{meta,investimento:inv,roas:inv?meta/inv:null},realizado:agg,diferenca_faturamento:agg.faturamento-meta})})
+  server.registerTool('obter_resultado_mes',{description:'Obtém resultado consolidado do mês. Arquivados ficam fora por padrão.',inputSchema:z.object({marca:z.string(),ano:z.number().int(),mes:z.number().int().min(1).max(12),incluir_arquivados:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async(a:any)=>{const b=await fullBrand(supabase,a.marca),ref=a.ano+'-'+String(a.mes).padStart(2,'0'),cs=(await fullCampaigns(supabase)).filter((c:any)=>!c.archivedAt&&norm(c.brand)===norm(b.nome)&&fullMonthRef(c)===ref),ids=new Set(cs.map((c:any)=>String(c.id))),rows=(await fullResults(supabase,{brand_id:b.id,incluir_arquivados:a.incluir_arquivados})).filter((r:any)=>ids.has(String(r.campaign_id))),agg=fullAgg(rows),meta=cs.reduce((n:number,c:any)=>n+fullGoal(c),0),inv=cs.reduce((n:number,c:any)=>n+fullInvestment(c),0);return toolText({marca:b.nome,ano:a.ano,mes:a.mes,planejado:{meta,investimento:inv,roas:inv?meta/inv:null},realizado:agg,diferenca_faturamento:agg.faturamento-meta})})
   server.registerTool('comparar_planejado_realizado',{
     description:'Compara planejado/realizado por marca, mês, campanha, fonte de receita ou canal de execução.',
-    inputSchema:z.object({marca:z.string().optional(),ano:z.number().int().optional(),mes:z.number().int().min(1).max(12).optional(),campanha_id:z.string().optional(),fonte_receita:z.string().optional(),canal:z.string().optional()}).refine(x=>!(x.fonte_receita&&x.canal),{message:'Filtre por fonte_receita ou canal, não pelos dois.'}),annotations:{readOnlyHint:true}
+    inputSchema:z.object({marca:z.string().optional(),ano:z.number().int().optional(),mes:z.number().int().min(1).max(12).optional(),campanha_id:z.string().optional(),fonte_receita:z.string().optional(),canal:z.string().optional(),incluir_arquivados:z.boolean().default(false)}).refine(x=>!(x.fonte_receita&&x.canal),{message:'Filtre por fonte_receita ou canal, não pelos dois.'}),annotations:{readOnlyHint:true}
   },async(a:any)=>{
     let cs=await fullCampaigns(supabase);if(a.marca){const b=await fullBrand(supabase,a.marca);cs=cs.filter((c:any)=>norm(c.brand)===norm(b.nome))}if(a.ano&&a.mes){const ref=a.ano+'-'+String(a.mes).padStart(2,'0');cs=cs.filter((c:any)=>fullMonthRef(c)===ref)}if(a.campanha_id)cs=[fullCampaign(cs,a.campanha_id)]
     const out=[] as any[]
     for(const c of cs.filter((x:any)=>!x.archivedAt)){
-      const fonte=a.fonte_receita?fullRevenueSourceName(a.fonte_receita):null,canal=a.canal?fullChannelCanon(a.canal):null,rows=await fullResults(supabase,{campaign_id:String(c.id),fonte_receita:fonte,canal}),agg=fullAgg(rows)
+      const fonte=a.fonte_receita?fullRevenueSourceName(a.fonte_receita):null,canal=a.canal?fullChannelCanon(a.canal):null,rows=await fullResults(supabase,{campaign_id:String(c.id),fonte_receita:fonte,canal,incluir_arquivados:a.incluir_arquivados}),agg=fullAgg(rows)
       if(fonte){const p=(fullLegacyTap(c).metas_por_fonte||[]).find((x:any)=>norm(x.fonte)===norm(fonte))||{};out.push({campanha_id:c.id,campanha:c.name,fonte_receita:fonte,meta:Number(p.meta_faturamento||0),realizado:agg.faturamento,diferenca:agg.faturamento-Number(p.meta_faturamento||0),investimento_previsto:Number(p.investimento||0),investimento_realizado:agg.investimento,roas_previsto:p.roas_alvo??(Number(p.investimento)?Number(p.meta_faturamento)/Number(p.investimento):null),roas_realizado:agg.roas})}
       else if(canal)out.push({campanha_id:c.id,campanha:c.name,canal,realizado:agg.faturamento,investimento_realizado:agg.investimento,roas_realizado:agg.roas,observacao:'Planejamento financeiro é por fonte de receita; canal é dimensão de execução.'})
       else out.push({campanha_id:c.id,campanha:c.name,marca:c.brand,meta:fullGoal(c),realizado:agg.faturamento,diferenca:agg.faturamento-fullGoal(c),investimento_previsto:fullInvestment(c),investimento_realizado:agg.investimento,roas_previsto:fullInvestment(c)?fullGoal(c)/fullInvestment(c):null,roas_realizado:agg.roas})
@@ -1001,26 +1127,26 @@ function registerFullSystemTools(server:any,supabase:any){
     return toolText({listas_invalidas:invalidLists,tarefas_invalidas:invalidTasks,nos_invalidos:invalidNodes})
   })
   server.registerTool('auditar_taps_legados',{
-    description:'Lista TAPs legados e percentuais suspeitos sem alterar dados.',
+    description:'Audita TAPs/campanhas legadas: percentuais suspeitos, tipo/status, mês, SKUs, fases e responsáveis do cronograma.',
     inputSchema:z.object({}),annotations:{readOnlyHint:true}
   },async()=>{
-    const cs=await fullCampaigns(supabase),suspeitos:any[]=[],legados:any[]=[]
-    for(const c of cs){if(Array.isArray(c.tap)&&!c.tapStructured)legados.push({campanha_id:String(c.id),campanha:c.name});for(const x of fullLegacyTap(c).aumento_ticket||[])if(typeof x.desconto==='number'&&x.desconto>100)suspeitos.push({campanha_id:String(c.id),campanha:c.name,estrategia:x.estrategia,desconto:x.desconto})}
-    return toolText({taps_legados:legados,valores_suspeitos:suspeitos})
+    const cs=await fullCampaigns(supabase),suspeitos:any[]=[],legados:any[]=[],desalinhamentos:any[]=[],{data:months}=await supabase.from('planning_months').select('id,brand_id,ano,mes').is('arquivado_em',null),brands=await listBrands(supabase)
+    for(const c of cs){if(Array.isArray(c.tap)&&!c.tapStructured)legados.push({campanha_id:String(c.id),campanha:c.name});for(const x of fullLegacyTap(c).aumento_ticket||[])if(typeof x.desconto==='number'&&x.desconto>100)suspeitos.push({campanha_id:String(c.id),campanha:c.name,estrategia:x.estrategia,desconto:x.desconto});const issues:string[]=[]
+      try{if(c.type!==fullCampaignType(c.type))issues.push('tipo não canônico: '+String(c.type))}catch{issues.push('tipo inválido: '+String(c.type))}try{if(c.status!==fullCampaignStatus(c.status))issues.push('status não canônico: '+String(c.status))}catch{issues.push('status inválido: '+String(c.status))}
+      const ref=fullMonthRef(c),brand=brands.find((b:any)=>norm(b.nome)===norm(c.brand)),expected=brand&&ref?(months||[]).find((m:any)=>String(m.brand_id)===String(brand.id)&&ref===m.ano+'-'+String(m.mes).padStart(2,'0')):null;if(expected&&String(c.monthId||'')!==String(expected.id))issues.push('mês não vinculado ao registro canônico')
+      const tap=fullLegacyTap(c),missingSku=(tap.oferta?.produtos||[]).filter((p:any)=>!String(p.sku||'').trim()).length;if(missingSku)issues.push(missingSku+' produto(s) sem SKU');const legacyDates=(tap.fases||[]).filter((p:any)=>p.data_legada&&!p.data).length;if(legacyDates)issues.push(legacyDates+' fase(s) com data legada não convertida');const unstructured=(tap.cronograma||[]).filter((x:any)=>x.quem_faz&&!(x.responsaveis||[]).length).length;if(unstructured)issues.push(unstructured+' item(ns) de cronograma sem responsáveis estruturados');if(issues.length)desalinhamentos.push({campanha_id:String(c.id),campanha:c.name,problemas:issues})
+    }return toolText({taps_legados:legados,valores_suspeitos:suspeitos,desalinhamentos})
   })
   server.registerTool('exportar_mes',{
-    description:'Exporta o mês inteiro da marca, separando listas/tarefas de campanhas das avulsas.',
-    inputSchema:z.object({marca:z.string(),ano:z.number().int(),mes:z.number().int().min(1).max(12),incluir_arquivados:z.boolean().default(false)}),annotations:{readOnlyHint:true}
+    description:'Exporta o mês paginado. Use secoes e modo resumo para evitar respostas grandes. Tarefas aparecem apenas no bloco tarefas.',
+    inputSchema:z.object({marca:z.string(),ano:z.number().int(),mes:z.number().int().min(1).max(12),secoes:z.array(z.enum(['mes','campanhas','taps','listas','tarefas','entregas','resultados'])).default(['mes','campanhas','taps','listas','tarefas','entregas','resultados']),modo:z.enum(['completo','resumo']).default('completo'),cursor:z.string().optional(),limite:z.number().int().min(1).max(100).default(25),incluir_arquivados:z.boolean().default(false)}),annotations:{readOnlyHint:true}
   },async(a:any)=>{
-    const b=await fullBrand(supabase,a.marca),ref=a.ano+'-'+String(a.mes).padStart(2,'0'),[cs0,ts0,ls,ds,mr,rs]=await Promise.all([fullCampaigns(supabase),readState(supabase,TASKS_KEY),buildLists(supabase,true),fullDeliveries(supabase),supabase.from('planning_months').select('*').eq('brand_id',b.id).eq('ano',a.ano).eq('mes',a.mes).maybeSingle(),supabase.from('campaign_results').select('*').eq('brand_id',b.id)])
-    const cs=cs0.filter((c:any)=>norm(c.brand)===norm(b.nome)&&fullMonthRef(c)===ref&&(a.incluir_arquivados||!c.archivedAt)),ids=new Set(cs.map((c:any)=>String(c.id))),byList=new Map(ls.map((l:any)=>[String(l.id),l]))
-    const brandTasks=ts0.filter((t:any)=>norm(t.brand)===norm(b.nome)&&(a.incluir_arquivados||!t.archivedAt))
-    const monthTasks=brandTasks.filter((t:any)=>ids.has(String(taskCampaignFromLists(t,byList)||''))||taskMonthRef(t,byList)===ref),campaignTasks=monthTasks.filter((t:any)=>ids.has(String(taskCampaignFromLists(t,byList)||''))),looseTasks=monthTasks.filter((t:any)=>!ids.has(String(taskCampaignFromLists(t,byList)||'')))
-    const taskIds=new Set(monthTasks.map((t:any)=>String(t.id))),relevantListIds=new Set(monthTasks.map((t:any)=>String(t.listId||'')).filter(Boolean))
-    const monthLists=ls.filter((l:any)=>norm(l.marca)===norm(b.nome)&&(ids.has(String(l.campanha_id||''))||relevantListIds.has(String(l.id))||String(l.criado_em||'').slice(0,7)===ref)&&(a.incluir_arquivados||!l.arquivada)),campaignLists=monthLists.filter((l:any)=>ids.has(String(l.campanha_id||''))),looseLists=monthLists.filter((l:any)=>!ids.has(String(l.campanha_id||'')))
-    return toolText({versao:2,gerado_em:nowIso(),marca:b.nome,ano:a.ano,mes:a.mes,mes_dados:mr.data?await fullMonthPayload(supabase,mr.data):null,campanhas:cs.map((c:any)=>({...fullPublicCampaign(c),tap:fullTapTotals(c),listas:campaignLists.filter((l:any)=>String(l.campanha_id||'')===String(c.id)),tarefas:campaignTasks.filter((t:any)=>String(taskCampaignFromLists(t,byList)||'')===String(c.id)).map(publicTask),resultados:(rs.data||[]).filter((r:any)=>String(r.campaign_id)===String(c.id))})),listas:monthLists,tarefas:monthTasks.map(publicTask),listas_avulsas:looseLists,tarefas_avulsas:looseTasks.map(publicTask),entregas:ds.filter((d:any)=>taskIds.has(String(d.sourceTaskId))||taskIds.has(String(d.targetTaskId))).map((d:any)=>fullDelivery(d,monthTasks,cs))})
+    const b=await fullBrand(supabase,a.marca),ref=a.ano+'-'+String(a.mes).padStart(2,'0'),selected=new Set(a.secoes),offset=fullCursorOffset(a.cursor),[cs0,ts0,ls,ds,mr,rs]=await Promise.all([fullCampaigns(supabase),readState(supabase,TASKS_KEY),buildLists(supabase,true),fullDeliveries(supabase),supabase.from('planning_months').select('*').eq('brand_id',b.id).eq('ano',a.ano).eq('mes',a.mes).maybeSingle(),fullResults(supabase,{brand_id:b.id,incluir_arquivados:a.incluir_arquivados})])
+    const cs=cs0.filter((c:any)=>norm(c.brand)===norm(b.nome)&&fullMonthRef(c)===ref&&(a.incluir_arquivados||!c.archivedAt)),ids=new Set(cs.map((c:any)=>String(c.id))),byList=new Map(ls.map((l:any)=>[String(l.id),l])),brandTasks=ts0.filter((t:any)=>norm(t.brand)===norm(b.nome)&&(a.incluir_arquivados||!t.archivedAt)),monthTasks=brandTasks.filter((t:any)=>ids.has(String(taskCampaignFromLists(t,byList)||''))||taskMonthRef(t,byList)===ref),taskIds=new Set(monthTasks.map((t:any)=>String(t.id))),relevantListIds=new Set(monthTasks.map((t:any)=>String(t.listId||'')).filter(Boolean)),monthLists=ls.filter((l:any)=>norm(l.marca)===norm(b.nome)&&(ids.has(String(l.campanha_id||''))||relevantListIds.has(String(l.id))||String(l.criado_em||'').slice(0,7)===ref)&&(a.incluir_arquivados||!l.arquivada)),deliveries=ds.filter((d:any)=>taskIds.has(String(d.sourceTaskId))||taskIds.has(String(d.targetTaskId))),results=rs.filter((r:any)=>ids.has(String(r.campaign_id)))
+    const out:any={versao:3,gerado_em:nowIso(),marca:b.nome,ano:a.ano,mes:a.mes,modo:a.modo,secoes:a.secoes,paginacao:{cursor:a.cursor||null,limite:a.limite,offset,proximo_cursor:null,totais:{}}};let maxTotal=0
+    const addPage=(key:string,rows:any[],map:(x:any)=>any=x=>x)=>{out.paginacao.totais[key]=rows.length;maxTotal=Math.max(maxTotal,rows.length);if(selected.has(key as any))out[key]=rows.slice(offset,offset+a.limite).map(map)}
+    if(selected.has('mes'))out.mes=mr.data?await fullMonthPayload(supabase,mr.data):null;addPage('campanhas',cs,fullPublicCampaign);addPage('taps',cs,(c:any)=>({campanha_id:String(c.id),campanha:c.name,tap:fullTapForMode(c,a.modo),avisos:fullCampaignWarnings(c)}));addPage('listas',monthLists);addPage('tarefas',monthTasks,(t:any)=>{const cid=taskCampaignFromLists(t,byList);return a.modo==='resumo'?fullTaskSummary(t,cid):({...publicTask(t),campanha_id:cid})});addPage('entregas',deliveries,(d:any)=>fullDelivery(d,monthTasks,cs));addPage('resultados',results,fullResultPublic);if(offset+a.limite<maxTotal)out.paginacao.proximo_cursor=fullCursor(offset+a.limite);return toolText(out)
   })
-
 }
 
 
@@ -1224,46 +1350,21 @@ const protectedHandler = withOAuthProtectedResource(
 
       
       server.registerTool('buscar_tarefas', {
-        description: 'Busca tarefas visíveis ao usuário. Por padrão ignora arquivadas. Retorna prazo completo com hora/fuso quando existe.',
-        inputSchema: z.object({
-          texto:z.string().min(1).optional(),
-          lista:z.string().min(1).optional(),
-          responsavel:z.string().min(1).optional(),
-          status:z.string().min(1).optional(),
-          prazo_de:dt.optional(),
-          prazo_ate:dt.optional(),
-          incluir_arquivadas:z.boolean().default(false),
-          limite:z.number().int().min(1).max(200).default(50),
-        }),
+        description:'Busca tarefas visíveis ao usuário com cursor/limite. Por padrão ignora arquivadas.',
+        inputSchema:z.object({texto:z.string().min(1).optional(),lista:z.string().min(1).optional(),responsavel:z.string().min(1).optional(),status:z.string().min(1).optional(),prazo_de:dt.optional(),prazo_ate:dt.optional(),incluir_arquivadas:z.boolean().default(false),cursor:z.string().optional(),limite:z.number().int().min(1).max(200).default(50)}),
         annotations:{readOnlyHint:true},
-      }, async (args:AnyRow) => {
+      },async(args:AnyRow)=>{
         let tasks=await readState(supabase,TASKS_KEY)
-        if(!args.incluir_arquivadas) tasks=tasks.filter(t=>!t.archivedAt)
-        if(args.texto){
-          const n=norm(args.texto)
-          tasks=tasks.filter(t=>norm(t.title).includes(n)||norm(t.description).includes(n)||norm(t.blockedReason).includes(n))
-        }
-        if(args.lista){
-          const l=await resolveList(supabase,args.lista,true)
-          tasks=tasks.filter(t=>String(t.listId||'')===String(l.id)||(!t.listId&&norm(t.brand)===norm(l.marca)&&norm(t.project||'Operação')===norm(l.nome)))
-        }
-        if(args.responsavel){
-          const n=norm(args.responsavel)
-          const members=await memberDirectory(supabase)
-          const m=members.find((x:AnyRow)=>x.id===args.responsavel||norm(x.nome)===n||norm(x.email)===n)
-          if(!m) throw new Error('Responsável não encontrado.')
-          tasks=tasks.filter(t=>(Array.isArray(t.assigneeIds)&&t.assigneeIds.includes(m.id))||(t.assignees||[]).some((a:string)=>norm(a)===norm(m.nome)))
-        }
-        if(args.status){
-          const st=statusCanon(args.status)
-          tasks=tasks.filter(t=>t.status===st)
-        }
-        if(args.prazo_de) tasks=tasks.filter(t=>dueValue(t)&&new Date(dueValue(t)).getTime()>=new Date(args.prazo_de).getTime())
-        if(args.prazo_ate) tasks=tasks.filter(t=>dueValue(t)&&new Date(dueValue(t)).getTime()<=new Date(args.prazo_ate).getTime())
+        if(!args.incluir_arquivadas)tasks=tasks.filter(t=>!t.archivedAt)
+        if(args.texto){const n=norm(args.texto);tasks=tasks.filter(t=>norm(t.title).includes(n)||norm(t.description).includes(n)||norm(t.blockedReason).includes(n))}
+        if(args.lista){const l=await resolveList(supabase,args.lista,true);tasks=tasks.filter(t=>String(t.listId||'')===String(l.id)||(!t.listId&&norm(t.brand)===norm(l.marca)&&norm(t.project||'Operação')===norm(l.nome)))}
+        if(args.responsavel){const n=norm(args.responsavel),members=await memberDirectory(supabase),m=members.find((x:AnyRow)=>x.id===args.responsavel||norm(x.nome)===n||norm(x.email)===n);if(!m)throw new Error('Responsável não encontrado.');tasks=tasks.filter(t=>(Array.isArray(t.assigneeIds)&&t.assigneeIds.includes(m.id))||(t.assignees||[]).some((a:string)=>norm(a)===norm(m.nome)))}
+        if(args.status){const st=statusCanon(args.status);tasks=tasks.filter(t=>t.status===st)}
+        if(args.prazo_de)tasks=tasks.filter(t=>dueValue(t)&&new Date(dueValue(t)).getTime()>=new Date(args.prazo_de).getTime())
+        if(args.prazo_ate)tasks=tasks.filter(t=>dueValue(t)&&new Date(dueValue(t)).getTime()<=new Date(args.prazo_ate).getTime())
         tasks.sort((a,b)=>String(dueValue(a)||'9999').localeCompare(String(dueValue(b)||'9999')))
-        return toolText({total:tasks.length,tarefas:tasks.slice(0,args.limite).map(publicTask)})
+        const page=fullPage(tasks,args.cursor,args.limite);return toolText({total:page.total,cursor:args.cursor||null,proximo_cursor:page.proximo_cursor,tarefas:page.items.map(publicTask)})
       })
-
       server.registerTool('obter_tarefa', {
         description: 'Obtém uma tarefa com subtarefas, comentários, checklist, dependências, entregas, recorrência, bloqueio, arquivamento e histórico.',
         inputSchema:z.object({id:z.string().min(1)}),
@@ -1523,7 +1624,7 @@ Deno.serve(async (req: Request) => {
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
       oauth_discovery_status,
-      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
+      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
       deletion_tool: false,
     })
   }
