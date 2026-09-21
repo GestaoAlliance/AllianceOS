@@ -1608,16 +1608,17 @@ const protectedHandler = withOAuthProtectedResource(
         description:'OBSOLETA: compatibilidade com integrações antigas. Registra texto na tarefa e espelha a entrega na coleção oficial da tela Entregas. Prefira registrar_entrega.',
         inputSchema:z.object({id:z.string().min(1),entrega:z.string().min(1).max(10000)})
       },async({id,entrega}:{id:string;entrega:string})=>{
-        const tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,id),who=await actor(supabase),ts=nowIso(),deliveryId='mcp-delivery-'+crypto.randomUUID()
+        const [tasks,campaigns,lists]=await Promise.all([readState(supabase,TASKS_KEY),fullCampaigns(supabase),buildLists(supabase,true)]),t=findTask(tasks,id),who=await actor(supabase),ts=nowIso(),deliveryId='mcp-delivery-'+crypto.randomUUID(),byList=new Map(lists.map((l:any)=>[String(l.id),l])),campaignId=taskCampaignFromLists(t,byList)
+        if(campaignId)exactCampaign(campaigns,campaignId)
         t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[]
         const item={id:deliveryId,deliveryId,text:entrega.trim(),note:entrega.trim(),at:ts,author:who.nome,authorId:who.id,source:'mcp',status:'enviado',files:[],links:[]};t.deliveries.unshift(item)
         t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega registrada pela ferramenta legada via MCP por '+who.nome+'.'})
         const ds=await fullDeliveries(supabase)
-        if(!ds.some((d:any)=>String(d.id)===deliveryId))ds.unshift({id:deliveryId,sourceTaskId:String(t.id),targetTaskId:'',title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:who.nome,to:(t.assignees||[])[0]||'Equipe',note:entrega.trim(),status:'enviado',createdAt:ts,updatedAt:ts,version:1,completeTask:false,files:[],links:[],events:[{at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega textual legada registrada e espelhada na coleção oficial.'}],origin:'mcp'})
+        if(!ds.some((d:any)=>String(d.id)===deliveryId))ds.unshift({id:deliveryId,sourceTaskId:String(t.id),targetTaskId:'',campaignId:campaignId||null,title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:who.nome,to:(t.assignees||[])[0]||'Equipe',note:entrega.trim(),status:'enviado',createdAt:ts,updatedAt:ts,version:1,completeTask:false,files:[],links:[],events:[{at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega textual legada registrada e espelhada na coleção oficial.'}],origin:'mcp'})
         await writeTasks(supabase,tasks);await fullSaveDeliveries(supabase,ds)
         await notifyUsers(supabase,who,t.assigneeIds||[],'task_delivery','Entrega registrada: '+t.title,entrega.trim().slice(0,500),String(t.id),null)
-        await audit(supabase,who,'registrar_entrega_texto_legado','entrega',deliveryId,{tarefa_id:t.id,obsoleta:true})
-        return toolText({tarefa:publicTask(t),entrega:fullDelivery(ds.find((d:any)=>String(d.id)===deliveryId),tasks,await fullCampaigns(supabase)),aviso:'Ferramenta obsoleta; use registrar_entrega.'})
+        await audit(supabase,who,'registrar_entrega_texto_legado','entrega',deliveryId,{tarefa_id:t.id,campanha_id:campaignId||null,obsoleta:true})
+        return toolText({tarefa:publicTask(t),entrega:fullDelivery(ds.find((d:any)=>String(d.id)===deliveryId),tasks,campaigns),aviso:'Ferramenta obsoleta; use registrar_entrega.'})
       })
       server.registerTool('comentar_tarefa', {
         description: 'Adiciona comentário com autoria do usuário OAuth e origem MCP. Notifica os responsáveis reais da tarefa.',
