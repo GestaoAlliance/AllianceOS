@@ -56,31 +56,38 @@
   function dashboardPreview(){
     return ''+
       '<div class="showcase-device">'+
-        '<div class="showcase-topbar">'+
-          '<div class="showcase-brand-mini"><span>✳</span></div>'+
-          '<div class="showcase-search">⌕ &nbsp; Buscar tarefas, campanhas...</div>'+
-          '<div class="showcase-people"><b>VG</b><b>PL</b><b>SN</b><strong>+2</strong></div>'+
-        '</div>'+
-        '<div class="showcase-body">'+
-          '<aside class="showcase-nav">'+
-            '<button class="active">▦</button><button>✉</button><button>♙</button><button>▥</button><button>＋</button>'+
-          '</aside>'+
-          '<section class="showcase-content">'+
-            '<small>👋 Bom dia, equipe</small><h3>Visão geral</h3>'+
-            '<div class="showcase-kpis">'+
-              '<article><span>Tarefas abertas</span><b>24</b><em>↑ 12%</em></article>'+
-              '<article><span>Campanhas</span><b>8</b><em>↑ 33%</em></article>'+
-              '<article><span>Entregas</span><b>16</b><em>↑ 28%</em></article>'+
+        '<aside class="preview-sidebar">'+
+          '<div class="preview-logo"><span>✱</span><strong>AllianceOS</strong></div>'+
+          '<nav class="preview-nav">'+
+            '<div><i>⌂</i><span>Início</span></div>'+
+            '<div class="active"><i>✓</i><span>Tarefas</span></div>'+
+            '<div><i>◇</i><span>Campanhas</span></div>'+
+            '<div><i>□</i><span>Entregas</span></div>'+
+            '<div><i>⚙</i><span>Automações</span></div>'+
+          '</nav>'+
+          '<div class="preview-workspace"><i>♛</i><span><b>Botanika</b><small>6 membros</small></span><em>⌄</em></div>'+
+        '</aside>'+
+        '<section class="preview-main">'+
+          '<div class="preview-toolbar">'+
+            '<div class="preview-search">⌕ <span>Buscar tarefas...</span></div>'+
+            '<div class="preview-tools"><b>◌</b><div class="preview-me">VG</div></div>'+
+          '</div>'+
+          '<div class="preview-page">'+
+            '<div class="preview-page-head"><div><small>OPERAÇÃO</small><h3>Tarefas</h3></div><button>＋ Nova tarefa</button></div>'+
+            '<div class="preview-summary">'+
+              '<article><span>Para hoje</span><b>08</b><small>2 em revisão</small></article>'+
+              '<article><span>Em andamento</span><b>12</b><small>5 responsáveis</small></article>'+
+              '<article><span>Concluídas</span><b>31</b><small>esta semana</small></article>'+
             '</div>'+
-            '<div class="showcase-chart">'+
-              '<div class="chart-head"><b>Produção do time</b><span>Últimos 6 meses</span></div>'+
-              '<div class="bars">'+
-                '<i style="height:36%"></i><i style="height:50%"></i><i style="height:67%"></i><i style="height:43%"></i><i style="height:73%"></i><i style="height:59%"></i>'+
-              '</div>'+
-              '<div class="months"><span>Jan</span><span>Fev</span><span>Mar</span><span>Abr</span><span>Mai</span><span>Jun</span></div>'+
+            '<div class="preview-list-card">'+
+              '<div class="preview-list-head"><b>Execução da campanha</b><span>3 de 5 concluídas</span></div>'+
+              '<div class="preview-progress"><i></i></div>'+
+              '<div class="preview-task-row"><span class="preview-check done">✓</span><div><b>Revisar criativos da campanha</b><small>Campanha Dia D</small></div><span class="preview-status review">Em revisão</span><span class="preview-avatar">PL</span></div>'+
+              '<div class="preview-task-row"><span class="preview-check"></span><div><b>Subir anúncios aprovados</b><small>Mídia paga</small></div><span class="preview-status doing">Fazendo</span><span class="preview-avatar">SN</span></div>'+
+              '<div class="preview-task-row"><span class="preview-check"></span><div><b>Conferir entrega da landing page</b><small>Revita</small></div><span class="preview-status todo">A fazer</span><span class="preview-avatar">IN</span></div>'+
             '</div>'+
-          '</section>'+
-        '</div>'+
+          '</div>'+
+        '</section>'+
       '</div>';
   }
 
@@ -90,9 +97,9 @@
         '<div class="showcase-grid"></div>'+
         '<div class="showcase-shape shape-a"></div><div class="showcase-shape shape-b"></div>'+
         '<div class="showcase-copy">'+
-          '<p class="showcase-quote">“O AllianceOS deixa a operação inteira clara — tarefas, campanhas, entregas e responsáveis em um só lugar.”</p>'+
+          '<p class="showcase-quote">“Bem-vindo ao time. O AllianceOS foi criado para deixar nossa operação organizada, clara e com todo mundo na mesma página.”</p>'+
           '<div class="showcase-person">'+
-            '<div class="showcase-avatar">VG</div>'+
+            '<img class="showcase-avatar" src="https://lpnyrzsdiyzjnhovpduk.supabase.co/storage/v1/object/public/profile-avatars/395ed61f-dde7-4fb6-a6da-ea5301304765/avatar?v=1789839612699" alt="Vitor Gutierrez">'+
             '<div><strong>Vitor Gutierrez</strong><span>Gestor de operações</span></div>'+
           '</div>'+
         '</div>'+
