@@ -11,7 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const TOOL_SCHEMA_VERSION = '2026-09-21.6'
+const TOOL_SCHEMA_VERSION = '2026-09-21.7'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -1430,7 +1430,6 @@ function registerFullSystemTools(server:any,supabase:any){
     for(let i=0;i<inputs.length;i++){
       const x=inputs[i],l=await resolveList(supabase,x.lista),ass=await resolveAssignees(supabase,x.responsaveis),st=statusCanon(x.status)||'a fazer'
       if(st==='bloqueado'&&!String(x.motivo_bloqueio||'').trim())throw new Error('bloqueado exige motivo.')
-      if(x.prazo&&isPastDueValue(x.prazo)&&!x.confirmar_prazo_passado)throw new Error('Prazo no passado no item '+String(i+1)+'. Use confirmar_prazo_passado: true se for intencional.')
       let campaignId:any=l.campanha_id||null,campaignSource='list'
       if(hasOwn(x,'campanha_id')){campaignId=x.campanha_id===null?null:String((await exactCampaignForBrand(supabase,x.campanha_id,l.marca)).id);campaignSource='direct'}
       const id='mcp-'+Date.now()+'-'+i+'-'+crypto.randomUUID().slice(0,5)
@@ -1453,8 +1452,9 @@ function registerFullSystemTools(server:any,supabase:any){
     for(const t of created)for(const d of t.dependencies||[])if(hasDependencyPath(ts,String(d),String(t.id)))throw new Error('O lote criaria um ciclo de dependências envolvendo "'+t.title+'".')
     await writeTasks(supabase,ts)
     for(const t of created)await notifyUsers(supabase,who,t.assigneeIds||[],'task_assigned','Nova tarefa atribuída',t.title,String(t.id),'assigned:'+String(t.id))
-    await audit(supabase,who,'criar_tarefas_em_lote','tarefa_lote','batch-'+Date.now(),{quantidade:created.length})
-    return toolText({quantidade:created.length,tarefas:created.map(publicTask)})
+    const avisos=created.map(t=>({id:String(t.id),avisos:taskDeadlineWarnings(t,ts)})).filter(x=>x.avisos.length)
+    await audit(supabase,who,'criar_tarefas_em_lote','tarefa_lote','batch-'+Date.now(),{quantidade:created.length,avisos})
+    return toolText({quantidade:created.length,tarefas:created.map(publicTask),avisos})
   })
   server.registerTool('atualizar_tarefas_em_lote',{
     description:'Atualiza até 200 tarefas. Cada item altera somente campos presentes nele; nenhum valor é herdado entre itens.',
@@ -1466,7 +1466,7 @@ function registerFullSystemTools(server:any,supabase:any){
       if(hasOwn(x,'nome'))t.title=String(x.nome).trim()
       if(hasOwn(x,'descricao_markdown'))t.description=x.descricao_markdown
       if(hasOwn(x,'responsaveis')){const rr=await resolveAssignees(supabase,x.responsaveis);t.assignees=[...(rr?.names||[])];t.assigneeIds=[...(rr?.ids||[])]}
-      if(hasOwn(x,'prazo')){if(x.prazo&&isPastDueValue(x.prazo)&&!x.confirmar_prazo_passado)throw new Error('Prazo no passado em '+t.title+'. Use confirmar_prazo_passado: true.');t.dueAt=x.prazo;t.due=x.prazo?String(x.prazo).slice(0,10):null}
+      if(hasOwn(x,'prazo')){t.dueAt=x.prazo;t.due=x.prazo?String(x.prazo).slice(0,10):null}
       if(hasOwn(x,'prioridade'))t.priority=priorityCanon(x.prioridade)
       if(hasOwn(x,'canal'))t.channel=x.canal===null?null:fullChannelCanon(x.canal)
       if(hasOwn(x,'lista')){const l=await resolveList(supabase,x.lista);if(t.parentTaskId&&String(t.listId||'')!==String(l.id))throw new Error('Subtarefa não pode mudar de lista em lote; desvincule primeiro.');const target=hasOwn(x,'campanha_id')?x.campanha_id:(l.campanha_id||null);if((norm(t.brand)!==norm(l.marca)||String(t.campaignId||'')!==String(target||''))&&!x.confirmar_mudanca)throw new Error('Mudança de lista altera marca/campanha em '+t.title+'. Use confirmar_mudanca: true.');t.brand=l.marca;t.brands=[l.marca];t.project=l.nome;t.listId=l.id;if(!hasOwn(x,'campanha_id')){t.campaignId=l.campanha_id||null;t.campaignSource='list'}}
@@ -1481,7 +1481,8 @@ function registerFullSystemTools(server:any,supabase:any){
       if(hasOwn(x,'arquivada')){if(x.arquivada&&taskChildren(ts,t.id).some((c:any)=>!c.archivedAt))throw new Error('Não é permitido arquivar mãe com subtarefa ativa em lote; use atualizar_tarefa com a escolha para as filhas.');t.archivedAt=x.arquivada?(t.archivedAt||nowIso()):null;t.archivedBy=x.arquivada?who.id:null}
       recordTaskChanges(t,before,who);out.push(publicTask(t))
     }
-    await writeTasks(supabase,ts);await audit(supabase,who,'atualizar_tarefas_em_lote','tarefa_lote','batch-'+Date.now(),{quantidade:out.length});return toolText({quantidade:out.length,tarefas:out})
+    const avisos=out.map(t=>({id:String(t.id),avisos:taskDeadlineWarnings(findTask(ts,t.id),ts)})).filter(x=>x.avisos.length)
+    await writeTasks(supabase,ts);await audit(supabase,who,'atualizar_tarefas_em_lote','tarefa_lote','batch-'+Date.now(),{quantidade:out.length,avisos});return toolText({quantidade:out.length,tarefas:out,avisos})
   })
   server.registerTool('busca_global',{
     description:'Busca por texto em tarefas, campanhas, listas e entregas, incluindo tags, anexos e observações do TAP.',
@@ -1835,7 +1836,7 @@ const protectedHandler = withOAuthProtectedResource(
 
       
       server.registerTool('criar_tarefa',{
-        description:'Cria tarefa/subtarefa. A subtarefa deve permanecer na lista/marca/campanha da mãe. Dependências entre marcas são recusadas. Prazo no passado exige confirmação.',
+        description:'Cria tarefa/subtarefa. A subtarefa deve permanecer na lista/marca/campanha da mãe. Dependências entre marcas são recusadas. Prazo no passado gera aviso e não bloqueia a gravação.',
         inputSchema:z.object({
           nome:z.string().min(1).max(150),descricao_markdown:z.string().max(50000).default(''),lista:z.string().min(1),campanha_id:z.string().nullable().optional(),
           responsaveis:z.array(z.string().min(1)).default([]),prazo:dt.optional(),confirmar_prazo_passado:z.boolean().default(false),prioridade:z.string().default('normal'),status:z.string().optional(),motivo_bloqueio:z.string().max(500).nullable().optional(),
@@ -1849,7 +1850,6 @@ const protectedHandler = withOAuthProtectedResource(
         if(parent&&parent.listId&&String(parent.listId)!==String(l.id))throw new Error('A subtarefa precisa usar a mesma lista da tarefa mãe.')
         const deps=(args.dependencias||[]).map((id:string)=>findTask(tasks,id))
         if(deps.some((d:AnyRow)=>!taskHasBrand(d,l.marca)))throw new Error('Dependência entre marcas diferentes não é permitida.')
-        if(args.prazo&&isPastDueValue(args.prazo)&&!args.confirmar_prazo_passado)throw new Error('O prazo está no passado. Reenvie com confirmar_prazo_passado: true se isso for intencional.')
         const st=statusCanon(args.status||'a fazer')||'a fazer';if(st==='bloqueado'&&!String(args.motivo_bloqueio||'').trim())throw new Error('Status bloqueado exige motivo_bloqueio.')
         let campaignId:any=l.campanha_id||null,campaignSource='list'
         if(hasOwn(args,'campanha_id')){campaignId=args.campanha_id===null?null:String((await exactCampaignForBrand(supabase,args.campanha_id,l.marca)).id);campaignSource='direct'}
@@ -1869,7 +1869,7 @@ const protectedHandler = withOAuthProtectedResource(
         return toolText({tarefa:publicTask(t),avisos})
       })
       server.registerTool('atualizar_tarefa',{
-        description:'Atualiza somente os campos enviados. Preserva campos ausentes; protege hierarquia, marca/campanha, prazos e arquivamento de subtarefas.',
+        description:'Atualiza somente os campos enviados. Preserva campos ausentes; protege hierarquia e marca/campanha; incoerências de prazo geram avisos sem bloquear a gravação.',
         inputSchema:z.object({
           id:z.string().min(1),nome:z.string().min(1).max(150).optional(),descricao_markdown:z.string().max(50000).optional(),lista:z.string().min(1).optional(),campanha_id:z.string().nullable().optional(),
           confirmar_mudanca:z.boolean().default(false),confirmar_prazo_passado:z.boolean().default(false),concluir_subtarefas:z.boolean().default(false),filhas:z.enum(['arquivar','desvincular']).optional(),
@@ -1910,7 +1910,6 @@ const protectedHandler = withOAuthProtectedResource(
         if(hasOwn(args,'descricao_markdown'))t.description=args.descricao_markdown
         if(hasOwn(args,'responsaveis')){const a=await resolveAssignees(supabase,args.responsaveis);t.assignees=[...(a?.names||[])];t.assigneeIds=[...(a?.ids||[])]}
         if(hasOwn(args,'prazo')){
-          if(args.prazo&&isPastDueValue(args.prazo)&&!args.confirmar_prazo_passado)throw new Error('O prazo está no passado. Reenvie com confirmar_prazo_passado: true se isso for intencional.')
           t.dueAt=args.prazo;t.due=args.prazo?String(args.prazo).slice(0,10):null
         }
         if(hasOwn(args,'prioridade'))t.priority=priorityCanon(args.prioridade)
