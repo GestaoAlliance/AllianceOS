@@ -74,6 +74,15 @@ async function main() {
         }
 
         if (ent.name === 'base.html') {
+          // AllianceOS: nunca persistir o rótulo visual "Agora". Datas salvas são ISO;
+          // rótulos relativos pertencem somente à renderização.
+          s = s.replaceAll("at:'Agora'", "at:new Date().toISOString()");
+          s = s.replaceAll('at:"Agora"', 'at:new Date().toISOString()');
+          const oldNowLabel = "  function nowLabel(){return new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date()).replace('.','')}";
+          if (s.includes(oldNowLabel)) s = s.replace(oldNowLabel, "  function nowLabel(){return new Date().toISOString()}");
+          // AllianceOS: coleção oficial de Entregas primeiro; a tarefa é somente um espelho.
+          s = s.replace("deliveries.push(d);if(complete)", "deliveries.push(d);persistDeliveries();if(complete)");
+
           // AllianceOS: campanhas podem vir do MCP/Supabase com campos opcionais.
           // Normaliza os registros antes de renderizar para que a listagem e o
           // workspace individual nunca quebrem por owner/channels/etc ausentes.

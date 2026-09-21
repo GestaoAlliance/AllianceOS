@@ -56,7 +56,7 @@
   }
 
   function idsForNames(names=[]){
-    return names.map(name=>state.members.find(m=>m.tipo==='usuario'&&norm(m.nome)===norm(name))?.id).filter(Boolean);
+    return names.map(name=>state.members.find(m=>m.tipo==='usuario'&&m.atribuivel!==false&&norm(m.nome)===norm(name))?.id).filter(Boolean);
   }
   function idsForMentions(text=''){
     const n=norm(text);
@@ -108,8 +108,8 @@
       return;
     }
     const [profileR,profilesR,brandsR,areasR,listsR,linksR,invitesR,tasks]=await Promise.all([
-      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('id',state.user.id).maybeSingle(),
-      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo').eq('ativo',true).order('nome'),
+      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('id',state.user.id).maybeSingle(),
+      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('ativo',true).order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo').eq('ativo',true).order('nome'),
       state.sb.from('areas').select('id,nome').order('nome'),
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
@@ -139,12 +139,10 @@
     }
     const linked=new Set(state.links.map(x=>norm(x.legacy_name)));
     const inviteByEmail=new Map(state.invites.map(x=>[norm(x.email),x]));
-    state.members=(profilesR.data||[]).filter(p=>{
-      const c=inviteByEmail.get(norm(p.email));
-      return !c||!!c.aceito_em;
-    }).map(p=>{
-      const c=inviteByEmail.get(norm(p.email));
-      return {...p,tipo:'usuario',atribuivel:true,
+    const profileEmails=new Set((profilesR.data||[]).map(p=>norm(p.email)).filter(Boolean));
+    state.members=(profilesR.data||[]).map(p=>{
+      const c=inviteByEmail.get(norm(p.email)),tipo=p.tipo_membro==='servico'?'servico':'usuario';
+      return {...p,tipo,atribuivel:tipo==='usuario',
         convite_status:c?.aceito_em?'aceito':(c?.envio_status||null),
         convite_enviado_em:c?.enviado_em||null,
         convite_ultimo_envio_em:c?.ultimo_envio_em||null,
@@ -161,7 +159,7 @@
       }
     }
     for(const c of state.invites){
-      if(c.aceito_em)continue;
+      if(c.aceito_em||profileEmails.has(norm(c.email)))continue;
       state.members.push({id:'convite:'+c.email,nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,tipo:'convite_pendente',atribuivel:false,
         convite_status:c.envio_status||'pendente',convite_enviado_em:c.enviado_em||null,convite_ultimo_envio_em:c.ultimo_envio_em||null,
         convite_erro:c.envio_erro||null,convite_aceito_em:c.aceito_em||null,convite_tentativas:Number(c.tentativas_envio||0)});

@@ -4,7 +4,45 @@
   const v5Task = id => taskData.find(x=>String(x.id)===String(id)) || null;
   const v5Id = (p='x') => `${p}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
   const v5Short = name => String(name||'').split('|')[0].trim();
-  const v5Who = () => v5Short(user?.firstName || 'Equipe');
+  const v5Who = () => v5Short(window.CentralEu?.nome || user?.firstName || 'Equipe');
+  const v5NowIso = () => new Date().toISOString();
+  const v5ActorId = () => {
+    const name=v5Who();
+    const m=window.AllianceOSDirectory?.members?.find(x=>x?.tipo==='usuario'&&x?.atribuivel!==false&&(x.nome===name||v5Short(x.nome)===v5Short(name)));
+    return m?.id||null;
+  };
+  const v5IsoOk = value => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(String(value||''));
+  const V5_DELIVERIES_KEY='central.deliveries.workspace.v1';
+  function v5OfficialDeliveries(){
+    try{const rows=JSON.parse(localStorage.getItem(V5_DELIVERIES_KEY)||'[]');return Array.isArray(rows)?rows:[]}catch{return[]}
+  }
+  function v5SaveOfficialDeliveries(rows){
+    (rows||[]).forEach(d=>{
+      if(d?.createdAt&&!v5IsoOk(d.createdAt))throw new Error('Data inválida em createdAt da entrega.');
+      if(d?.updatedAt&&!v5IsoOk(d.updatedAt))throw new Error('Data inválida em updatedAt da entrega.');
+      for(const e of Array.isArray(d?.events)?d.events:[])if(e?.at&&!v5IsoOk(e.at))throw new Error('Data inválida no histórico da entrega.');
+    });
+    localStorage.setItem(V5_DELIVERIES_KEY,JSON.stringify(rows));
+  }
+  function v5OfficialForTask(t){
+    return v5OfficialDeliveries().filter(d=>String(d?.sourceTaskId||'')===String(t?.id||'')&&!d?.archivedAt&&!d?.arquivado_em);
+  }
+  function v5HistoryOnce(t,key,text){
+    t.history=Array.isArray(t.history)?t.history:[];
+    if(t.history.some(h=>h&&h.eventKey===key&&!h.duplicado))return false;
+    t.history.unshift({at:v5NowIso(),by:v5Who(),authorId:v5ActorId(),origin:'interface',eventKey:key,text});
+    return true;
+  }
+  function v5RecipientCandidates(t){
+    const preferred=v5Dependents(t).flatMap(x=>Array.isArray(x.assignees)?x.assignees:[]);
+    const live=typeof v3TeamUsers==='function'?v3TeamUsers():[];
+    return [...new Set([...preferred,...live].filter(Boolean))].filter(x=>v5Short(x)!==v5Short(v5Who()));
+  }
+  function v5SuggestedRecipient(t){
+    const dep=v5Dependents(t).find(x=>Array.isArray(x.assignees)&&x.assignees.length);
+    return dep?.assignees?.[0]||v5RecipientCandidates(t)[0]||'';
+  }
+  function v5OfficialId(d){return String(d?.deliveryId||d?.id||'')}
   const v5Deps = t => (t.dependencies||[]).map(v5Task).filter(Boolean);
   const v5Blockers = t => v5Deps(t).filter(x=>x.status!=='feito');
   const v5Dependents = t => taskData.filter(x=>(x.dependencies||[]).some(id=>String(id)===String(t.id)));
@@ -22,7 +60,10 @@
       if(d.text&&!d.note)d.note=d.text;
       if(!Array.isArray(d.files))d.files=[];
       if(!Array.isArray(d.links))d.links=[];
-      if(!d.status)d.status='sent';
+      if(!d.status)d.status='enviado';
+      if(d.status==='sent')d.status='enviado';
+      if(d.status==='approved')d.status='aprovado';
+      if(d.status==='rejected')d.status='ajustes';
       return d;
     });
     if(setDefault && typeof t.deliveryRequired!=='boolean') t.deliveryRequired=v5Dependents(t).length>0;
@@ -31,13 +72,43 @@
   taskData.forEach(t=>v5Normalize(t,false));
   taskData.forEach(t=>v5Normalize(t,true));
 
-  const v5SentDeliveries = t => (v5Normalize(t).deliveries||[]).filter(d=>d&&d.status==='sent');
-  const v5HasDelivery = t => v5SentDeliveries(t).length>0;
+  const v5SentDeliveries = t => {
+    v5Normalize(t);
+    const embedded=Array.isArray(t.deliveries)?t.deliveries:[];
+    return v5OfficialForTask(t).map(d=>{
+      const copy=embedded.find(x=>v5OfficialId(x)===String(d.id))||{};
+      return {...copy,id:String(d.id),deliveryId:String(d.id),status:d.status||'enviado',author:d.from||copy.author||'Equipe',at:d.createdAt||copy.at||copy.sentAt||null,sentAt:d.createdAt||copy.sentAt||null,note:d.note??copy.note??copy.text??'',files:Array.isArray(d.files)?d.files:(copy.files||[]),links:Array.isArray(d.links)?d.links:(copy.links||[]),to:d.to||copy.to||null,targetTaskId:d.targetTaskId||copy.targetTaskId||''};
+    });
+  };
+  const v5HasDelivery = t => v5OfficialForTask(t).length>0;
   const v5NeedsDelivery = t => !!v5Normalize(t).deliveryRequired;
   const v5Incoming = t => v5Deps(t).flatMap(source=>v5SentDeliveries(source).map(d=>({...d,sourceTaskId:source.id,sourceTitle:source.title,sourceStatus:source.status})));
 
   function v5Persist(render=true){
-    taskData.forEach(t=>v5Normalize(t));
+    const actorId=v5ActorId(),actorName=v5Who();
+    taskData.forEach(t=>{
+      v5Normalize(t);
+      t.history=(Array.isArray(t.history)?t.history:[]).map(h=>{
+        const x={...h};
+        if(x.at){
+          const d=new Date(String(x.at).replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T'));
+          if(Number.isNaN(d.getTime())){x.atOriginal=x.at;x.at=null;x.dataDesconhecida=true}else x.at=d.toISOString();
+        }
+        if(!x.origin)x.origin='interface';
+        if(x.origin==='interface'&&!x.by)x.by=actorName;
+        if(x.origin==='interface'&&!x.authorId)x.authorId=actorId;
+        return x;
+      });
+      t.comments=(Array.isArray(t.comments)?t.comments:[]).map(c=>{
+        const x={...c},d=x.at?new Date(String(x.at).replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T')):null;
+        if(d&&!Number.isNaN(d.getTime()))x.at=d.toISOString();
+        else if(x.at){x.atOriginal=x.at;x.at=null;x.dataDesconhecida=true}
+        if(!x.source)x.source='interface';
+        if(!x.author)x.author=actorName;
+        if(!x.authorId)x.authorId=actorId;
+        return x;
+      });
+    });
     localStorage.setItem(taskStorageKey,JSON.stringify(taskData));
     updateTaskCount();
     if(render) renderTasks();
@@ -119,17 +190,17 @@
       if(conferenceProblem){v5OpenConferenceModal(t);return false;}
       if(v5NeedsDelivery(t) && !v5HasDelivery(t)){showToast('Envie a entrega desta etapa antes de concluir.');return false;}
       if(t.status!=='feito'){
-        const old=t.status;t.status='feito';
-        t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “feito”.`});
-        if(v5HasDelivery(t)) t.history.unshift({at:'Agora',text:'Etapa concluída com entrega enviada.'});
+        const old=t.status,completedAt=v5NowIso();t.status='feito';t.completedAt=completedAt;
+        v5HistoryOnce(t,'status-feito:'+completedAt,`Status alterado de “${old}” para “feito”.`);
+        if(v5HasDelivery(t))v5HistoryOnce(t,'completed-with-delivery:'+completedAt,'Etapa concluída com entrega enviada.');
         for(const next of v5Dependents(t)){
           v5Normalize(next);
-          next.history.unshift({at:'Agora',text:`“${t.title}” foi concluída${v5HasDelivery(t)?' com entrega':''}. Esta tarefa está liberada para execução.`});
+          v5HistoryOnce(next,'dependency-release:'+String(t.id)+':'+completedAt,`“${t.title}” foi concluída${v5HasDelivery(t)?' com entrega':''}. Esta tarefa está liberada para execução.`);
         }
       }
     } else if(t.status==='feito'){
-      t.status='a fazer';
-      t.history.unshift({at:'Agora',text:'Tarefa reaberta.'});
+      t.status='a fazer';t.completedAt=null;
+      v5HistoryOnce(t,'reopened:'+v5NowIso(),'Tarefa reaberta.');
     }
     v5Persist(true);
     return true;
@@ -174,6 +245,18 @@
     return `<section class="tsection v3-section v5-tree-section"><div class="tsection-head"><div><strong>Fluxo desta execução</strong><span>As etapas continuam sendo tarefas independentes, mas fazem parte do mesmo fluxo.</span></div></div><div class="v5-tree">${v5TreeNode(root,t.id)}</div></section>`;
   }
 
+  function v5TimeLabel(value){
+    const raw=String(value||'').trim();
+    if(!raw)return 'Data desconhecida';
+    const d=new Date(raw);
+    if(Number.isNaN(d.getTime()))return raw==='Agora'?'Data desconhecida':raw;
+    const min=Math.floor((Date.now()-d.getTime())/60000);
+    if(min>=0&&min<1)return 'Agora';
+    if(min>=1&&min<60)return 'há '+min+' min';
+    const h=Math.floor(min/60);if(h>=1&&h<24)return 'há '+h+'h';
+    return new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d).replace('.','');
+  }
+
   function v5FileKind(f){
     const type=String(f?.type||'').toLowerCase();
     const name=String(f?.name||'').toLowerCase();
@@ -194,7 +277,7 @@
   }
 
   function v5FilesHtml(files=[],deliveryId='',editable=false){
-    return (files||[]).map((f,i)=>{
+    return (files||[]).filter(f=>!f?.archivedAt).map((f,i)=>{
       const rawName=String(f.name||'arquivo');
       const name=esc(rawName);
       const key=esc(String(deliveryId)+':'+i);
@@ -210,7 +293,7 @@
   }
 
   function v5LinksHtml(links=[],deliveryId='',editable=false){
-    return (links||[]).map((l,i)=>{
+    return (links||[]).filter(l=>!l?.archivedAt).map((l,i)=>{
       const key=esc(String(deliveryId)+':'+i);
       const rawUrl=String(l.url||'');
       const label=esc(l.label||'Abrir link');
@@ -229,7 +312,8 @@
     const editNote=editable?'<button type="button" data-v5-edit-note="'+id+'" title="Editar texto">✎</button>':'';
     const deleteNote=editable?'<button type="button" data-v5-delete-note="'+id+'" title="Excluir texto">×</button>':'';
     const noteHtml=note?'<div class="v5-material" data-v5-kind="text"><span class="v5-material-icon">T</span><b title="'+esc(note)+'">'+esc(note)+'</b><small>Texto</small><div class="v5-material-actions">'+copyNote+editNote+deleteNote+'</div></div>':'';
-    return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(d.at||'Agora')+'</span></div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">Enviado</span></span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+'</div></article>';
+    const statusLabel={enviado:'Enviado',aprovado:'Aprovado',ajustes:'Ajustes solicitados',recebido:'Recebido'}[String(d.status||'enviado')]||String(d.status||'Enviado');
+    return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(v5TimeLabel(d.at||d.sentAt))+'</span></div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">'+esc(statusLabel)+'</span></span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+'</div></article>';
   }
 
   function v5IncomingHtml(t){
@@ -239,11 +323,11 @@
   }
 
   function v5DeliverySectionHtml(t){
-    const sent=v5SentDeliveries(t), required=v5NeedsDelivery(t), blockers=v5Blockers(t);
+    const sent=v5SentDeliveries(t), required=v5NeedsDelivery(t), blockers=v5Blockers(t),recipients=v5RecipientCandidates(t),suggested=v5SuggestedRecipient(t);
     return `<section class="tsection v3-section v5-delivery-section"><div class="tsection-head"><div><strong>Entrega desta etapa</strong><span>${required?'Obrigatória para concluir e liberar as próximas tarefas.':'Opcional. Use para registrar o material produzido nesta tarefa.'}</span></div><span class="v5-delivery-state ${sent.length?'sent':required?'pending':''}">${sent.length?'Entrega enviada':required?'Pendente':'Opcional'}</span></div>
       ${sent.length?`<div class="v5-delivery-list">${sent.slice().reverse().map(d=>v5DeliveryCard(d,'',true)).join('')}</div>`:''}
       <div class="v5-delivery-compose">
-        <div class="v5-compose-grid"><label class="v5-compose-note">Mensagem da entrega<textarea id="v5DeliveryNote" placeholder="Explique o que está sendo entregue e qualquer orientação para a próxima pessoa."></textarea></label><label>Link do material<input id="v5DeliveryLink" type="url" placeholder="https://drive.google.com/… ou Figma, Docs, etc."></label><label>Nome do link<input id="v5DeliveryLinkLabel" placeholder="Ex.: Copy aprovada"></label><label class="v5-file-field">Arquivo pequeno<input id="v5DeliveryFiles" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.zip,.rar,.7z,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx"><small>Até 1,2 MB no total. Para arquivos grandes, use um link.</small></label></div>
+        <div class="v5-compose-grid"><label>Destinatário<select id="v5DeliveryTo"><option value="">Selecione…</option>${recipients.map(name=>`<option value="${esc(name)}" ${name===suggested?'selected':''}>${esc(v5Short(name))}</option>`).join('')}</select></label><label class="v5-compose-note">Mensagem da entrega<textarea id="v5DeliveryNote" placeholder="Explique o que está sendo entregue e qualquer orientação para a próxima pessoa."></textarea></label><label>Link do material<input id="v5DeliveryLink" type="url" placeholder="https://drive.google.com/… ou Figma, Docs, etc."></label><label>Nome do link<input id="v5DeliveryLinkLabel" placeholder="Ex.: Copy aprovada"></label><label class="v5-file-field">Arquivo pequeno<input id="v5DeliveryFiles" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.zip,.rar,.7z,.txt,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx"><small>Até 1,2 MB no total. Para arquivos grandes, use um link.</small></label></div>
         <div class="v5-delivery-actions"><button type="button" id="v5SendDelivery">Enviar entrega</button><button type="button" class="primary" id="v5SendAndComplete" ${blockers.length?'disabled':''}>Enviar e concluir</button></div>
       </div></section>`;
   }
@@ -270,8 +354,11 @@
   }
   function v5FinishDeliveryEdit(t,d,message){
     if(d)v5Normalize(t);
-    if(d&&v5DeliveryEmpty(d))t.deliveries=t.deliveries.filter(x=>String(x.id)!==String(d.id));
-    t.history.unshift({at:'Agora',text:message});
+    const ts=v5NowIso(),rows=v5OfficialDeliveries(),official=d?rows.find(x=>String(x.id)===String(v5OfficialId(d))):null;
+    if(official&&d){
+      official.note=d.note??d.text??'';official.files=structuredClone(d.files||[]);official.links=structuredClone(d.links||[]);official.updatedAt=ts;official.events=Array.isArray(official.events)?official.events:[];official.events.push({at:ts,by:v5Who(),authorId:v5ActorId(),origin:'interface',text:message});v5SaveOfficialDeliveries(rows);
+    }
+    v5HistoryOnce(t,'delivery-edit:'+String(v5OfficialId(d))+':'+ts,message);
     v5Persist(false);
     renderTaskDetailBody(t);
   }
@@ -300,10 +387,12 @@
     document.querySelectorAll('[data-v5-delete-delivery]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
       const id=btn.dataset.v5DeleteDelivery;
-      if(!confirm('Excluir esta entrega?'))return;
-      t.deliveries=t.deliveries.filter(d=>String(d.id)!==String(id));
-      t.history.unshift({at:'Agora',text:'Entrega excluída.'});
-      v5Persist(false);renderTaskDetailBody(t);showToast('Entrega excluída');
+      if(!confirm('Arquivar esta entrega?'))return;
+      const ts=v5NowIso(),d=v5DeliveryRecord(t,id),rows=v5OfficialDeliveries(),official=rows.find(x=>String(x.id)===String(v5OfficialId(d)));
+      if(d){d.archivedAt=ts;d.archivedBy=v5Who();}
+      if(official){official.archivedAt=ts;official.archivedBy=v5Who();official.updatedAt=ts;official.events=Array.isArray(official.events)?official.events:[];official.events.push({at:ts,by:v5Who(),authorId:v5ActorId(),origin:'interface',text:'Entrega arquivada pela interface.'});v5SaveOfficialDeliveries(rows);}
+      v5HistoryOnce(t,'delivery-archived:'+String(v5OfficialId(d))+':'+ts,'Entrega arquivada.');
+      v5Persist(false);renderTaskDetailBody(t);showToast('Entrega arquivada');
     }));
     document.querySelectorAll('[data-v5-edit-note]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
@@ -316,7 +405,7 @@
     document.querySelectorAll('[data-v5-delete-note]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
       const d=v5DeliveryRecord(t,btn.dataset.v5DeleteNote);if(!d||!confirm('Excluir este texto da entrega?'))return;
-      d.note='';delete d.text;v5FinishDeliveryEdit(t,d,'Texto removido da entrega.');
+      d.noteArchivedText=String(d.note||d.text||'');d.noteArchivedAt=v5NowIso();d.note='';delete d.text;v5FinishDeliveryEdit(t,d,'Texto arquivado na entrega.');
     }));
     document.querySelectorAll('[data-v5-edit-link]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
@@ -330,7 +419,7 @@
     document.querySelectorAll('[data-v5-delete-link]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
       const key=v5DeliveryKey(btn.dataset.v5DeleteLink),d=v5DeliveryRecord(t,key.id);if(!d?.links?.[key.index]||!confirm('Excluir este link da entrega?'))return;
-      d.links.splice(key.index,1);v5FinishDeliveryEdit(t,d,'Link removido da entrega.');
+      d.links[key.index].archivedAt=v5NowIso();v5FinishDeliveryEdit(t,d,'Link arquivado na entrega.');
     }));
     document.querySelectorAll('[data-v5-edit-file]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
@@ -342,27 +431,34 @@
     document.querySelectorAll('[data-v5-delete-file]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
       const key=v5DeliveryKey(btn.dataset.v5DeleteFile),d=v5DeliveryRecord(t,key.id);if(!d?.files?.[key.index]||!confirm('Excluir este arquivo da entrega?'))return;
-      d.files.splice(key.index,1);v5FinishDeliveryEdit(t,d,'Arquivo removido da entrega.');
+      d.files[key.index].archivedAt=v5NowIso();v5FinishDeliveryEdit(t,d,'Arquivo arquivado na entrega.');
     }));
   }
 
   async function v5SendDelivery(t,completeAfter=false){
     v5Normalize(t);
+    const to=document.getElementById('v5DeliveryTo')?.value.trim()||'';
     const note=document.getElementById('v5DeliveryNote')?.value.trim()||'';
     const url=document.getElementById('v5DeliveryLink')?.value.trim()||'';
     const label=document.getElementById('v5DeliveryLinkLabel')?.value.trim()||'';
     const input=document.getElementById('v5DeliveryFiles');
     const rawFiles=[...(input?.files||[])];
+    if(!to){showToast('Escolha o destinatário da entrega.');return false;}
     if(url){try{const parsed=new URL(url);if(!/^https?:$/.test(parsed.protocol))throw new Error();}catch{showToast('Use um link válido começando por https://');return false;}}
     const total=rawFiles.reduce((n,f)=>n+f.size,0);
     if(total>1200000){showToast('Os arquivos somam mais de 1,2 MB. Para arquivos maiores, envie um link do Drive/Figma.');return false;}
     if(!rawFiles.length&&!url&&!note){showToast('Adicione um arquivo, escreva a entrega ou informe um link.');return false;}
     let files=[];
     try{files=await Promise.all(rawFiles.map(v5ReadFile));}catch{showToast('Não foi possível preparar um dos arquivos.');return false;}
-    const links=url?[{label:label||'Material da entrega',url}]:[];
-    const delivery={id:v5Id('delivery'),status:'sent',author:v5Who(),at:'Agora',sentAt:new Date().toISOString(),note,files,links};
+    const ts=v5NowIso(),id=v5Id('del'),dependents=v5Dependents(t),target=dependents.find(x=>(x.assignees||[]).some(a=>String(a)===String(to)))||(dependents.length===1?dependents[0]:null);
+    const links=url?[{id:v5Id('link'),label:label||'Material da entrega',url}]:[];
+    const officialRows=v5OfficialDeliveries(),version=officialRows.filter(d=>String(d.sourceTaskId)===String(t.id)&&String(d.to)===String(to)).length+1;
+    const official={id,sourceTaskId:String(t.id),targetTaskId:String(target?.id||''),campaignId:t.campaignId||null,campaignSource:'task',title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:v5Who(),to,note,status:'enviado',createdAt:ts,updatedAt:ts,version,completeTask:!!completeAfter,files:structuredClone(files),links:structuredClone(links),events:[{at:ts,by:v5Who(),authorId:v5ActorId(),origin:'interface',text:'Entrega enviada para '+to+'.'}],origin:'interface',archivedAt:null,archivedBy:null};
+    officialRows.unshift(official);
+    v5SaveOfficialDeliveries(officialRows);
+    const delivery={id,deliveryId:id,status:'enviado',author:v5Who(),at:ts,sentAt:ts,note,files,links,to,targetTaskId:official.targetTaskId,campaignId:official.campaignId,source:'interface',version};
     t.deliveries.push(delivery);
-    t.history.unshift({at:'Agora',text:`${v5Who()} enviou a entrega desta etapa${files.length?` com ${files.length} arquivo(s)`:''}${links.length?' e link':''}.`});
+    v5HistoryOnce(t,'delivery-sent:'+id,`${v5Who()} enviou a entrega desta etapa${files.length?` com ${files.length} arquivo(s)`:''}${links.length?' e link':''} para ${to}.`);
     v5Persist(false);
     if(completeAfter){
       if(v5Complete(t,true)){closeTaskDetail();return true;}
@@ -421,7 +517,7 @@
       });
     }
 
-    document.getElementById('v5DeliveryRequired')?.addEventListener('change',e=>{t.deliveryRequired=e.target.checked;t.history.unshift({at:'Agora',text:e.target.checked?'Entrega obrigatória ativada para esta tarefa.':'Entrega obrigatória desativada para esta tarefa.'});v5Persist(false);renderTaskDetailBody(t)});
+    document.getElementById('v5DeliveryRequired')?.addEventListener('change',e=>{t.deliveryRequired=e.target.checked;t.history.unshift({at:v5NowIso(),text:e.target.checked?'Entrega obrigatória ativada para esta tarefa.':'Entrega obrigatória desativada para esta tarefa.'});v5Persist(false);renderTaskDetailBody(t)});
     document.getElementById('v5SendDelivery')?.addEventListener('click',()=>v5SendDelivery(t,false));
     document.getElementById('v5SendAndComplete')?.addEventListener('click',()=>v5SendDelivery(t,true));
     v5BindDeliveryItemActions(t);
@@ -459,7 +555,7 @@
 
   bindDrag=function(){
     document.querySelectorAll('[data-drag-id]').forEach(card=>{card.addEventListener('dragstart',e=>{card.classList.add('dragging');e.dataTransfer.setData('text/plain',card.dataset.dragId)});card.addEventListener('dragend',()=>card.classList.remove('dragging'))});
-    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v5Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'){if(!v5Complete(t,true))return;}else{const old=t.status;t.status=next;t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “${next}”.`});v5Persist(true)}})})
+    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v5Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'){if(!v5Complete(t,true))return;}else{const old=t.status;t.status=next;t.history.unshift({at:v5NowIso(),text:`Status alterado de “${old}” para “${next}”.`});v5Persist(true)}})})
   };
 
   const v5BaseRenderListRow=renderListRow;

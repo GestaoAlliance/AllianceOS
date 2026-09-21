@@ -82,11 +82,37 @@
       const local=new Date(parts[0],parts[1]-1,parts[2],old.getHours(),old.getMinutes(),old.getSeconds());
       nextDueAt=v3FromLocalInput(`${parts[0]}-${v3Pad(parts[1])}-${v3Pad(parts[2])}T${v3Pad(local.getHours())}:${v3Pad(local.getMinutes())}`);
     }
-    const next=v3NormalizeTask({...t,id:v3Id('rec'),status:'a fazer',blockedReason:null,due:nextDate,dueAt:nextDueAt,comments:[],deliveries:[],archivedAt:null,archivedBy:null,parentTaskId:null,dependencies:[],recurrenceSeriesId:t.recurrenceSeriesId||t.id,recurrenceGeneratedFrom:t.id,history:[{at:'Agora',text:`Ocorrência recorrente criada automaticamente a partir de “${t.title}”.`}],checklist:(t.checklist||[]).map(x=>({...x,done:false})),source:'interface-generated'});
+    const next=v3NormalizeTask({...t,id:v3Id('rec'),status:'a fazer',blockedReason:null,due:nextDate,dueAt:nextDueAt,comments:[],deliveries:[],archivedAt:null,archivedBy:null,parentTaskId:null,dependencies:[],recurrenceSeriesId:t.recurrenceSeriesId||t.id,recurrenceGeneratedFrom:t.id,history:[{at:v3NowIso(),text:`Ocorrência recorrente criada automaticamente a partir de “${t.title}”.`}],checklist:(t.checklist||[]).map(x=>({...x,done:false})),source:'interface-generated'});
     taskData.unshift(next);return next;
   };
 
   const v3Id = (p='task') => `${p}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+  const v3NowIso = () => new Date().toISOString();
+  function v3TimeLabel(value){
+    const raw=String(value||'').trim();
+    if(!raw)return 'Data desconhecida';
+    const d=new Date(raw);
+    if(Number.isNaN(d.getTime()))return raw==='Agora'?'Data desconhecida':raw;
+    const diff=Date.now()-d.getTime(),min=Math.floor(diff/60000);
+    if(min>=0&&min<1)return 'Agora';
+    if(min>=1&&min<60)return 'há '+min+' min';
+    const hours=Math.floor(min/60);
+    if(hours>=1&&hours<24)return 'há '+hours+'h';
+    return new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d).replace('.','');
+  }
+  function v3ActorInfo(){
+    const name=(typeof v3CurrentNames==='function'&&v3CurrentNames()[0])||v3Short(user?.firstName||'Equipe');
+    const member=window.AllianceOSDirectory?.members?.find(x=>x?.tipo==='usuario'&&x?.atribuivel!==false&&(x.nome===name||v3Short(x.nome)===v3Short(name)));
+    return {by:name,authorId:member?.id||null};
+  }
+  function v3HistoryOnce(t,key,text){
+    t.history=Array.isArray(t.history)?t.history:[];
+    if(t.history.some(h=>h&&h.eventKey===key&&!h.duplicado))return false;
+    const actor=v3ActorInfo();
+    t.history.unshift({at:v3NowIso(),by:actor.by,authorId:actor.authorId,text,eventKey:key,origin:'interface'});
+    return true;
+  }
+
   const v3TodayIso = () => {
     const d = new Date();
     const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
@@ -239,7 +265,30 @@
   const v3WouldCycle = (task,depId) => String(task.id)===String(depId) || v3HasDependencyPath(depId,task.id);
 
   function v3Persist(render=true){
-    taskData.forEach(v3NormalizeTask);
+    const actor=v3ActorInfo();
+    taskData.forEach(t=>{
+      v3NormalizeTask(t);
+      t.history=(Array.isArray(t.history)?t.history:[]).map(h=>{
+        const x={...h};
+        if(x.at){
+          const d=new Date(String(x.at).replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T'));
+          if(Number.isNaN(d.getTime())){x.atOriginal=x.at;x.at=null;x.dataDesconhecida=true}else x.at=d.toISOString();
+        }
+        if(!x.origin)x.origin='interface';
+        if(x.origin==='interface'&&!x.by)x.by=actor.by;
+        if(x.origin==='interface'&&!x.authorId)x.authorId=actor.authorId;
+        return x;
+      });
+      t.comments=(Array.isArray(t.comments)?t.comments:[]).map(c=>{
+        const x={...c},d=x.at?new Date(String(x.at).replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T')):null;
+        if(d&&!Number.isNaN(d.getTime()))x.at=d.toISOString();
+        else if(x.at){x.atOriginal=x.at;x.at=null;x.dataDesconhecida=true}
+        if(!x.source)x.source='interface';
+        if(!x.author)x.author=actor.by;
+        if(!x.authorId)x.authorId=actor.authorId;
+        return x;
+      });
+    });
     localStorage.setItem(taskStorageKey,JSON.stringify(taskData));
     if(render) renderTasks();
     updateTaskCount();
@@ -716,13 +765,14 @@
       const problem=v3CompletionProblem(t);
       if(problem){showToast(problem);return false;}
       if(t.status!=='feito'){
-        const old=t.status;t.status='feito';t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “feito”.`});
-        for(const next of v3Dependents(t)) next.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`});
+        const old=t.status,completedAt=v3NowIso();t.status='feito';t.completedAt=completedAt;
+        v3HistoryOnce(t,'status-feito:'+completedAt,`Status alterado de “${old}” para “feito”.`);
+        for(const next of v3Dependents(t)) v3HistoryOnce(next,'dependency-release:'+String(t.id)+':'+completedAt,`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`);
         const recurring=v3GenerateNextOccurrence(t);
-        if(recurring)t.history.unshift({at:'Agora',text:`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`});
+        if(recurring)v3HistoryOnce(t,'recurrence-created:'+String(recurring.id),`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`);
       }
     } else if(t.status==='feito') {
-      t.status='a fazer';t.history.unshift({at:'Agora',text:'Tarefa reaberta.'});
+      t.status='a fazer';t.completedAt=null;v3HistoryOnce(t,'reopened:'+v3NowIso(),'Tarefa reaberta.');
     }
     v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('atualizar_tarefa',t,{status:t.status});return true;
   }
@@ -735,7 +785,7 @@
 
   bindDrag = function(){
     document.querySelectorAll('[data-drag-id]').forEach(card=>{card.addEventListener('dragstart',e=>{card.classList.add('dragging');e.dataTransfer.setData('text/plain',card.dataset.dragId)});card.addEventListener('dragend',()=>card.classList.remove('dragging'))});
-    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v3Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'){const problem=v3CompletionProblem(t);if(problem){showToast(problem);return;}}if(next==='bloqueado'&&!t.blockedReason){t.blockedReason='Bloqueada manualmente no quadro';}const old=t.status;t.status=next;t.history.unshift({at:'Agora',text:`Status alterado de “${old}” para “${next}”.`});if(next!=='bloqueado'&&old==='bloqueado'&&t.blockedReason){t.history.unshift({at:'Agora',text:`Bloqueio encerrado. Motivo anterior: ${t.blockedReason}`});t.blockedReason=null;}if(next==='feito'){for(const x of v3Dependents(t))x.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”.`});v3GenerateNextOccurrence(t);}v3Persist(true)})});
+    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v3Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'){const problem=v3CompletionProblem(t);if(problem){showToast(problem);return;}}if(next==='bloqueado'&&!t.blockedReason){t.blockedReason='Bloqueada manualmente no quadro';}const old=t.status;t.status=next;t.history.unshift({at:v3NowIso(),text:`Status alterado de “${old}” para “${next}”.`});if(next!=='bloqueado'&&old==='bloqueado'&&t.blockedReason){t.history.unshift({at:v3NowIso(),text:`Bloqueio encerrado. Motivo anterior: ${t.blockedReason}`});t.blockedReason=null;}if(next==='feito'){const completedAt=v3NowIso();t.completedAt=completedAt;for(const x of v3Dependents(t))v3HistoryOnce(x,'dependency-release:'+String(t.id)+':'+completedAt,`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`);v3GenerateNextOccurrence(t);}v3Persist(true)})});
   };
 
   function v3FlowTaskRow(x,relation){
@@ -777,7 +827,7 @@
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Anexos</strong><span>Arquivos e referências usados nesta execução.</span></div><span>${(t.attachments||[]).length}</span></div><label class="attachment-drop v3-attachment-drop">Adicionar arquivos<input type="file" id="attachmentInput" multiple></label><div id="attachmentList">${(t.attachments||[]).map((f,i)=>`<div class="file-pill"><span>◫</span><b>${esc(f.name)}</b><small>${esc(f.size||'')}</small><button type="button" data-remove-attachment="${i}">×</button></div>`).join('')}</div></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Entrega</strong><span>${t.deliveryRequired?'Obrigatória para concluir.':'Registre o resultado final, link ou observação.'}</span></div><span>${(t.deliveries||[]).length}</span></div><div class="addline"><input id="newDeliveryText" placeholder="Cole o link ou descreva a entrega"><button type="button" id="addDeliveryBtn">Registrar entrega</button></div><div id="deliveryList">${(t.deliveries||[]).map((d,i)=>`<div class="file-pill"><span>↗</span><b>${esc(d.text||d.url||d.name||'Entrega')}</b><small>${esc(d.at||'')}</small><button type="button" data-remove-delivery="${i}">×</button></div>`).join('')}</div></section>
       <section class="tsection v3-section v3-continuity"><div class="tsection-head"><div><strong>Conclusão e continuidade</strong><span>O fluxo libera automaticamente as próximas tarefas. Não é necessário escolher “próxima tarefa”.</span></div></div>${blockers.length?`<div class="v3-continuity-note blocked">Ainda faltam ${blockers.length} dependência${blockers.length>1?'s':''}: ${blockers.slice(0,3).map(x=>esc(x.title)).join(', ')}.</div>`:`<div class="v3-continuity-note">${next.length?`Ao concluir, ${next.length===1?`“${esc(next[0].title)}” será liberada`:`${next.length} tarefas serão liberadas`} automaticamente.`:'Esta é a última etapa conhecida deste fluxo.'}</div>`}<button type="button" id="v3CompleteTaskBtn" class="v3-complete-btn ${t.status==='feito'?'secondary':''}" ${blockers.length&&t.status!=='feito'?'disabled':''}>${t.status==='feito'?'Reabrir tarefa':next.length?'Concluir e liberar próximas':'Concluir tarefa'}</button></section>
-      <section class="tsection v3-section"><div class="tsection-head"><div><strong>Comentários e atividade</strong><span>Decisões e mudanças importantes ficam registradas aqui.</span></div><span>${(t.comments||[]).length} comentário(s)</span></div><div class="addline v3-comment-add"><input id="newCommentText" placeholder="Escreva um comentário"><button type="button" id="addCommentBtn">Comentar</button></div><div id="commentList">${(t.comments||[]).map(c=>`<div class="comment"><div class="cav">${v3AvatarInner(c.author,c.authorId)}</div><div class="comment-body"><b>${esc(c.author)}</b><p>${esc(c.text)}</p><small>${esc(c.at)}</small></div></div>`).join('')}</div><div class="v3-history">${(t.history||[]).map(h=>`<div class="activity"><b>${esc(h.at)}</b><p>${esc(h.text)}</p></div>`).join('')}</div></section>
+      <section class="tsection v3-section"><div class="tsection-head"><div><strong>Comentários e atividade</strong><span>Decisões e mudanças importantes ficam registradas aqui.</span></div><span>${(t.comments||[]).length} comentário(s)</span></div><div class="addline v3-comment-add"><input id="newCommentText" placeholder="Escreva um comentário"><button type="button" id="addCommentBtn">Comentar</button></div><div id="commentList">${(t.comments||[]).map(c=>`<div class="comment"><div class="cav">${v3AvatarInner(c.author,c.authorId)}</div><div class="comment-body"><b>${esc(c.author)}</b><p>${esc(c.text)}</p><small>${esc(v3TimeLabel(c.at))}</small></div></div>`).join('')}</div><div class="v3-history">${(t.history||[]).filter(h=>!h?.duplicado).map(h=>`<div class="activity"><b>${esc(v3TimeLabel(h.at))}</b><p>${esc(h.text)}</p></div>`).join('')}</div></section>
     </main><aside class="tdetail-side"><div class="v3-side-title"><strong>Contexto da tarefa</strong><span>${esc(t.brand||'')} · ${esc(t.project||'Operação')}</span></div><div class="tdetail-grid">
       <div class="tfield"><label>Status</label><select id="detailStatus">${TASK_STATUSES.map(st=>`<option value="${st}" ${st===t.status?'selected':''} ${st==='feito'&&completionProblem&&t.status!=='feito'?'disabled':''}>${st}${st==='feito'&&completionProblem?' · com trava':''}</option>`).join('')}</select></div>
       <div class="tfield" id="detailBlockedReasonField"><label>Motivo do bloqueio</label><input id="detailBlockedReason" value="${esc(t.blockedReason||'')}" placeholder="Ex.: aguardando terceiro"><small>Obrigatório quando o status é bloqueado.</small></div>
@@ -829,19 +879,19 @@
   bindDetailInteractions = function(t){
     document.getElementById('detailRecurrence')?.addEventListener('change',e=>{const box=document.getElementById('detailRecurrenceDays');if(box)box.hidden=e.target.value!=='dias_semana';});
     document.getElementById('detailStatus')?.addEventListener('change',e=>{if(e.target.value==='bloqueado')document.getElementById('detailBlockedReason')?.focus();});
-    document.getElementById('archiveTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);t.archivedAt=t.archivedAt?null:new Date().toISOString();t.archivedBy=t.archivedAt?(v3CurrentNames()[0]||'Equipe'):null;t.history.unshift({at:'Agora',text:t.archivedAt?'Tarefa arquivada.':'Tarefa desarquivada.'});v3Persist(true);window.AllianceOSOps?.recordTaskAction?.(t.archivedAt?'arquivar_tarefa':'desarquivar_tarefa',t,{});closeTaskDetail();showToast(t.archivedAt?'Tarefa arquivada':'Tarefa desarquivada');});
-    document.getElementById('detailAddAssignee')?.addEventListener('change',e=>{if(e.target.value&&!t.assignees.includes(e.target.value)){syncDetailDraft(t);t.assignees.push(e.target.value);t.history.unshift({at:'Agora',text:`${v3Short(e.target.value)} foi adicionado como colaborador.`});renderTaskDetailBody(t)}});
+    document.getElementById('archiveTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);t.archivedAt=t.archivedAt?null:new Date().toISOString();t.archivedBy=t.archivedAt?(v3CurrentNames()[0]||'Equipe'):null;t.history.unshift({at:v3NowIso(),text:t.archivedAt?'Tarefa arquivada.':'Tarefa desarquivada.'});v3Persist(true);window.AllianceOSOps?.recordTaskAction?.(t.archivedAt?'arquivar_tarefa':'desarquivar_tarefa',t,{});closeTaskDetail();showToast(t.archivedAt?'Tarefa arquivada':'Tarefa desarquivada');});
+    document.getElementById('detailAddAssignee')?.addEventListener('change',e=>{if(e.target.value&&!t.assignees.includes(e.target.value)){syncDetailDraft(t);t.assignees.push(e.target.value);t.history.unshift({at:v3NowIso(),text:`${v3Short(e.target.value)} foi adicionado como colaborador.`});renderTaskDetailBody(t)}});
     document.querySelectorAll('[data-remove-assignee]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.assignees=t.assignees.filter(x=>x!==b.dataset.removeAssignee);renderTaskDetailBody(t)}));
     document.querySelectorAll('[data-check-id]').forEach(c=>c.addEventListener('change',()=>{const x=t.checklist.find(y=>String(y.id)===String(c.dataset.checkId));if(x)x.done=c.checked;syncDetailDraft(t);v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('marcar_item_checklist',t,{item_id:c.dataset.checkId,concluido:c.checked});renderTaskDetailBody(t)}));
     document.querySelectorAll('[data-remove-check]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.checklist=t.checklist.filter(x=>String(x.id)!==String(b.dataset.removeCheck));v3Persist(false);renderTaskDetailBody(t)}));
     document.getElementById('addCheckBtn')?.addEventListener('click',()=>{const i=document.getElementById('newCheckText');if(!i.value.trim())return;syncDetailDraft(t);t.checklist.push({id:v3Id('check'),text:i.value.trim(),done:false});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('definir_checklist',t,{itens:t.checklist.length});renderTaskDetailBody(t)});
     document.getElementById('attachmentInput')?.addEventListener('change',e=>{syncDetailDraft(t);[...e.target.files].forEach(f=>t.attachments.push({name:f.name,size:`${Math.max(1,Math.round(f.size/1024))} KB`}));v3Persist(false);renderTaskDetailBody(t)});
     document.querySelectorAll('[data-remove-attachment]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.attachments.splice(Number(b.dataset.removeAttachment),1);v3Persist(false);renderTaskDetailBody(t)}));
-    document.getElementById('addDeliveryBtn')?.addEventListener('click',()=>{const i=document.getElementById('newDeliveryText');if(!i?.value.trim())return;syncDetailDraft(t);t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];t.deliveries.unshift({id:v3Id('delivery'),text:i.value.trim(),at:'Agora',author:v3CurrentNames()[0]||user.firstName||'Equipe',source:'interface'});t.history.unshift({at:'Agora',text:'Entrega registrada.'});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('registrar_entrega',t,{entrega:i.value.trim()});renderTaskDetailBody(t)});
+    document.getElementById('addDeliveryBtn')?.addEventListener('click',()=>{const i=document.getElementById('newDeliveryText');if(!i?.value.trim())return;syncDetailDraft(t);t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];t.deliveries.unshift({id:v3Id('delivery'),text:i.value.trim(),at:v3NowIso(),author:v3CurrentNames()[0]||user.firstName||'Equipe',source:'interface'});t.history.unshift({at:v3NowIso(),text:'Entrega registrada.'});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('registrar_entrega',t,{entrega:i.value.trim()});renderTaskDetailBody(t)});
     document.querySelectorAll('[data-remove-delivery]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.deliveries.splice(Number(b.dataset.removeDelivery),1);v3Persist(false);renderTaskDetailBody(t)}));
-    document.getElementById('addCommentBtn')?.addEventListener('click',()=>{const i=document.getElementById('newCommentText');if(!i.value.trim())return;syncDetailDraft(t);const text=i.value.trim();t.comments.unshift({id:v3Id('comment'),author:v3CurrentNames()[0]||user.firstName||'Equipe',authorId:window.user?.id||null,text,at:'Agora',source:'interface'});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('comentar_tarefa',t,{comentario:text});renderTaskDetailBody(t)});
-    document.getElementById('linkDependencyBtn')?.addEventListener('click',()=>{const id=document.getElementById('detailAddDependency')?.value;if(!id)return;if(v3WouldCycle(t,id)){showToast('Esse vínculo criaria um ciclo de dependências.');return;}syncDetailDraft(t);if(!t.dependencies.some(x=>String(x)===String(id)))t.dependencies.push(id);const child=v3Task(id);if(child&&!child.parentTaskId)child.parentTaskId=t.id;if(t.status==='feito'){t.status='a fazer';t.history.unshift({at:'Agora',text:'Tarefa reaberta porque ganhou uma nova dependência.'})}t.history.unshift({at:'Agora',text:`Dependência adicionada: “${child?.title||id}”.`});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('definir_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)});
-    document.querySelectorAll('[data-unlink-dep]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();syncDetailDraft(t);const id=b.dataset.unlinkDep;t.dependencies=t.dependencies.filter(x=>String(x)!==String(id));const child=v3Task(id);if(child&&String(child.parentTaskId||'')===String(t.id))child.parentTaskId=null;t.history.unshift({at:'Agora',text:`Dependência removida: “${child?.title||id}”.`});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('remover_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)}));
+    document.getElementById('addCommentBtn')?.addEventListener('click',()=>{const i=document.getElementById('newCommentText');if(!i.value.trim())return;syncDetailDraft(t);const text=i.value.trim();t.comments.unshift({id:v3Id('comment'),author:v3CurrentNames()[0]||user.firstName||'Equipe',authorId:window.user?.id||null,text,at:v3NowIso(),source:'interface'});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('comentar_tarefa',t,{comentario:text});renderTaskDetailBody(t)});
+    document.getElementById('linkDependencyBtn')?.addEventListener('click',()=>{const id=document.getElementById('detailAddDependency')?.value;if(!id)return;if(v3WouldCycle(t,id)){showToast('Esse vínculo criaria um ciclo de dependências.');return;}syncDetailDraft(t);if(!t.dependencies.some(x=>String(x)===String(id)))t.dependencies.push(id);const child=v3Task(id);if(child&&!child.parentTaskId)child.parentTaskId=t.id;if(t.status==='feito'){t.status='a fazer';t.history.unshift({at:v3NowIso(),text:'Tarefa reaberta porque ganhou uma nova dependência.'})}t.history.unshift({at:v3NowIso(),text:`Dependência adicionada: “${child?.title||id}”.`});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('definir_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)});
+    document.querySelectorAll('[data-unlink-dep]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();syncDetailDraft(t);const id=b.dataset.unlinkDep;t.dependencies=t.dependencies.filter(x=>String(x)!==String(id));const child=v3Task(id);if(child&&String(child.parentTaskId||'')===String(t.id))child.parentTaskId=null;t.history.unshift({at:v3NowIso(),text:`Dependência removida: “${child?.title||id}”.`});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('remover_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)}));
     document.getElementById('createPreviousTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);v3Persist(false);closeTaskDetail();openNewTask('a fazer',{parentTaskId:t.id,blocksTaskId:t.id,brand:t.brand,campaignId:t.campaignId,project:t.project})});
     document.querySelectorAll('[data-flow-open]').forEach(el=>el.addEventListener('click',e=>{if(e.target.closest('[data-unlink-dep]'))return;syncDetailDraft(t);v3Persist(false);openTaskDetail(el.dataset.flowOpen)}));
     document.getElementById('v3CompleteTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);if(t.status==='feito')v3Complete(t,false);else if(v3Complete(t,true))closeTaskDetail()});
@@ -863,17 +913,17 @@
     t.status=wanted;
     if(oldStatus!==t.status){
       if(oldStatus==='bloqueado'&&t.status!=='bloqueado'&&oldBlocked){
-        t.history.unshift({at:'Agora',text:`Bloqueio encerrado. Motivo anterior: ${oldBlocked}`});
+        t.history.unshift({at:v3NowIso(),text:`Bloqueio encerrado. Motivo anterior: ${oldBlocked}`});
         t.blockedReason=null;
       }
-      t.history.unshift({at:'Agora',text:`Status alterado de “${oldStatus}” para “${t.status}”.`});
+      t.history.unshift({at:v3NowIso(),text:`Status alterado de “${oldStatus}” para “${t.status}”.`});
       if(t.status==='feito'){
-        for(const x of v3Dependents(t))x.history.unshift({at:'Agora',text:`Dependência concluída: “${t.title}”. Esta tarefa está liberada.`});
+        for(const x of v3Dependents(t))x.history.unshift({at:v3NowIso(),text:`Dependência concluída: “${t.title}”. Esta tarefa está liberada.`});
         const recurring=v3GenerateNextOccurrence(t);
-        if(recurring)t.history.unshift({at:'Agora',text:`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`});
+        if(recurring)t.history.unshift({at:v3NowIso(),text:`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`});
       }
     }
-    t.history.unshift({at:'Agora',text:`${v3CurrentNames()[0]||user.firstName||'Equipe'} salvou alterações na tarefa.`});
+    t.history.unshift({at:v3NowIso(),text:`${v3CurrentNames()[0]||user.firstName||'Equipe'} salvou alterações na tarefa.`});
     v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('atualizar_tarefa',t,{status:t.status,prazo:t.dueAt||t.due});showToast('Tarefa salva');closeTaskDetail();
   };
 
@@ -994,14 +1044,14 @@
       due:dueAt?String(dueAt).slice(0,10):null,dueAt,start:document.getElementById('newStart').value||null,
       brand,project:campaign?.name||v3NewPreset.project||'Operação',listId:campaign?.listId||null,campaignId:campaign?._structured?(campaign.campaignId||null):(campaign?.id||v3NewPreset.campaignId||null),
       priority:v3PriorityCanon(document.getElementById('newPriority').value),description:document.getElementById('newDescription').value.trim(),
-      checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:'Agora',text:`Tarefa criada via interface por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:'Agora',text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
+      checklist:conferenceChecklist,conferenceRequired,subtasks:[],attachments:[],comments:[],history:[{at:v3NowIso(),text:`Tarefa criada via interface por ${v3CurrentNames()[0]||user.firstName||'Equipe'}.`},...(conferenceRequired?[{at:v3NowIso(),text:`Lista de conferência obrigatória criada com ${conferenceChecklist.length} item(ns).`}]:[])],
       recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'interface',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null,deliveryRequired:!!document.getElementById('newDeliveryRequired')?.checked,archivedAt:null
     });
     v3ApplyRecurrence(t,recurrenceTipo,recurrenceDays);
     taskData.unshift(t);
     if(v3NewPreset.blocksTaskId){
       const parent=v3Task(v3NewPreset.blocksTaskId);
-      if(parent){v3NormalizeTask(parent);if(!parent.dependencies.some(x=>String(x)===String(t.id)))parent.dependencies.push(t.id);parent.history.unshift({at:'Agora',text:`Nova etapa anterior criada: “${t.title}”.`});if(parent.status==='feito')parent.status='a fazer';}
+      if(parent){v3NormalizeTask(parent);if(!parent.dependencies.some(x=>String(x)===String(t.id)))parent.dependencies.push(t.id);parent.history.unshift({at:v3NowIso(),text:`Nova etapa anterior criada: “${t.title}”.`});if(parent.status==='feito')parent.status='a fazer';}
     }
     const createdAsStep=!!v3NewPreset.blocksTaskId;v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('criar_tarefa',t,{status:t.status,prazo:t.dueAt||t.due});closeNewTask();showToast(createdAsStep?'Etapa criada e vinculada':'Nova tarefa criada');
   };

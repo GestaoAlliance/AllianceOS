@@ -11,7 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const TOOL_SCHEMA_VERSION = '2026-09-21.1'
+const TOOL_SCHEMA_VERSION = '2026-09-21.2'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -247,7 +247,7 @@ async function memberDirectory(supabase:any) {
   const [tasks,linksResult,profilesResult,invitesResult,legacyResult]=await Promise.all([
     readState(supabase,TASKS_KEY),
     supabase.from('legacy_member_links').select('legacy_name,profile_id'),
-    supabase.from('profiles').select('id,nome,email,papel,cargo,ativo').eq('ativo',true).order('nome'),
+    supabase.from('profiles').select('id,nome,email,papel,cargo,ativo,tipo_membro').eq('ativo',true).order('nome'),
     supabase.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
     supabase.from('legacy_member_names').select('id,nome,cargo,observacoes,arquivado_em').is('arquivado_em',null).order('nome')
   ])
@@ -257,13 +257,11 @@ async function memberDirectory(supabase:any) {
   const inviteByEmail=new Map(invites.map((x:AnyRow)=>[norm(x.email),x]))
   const links=linksResult.data||[]
   const linked=new Set(links.map((x:AnyRow)=>norm(x.legacy_name)))
-  const rows:AnyRow[]=profiles.filter((p:AnyRow)=>{
-    const c=inviteByEmail.get(norm(p.email))
-    return !c || !!c.aceito_em
-  }).map((p:AnyRow)=>{
-    const c=inviteByEmail.get(norm(p.email))
+  const profileEmails=new Set(profiles.map((p:AnyRow)=>norm(p.email)).filter(Boolean))
+  const rows:AnyRow[]=profiles.map((p:AnyRow)=>{
+    const c=inviteByEmail.get(norm(p.email)),tipo=p.tipo_membro==='servico'?'servico':'usuario'
     return {
-      id:String(p.id),nome:p.nome||p.email,email:p.email,papel:p.papel,cargo:p.cargo,tipo:'usuario',atribuivel:true,
+      id:String(p.id),nome:p.nome||p.email,email:p.email,papel:p.papel,cargo:p.cargo,tipo,atribuivel:tipo==='usuario',
       convite_status:c?.aceito_em?'aceito':(c?.envio_status||null),
       convite_enviado_em:c?.enviado_em||null,
       convite_ultimo_envio_em:c?.ultimo_envio_em||null,
@@ -286,7 +284,7 @@ async function memberDirectory(supabase:any) {
     }
   }
   for(const c of invites){
-    if(c.aceito_em) continue
+    if(c.aceito_em||profileEmails.has(norm(c.email))) continue
     rows.push({
       id:'convite:'+String(c.email),nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,
       tipo:'convite_pendente',atribuivel:false,
@@ -323,7 +321,11 @@ function findTask(tasks: AnyRow[], id: string) {
   return t
 }
 
-function completionProblem(t: AnyRow, tasks: AnyRow[]) {
+async function hasOfficialDelivery(supabase:any,t:any){
+  const rows=await fullDeliveries(supabase)
+  return rows.some((d:any)=>String(d.sourceTaskId||'')===String(t.id)&&!d.archivedAt&&!d.arquivado_em)
+}
+async function completionProblem(supabase:any,t: AnyRow, tasks: AnyRow[], assumeOfficialDelivery=false) {
   const blockers = (Array.isArray(t.dependencies) ? t.dependencies : [])
     .map((id: string) => tasks.find(x => String(x.id) === String(id)))
     .filter(Boolean)
@@ -335,9 +337,8 @@ function completionProblem(t: AnyRow, tasks: AnyRow[]) {
     if (!items.length) return 'A lista de conferência obrigatória está sem itens.'
     if (pending.length) return `A lista de conferência tem ${pending.length} item(ns) pendente(s).`
   }
-  const activeDeliveries=(Array.isArray(t.deliveries)?t.deliveries:[]).filter((d:AnyRow)=>!d?.archivedAt&&!d?.arquivado_em)
-  if (t.deliveryRequired && !activeDeliveries.length) {
-    return 'A tarefa exige uma entrega antes de ser concluída.'
+  if (t.deliveryRequired && !assumeOfficialDelivery && !(await hasOfficialDelivery(supabase,t))) {
+    return 'A tarefa exige uma entrega existente na coleção oficial antes de ser concluída.'
   }
   return ''
 }
@@ -628,6 +629,30 @@ function fullDeliveryStatus(v:any){
   if(['rejected','ajustes','reprovado','reprovada'].includes(n))return'ajustes'
   return String(v||'enviado')
 }
+
+function fullIsoActivityDate(v:any){
+  const raw=String(v??'').trim()
+  if(!raw)return null
+  if(raw==='Agora')return null
+  const normalized=raw.replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T')
+  const d=new Date(normalized)
+  return Number.isNaN(d.getTime())?null:d.toISOString()
+}
+function fullNormalizeActivityEntry(input:any){
+  const x=structuredClone(input||{}),raw=x.at
+  const iso=fullIsoActivityDate(raw)
+  if(iso)x.at=iso
+  else if(raw!=null&&String(raw).trim()){
+    if(!x.atOriginal)x.atOriginal=String(raw)
+    x.at=null
+    x.dataDesconhecida=true
+  }
+  return x
+}
+function fullNormalizeActivityList(rows:any){
+  return (Array.isArray(rows)?rows:[]).map(fullNormalizeActivityEntry)
+}
+
 function fullHasOffsetDateTime(v:any){
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(String(v??'').trim())
 }
@@ -835,7 +860,7 @@ async function fullSyncRevenueSources(s:any,c:any,who:any){
 }
 
 async function fullTag(s:any,input:string){const{data,error}=await s.from('alliance_tags').select('*').is('arquivado_em',null);if(error)throw new Error(error.message);const n=norm(input),m=(data||[]).filter((t:any)=>String(t.id)===String(input)||norm(t.nome)===n);if(!m.length)throw new Error('Tag não encontrada.');if(m.length>1&&!m.some((t:any)=>String(t.id)===String(input)))throw new Error('Tag ambígua; use id.');return m.find((t:any)=>String(t.id)===String(input))||m[0]}
-function fullCompletion(t:any,tasks:any[]){const b=(t.dependencies||[]).map((id:any)=>tasks.find(x=>String(x.id)===String(id))).filter(Boolean).filter((x:any)=>x.status!=='feito');if(b.length)return'Há dependências pendentes.';if(t.conferenceRequired){const p=(t.checklist||[]).filter((x:any)=>!x.done);if(!(t.checklist||[]).length)return'Checklist obrigatória sem itens.';if(p.length)return'Checklist obrigatória pendente.'}const active=(t.deliveries||[]).filter((d:any)=>!d?.archivedAt&&!d?.arquivado_em);if(t.deliveryRequired&&!active.length)return'Entrega obrigatória pendente.';return''}
+async function fullCompletion(supabase:any,t:any,tasks:any[],assumeOfficialDelivery=false){const b=(t.dependencies||[]).map((id:any)=>tasks.find(x=>String(x.id)===String(id))).filter(Boolean).filter((x:any)=>x.status!=='feito');if(b.length)return'Há dependências pendentes.';if(t.conferenceRequired){const p=(t.checklist||[]).filter((x:any)=>!x.done);if(!(t.checklist||[]).length)return'Checklist obrigatória sem itens.';if(p.length)return'Checklist obrigatória pendente.'}if(t.deliveryRequired&&!assumeOfficialDelivery&&!(await hasOfficialDelivery(supabase,t)))return'Entrega obrigatória pendente na coleção oficial.';return''}
 
 const fullTapSchema=z.object({
   sobre_evento:z.object({nome:z.string().max(300).default(''),formato:z.string().max(1000).default(''),cupom_automatico:z.string().max(1000).default(''),bonus_universal:z.string().max(2000).default(''),bonus_influencer:z.string().max(2000).default(''),observacoes:z.string().max(10000).default('')}),
@@ -900,7 +925,7 @@ function registerFullSystemTools(server:any,supabase:any){
     const addPage=(key:string,rows:any[],map:(x:any)=>any=x=>x)=>{out.paginacao.totais[key]=rows.length;maxTotal=Math.max(maxTotal,rows.length);if(selected.has(key as any))out[key]=rows.slice(offset,offset+a.limite).map(map)}
     if(selected.has('campanha'))out.campanha=fullPublicCampaign(c);if(selected.has('tap'))out.tap=fullTapForMode(c,a.modo)
     addPage('listas',ls);addPage('tarefas',ts,(t:any)=>a.modo==='resumo'?fullTaskSummary(t,String(c.id)):({...publicTask(t),campanha_id:String(c.id)}));addPage('entregas',ds,(d:any)=>fullDelivery(d,tasks,camps));addPage('resultados',rs,fullResultPublic)
-    if(selected.has('historico')){out.historico=(c.history||[]).slice(offset,offset+a.limite);out.paginacao.totais.historico=(c.history||[]).length;maxTotal=Math.max(maxTotal,(c.history||[]).length)}
+    if(selected.has('historico')){out.historico=fullNormalizeActivityList(c.history).slice(offset,offset+a.limite);out.paginacao.totais.historico=(c.history||[]).length;maxTotal=Math.max(maxTotal,(c.history||[]).length)}
     if(offset+a.limite<maxTotal)out.paginacao.proximo_cursor=fullCursor(offset+a.limite)
     return toolText(out)
   })
@@ -1031,7 +1056,7 @@ function registerFullSystemTools(server:any,supabase:any){
   },async(a:any)=>{
     const who=await actor(supabase),[tasks,campaigns,lists]=await Promise.all([readState(supabase,TASKS_KEY),fullCampaigns(supabase),buildLists(supabase,true)]),t=findTask(tasks,a.tarefa_id),byList=new Map(lists.map((l:any)=>[String(l.id),l])),campaignId=taskCampaignFromLists(t,byList)
     if(campaignId)exactCampaign(campaigns,campaignId)
-    const ass=await resolveAssignees(supabase,[a.destinatario]),to=ass.names[0];if(a.proxima_tarefa_id)findTask(tasks,a.proxima_tarefa_id);if(a.concluir_tarefa){const p=fullCompletion(t,tasks);if(p)throw new Error(p)}
+    const ass=await resolveAssignees(supabase,[a.destinatario]),to=ass.names[0];if(a.proxima_tarefa_id)findTask(tasks,a.proxima_tarefa_id);if(a.concluir_tarefa){const p=await fullCompletion(supabase,t,tasks,true);if(p)throw new Error(p)}
     const ds=await fullDeliveries(supabase),id='del-'+Date.now()+'-'+crypto.randomUUID().slice(0,8),files=[] as any[],web=[] as any[]
     for(const x of a.anexos){if(x.tipo==='link'){web.push({id:'l-'+crypto.randomUUID().slice(0,8),label:x.nome,url:x.url});continue}let bytes;try{bytes=Uint8Array.from(atob(x.conteudo_base64),(c:string)=>c.charCodeAt(0))}catch{throw new Error('base64 inválido em '+x.nome)}const path=who.id+'/'+id+'/'+crypto.randomUUID().slice(0,8)+'-'+x.nome.replace(/[^A-Za-z0-9._-]+/g,'_'),{error}=await supabase.storage.from('alliance-deliveries').upload(path,bytes,{contentType:x.mime_type,upsert:false});if(error)throw new Error(error.message);files.push({id:'f-'+crypto.randomUUID().slice(0,8),name:x.nome,type:x.mime_type,size:bytes.length,storage_path:path})}
     const ts=nowIso(),d:any={id,sourceTaskId:String(t.id),targetTaskId:String(a.proxima_tarefa_id||''),campaignId:campaignId||null,campaignSource:'task',title:a.titulo||'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:who.nome,to,note:a.mensagem,status:'enviado',createdAt:ts,updatedAt:ts,version:ds.filter((x:any)=>String(x.sourceTaskId)===String(t.id)&&norm(x.to)===norm(to)).length+1,completeTask:a.concluir_tarefa,files,links:web,events:[{at:ts,by:who.nome,authorId:who.id,origin:'mcp',text:'Entrega enviada para '+to+'.'}],origin:'mcp',archivedAt:null,archivedBy:null}
@@ -1209,7 +1234,7 @@ function registerFullSystemTools(server:any,supabase:any){
       if(hasOwn(x,'checklist'))t.checklist=(x.checklist||[]).map((v:any)=>typeof v==='string'?{id:'check-'+crypto.randomUUID().slice(0,7),text:v,done:false}:structuredClone(v))
       if(hasOwn(x,'tags'))t.tags=structuredClone(x.tags||[])
       if(hasOwn(x,'entrega_obrigatoria'))t.deliveryRequired=!!x.entrega_obrigatoria
-      if(hasOwn(x,'status')){const st=statusCanon(x.status),reason=hasOwn(x,'motivo_bloqueio')?x.motivo_bloqueio:t.blockedReason;if(st==='bloqueado'&&!String(reason||'').trim())throw new Error('bloqueado exige motivo.');if(st==='feito'){const p=fullCompletion(t,ts);if(p)throw new Error(t.title+': '+p)}t.status=st;t.blockedReason=st==='bloqueado'?String(reason):null}
+      if(hasOwn(x,'status')){const st=statusCanon(x.status),reason=hasOwn(x,'motivo_bloqueio')?x.motivo_bloqueio:t.blockedReason;if(st==='bloqueado'&&!String(reason||'').trim())throw new Error('bloqueado exige motivo.');if(st==='feito'){const p=await fullCompletion(supabase,t,ts,false);if(p)throw new Error(t.title+': '+p)}t.status=st;t.blockedReason=st==='bloqueado'?String(reason):null}
       else if(hasOwn(x,'motivo_bloqueio'))t.blockedReason=x.motivo_bloqueio
       if(hasOwn(x,'arquivada')){t.archivedAt=x.arquivada?(t.archivedAt||nowIso()):null;t.archivedBy=x.arquivada?who.id:null}
       t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tarefa atualizada em lote via MCP por '+who.nome+'.'});out.push(publicTask(t))
@@ -1292,7 +1317,7 @@ const protectedHandler = withOAuthProtectedResource(
       try{const body:any=await req.clone().json();mcpMethod=Array.isArray(body)?String(body[0]?.method||''):String(body?.method||'')}catch{}
     }
     const handler = createMcpHandler(() => {
-      const server = new McpServer({ name: 'AllianceOS Gestão', version: '2.1.0' })
+      const server = new McpServer({ name: 'AllianceOS Gestão', version: '2.2.0' })
 
       
       server.registerTool('listar_marcas', {
@@ -1515,15 +1540,15 @@ const protectedHandler = withOAuthProtectedResource(
         return toolText({tarefa:{
           ...publicTask(t),
           subtarefas:tasks.filter(x=>String(x.parentTaskId||'')===String(id)).map(publicTask),
-          comentarios:Array.isArray(t.comments)?t.comments:[],
+          comentarios:fullNormalizeActivityList(t.comments),
           checklist:Array.isArray(t.checklist)?t.checklist:[],
           lista_conferencia_obrigatoria:!!t.conferenceRequired,
           dependencias:deps,
           bloqueia:dependents,
           entrega_obrigatoria:!!t.deliveryRequired,
-          entregas:Array.isArray(t.deliveries)?t.deliveries:[],
-          historico:Array.isArray(t.history)?t.history:[],
-          travas_conclusao:completionProblem(t,tasks)||null,
+          entregas:(Array.isArray(t.deliveries)?t.deliveries:[]).map((d:any)=>({...d,at:fullIsoActivityDate(d.at||d.sentAt),atOriginal:d.at==='Agora'?'Agora':d.atOriginal||null,dataDesconhecida:d.at==='Agora'&&!fullIsoActivityDate(d.sentAt)})),
+          historico:fullNormalizeActivityList(t.history),
+          travas_conclusao:(await completionProblem(supabase,t,tasks))||null,
         }})
       })
 
@@ -1578,7 +1603,7 @@ const protectedHandler = withOAuthProtectedResource(
         if(hasOwn(args,'status')){
           const next=statusCanon(args.status),reason=hasOwn(args,'motivo_bloqueio')?args.motivo_bloqueio:t.blockedReason
           if(next==='bloqueado'&&!String(reason||'').trim())throw new Error('Status bloqueado exige motivo_bloqueio.')
-          if(next==='feito'){const problem=completionProblem(t,tasks);if(problem)throw new Error('Não foi possível concluir a tarefa: '+problem)}
+          if(next==='feito'){const problem=await completionProblem(supabase,t,tasks);if(problem)throw new Error('Não foi possível concluir a tarefa: '+problem)}
           t.status=next
           if(next==='bloqueado')t.blockedReason=String(reason||'').trim()
           else if(beforeStatus==='bloqueado'){if(t.blockedReason){t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Bloqueio encerrado. Motivo anterior: '+t.blockedReason})}t.blockedReason=null}
@@ -1745,7 +1770,7 @@ const protectedHandler = withOAuthProtectedResource(
       return server
     },{bus:MCP_EVENT_BUS})
     const response=await handler.fetch(req)
-    if(mcpMethod==='notifications/initialized'||mcpMethod==='subscriptions/listen'){
+    if(mcpMethod==='initialize'||mcpMethod==='notifications/initialized'||mcpMethod==='subscriptions/listen'){
       queueMicrotask(()=>{try{void handler.notify.toolsChanged()}catch(e){console.error('tools/list_changed',e)}})
     }
     return response
