@@ -96,6 +96,9 @@ async function main() {
     c.end=String(c.end||c.endDate||c.data_fim||c.dataFim||c.start||'');
     c.owner=String(c.owner||c.responsible||c.responsavel||c.responsável||'Sem responsável');
     c.status=String(c.status||'Planejamento');
+    const campaignEnd=String(c.end||c.endDate||c.data_fim||c.dataFim||'').slice(0,10);
+    const todayIso=new Date().toISOString().slice(0,10);
+    if(campaignEnd&&campaignEnd<todayIso&&/^(em execução|em execucao|execução|execucao|executando|ativa|ativo)$/i.test(c.status))c.status='encerrada';
     c.goal=Number(c.goal??c.meta??c.meta_faturamento??0)||0;
     c.budget=Number(c.budget??c.investment??c.investimento??c.investimento_total??0)||0;
     c.progress=Math.max(0,Math.min(100,Number(c.progress??c.progresso??0)||0));

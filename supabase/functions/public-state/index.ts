@@ -14,40 +14,59 @@ const withId = (v: unknown): v is Array<Record<string, unknown> & { id: unknown 
 const PROTECTED_KEYS = new Set(['central.tasks.vitor-gutierrez','allianceos.tasks.vitor-gutierrez'])
 const validKey = (k: string) => (k.startsWith('central.') || k.startsWith('allianceos.')) && !k.includes('.__') && k.length <= 220
 
-function mergeList(base: unknown, mine: Array<Record<string, unknown> & { id: unknown }>, server: Array<Record<string, unknown> & { id: unknown }>) {
+type RemovalAttempt = { path: string, id: string }
+
+function mergeList(
+  base: unknown,
+  mine: Array<Record<string, unknown> & { id: unknown }>,
+  server: Array<Record<string, unknown> & { id: unknown }>,
+  attempts: RemovalAttempt[],
+  path: string,
+) {
   const remote = new Map(server.map((x) => [String(x.id), x]))
   const old = new Map((Array.isArray(base) ? base : []).filter(isObj).map((x) => [String(x.id), x]))
   const current = new Map(mine.map((x) => [String(x.id), x]))
-  for (const id of old.keys()) if (!current.has(id)) remote.delete(id)
   const out: Record<string, unknown>[] = []
+
+  // Omission from a shared array is never physical deletion. Archive explicitly instead.
+  for (const [id] of old) if (!current.has(id)) attempts.push({ path, id })
+
   for (const item of mine) {
     const id = String(item.id)
     const before = old.get(id)
     const fromServer = remote.get(id)
-    out.push(!before || !equal(before, item) ? item : (fromServer || item))
+    if (before && fromServer) out.push(merge(before, item, fromServer, attempts, path+'['+id+']') as Record<string, unknown>)
+    else if (fromServer) out.push(merge(undefined, item, fromServer, attempts, path+'['+id+']') as Record<string, unknown>)
+    else out.push(item)
     remote.delete(id)
   }
   for (const item of remote.values()) out.push(item)
   return out
 }
 
-function merge(base: unknown, mine: unknown, server: unknown): unknown {
+function merge(base: unknown, mine: unknown, server: unknown, attempts: RemovalAttempt[] = [], path = "$"): unknown {
   if (server === undefined || server === null) return mine
-  if (Array.isArray(mine) && mine.length === 0 && Array.isArray(base) && base.length > 0) return server
-  if (withId(mine) && withId(server)) return mergeList(base, mine, server)
+  if (Array.isArray(mine) && mine.length === 0 && Array.isArray(base) && base.length > 0) {
+    if (withId(base)) for (const row of base) attempts.push({ path, id: String(row.id) })
+    return server
+  }
+  if (withId(mine) && withId(server)) return mergeList(base, mine, server, attempts, path)
   if (isObj(mine) && isObj(server)) {
     const old = isObj(base) ? base : {}
     const out: Record<string, unknown> = {}
     for (const key of new Set([...Object.keys(server), ...Object.keys(mine)])) {
       const had = Object.prototype.hasOwnProperty.call(old, key)
       const has = Object.prototype.hasOwnProperty.call(mine, key)
-      if (had && !has) continue
       if (!has) { out[key] = server[key]; continue }
-      out[key] = !had || !equal(old[key], mine[key]) ? merge(old[key], mine[key], server[key]) : server[key]
+      if (!had) {
+        out[key] = server[key] === undefined ? mine[key] : merge(undefined, mine[key], server[key], attempts, path+'.'+key)
+        continue
+      }
+      out[key] = equal(old[key], mine[key]) ? server[key] : merge(old[key], mine[key], server[key], attempts, path+'.'+key)
     }
     return out
   }
-  return mine
+  return base !== undefined && equal(base, mine) ? server : mine
 }
 
 function adminClient() {
@@ -111,16 +130,44 @@ Deno.serve(async (req: Request) => {
     if (protectedKey && !db) return ok({ error: 'authentication_required' }, 401)
 
     if (body.deleted === true) {
-      if (protectedKey) return ok({ error: 'task_state_cannot_be_deleted' }, 405)
-      const { error } = await db.from('operacional_estado').delete().eq('chave', chave).is('dono', null)
-      if (error) throw error
-      return ok({ ok: true, deleted: true, chave })
+      let actorId: string | null = null
+      try {
+        const userDb = await authenticatedClient(req)
+        if (userDb) {
+          const { data: u } = await userDb.auth.getUser()
+          actorId = u?.user?.id || null
+        }
+      } catch {}
+      try {
+        await admin.from('physical_delete_attempts').insert({
+          actor_id: actorId,
+          origin: 'interface',
+          entity_type: 'operacional_estado',
+          entity_id: chave,
+          details: { route: 'public-state', blocked: true },
+        })
+      } catch {}
+      return ok({ error: 'physical_delete_forbidden_use_archive', chave }, 405)
     }
 
     const { data: currentRow, error: readError } = await db.from('operacional_estado')
       .select('valor').eq('chave', chave).is('dono', null).maybeSingle()
     if (readError) throw readError
-    const finalValue = currentRow ? merge(body.base, body.valor, currentRow.valor) : body.valor
+    const removalAttempts: RemovalAttempt[] = []
+    const finalValue = currentRow ? merge(body.base, body.valor, currentRow.valor, removalAttempts, "$") : body.valor
+    if (removalAttempts.length) {
+      try {
+        const userDb = await authenticatedClient(req)
+        const { data: u } = userDb ? await userDb.auth.getUser() : { data: { user: null } } as any
+        await admin.from('physical_delete_attempts').insert(removalAttempts.slice(0,200).map((a) => ({
+          actor_id: u?.user?.id || null,
+          origin: 'interface',
+          entity_type: 'operacional_estado_item',
+          entity_id: a.id,
+          details: { chave, path: a.path, blocked: true, reason: 'item_omitted_from_shared_state' },
+        })))
+      } catch {}
+    }
     const row = { chave, dono: null, valor: finalValue, atualizado_em: new Date().toISOString() }
     const { data, error } = await db.from('operacional_estado')
       .upsert(row, { onConflict: 'chave,dono' })

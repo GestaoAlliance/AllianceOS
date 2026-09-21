@@ -11,7 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const TOOL_SCHEMA_VERSION = '2026-09-21.4'
+const TOOL_SCHEMA_VERSION = '2026-09-21.5'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -59,6 +59,7 @@ function recurrenceFromTask(t: AnyRow) {
 }
 
 function publicTask(t: AnyRow) {
+  const late=overdueInfo(t)
   return {
     id: String(t.id),
     link: taskLink(String(t.id)),
@@ -67,6 +68,7 @@ function publicTask(t: AnyRow) {
     lista_id: t.listId ?? null,
     lista: t.project ?? 'Operação',
     marca: t.brand ?? null,
+    marcas: taskBrands(t),
     campanha_id: t.campaignId ?? null,
     canal: t.channel ?? null,
     tags: Array.isArray(t.tags) ? t.tags : [],
@@ -77,6 +79,8 @@ function publicTask(t: AnyRow) {
     prazo: t.dueAt ?? t.due ?? null,
     prazo_data: t.due ?? (t.dueAt ? String(t.dueAt).slice(0,10) : null),
     prazo_tem_hora: !!t.dueAt,
+    atrasada: late.atrasada,
+    dias_de_atraso: late.dias,
     prioridade: priorityCanon(t.priority) ?? 'normal',
     tarefa_mae: t.parentTaskId ?? null,
     recorrencia: recurrenceFromTask(t),
@@ -146,13 +150,25 @@ async function audit(supabase: any, who: AnyRow, action: string, entityType: str
   if (error) console.error('audit', error.message)
 }
 
-async function notifyUsers(supabase: any, who: AnyRow, ids: string[], kind: string, title: string, body: string | null, taskId: string | null, eventKey?: string | null) {
-  const unique=[...new Set((ids||[]).filter(Boolean).filter(id=>id!==who.id))]
+async function notifyUsers(supabase: any, who: AnyRow, ids: string[], kind: string, title: string, body: string | null, taskId: string | null, eventKey?: string | null, includeActor=false) {
+  const unique=[...new Set((ids||[]).filter(Boolean).filter(id=>includeActor||id!==who.id))]
   if(!unique.length) return
-  const rows=unique.map(user_id=>({user_id,actor_id:who.id,kind,title,body,task_id:taskId,event_key:eventKey||null}))
+  let pending=[...unique]
+  if(eventKey){
+    let q=supabase.from('notifications').select('user_id').in('user_id',unique).eq('kind',kind).eq('event_key',eventKey)
+    q=taskId===null?q.is('task_id',null):q.eq('task_id',taskId)
+    const {data,error}=await q
+    if(!error){
+      const existing=new Set((data||[]).map((x:AnyRow)=>String(x.user_id)))
+      pending=unique.filter(id=>!existing.has(String(id)))
+    }
+  }
+  if(!pending.length) return
+  const rows=pending.map(user_id=>({user_id,actor_id:who.id,kind,title,body,task_id:taskId,event_key:eventKey||null}))
   const { error } = await supabase.from('notifications').insert(rows)
   if(error && !String(error.message).toLowerCase().includes('duplicate')) console.error('notifications',error.message)
 }
+
 
 
 async function sendInviteEmail(supabase:any,emailInput:string) {
@@ -325,17 +341,21 @@ async function hasOfficialDelivery(supabase:any,t:any){
   const rows=await fullDeliveries(supabase)
   return rows.some((d:any)=>String(d.sourceTaskId||'')===String(t.id)&&!d.archivedAt&&!d.arquivado_em)
 }
-async function completionProblem(supabase:any,t: AnyRow, tasks: AnyRow[], assumeOfficialDelivery=false) {
+async function completionProblem(supabase:any,t: AnyRow, tasks: AnyRow[], assumeOfficialDelivery=false, assumeChildrenDone=false, assumeDoneIds=new Set<string>()) {
   const blockers = (Array.isArray(t.dependencies) ? t.dependencies : [])
     .map((id: string) => tasks.find(x => String(x.id) === String(id)))
     .filter(Boolean)
-    .filter((x: AnyRow) => x.status !== 'feito')
-  if (blockers.length) return `Há dependências pendentes: ${blockers.slice(0,3).map((x: AnyRow)=>x.title).join(', ')}.`
+    .filter((x: AnyRow) => x.status !== 'feito'&&!assumeDoneIds.has(String(x.id)))
+  if (blockers.length) return 'Há dependências pendentes: '+blockers.slice(0,3).map((x: AnyRow)=>x.title).join(', ')+'.'
+  if(!assumeChildrenDone){
+    const open=taskDescendants(tasks,t.id).filter((x:AnyRow)=>!x.archivedAt&&x.status!=='feito'&&!assumeDoneIds.has(String(x.id)))
+    if(open.length)return'Há '+open.length+' subtarefa(s) aberta(s): '+open.slice(0,3).map((x:AnyRow)=>x.title).join(', ')+'.'
+  }
   if (t.conferenceRequired) {
     const items = Array.isArray(t.checklist) ? t.checklist : []
     const pending = items.filter((x: AnyRow) => !x.done)
     if (!items.length) return 'A lista de conferência obrigatória está sem itens.'
-    if (pending.length) return `A lista de conferência tem ${pending.length} item(ns) pendente(s).`
+    if (pending.length) return 'A lista de conferência tem '+pending.length+' item(ns) pendente(s).'
   }
   if (t.deliveryRequired && !assumeOfficialDelivery && !(await hasOfficialDelivery(supabase,t))) {
     return 'A tarefa exige uma entrega existente na coleção oficial antes de ser concluída.'
@@ -344,9 +364,98 @@ async function completionProblem(supabase:any,t: AnyRow, tasks: AnyRow[], assume
 }
 
 
+
 function dueValue(t: AnyRow) {
   return t.dueAt || t.due || null
 }
+
+function taskBrands(t:AnyRow){
+  const values=Array.isArray(t.brands)?t.brands:[t.brand]
+  return [...new Set(values.map((x:any)=>String(x||'').trim()).filter(Boolean))]
+}
+function taskHasBrand(t:AnyRow,brand:any){const n=norm(brand);return taskBrands(t).some(x=>norm(x)===n)}
+function taskSharesBrand(a:AnyRow,b:AnyRow){const bb=new Set(taskBrands(b).map(norm));return taskBrands(a).some(x=>bb.has(norm(x)))}
+function taskDueMs(t:AnyRow){
+  const raw=dueValue(t)
+  if(!raw)return null
+  const text=String(raw)
+  const d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(text)?text+'T23:59:59-03:00':text)
+  return Number.isNaN(d.getTime())?null:d.getTime()
+}
+function isPastDueValue(v:any){
+  if(!v)return false
+  const text=String(v),d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(text)?text+'T23:59:59-03:00':text)
+  return !Number.isNaN(d.getTime())&&d.getTime()<Date.now()
+}
+function overdueInfo(t:AnyRow){
+  if(t.status==='feito'||t.archivedAt)return{atrasada:false,dias:0}
+  const ms=taskDueMs(t);if(ms==null||ms>=Date.now())return{atrasada:false,dias:0}
+  return{atrasada:true,dias:Math.max(1,Math.floor((Date.now()-ms)/86400000))}
+}
+function taskChildren(tasks:AnyRow[],id:any){return tasks.filter(x=>String(x.parentTaskId||'')===String(id))}
+function taskDescendants(tasks:AnyRow[],id:any){
+  const out:AnyRow[]=[],seen=new Set<string>(),queue=[String(id)]
+  while(queue.length){const p=queue.shift()!;for(const c of taskChildren(tasks,p)){const cid=String(c.id);if(seen.has(cid))continue;seen.add(cid);out.push(c);queue.push(cid)}}
+  return out
+}
+function sameTaskList(a:AnyRow,b:AnyRow){
+  if(a.listId&&b.listId)return String(a.listId)===String(b.listId)
+  return norm(a.brand)===norm(b.brand)&&norm(a.project||'Operação')===norm(b.project||'Operação')
+}
+function parentChainContains(tasks:AnyRow[],startId:any,targetId:any){
+  let cur=tasks.find(x=>String(x.id)===String(startId)),guard=0
+  while(cur?.parentTaskId&&guard++<500){if(String(cur.parentTaskId)===String(targetId))return true;cur=tasks.find(x=>String(x.id)===String(cur.parentTaskId))}
+  return false
+}
+function taskDeadlineWarnings(t:AnyRow,tasks:AnyRow[]){
+  const warnings:string[]=[],me=taskDueMs(t)
+  if(me!=null&&isPastDueValue(dueValue(t)))warnings.push('Prazo informado está no passado.')
+  if(t.parentTaskId){
+    const p=tasks.find(x=>String(x.id)===String(t.parentTaskId)),pm=p?taskDueMs(p):null
+    if(pm!=null&&me!=null&&me>pm)warnings.push('Subtarefa vence depois da tarefa mãe.')
+  }
+  for(const id of Array.isArray(t.dependencies)?t.dependencies:[]){
+    const d=tasks.find(x=>String(x.id)===String(id)),dm=d?taskDueMs(d):null
+    if(dm!=null&&me!=null&&me<dm)warnings.push('Vence antes da tarefa que a bloqueia: '+String(d?.title||id)+'.')
+  }
+  if(me!=null){
+    for(const c of taskChildren(tasks,t.id)){
+      const cm=taskDueMs(c)
+      if(cm!=null&&cm>me)warnings.push('A tarefa mãe vence antes da subtarefa: '+String(c.title||c.id)+'.')
+    }
+  }
+  return [...new Set(warnings)]
+}
+function mergeChecklist(existing:any[],texts:string[]){
+  const old=Array.isArray(existing)?existing:[],used=new Set<number>()
+  return (texts||[]).map((raw:string)=>{
+    const text=String(raw||'').trim()
+    let idx=old.findIndex((x:any,i:number)=>!used.has(i)&&norm(x?.text)===norm(text))
+    if(idx<0)return{id:'check-'+crypto.randomUUID().slice(0,8),text,done:false}
+    used.add(idx);return{...structuredClone(old[idx]),text}
+  })
+}
+function historyDisplay(v:any){
+  if(v===null||v===undefined||v==='')return'—'
+  if(Array.isArray(v))return v.map(historyDisplay).join(', ')||'—'
+  if(typeof v==='object')return JSON.stringify(v)
+  return String(v)
+}
+function recordTaskChanges(t:AnyRow,before:AnyRow,who:AnyRow){
+  const fields=[
+    ['title','nome'],['description','descrição'],['brand','marca'],['brands','marcas'],['project','lista'],['listId','lista_id'],['campaignId','campanha'],
+    ['assignees','responsáveis'],['assigneeIds','responsáveis_ids'],['dueAt','prazo'],['priority','prioridade'],['parentTaskId','tarefa_mãe'],
+    ['status','status'],['blockedReason','motivo_bloqueio'],['recurrenceRule','recorrência'],['deliveryRequired','entrega_obrigatória'],
+    ['channel','canal'],['archivedAt','arquivamento']
+  ] as any[]
+  t.history=Array.isArray(t.history)?t.history:[]
+  for(const [key,label] of fields){
+    const a=(before as any)[key]??null,b=(t as any)[key]??null
+    if(JSON.stringify(a)===JSON.stringify(b))continue
+    t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',campo:label,antes:a,depois:b,text:label+': '+historyDisplay(a)+' → '+historyDisplay(b)+'.'})
+  }
+}
+
 
 function hasDependencyPath(tasks:AnyRow[],fromId:string,targetId:string,seen=new Set<string>()):boolean {
   if(String(fromId)===String(targetId)) return true
@@ -490,8 +599,9 @@ function fullCampaignStatus(v:any){
   if(['planejamento','planejando'].includes(n))return'planejamento'
   if(['em execucao','execucao','executando','ativa','ativo'].includes(n))return'em execução'
   if(['pausada','pausado'].includes(n))return'pausada'
+  if(['encerrada','encerrado'].includes(n))return'encerrada'
   if(['concluida','concluido','feito'].includes(n))return'concluída'
-  throw new Error('Status de campanha inválido. Use: planejamento, em execução, pausada ou concluída.')
+  throw new Error('Status de campanha inválido. Use: planejamento, em execução, pausada, encerrada ou concluída.')
 }
 function fullLinks(kind:string,id:string){
   const h:any={campanha:'campaigns',mes:'planning',mapa:'planning',entrega:'deliveries',cliente:'clients',automacao:'automations',relatorio:'reports'}
@@ -791,6 +901,25 @@ function fullPublicCampaign(c:any){let tipo=c.type||null,status=c.status||'plane
 function fullMonthRef(c:any){return c.monthRef||String(c.startAt||c.start||'').slice(0,7)||null}
 function fullTapTotals(c:any){const t=fullLegacyTap(c),fat=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0),inv=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.investimento||0),0);return{...t,totais:{faturamento:fat,investimento:inv,lucro_aproximado:fat-inv,roas:inv?fat/inv:null}}}
 function fullCampaignWarnings(c:any){const t=fullLegacyTap(c),plans=t.metas_por_fonte||[],sum=plans.reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0),manual=Number(c.goal||0),a=[] as string[];if(sum>0&&manual>0&&Math.abs(sum-manual)>.01)a.push('A meta manual é R$ '+manual.toFixed(2)+', mas as metas por fonte somam R$ '+sum.toFixed(2)+'. Vale a soma por fonte de receita.');for(const x of plans){const meta=Number(x.meta_faturamento||0),inv=Number(x.investimento||0),target=x.roas_alvo==null?null:Number(x.roas_alvo);if(meta>0&&inv>0&&target!=null&&target>=0){const calc=meta/inv,diff=calc?Math.abs(target-calc)/calc:0;if(diff>.20)a.push('ROAS alvo de '+String(x.fonte)+' ('+target.toFixed(2)+') difere mais de 20% do ROAS calculado ('+calc.toFixed(2)+').')}}return a}
+async function fullCloseExpiredCampaigns(s:any,rows:any[]){
+  const today=new Date().toISOString().slice(0,10),who=await actor(s),closed:any[]=[]
+  for(const c of rows){
+    const end=String(fullCampaignBoundary(c.endAt||c.end,'fim')||'').slice(0,10)
+    if(!c.archivedAt&&end&&end<today&&norm(c.status)==='em execucao'){
+      const before=c.status;c.status='encerrada';c.endedAt=c.endedAt||nowIso();c.history=Array.isArray(c.history)?c.history:[]
+      c.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'job',campo:'status',antes:before,depois:'encerrada',text:'status: '+before+' → encerrada (data final ultrapassada).'})
+      closed.push(c)
+    }
+  }
+  if(closed.length){
+    await fullSaveCampaigns(s,rows)
+    const {data:profiles}=await s.from('profiles').select('id').eq('ativo',true)
+    const ids=(profiles||[]).map((x:any)=>String(x.id))
+    for(const c of closed)await notifyUsers(s,who,ids,'campaign_closed','Campanha encerrada: '+String(c.name||'Campanha'),'A data final da campanha foi ultrapassada.',null,'campaign-closed:'+String(c.id)+':'+String(c.endAt||c.end||''),true)
+  }
+  return closed
+}
+
 
 async function fullAuditHistory(s:any,entityType:string,entityId:string){
   const {data,error}=await s.from('task_action_audit').select('id,actor_id,origin,action,details,created_at').eq('entity_type',entityType).eq('entity_id',String(entityId)).order('created_at',{ascending:false}).limit(100)
@@ -818,10 +947,19 @@ async function fullResolveMonth(s:any,brand:any,ref:string,id?:string|null){
 }
 async function fullBrand(s:any,input:any){const bs=await listBrands(s),n=norm(input),b=bs.find((x:any)=>String(x.id)===String(input)||norm(x.nome)===n||norm(x.slug)===n);if(!b)throw new Error('Marca não encontrada.');return b}
 async function fullMonthPayload(s:any,row:any){
-  const bs=await listBrands(s),b=bs.find((x:any)=>String(x.id)===String(row.brand_id)),cs=(await fullCampaigns(s)).filter((c:any)=>!c.archivedAt&&norm(c.brand)===norm(b?.nome)&&(String(c.monthId||'')===String(row.id)||fullMonthRef(c)===row.ano+'-'+String(row.mes).padStart(2,'0'))),sum=cs.reduce((n:number,c:any)=>n+fullGoal(c),0),active=Number(row.meta_ativa||1),mv=Number(row['meta'+active]||0),warnings=[] as string[]
-  if(mv>0&&Math.abs(sum-mv)>.01)warnings.push('As campanhas somam R$ '+sum.toFixed(2)+' e não batem com a Meta '+active+' ativa da marca (R$ '+mv.toFixed(2)+').')
-  return{id:String(row.id),link:fullLinks('mes',String(row.id)),marca:b?.nome||null,marca_id:row.brand_id,ano:row.ano,mes:row.mes,meta1:Number(row.meta1||0),meta2:Number(row.meta2||0),meta3:Number(row.meta3||0),meta_ativa:active,ticket_medio_previsto:Number(row.ticket_medio_previsto||0),soma_metas_campanhas:sum,campanhas:cs.map(fullPublicCampaign),avisos:warnings,arquivada:!!row.arquivado_em,historico:await fullAuditHistory(s,'mes',String(row.id))}
+  const bs=await listBrands(s),b=bs.find((x:any)=>String(x.id)===String(row.brand_id)),all=await fullCampaigns(s)
+  await fullCloseExpiredCampaigns(s,all)
+  const ref=row.ano+'-'+String(row.mes).padStart(2,'0'),cs=all.filter((c:any)=>!c.archivedAt&&norm(c.brand)===norm(b?.nome)&&(String(c.monthId||'')===String(row.id)||fullMonthRef(c)===ref))
+  const plannedRevenue=cs.reduce((n:number,c:any)=>n+fullGoal(c),0),plannedInvestment=cs.reduce((n:number,c:any)=>n+fullInvestment(c),0),active=Number(row.meta_ativa||1),mv=Number(row['meta'+active]||0),warnings=[] as string[]
+  if(mv>0&&Math.abs(plannedRevenue-mv)>.01)warnings.push('As campanhas somam R$ '+plannedRevenue.toFixed(2)+' e não batem com a Meta '+active+' ativa da marca (R$ '+mv.toFixed(2)+').')
+  const start=ref+'-01T00:00:00-03:00',last=new Date(Date.UTC(Number(row.ano),Number(row.mes),0)).getUTCDate(),end=ref+'-'+String(last).padStart(2,'0')+'T23:59:59-03:00'
+  const results=await fullResults(s,{brand_id:row.brand_id,inicio:start,fim:end,incluir_arquivados:false}),real=fullAgg(results)
+  const byCampaign=cs.map((c:any)=>{const a=fullAgg(results.filter((r:any)=>String(r.campaign_id)===String(c.id))),pf=fullGoal(c),pi=fullInvestment(c);return{campanha_id:String(c.id),campanha:c.name,faturamento_planejado:pf,faturamento_realizado:a.faturamento,investimento_planejado:pi,investimento_realizado:a.investimento,roas_previsto:pi?pf/pi:null,roas_realizado:a.roas}})
+  return{id:String(row.id),link:fullLinks('mes',String(row.id)),marca:b?.nome||null,marca_id:row.brand_id,ano:row.ano,mes:row.mes,meta1:Number(row.meta1||0),meta2:Number(row.meta2||0),meta3:Number(row.meta3||0),meta_ativa:active,ticket_medio_previsto:Number(row.ticket_medio_previsto||0),soma_metas_campanhas:plannedRevenue,
+    faturamento_planejado:plannedRevenue,faturamento_realizado:real.faturamento,investimento_planejado:plannedInvestment,investimento_realizado:real.investimento,roas_previsto:plannedInvestment?plannedRevenue/plannedInvestment:null,roas_realizado:real.roas,percentual_da_meta_ativa:mv?real.faturamento/mv*100:null,diferenca_meta_ativa:real.faturamento-mv,realizado_por_canal:real.por_canal,realizado_por_fonte:real.por_fonte,planejado_vs_realizado_por_campanha:byCampaign,
+    campanhas:cs.map(fullPublicCampaign),avisos:warnings,arquivada:!!row.arquivado_em,historico:await fullAuditHistory(s,'mes',String(row.id))}
 }
+
 async function fullMapNodes(s:any,mapId:string,arch=true){let q=s.from('planning_map_nodes').select('*').eq('map_id',mapId).order('criado_em');if(!arch)q=q.is('arquivado_em',null);const{data,error}=await q;if(error)throw new Error(error.message);return data||[]}
 async function fullMap(s:any,id:string){const{data,error}=await s.from('planning_maps').select('*').eq('id',id).maybeSingle();if(error||!data)throw new Error('Mapa não encontrado.');return data}
 async function fullSyncMap(s:any,map:any){
@@ -866,7 +1004,18 @@ async function fullSyncRevenueSources(s:any,c:any,who:any){
 }
 
 async function fullTag(s:any,input:string){const{data,error}=await s.from('alliance_tags').select('*').is('arquivado_em',null);if(error)throw new Error(error.message);const n=norm(input),m=(data||[]).filter((t:any)=>String(t.id)===String(input)||norm(t.nome)===n);if(!m.length)throw new Error('Tag não encontrada.');if(m.length>1&&!m.some((t:any)=>String(t.id)===String(input)))throw new Error('Tag ambígua; use id.');return m.find((t:any)=>String(t.id)===String(input))||m[0]}
-async function fullCompletion(supabase:any,t:any,tasks:any[],assumeOfficialDelivery=false){const b=(t.dependencies||[]).map((id:any)=>tasks.find(x=>String(x.id)===String(id))).filter(Boolean).filter((x:any)=>x.status!=='feito');if(b.length)return'Há dependências pendentes.';if(t.conferenceRequired){const p=(t.checklist||[]).filter((x:any)=>!x.done);if(!(t.checklist||[]).length)return'Checklist obrigatória sem itens.';if(p.length)return'Checklist obrigatória pendente.'}if(t.deliveryRequired&&!assumeOfficialDelivery&&!(await hasOfficialDelivery(supabase,t)))return'Entrega obrigatória pendente na coleção oficial.';return''}
+async function fullCompletion(supabase:any,t:any,tasks:any[],assumeOfficialDelivery=false,assumeChildrenDone=false){
+  const b=(t.dependencies||[]).map((id:any)=>tasks.find(x=>String(x.id)===String(id))).filter(Boolean).filter((x:any)=>x.status!=='feito')
+  if(b.length)return'Há dependências pendentes.'
+  if(!assumeChildrenDone){
+    const open=taskDescendants(tasks,t.id).filter((x:any)=>!x.archivedAt&&x.status!=='feito')
+    if(open.length)return'Há '+open.length+' subtarefa(s) aberta(s): '+open.slice(0,3).map((x:any)=>x.title).join(', ')+'.'
+  }
+  if(t.conferenceRequired){const p=(t.checklist||[]).filter((x:any)=>!x.done);if(!(t.checklist||[]).length)return'Checklist obrigatória sem itens.';if(p.length)return'Checklist obrigatória pendente.'}
+  if(t.deliveryRequired&&!assumeOfficialDelivery&&!(await hasOfficialDelivery(supabase,t)))return'Entrega obrigatória pendente na coleção oficial.'
+  return''
+}
+
 
 const fullTapSchema=z.object({
   sobre_evento:z.object({nome:z.string().max(300).default(''),formato:z.string().max(1000).default(''),cupom_automatico:z.string().max(1000).default(''),bonus_universal:z.string().max(2000).default(''),bonus_influencer:z.string().max(2000).default(''),observacoes:z.string().max(10000).default('')}),
@@ -917,12 +1066,22 @@ function registerFullSystemTools(server:any,supabase:any){
     if(a.arquivada!==undefined){c.archivedAt=a.arquivada?(c.archivedAt||nowIso()):null;c.archivedBy=a.arquivada?who.id:null}
     fullHistory(c,'Campanha atualizada via MCP.',who);await fullSaveCampaigns(supabase,rows);await audit(supabase,who,'atualizar_campanha','campanha',String(c.id),{arquivada:!!c.archivedAt,mes_id:c.monthId||null,tipo:c.type,status:c.status});return toolText({campanha:fullPublicCampaign(c),avisos:fullCampaignWarnings(c)})
   })
-  server.registerTool('listar_campanhas',{description:'Lista campanhas por marca, mês, tipo e status.',inputSchema:z.object({marca:z.string().optional(),mes:z.string().regex(/^\d{4}-\d{2}$/).optional(),tipo:z.string().optional(),status:z.string().optional(),incluir_arquivadas:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async(a:any)=>{let rows=await fullCampaigns(supabase);if(!a.incluir_arquivadas)rows=rows.filter((c:any)=>!c.archivedAt);if(a.marca){const b=await fullBrand(supabase,a.marca);rows=rows.filter((c:any)=>norm(c.brand)===norm(b.nome))}if(a.mes)rows=rows.filter((c:any)=>fullMonthRef(c)===a.mes);if(a.tipo){const t=fullCampaignType(a.tipo);rows=rows.filter((c:any)=>c.type===t)}if(a.status){const st=fullCampaignStatus(a.status);rows=rows.filter((c:any)=>norm(c.status)===norm(st))}return toolText({campanhas:rows.map((c:any)=>({...fullPublicCampaign(c),avisos:fullCampaignWarnings(c)}))})})
+  server.registerTool('listar_campanhas',{description:'Lista campanhas por marca, mês, tipo e status. Campanhas em execução com fim ultrapassado são encerradas de forma idempotente.',inputSchema:z.object({marca:z.string().optional(),mes:z.string().regex(/^\d{4}-\d{2}$/).optional(),tipo:z.string().optional(),status:z.string().optional(),incluir_arquivadas:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async(a:any)=>{
+    let rows=await fullCampaigns(supabase);await fullCloseExpiredCampaigns(supabase,rows)
+    if(!a.incluir_arquivadas)rows=rows.filter((c:any)=>!c.archivedAt)
+    if(a.marca){const b=await fullBrand(supabase,a.marca);rows=rows.filter((c:any)=>norm(c.brand)===norm(b.nome))}
+    if(a.mes)rows=rows.filter((c:any)=>fullMonthRef(c)===a.mes)
+    if(a.tipo){const t=fullCampaignType(a.tipo);rows=rows.filter((c:any)=>c.type===t)}
+    if(a.status){const st=fullCampaignStatus(a.status);rows=rows.filter((c:any)=>norm(c.status)===norm(st))}
+    const [tasks,lists]=await Promise.all([readState(supabase,TASKS_KEY),buildLists(supabase,true)]),byList=new Map(lists.map((l:any)=>[String(l.id),l]))
+    return toolText({campanhas:rows.map((c:any)=>{const open=tasks.filter((t:any)=>!t.archivedAt&&t.status!=='feito'&&String(taskCampaignFromLists(t,byList)||'')===String(c.id)).length,avisos=fullCampaignWarnings(c);if(norm(c.status)==='encerrada'&&open)avisos.push('Campanha encerrada com '+open+' tarefa(s) aberta(s).');return{...fullPublicCampaign(c),tarefas_abertas:open,avisos}})})
+  })
   server.registerTool('obter_campanha',{
     description:'Obtém campanha com paginação. Permite escolher seções e modo completo/resumo sem repetir tarefas.',
     inputSchema:z.object({id:z.string(),secoes:z.array(z.enum(['campanha','tap','listas','tarefas','entregas','resultados','historico'])).default(['campanha','tap','listas','tarefas','entregas','resultados','historico']),modo:z.enum(['completo','resumo']).default('completo'),cursor:z.string().optional(),limite:z.number().int().min(1).max(100).default(50),incluir_arquivados:z.boolean().default(false)}),annotations:{readOnlyHint:true}
   },async(a:any)=>{
     const[camps,lists,tasks,deliveries]=await Promise.all([fullCampaigns(supabase),buildLists(supabase,true),readState(supabase,TASKS_KEY),fullDeliveries(supabase)])
+    await fullCloseExpiredCampaigns(supabase,camps)
     const c=fullCampaign(camps,a.id),byList=new Map(lists.map((l:any)=>[String(l.id),l])),selected=new Set(a.secoes),offset=fullCursorOffset(a.cursor)
     const ls=lists.filter((l:any)=>String(l.campanha_id||'')===String(c.id)&&(a.incluir_arquivados||!l.arquivada))
     const ts=tasks.filter((t:any)=>String(taskCampaignFromLists(t,byList)||'')===String(c.id)&&(a.incluir_arquivados||!t.archivedAt))
@@ -1121,9 +1280,41 @@ function registerFullSystemTools(server:any,supabase:any){
 
   server.registerTool('listar_automacoes',{description:'Lista automações.',inputSchema:z.object({marca:z.string().optional(),canal:z.enum(['WhatsApp','e-mail','API']).optional(),status:z.enum(['ativa','pausada']).optional(),incluir_arquivadas:z.boolean().default(false)}),annotations:{readOnlyHint:true}},async(a:any)=>{let q=supabase.from('alliance_automations').select('*');if(!a.incluir_arquivadas)q=q.is('arquivado_em',null);if(a.marca)q=q.eq('brand_id',(await fullBrand(supabase,a.marca)).id);if(a.canal)q=q.eq('canal',a.canal);if(a.status)q=q.eq('status',a.status);const{data,error}=await q.order('nome');if(error)throw new Error(error.message);return toolText({automacoes:(data||[]).map((x:any)=>({...x,id:String(x.id),link:fullLinks('automacao',String(x.id))}))})})
   server.registerTool('obter_automacao',{description:'Obtém automação.',inputSchema:z.object({id:z.string().uuid()}),annotations:{readOnlyHint:true}},async({id}:any)=>{const{data,error}=await supabase.from('alliance_automations').select('*').eq('id',id).maybeSingle();if(error||!data)throw new Error('Automação não encontrada.');return toolText({automacao:{...data,id:String(data.id),link:fullLinks('automacao',String(data.id)),historico:await fullAuditHistory(supabase,'automacao',id)}})})
-  server.registerTool('criar_automacao',{description:'Cria automação.',inputSchema:z.object({nome:z.string(),marca:z.string(),gatilho:z.record(z.string(),z.any()).default({}),acao:z.record(z.string(),z.any()).default({}),canal:z.enum(['WhatsApp','e-mail','API']),status:z.enum(['ativa','pausada']).default('pausada'),ultima_execucao:dt.nullable().optional()})},async(a:any)=>{const who=await actor(supabase),b=await fullBrand(supabase,a.marca),{data,error}=await supabase.from('alliance_automations').insert({nome:a.nome,brand_id:b.id,gatilho:a.gatilho,acao:a.acao,canal:a.canal,status:a.status,ultima_execucao:a.ultima_execucao||null,origem:'mcp',criado_por:who.id,atualizado_por:who.id}).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'criar_automacao','automacao',data.id,{});return toolText({automacao:{...data,id:String(data.id),link:fullLinks('automacao',String(data.id))}})})
-  server.registerTool('atualizar_automacao',{description:'Atualiza/arquiva automação.',inputSchema:z.object({id:z.string().uuid(),nome:z.string().optional(),marca:z.string().optional(),gatilho:z.record(z.string(),z.any()).optional(),acao:z.record(z.string(),z.any()).optional(),canal:z.enum(['WhatsApp','e-mail','API']).optional(),status:z.enum(['ativa','pausada']).optional(),ultima_execucao:dt.nullable().optional(),arquivada:z.boolean().optional()})},async(a:any)=>{const who=await actor(supabase),{data:old}=await supabase.from('alliance_automations').select('*').eq('id',a.id).maybeSingle();if(!old)throw new Error('Automação não encontrada.');const p:any={atualizado_por:who.id};for(const k of ['nome','gatilho','acao','canal','status','ultima_execucao'])if(a[k]!==undefined)p[k]=a[k];if(a.marca)p.brand_id=(await fullBrand(supabase,a.marca)).id;if(a.arquivada!==undefined){p.arquivado_em=a.arquivada?(old.arquivado_em||nowIso()):null;p.arquivado_por=a.arquivada?who.id:null}const{data,error}=await supabase.from('alliance_automations').update(p).eq('id',a.id).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'atualizar_automacao','automacao',a.id,{});return toolText({automacao:{...data,id:String(data.id),link:fullLinks('automacao',String(data.id))}})})
-  server.registerTool('ativar_ou_pausar_automacao',{description:'Ativa ou pausa automação.',inputSchema:z.object({id:z.string().uuid(),status:z.enum(['ativa','pausada'])})},async(a:any)=>{const who=await actor(supabase),{data,error}=await supabase.from('alliance_automations').update({status:a.status,atualizado_por:who.id}).eq('id',a.id).is('arquivado_em',null).select('*').maybeSingle();if(error||!data)throw new Error('Automação não encontrada.');await audit(supabase,who,'ativar_ou_pausar_automacao','automacao',a.id,{status:a.status});return toolText({automacao:{id:String(data.id),link:fullLinks('automacao',String(data.id)),status:data.status}})})
+  const AUTOMATION_TRIGGER_CATALOG=[
+    {id:'tarefa_atrasada',descricao:'Quando uma tarefa fica atrasada.',parametros:[],executavel:false},
+    {id:'tarefa_concluida',descricao:'Quando uma tarefa é concluída.',parametros:[],executavel:false},
+    {id:'campanha_encerrada',descricao:'Quando uma campanha é encerrada.',parametros:[],executavel:false},
+  ]
+  const AUTOMATION_ACTION_CATALOG=[
+    {id:'criar_notificacao',descricao:'Criar uma notificação no AllianceOS.',parametros:['titulo'],executavel:false},
+    {id:'alterar_status_tarefa',descricao:'Alterar status de uma tarefa.',parametros:['status'],executavel:false},
+  ]
+  const automationKey=(v:any,kind:'trigger'|'action')=>String(v?.id||v?.tipo||(kind==='trigger'?v?.evento:(v?.acao||v?.template))||'').trim()
+  function validateAutomationDefinition(g:any,a:any){
+    const gid=automationKey(g,'trigger'),aid=automationKey(a,'action'),gt=AUTOMATION_TRIGGER_CATALOG.find(x=>x.id===gid),ac=AUTOMATION_ACTION_CATALOG.find(x=>x.id===aid)
+    if(!gt)throw new Error('Gatilho inválido. Use listar_gatilhos para obter valores válidos.')
+    if(!ac)throw new Error('Ação inválida. Use listar_acoes para obter valores válidos.')
+    for(const p of ac.parametros)if(!String(a?.[p]??'').trim())throw new Error('A ação '+aid+' exige o parâmetro '+p+'.')
+    return{gatilho:gt,acao:ac}
+  }
+  function assertAutomationRuntime(){throw new Error('A automação está com definição válida, mas o executor automático ainda não está habilitado. Ela pode ser salva pausada, mas não ativada até existir runtime executável.')}
+  server.registerTool('listar_gatilhos',{description:'Lista o catálogo válido de gatilhos de automação e informa se há runtime executável.',inputSchema:z.object({}),annotations:{readOnlyHint:true}},async()=>toolText({gatilhos:AUTOMATION_TRIGGER_CATALOG}))
+  server.registerTool('listar_acoes',{description:'Lista o catálogo válido de ações de automação e parâmetros obrigatórios.',inputSchema:z.object({}),annotations:{readOnlyHint:true}},async()=>toolText({acoes:AUTOMATION_ACTION_CATALOG}))
+  server.registerTool('criar_automacao',{description:'Cria automação pausada com gatilho/ação do catálogo. Ativação é recusada enquanto não houver executor real.',inputSchema:z.object({nome:z.string(),marca:z.string(),gatilho:z.record(z.string(),z.any()).default({}),acao:z.record(z.string(),z.any()).default({}),canal:z.enum(['WhatsApp','e-mail','API']),status:z.enum(['ativa','pausada']).default('pausada'),ultima_execucao:dt.nullable().optional()})},async(a:any)=>{
+    validateAutomationDefinition(a.gatilho,a.acao);if(a.status==='ativa')assertAutomationRuntime()
+    const who=await actor(supabase),b=await fullBrand(supabase,a.marca),{data,error}=await supabase.from('alliance_automations').insert({nome:a.nome,brand_id:b.id,gatilho:a.gatilho,acao:a.acao,canal:a.canal,status:'pausada',ultima_execucao:a.ultima_execucao||null,origem:'mcp',criado_por:who.id,atualizado_por:who.id}).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'criar_automacao','automacao',data.id,{gatilho:automationKey(a.gatilho,'trigger'),acao:automationKey(a.acao,'action')});return toolText({automacao:{...data,id:String(data.id),link:fullLinks('automacao',String(data.id))}})
+  })
+  server.registerTool('atualizar_automacao',{description:'Atualiza/arquiva automação e valida gatilho/ação.',inputSchema:z.object({id:z.string().uuid(),nome:z.string().optional(),marca:z.string().optional(),gatilho:z.record(z.string(),z.any()).optional(),acao:z.record(z.string(),z.any()).optional(),canal:z.enum(['WhatsApp','e-mail','API']).optional(),status:z.enum(['ativa','pausada']).optional(),ultima_execucao:dt.nullable().optional(),arquivada:z.boolean().optional()})},async(a:any)=>{
+    const who=await actor(supabase),{data:old}=await supabase.from('alliance_automations').select('*').eq('id',a.id).maybeSingle();if(!old)throw new Error('Automação não encontrada.')
+    validateAutomationDefinition(a.gatilho??old.gatilho,a.acao??old.acao);if(a.status==='ativa')assertAutomationRuntime()
+    const p:any={atualizado_por:who.id};for(const k of ['nome','gatilho','acao','canal','status','ultima_execucao'])if(a[k]!==undefined)p[k]=a[k];if(a.marca)p.brand_id=(await fullBrand(supabase,a.marca)).id;if(a.arquivada!==undefined){p.arquivado_em=a.arquivada?(old.arquivado_em||nowIso()):null;p.arquivado_por=a.arquivada?who.id:null}
+    const{data,error}=await supabase.from('alliance_automations').update(p).eq('id',a.id).select('*').single();if(error)throw new Error(error.message);await audit(supabase,who,'atualizar_automacao','automacao',a.id,{campos:Object.keys(a).filter(k=>k!=='id')});return toolText({automacao:{...data,id:String(data.id),link:fullLinks('automacao',String(data.id))}})
+  })
+  server.registerTool('ativar_ou_pausar_automacao',{description:'Pausa automação; ativação exige configuração válida e runtime executável.',inputSchema:z.object({id:z.string().uuid(),status:z.enum(['ativa','pausada'])})},async(a:any)=>{
+    const who=await actor(supabase),{data:old}=await supabase.from('alliance_automations').select('*').eq('id',a.id).is('arquivado_em',null).maybeSingle();if(!old)throw new Error('Automação não encontrada.')
+    validateAutomationDefinition(old.gatilho,old.acao);if(a.status==='ativa')assertAutomationRuntime()
+    const{data,error}=await supabase.from('alliance_automations').update({status:a.status,atualizado_por:who.id}).eq('id',a.id).is('arquivado_em',null).select('*').maybeSingle();if(error||!data)throw new Error('Automação não encontrada.');await audit(supabase,who,'ativar_ou_pausar_automacao','automacao',a.id,{status:a.status});return toolText({automacao:{id:String(data.id),link:fullLinks('automacao',String(data.id)),status:data.status}})
+  })
 
   server.registerTool('registrar_resultado',{
     description:'Registra faturamento/investimento realizado com fonte de receita e/ou canal de execução. Resultados arquivados nunca são reaproveitados.',
@@ -1185,7 +1376,7 @@ function registerFullSystemTools(server:any,supabase:any){
   server.registerTool('marcar_tag',{description:'Marca tag em tarefa ou campanha.',inputSchema:z.object({tag:z.string(),tipo:z.enum(['tarefa','campanha']),registro_id:z.string()})},async(a:any)=>{const who=await actor(supabase),tag=await fullTag(supabase,a.tag),obj={id:String(tag.id),nome:tag.nome,cor:tag.cor||null};if(a.tipo==='tarefa'){const ts=await readState(supabase,TASKS_KEY),t=findTask(ts,a.registro_id);t.tags=Array.isArray(t.tags)?t.tags:[];if(!t.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))t.tags.push(obj);t.history=t.history||[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tag '+tag.nome+' adicionada via MCP por '+who.nome+'.'});await writeTasks(supabase,ts);await audit(supabase,who,'marcar_tag','tarefa',t.id,{tag_id:tag.id});return toolText({tarefa:publicTask(t)})}const cs=await fullCampaigns(supabase),c=fullCampaign(cs,a.registro_id);c.tags=Array.isArray(c.tags)?c.tags:[];if(!c.tags.some((x:any)=>String(x?.id||x)===String(tag.id)))c.tags.push(obj);fullHistory(c,'Tag '+tag.nome+' adicionada via MCP.',who);await fullSaveCampaigns(supabase,cs);await audit(supabase,who,'marcar_tag','campanha',c.id,{tag_id:tag.id});return toolText({campanha:fullPublicCampaign(c)})})
   server.registerTool('desmarcar_tag',{description:'Desmarca tag sem excluir a tag.',inputSchema:z.object({tag:z.string(),tipo:z.enum(['tarefa','campanha']),registro_id:z.string()})},async(a:any)=>{const who=await actor(supabase),tag=await fullTag(supabase,a.tag),keep=(x:any)=>String(x?.id||x)!==String(tag.id)&&norm(x?.nome||x)!==norm(tag.nome);if(a.tipo==='tarefa'){const ts=await readState(supabase,TASKS_KEY),t=findTask(ts,a.registro_id);t.tags=(t.tags||[]).filter(keep);await writeTasks(supabase,ts);await audit(supabase,who,'desmarcar_tag','tarefa',t.id,{tag_id:tag.id});return toolText({tarefa:publicTask(t)})}const cs=await fullCampaigns(supabase),c=fullCampaign(cs,a.registro_id);c.tags=(c.tags||[]).filter(keep);await fullSaveCampaigns(supabase,cs);await audit(supabase,who,'desmarcar_tag','campanha',c.id,{tag_id:tag.id});return toolText({campanha:fullPublicCampaign(c)})})
 
-  const batchTask=z.object({id_temporario:z.string().min(1).optional(),nome:z.string().min(1),descricao_markdown:z.string().default(''),lista:z.string(),campanha_id:z.string().nullable().optional(),responsaveis:z.array(z.string()).default([]),prazo:dt.optional(),prioridade:z.string().default('normal'),status:z.string().default('a fazer'),motivo_bloqueio:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).default([]),checklist:z.array(z.string()).default([]),checklist_obrigatoria:z.boolean().default(false),entrega_obrigatoria:z.boolean().default(false),canal:z.string().nullable().optional(),recorrencia:recurrenceSchema})
+  const batchTask=z.object({id_temporario:z.string().min(1).optional(),nome:z.string().min(1),descricao_markdown:z.string().default(''),lista:z.string(),campanha_id:z.string().nullable().optional(),responsaveis:z.array(z.string()).default([]),prazo:dt.optional(),confirmar_prazo_passado:z.boolean().default(false),prioridade:z.string().default('normal'),status:z.string().default('a fazer'),motivo_bloqueio:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).default([]),checklist:z.array(z.string()).default([]),checklist_obrigatoria:z.boolean().default(false),entrega_obrigatoria:z.boolean().default(false),canal:z.string().nullable().optional(),recorrencia:recurrenceSchema})
   server.registerTool('criar_tarefas_em_lote',{
     description:'Cria até 200 tarefas. tarefa_mae/dependencias podem usar id_temporario ou nome único de outra tarefa do mesmo lote.',
     inputSchema:z.object({tarefas:z.array(batchTask).min(1).max(200)})
@@ -1195,6 +1386,7 @@ function registerFullSystemTools(server:any,supabase:any){
     for(let i=0;i<inputs.length;i++){
       const x=inputs[i],l=await resolveList(supabase,x.lista),ass=await resolveAssignees(supabase,x.responsaveis),st=statusCanon(x.status)||'a fazer'
       if(st==='bloqueado'&&!String(x.motivo_bloqueio||'').trim())throw new Error('bloqueado exige motivo.')
+      if(x.prazo&&isPastDueValue(x.prazo)&&!x.confirmar_prazo_passado)throw new Error('Prazo no passado no item '+String(i+1)+'. Use confirmar_prazo_passado: true se for intencional.')
       let campaignId:any=l.campanha_id||null,campaignSource='list'
       if(hasOwn(x,'campanha_id')){campaignId=x.campanha_id===null?null:String((await exactCampaignForBrand(supabase,x.campanha_id,l.marca)).id);campaignSource='direct'}
       const id='mcp-'+Date.now()+'-'+i+'-'+crypto.randomUUID().slice(0,5)
@@ -1210,8 +1402,8 @@ function registerFullSystemTools(server:any,supabase:any){
     }
     for(const m of meta){
       const x=m.input,t=m.task
-      if(x.tarefa_mae){const p=resolveRef(x.tarefa_mae);if(String(p.id)===String(t.id))throw new Error('Uma tarefa não pode ser mãe de si mesma.');t.parentTaskId=String(p.id)}
-      t.dependencies=(x.dependencias||[]).map((ref:string)=>String(resolveRef(ref).id))
+      if(x.tarefa_mae){const p=resolveRef(x.tarefa_mae);if(String(p.id)===String(t.id))throw new Error('Uma tarefa não pode ser mãe de si mesma.');if(!taskSharesBrand(t,p)||!sameTaskList(t,p)||String(t.campaignId||'')!==String(p.campaignId||''))throw new Error('Subtarefa em lote precisa ter a mesma lista, marca e campanha da mãe.');t.parentTaskId=String(p.id)}
+      t.dependencies=(x.dependencias||[]).map((ref:string)=>{const d=resolveRef(ref);if(!taskSharesBrand(t,d))throw new Error('Dependência entre marcas diferentes não é permitida.');return String(d.id)})
       if(t.dependencies.includes(String(t.id)))throw new Error('Uma tarefa não pode depender de si mesma.')
     }
     for(const t of created)for(const d of t.dependencies||[])if(hasDependencyPath(ts,String(d),String(t.id)))throw new Error('O lote criaria um ciclo de dependências envolvendo "'+t.title+'".')
@@ -1222,28 +1414,28 @@ function registerFullSystemTools(server:any,supabase:any){
   })
   server.registerTool('atualizar_tarefas_em_lote',{
     description:'Atualiza até 200 tarefas. Cada item altera somente campos presentes nele; nenhum valor é herdado entre itens.',
-    inputSchema:z.object({tarefas:z.array(z.object({id:z.string(),nome:z.string().optional(),descricao_markdown:z.string().optional(),responsaveis:z.array(z.string()).optional(),prazo:dt.nullable().optional(),status:z.string().optional(),motivo_bloqueio:z.string().nullable().optional(),prioridade:z.string().optional(),canal:z.string().nullable().optional(),lista:z.string().optional(),campanha_id:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).optional(),checklist:z.array(z.string()).optional(),tags:z.array(z.any()).optional(),entrega_obrigatoria:z.boolean().optional(),arquivada:z.boolean().optional()})).min(1).max(200)})
+    inputSchema:z.object({tarefas:z.array(z.object({id:z.string(),nome:z.string().optional(),descricao_markdown:z.string().optional(),responsaveis:z.array(z.string()).optional(),prazo:dt.nullable().optional(),status:z.string().optional(),motivo_bloqueio:z.string().nullable().optional(),prioridade:z.string().optional(),canal:z.string().nullable().optional(),lista:z.string().optional(),campanha_id:z.string().nullable().optional(),tarefa_mae:z.string().nullable().optional(),dependencias:z.array(z.string()).optional(),checklist:z.array(z.string()).optional(),tags:z.array(z.any()).optional(),entrega_obrigatoria:z.boolean().optional(),arquivada:z.boolean().optional(),confirmar_mudanca:z.boolean().default(false),confirmar_prazo_passado:z.boolean().default(false)})).min(1).max(200)})
   },async(a:any)=>{
     const who=await actor(supabase),ts=await readState(supabase,TASKS_KEY),out:any[]=[]
     for(const raw of a.tarefas){
-      const x=cloneBatchItem(raw),t=findTask(ts,x.id),oldListId=t.listId,oldList=oldListId?await resolveList(supabase,String(oldListId),true):null
+      const x=cloneBatchItem(raw),t=findTask(ts,x.id),before=structuredClone(t),oldListId=t.listId,oldList=oldListId?await resolveList(supabase,String(oldListId),true):null
       if(hasOwn(x,'nome'))t.title=String(x.nome).trim()
       if(hasOwn(x,'descricao_markdown'))t.description=x.descricao_markdown
       if(hasOwn(x,'responsaveis')){const rr=await resolveAssignees(supabase,x.responsaveis);t.assignees=[...(rr?.names||[])];t.assigneeIds=[...(rr?.ids||[])]}
-      if(hasOwn(x,'prazo')){t.dueAt=x.prazo;t.due=x.prazo?String(x.prazo).slice(0,10):null}
+      if(hasOwn(x,'prazo')){if(x.prazo&&isPastDueValue(x.prazo)&&!x.confirmar_prazo_passado)throw new Error('Prazo no passado em '+t.title+'. Use confirmar_prazo_passado: true.');t.dueAt=x.prazo;t.due=x.prazo?String(x.prazo).slice(0,10):null}
       if(hasOwn(x,'prioridade'))t.priority=priorityCanon(x.prioridade)
       if(hasOwn(x,'canal'))t.channel=x.canal===null?null:fullChannelCanon(x.canal)
-      if(hasOwn(x,'lista')){const l=await resolveList(supabase,x.lista);t.brand=l.marca;t.project=l.nome;t.listId=l.id;if(!hasOwn(x,'campanha_id')&&!taskCampaignIsDirect(t,oldList?.campanha_id)){t.campaignId=l.campanha_id||null;t.campaignSource='list'}}
+      if(hasOwn(x,'lista')){const l=await resolveList(supabase,x.lista);if(t.parentTaskId&&String(t.listId||'')!==String(l.id))throw new Error('Subtarefa não pode mudar de lista em lote; desvincule primeiro.');const target=hasOwn(x,'campanha_id')?x.campanha_id:(l.campanha_id||null);if((norm(t.brand)!==norm(l.marca)||String(t.campaignId||'')!==String(target||''))&&!x.confirmar_mudanca)throw new Error('Mudança de lista altera marca/campanha em '+t.title+'. Use confirmar_mudanca: true.');t.brand=l.marca;t.brands=[l.marca];t.project=l.nome;t.listId=l.id;if(!hasOwn(x,'campanha_id')){t.campaignId=l.campanha_id||null;t.campaignSource='list'}}
       if(hasOwn(x,'campanha_id')){if(x.campanha_id===null){t.campaignId=null;t.campaignSource='direct'}else{const c=await exactCampaignForBrand(supabase,x.campanha_id,t.brand);t.campaignId=String(c.id);t.campaignSource='direct'}}
-      if(hasOwn(x,'tarefa_mae')){if(x.tarefa_mae!==null){if(String(x.tarefa_mae)===String(t.id))throw new Error('Uma tarefa não pode ser mãe de si mesma.');findTask(ts,x.tarefa_mae)}t.parentTaskId=x.tarefa_mae}
-      if(hasOwn(x,'dependencias')){for(const d of x.dependencias||[])findTask(ts,d);t.dependencies=[...(x.dependencias||[])]}
-      if(hasOwn(x,'checklist'))t.checklist=(x.checklist||[]).map((v:any)=>typeof v==='string'?{id:'check-'+crypto.randomUUID().slice(0,7),text:v,done:false}:structuredClone(v))
+      if(hasOwn(x,'tarefa_mae')){if(x.tarefa_mae!==null){if(String(x.tarefa_mae)===String(t.id))throw new Error('Uma tarefa não pode ser mãe de si mesma.');const p=findTask(ts,x.tarefa_mae);if(!taskSharesBrand(t,p)||!sameTaskList(t,p)||String(t.campaignId||'')!==String(p.campaignId||''))throw new Error('Subtarefa precisa ter a mesma lista, marca e campanha da mãe.')}t.parentTaskId=x.tarefa_mae}
+      if(hasOwn(x,'dependencias')){for(const d of x.dependencias||[]){const dep=findTask(ts,d);if(!taskSharesBrand(t,dep))throw new Error('Dependência entre marcas diferentes não é permitida.')}t.dependencies=[...(x.dependencias||[])]}
+      if(hasOwn(x,'checklist'))t.checklist=mergeChecklist(t.checklist||[],(x.checklist||[]).map((v:any)=>typeof v==='string'?v:String(v?.text||'')))
       if(hasOwn(x,'tags'))t.tags=structuredClone(x.tags||[])
       if(hasOwn(x,'entrega_obrigatoria'))t.deliveryRequired=!!x.entrega_obrigatoria
       if(hasOwn(x,'status')){const st=statusCanon(x.status),reason=hasOwn(x,'motivo_bloqueio')?x.motivo_bloqueio:t.blockedReason;if(st==='bloqueado'&&!String(reason||'').trim())throw new Error('bloqueado exige motivo.');if(st==='feito'){const p=await fullCompletion(supabase,t,ts,false);if(p)throw new Error(t.title+': '+p)}t.status=st;t.blockedReason=st==='bloqueado'?String(reason):null}
       else if(hasOwn(x,'motivo_bloqueio'))t.blockedReason=x.motivo_bloqueio
-      if(hasOwn(x,'arquivada')){t.archivedAt=x.arquivada?(t.archivedAt||nowIso()):null;t.archivedBy=x.arquivada?who.id:null}
-      t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tarefa atualizada em lote via MCP por '+who.nome+'.'});out.push(publicTask(t))
+      if(hasOwn(x,'arquivada')){if(x.arquivada&&taskChildren(ts,t.id).some((c:any)=>!c.archivedAt))throw new Error('Não é permitido arquivar mãe com subtarefa ativa em lote; use atualizar_tarefa com a escolha para as filhas.');t.archivedAt=x.arquivada?(t.archivedAt||nowIso()):null;t.archivedBy=x.arquivada?who.id:null}
+      recordTaskChanges(t,before,who);out.push(publicTask(t))
     }
     await writeTasks(supabase,ts);await audit(supabase,who,'atualizar_tarefas_em_lote','tarefa_lote','batch-'+Date.now(),{quantidade:out.length});return toolText({quantidade:out.length,tarefas:out})
   })
@@ -1309,7 +1501,9 @@ function assertAdvertisedToolSchemas(server:any){
   requireFields('atualizar_resultado',['id','arquivado'])
   requireFields('exportar_mes',['modo','secoes','cursor','limite'])
   requireFields('obter_campanha',['modo','secoes','cursor','limite'])
-  requireFields('buscar_tarefas',['cursor','limite'])
+  requireFields('buscar_tarefas',['cursor','limite','marca','atrasadas'])
+  requireFields('listar_gatilhos',[])
+  requireFields('listar_acoes',[])
   requireFields('atualizar_entrega',['id','campanha_id','arquivada'])
 }
 
@@ -1518,18 +1712,21 @@ const protectedHandler = withOAuthProtectedResource(
 
       
       server.registerTool('buscar_tarefas', {
-        description:'Busca tarefas visíveis ao usuário com cursor/limite. Por padrão ignora arquivadas.',
-        inputSchema:z.object({texto:z.string().min(1).optional(),lista:z.string().min(1).optional(),responsavel:z.string().min(1).optional(),status:z.string().min(1).optional(),prazo_de:dt.optional(),prazo_ate:dt.optional(),incluir_arquivadas:z.boolean().default(false),cursor:z.string().optional(),limite:z.number().int().min(1).max(200).default(50)}),
+        description:'Busca tarefas visíveis ao usuário com filtros de marca, atraso e paginação. Por padrão ignora arquivadas.',
+        inputSchema:z.object({texto:z.string().min(1).optional(),lista:z.string().min(1).optional(),marca:z.string().min(1).optional(),responsavel:z.string().min(1).optional(),status:z.string().min(1).optional(),prazo_de:dt.optional(),prazo_ate:dt.optional(),atrasadas:z.boolean().optional(),incluir_arquivadas:z.boolean().default(false),cursor:z.string().optional(),limite:z.number().int().min(1).max(200).default(50)}),
         annotations:{readOnlyHint:true},
       },async(args:AnyRow)=>{
         let tasks=await readState(supabase,TASKS_KEY)
         if(!args.incluir_arquivadas)tasks=tasks.filter(t=>!t.archivedAt)
         if(args.texto){const n=norm(args.texto);tasks=tasks.filter(t=>norm(t.title).includes(n)||norm(t.description).includes(n)||norm(t.blockedReason).includes(n))}
-        if(args.lista){const l=await resolveList(supabase,args.lista,true);tasks=tasks.filter(t=>String(t.listId||'')===String(l.id)||(!t.listId&&norm(t.brand)===norm(l.marca)&&norm(t.project||'Operação')===norm(l.nome)))}
+        if(args.lista){const l=await resolveList(supabase,args.lista,true);tasks=tasks.filter(t=>String(t.listId||'')===String(l.id)||(!t.listId&&taskHasBrand(t,l.marca)&&norm(t.project||'Operação')===norm(l.nome)))}
+        if(args.marca){const b=await resolveBrand(supabase,args.marca);tasks=tasks.filter(t=>taskHasBrand(t,b.nome))}
         if(args.responsavel){const n=norm(args.responsavel),members=await memberDirectory(supabase),m=members.find((x:AnyRow)=>x.id===args.responsavel||norm(x.nome)===n||norm(x.email)===n);if(!m)throw new Error('Responsável não encontrado.');tasks=tasks.filter(t=>(Array.isArray(t.assigneeIds)&&t.assigneeIds.includes(m.id))||(t.assignees||[]).some((a:string)=>norm(a)===norm(m.nome)))}
         if(args.status){const st=statusCanon(args.status);tasks=tasks.filter(t=>t.status===st)}
         if(args.prazo_de)tasks=tasks.filter(t=>dueValue(t)&&new Date(dueValue(t)).getTime()>=new Date(args.prazo_de).getTime())
         if(args.prazo_ate)tasks=tasks.filter(t=>dueValue(t)&&new Date(dueValue(t)).getTime()<=new Date(args.prazo_ate).getTime())
+        if(args.atrasadas===true)tasks=tasks.filter(t=>overdueInfo(t).atrasada)
+        if(args.atrasadas===false)tasks=tasks.filter(t=>!overdueInfo(t).atrasada)
         tasks.sort((a,b)=>String(dueValue(a)||'9999').localeCompare(String(dueValue(b)||'9999')))
         const page=fullPage(tasks,args.cursor,args.limite);return toolText({total:page.total,cursor:args.cursor||null,proximo_cursor:page.proximo_cursor,tarefas:page.items.map(publicTask)})
       })
@@ -1560,86 +1757,159 @@ const protectedHandler = withOAuthProtectedResource(
 
       
       server.registerTool('criar_tarefa',{
-        description:'Cria tarefa/subtarefa. A tarefa herda a campanha da lista, salvo campanha_id explícito, que precisa existir. Prazo preserva hora/fuso.',
+        description:'Cria tarefa/subtarefa. A subtarefa deve permanecer na lista/marca/campanha da mãe. Dependências entre marcas são recusadas. Prazo no passado exige confirmação.',
         inputSchema:z.object({
           nome:z.string().min(1).max(300),descricao_markdown:z.string().max(50000).default(''),lista:z.string().min(1),campanha_id:z.string().nullable().optional(),
-          responsaveis:z.array(z.string().min(1)).default([]),prazo:dt.optional(),prioridade:z.string().default('normal'),status:z.string().optional(),motivo_bloqueio:z.string().max(500).nullable().optional(),
+          responsaveis:z.array(z.string().min(1)).default([]),prazo:dt.optional(),confirmar_prazo_passado:z.boolean().default(false),prioridade:z.string().default('normal'),status:z.string().optional(),motivo_bloqueio:z.string().max(500).nullable().optional(),
           tarefa_mae:z.string().min(1).optional(),recorrencia:recurrenceSchema,checklist:z.array(z.string().min(1).max(500)).max(100).default([]),checklist_obrigatoria:z.boolean().default(false),
           dependencias:z.array(z.string().min(1)).max(100).default([]),entrega_obrigatoria:z.boolean().default(false),canal:z.string().nullable().optional()
         })
       },async(args:AnyRow)=>{
         const who=await actor(supabase),[tasks,l,assignees]=await Promise.all([readState(supabase,TASKS_KEY),resolveList(supabase,args.lista),resolveAssignees(supabase,args.responsaveis)])
-        if(args.tarefa_mae)findTask(tasks,args.tarefa_mae);for(const d of args.dependencias||[])findTask(tasks,d)
+        const parent=args.tarefa_mae?findTask(tasks,args.tarefa_mae):null
+        if(parent&&!taskHasBrand(parent,l.marca))throw new Error('A subtarefa precisa ter a mesma marca da tarefa mãe.')
+        if(parent&&parent.listId&&String(parent.listId)!==String(l.id))throw new Error('A subtarefa precisa usar a mesma lista da tarefa mãe.')
+        const deps=(args.dependencias||[]).map((id:string)=>findTask(tasks,id))
+        if(deps.some((d:AnyRow)=>!taskHasBrand(d,l.marca)))throw new Error('Dependência entre marcas diferentes não é permitida.')
+        if(args.prazo&&isPastDueValue(args.prazo)&&!args.confirmar_prazo_passado)throw new Error('O prazo está no passado. Reenvie com confirmar_prazo_passado: true se isso for intencional.')
         const st=statusCanon(args.status||'a fazer')||'a fazer';if(st==='bloqueado'&&!String(args.motivo_bloqueio||'').trim())throw new Error('Status bloqueado exige motivo_bloqueio.')
         let campaignId:any=l.campanha_id||null,campaignSource='list'
         if(hasOwn(args,'campanha_id')){campaignId=args.campanha_id===null?null:String((await exactCampaignForBrand(supabase,args.campanha_id,l.marca)).id);campaignSource='direct'}
+        if(parent&&String(parent.campaignId||'')!==String(campaignId||''))throw new Error('A subtarefa precisa usar a mesma campanha da tarefa mãe.')
         const id='mcp-'+Date.now()+'-'+crypto.randomUUID().slice(0,8),t:AnyRow={
           id,title:args.nome.trim(),description:args.descricao_markdown||'',status:st,blockedReason:st==='bloqueado'?String(args.motivo_bloqueio||'').trim():null,
           assignees:[...(assignees?.names||[])],assigneeIds:[...(assignees?.ids||[])],due:args.prazo?String(args.prazo).slice(0,10):null,dueAt:args.prazo||null,start:null,brand:l.marca,project:l.nome,listId:l.id,
           campaignId,campaignSource,channel:args.canal===undefined?null:fullChannelCanon(args.canal),priority:priorityCanon(args.prioridade)||'normal',
           checklist:(args.checklist||[]).map((text:string)=>({id:'check-'+crypto.randomUUID().slice(0,8),text,done:false})),conferenceRequired:!!args.checklist_obrigatoria,subtasks:[],attachments:[],comments:[],
           history:[{at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tarefa criada via MCP por '+who.nome+'.'}],recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'allianceos-mcp',
-          dependencies:[...(args.dependencias||[])],parentTaskId:args.tarefa_mae||null,deliveries:[],deliveryRequired:!!args.entrega_obrigatoria,archivedAt:null,archivedBy:null
+          dependencies:deps.map((d:AnyRow)=>String(d.id)),parentTaskId:parent?String(parent.id):null,deliveries:[],deliveryRequired:!!args.entrega_obrigatoria,archivedAt:null,archivedBy:null
         }
-        applyRecurrence(t,args.recorrencia);tasks.unshift(t);await writeTasks(supabase,tasks)
-        await notifyUsers(supabase,who,t.assigneeIds,'task_assigned','Nova tarefa atribuída',t.title,String(t.id),'assigned:'+String(t.id));await audit(supabase,who,'criar_tarefa','tarefa',String(t.id),{lista_id:t.listId,campanha_id:t.campaignId,responsaveis_ids:t.assigneeIds})
-        return toolText({tarefa:publicTask(t)})
+        applyRecurrence(t,args.recorrencia)
+        const avisos=taskDeadlineWarnings(t,[...tasks,t])
+        tasks.unshift(t);await writeTasks(supabase,tasks)
+        await notifyUsers(supabase,who,t.assigneeIds,'task_assigned','Nova tarefa atribuída',t.title,String(t.id),'assigned:'+String(t.id));await audit(supabase,who,'criar_tarefa','tarefa',String(t.id),{lista_id:t.listId,campanha_id:t.campaignId,responsaveis_ids:t.assigneeIds,avisos})
+        return toolText({tarefa:publicTask(t),avisos})
       })
       server.registerTool('atualizar_tarefa',{
-        description:'Atualiza somente os campos enviados. Ausência de campo nunca limpa mãe, dependências, checklist, tags ou responsáveis. campanha_id explícito sobrepõe a lista.',
+        description:'Atualiza somente os campos enviados. Preserva campos ausentes; protege hierarquia, marca/campanha, prazos e arquivamento de subtarefas.',
         inputSchema:z.object({
           id:z.string().min(1),nome:z.string().min(1).max(300).optional(),descricao_markdown:z.string().max(50000).optional(),lista:z.string().min(1).optional(),campanha_id:z.string().nullable().optional(),
+          confirmar_mudanca:z.boolean().default(false),confirmar_prazo_passado:z.boolean().default(false),concluir_subtarefas:z.boolean().default(false),filhas:z.enum(['arquivar','desvincular']).optional(),
           responsaveis:z.array(z.string().min(1)).optional(),prazo:dt.nullable().optional(),prioridade:z.string().optional(),tarefa_mae:z.string().min(1).nullable().optional(),status:z.string().optional(),
           motivo_bloqueio:z.string().max(500).nullable().optional(),recorrencia:recurrenceSchema,entrega_obrigatoria:z.boolean().optional(),canal:z.string().nullable().optional(),arquivada:z.boolean().optional()
         })
       },async(raw:AnyRow)=>{
-        const args=cloneBatchItem(raw),tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,args.id),who=await actor(supabase),beforeIds=Array.isArray(t.assigneeIds)?[...t.assigneeIds]:[],beforeStatus=t.status,beforeDue=dueValue(t),oldList=t.listId?await resolveList(supabase,String(t.listId),true):null
+        const args=cloneBatchItem(raw),tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,args.id),who=await actor(supabase),before=structuredClone(t),beforeIds=Array.isArray(t.assigneeIds)?[...t.assigneeIds]:[],beforeStatus=t.status,beforeDue=dueValue(t),operationAt=nowIso()
+        const oldList=t.listId?await resolveList(supabase,String(t.listId),true):null
+        const destList=hasOwn(args,'lista')?await resolveList(supabase,args.lista):oldList
+        const futureParentId=hasOwn(args,'tarefa_mae')?args.tarefa_mae:t.parentTaskId
+        const futureParent=futureParentId?findTask(tasks,futureParentId):null
+        if(futureParent&&String(futureParent.id)===String(t.id))throw new Error('Uma tarefa não pode ser mãe de si mesma.')
+        if(futureParent&&parentChainContains(tasks,String(futureParent.id),String(t.id)))throw new Error('Esse vínculo criaria um ciclo de subtarefas.')
+        if(destList&&futureParent){
+          if(!taskHasBrand(futureParent,destList.marca)||!sameTaskList(futureParent,{brand:destList.marca,project:destList.nome,listId:destList.id}))throw new Error('Subtarefa não pode mudar de lista/marca enquanto estiver vinculada à tarefa mãe. Desvincule-a primeiro.')
+        }
+        let explicitCampaign:any=undefined
+        if(hasOwn(args,'campanha_id')){
+          explicitCampaign=args.campanha_id===null?null:String((await exactCampaignForBrand(supabase,args.campanha_id,destList?.marca||t.brand)).id)
+        }
+        if(hasOwn(args,'lista')&&destList){
+          const targetCampaign=hasOwn(args,'campanha_id')?explicitCampaign:(destList.campanha_id||null)
+          const brandChanged=norm(t.brand)!==norm(destList.marca),campaignChanged=String(t.campaignId||'')!==String(targetCampaign||'')
+          if((brandChanged||campaignChanged)&&!args.confirmar_mudanca)throw new Error('A mudança de lista altera marca e/ou campanha. Reenvie com confirmar_mudanca: true para confirmar.')
+          t.brand=destList.marca;t.brands=[destList.marca];t.project=destList.nome;t.listId=destList.id;t.campaignId=targetCampaign;t.campaignSource=hasOwn(args,'campanha_id')?'direct':'list'
+        }
+        if(hasOwn(args,'campanha_id')&&!hasOwn(args,'lista')){t.campaignId=explicitCampaign;t.campaignSource='direct'}
+        if(hasOwn(args,'tarefa_mae')){
+          if(args.tarefa_mae!==null){
+            if(!taskSharesBrand(t,futureParent))throw new Error('A subtarefa precisa ter a mesma marca da tarefa mãe.')
+            if(!sameTaskList(t,futureParent))throw new Error('A subtarefa precisa estar na mesma lista da tarefa mãe.')
+            if(String(t.campaignId||'')!==String(futureParent.campaignId||''))throw new Error('A subtarefa precisa usar a mesma campanha da tarefa mãe.')
+          }
+          t.parentTaskId=args.tarefa_mae
+        }
         if(hasOwn(args,'nome'))t.title=args.nome.trim()
         if(hasOwn(args,'descricao_markdown'))t.description=args.descricao_markdown
-        if(hasOwn(args,'lista')){const l=await resolveList(supabase,args.lista);t.brand=l.marca;t.project=l.nome;t.listId=l.id;if(!hasOwn(args,'campanha_id')&&!taskCampaignIsDirect(t,oldList?.campanha_id)){t.campaignId=l.campanha_id||null;t.campaignSource='list'}}
-        if(hasOwn(args,'campanha_id')){if(args.campanha_id===null){t.campaignId=null;t.campaignSource='direct'}else{const c=await exactCampaignForBrand(supabase,args.campanha_id,t.brand);t.campaignId=String(c.id);t.campaignSource='direct'}}
         if(hasOwn(args,'responsaveis')){const a=await resolveAssignees(supabase,args.responsaveis);t.assignees=[...(a?.names||[])];t.assigneeIds=[...(a?.ids||[])]}
-        if(hasOwn(args,'prazo')){t.dueAt=args.prazo;t.due=args.prazo?String(args.prazo).slice(0,10):null}
+        if(hasOwn(args,'prazo')){
+          if(args.prazo&&isPastDueValue(args.prazo)&&!args.confirmar_prazo_passado)throw new Error('O prazo está no passado. Reenvie com confirmar_prazo_passado: true se isso for intencional.')
+          t.dueAt=args.prazo;t.due=args.prazo?String(args.prazo).slice(0,10):null
+        }
         if(hasOwn(args,'prioridade'))t.priority=priorityCanon(args.prioridade)
-        if(hasOwn(args,'tarefa_mae')){if(args.tarefa_mae!==null){if(String(args.tarefa_mae)===String(t.id))throw new Error('Uma tarefa não pode ser mãe de si mesma.');findTask(tasks,args.tarefa_mae)}t.parentTaskId=args.tarefa_mae}
         if(hasOwn(args,'entrega_obrigatoria'))t.deliveryRequired=!!args.entrega_obrigatoria
         if(hasOwn(args,'canal'))t.channel=args.canal===null?null:fullChannelCanon(args.canal)
         if(hasOwn(args,'recorrencia'))applyRecurrence(t,args.recorrencia)
-        if(hasOwn(args,'arquivada')){t.archivedAt=args.arquivada?(t.archivedAt||nowIso()):null;t.archivedBy=args.arquivada?who.id:null}
+
+        if(hasOwn(args,'lista')&&!t.parentTaskId){
+          for(const child of taskDescendants(tasks,t.id)){
+            const cb=structuredClone(child)
+            child.brand=t.brand;child.brands=taskBrands(t);child.project=t.project;child.listId=t.listId;child.campaignId=t.campaignId;child.campaignSource=t.campaignSource
+            recordTaskChanges(child,cb,who)
+          }
+        }
+
+        if(hasOwn(args,'arquivada')&&args.arquivada){
+          const direct=taskChildren(tasks,t.id).filter((x:AnyRow)=>!x.archivedAt)
+          if(direct.length&&!args.filhas)throw new Error('A tarefa possui subtarefas ativas. Informe filhas: "arquivar" ou filhas: "desvincular".')
+          if(args.filhas==='arquivar'){
+            for(const child of taskDescendants(tasks,t.id)){
+              if(child.archivedAt)continue
+              const cb=structuredClone(child);child.archivedAt=nowIso();child.archivedBy=who.id;recordTaskChanges(child,cb,who)
+            }
+          }else if(args.filhas==='desvincular'){
+            for(const child of direct){const cb=structuredClone(child);child.parentTaskId=null;recordTaskChanges(child,cb,who)}
+          }
+          t.archivedAt=t.archivedAt||operationAt;t.archivedBy=who.id
+        }else if(hasOwn(args,'arquivada')&&!args.arquivada){t.archivedAt=null;t.archivedBy=null}
+
         if(hasOwn(args,'status')){
           const next=statusCanon(args.status),reason=hasOwn(args,'motivo_bloqueio')?args.motivo_bloqueio:t.blockedReason
           if(next==='bloqueado'&&!String(reason||'').trim())throw new Error('Status bloqueado exige motivo_bloqueio.')
-          if(next==='feito'){const problem=await completionProblem(supabase,t,tasks);if(problem)throw new Error('Não foi possível concluir a tarefa: '+problem)}
+          if(next==='feito'){
+            const open=taskDescendants(tasks,t.id).filter((x:AnyRow)=>!x.archivedAt&&x.status!=='feito')
+            if(open.length&&!args.concluir_subtarefas)throw new Error('Não foi possível concluir a tarefa: há '+open.length+' subtarefa(s) aberta(s): '+open.slice(0,3).map((x:AnyRow)=>x.title).join(', ')+'. Use concluir_subtarefas: true para concluir junto.')
+            const group=new Set(open.map((x:AnyRow)=>String(x.id)))
+            if(args.concluir_subtarefas){
+              for(const child of [...open].reverse()){
+                const p=await completionProblem(supabase,child,tasks,false,true,group);if(p)throw new Error('Não foi possível concluir a subtarefa "'+child.title+'": '+p)
+              }
+              for(const child of [...open].reverse()){
+                const cb=structuredClone(child);child.status='feito';child.completedAt=nowIso();child.blockedReason=null;recordTaskChanges(child,cb,who);generateNextOccurrence(tasks,child)
+              }
+            }
+            const problem=await completionProblem(supabase,t,tasks,false,true,group);if(problem)throw new Error('Não foi possível concluir a tarefa: '+problem)
+          }
           t.status=next
+          if(next==='feito')t.completedAt=t.completedAt||operationAt
+          else if(beforeStatus==='feito')t.completedAt=null
           if(next==='bloqueado')t.blockedReason=String(reason||'').trim()
-          else if(beforeStatus==='bloqueado'){if(t.blockedReason){t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Bloqueio encerrado. Motivo anterior: '+t.blockedReason})}t.blockedReason=null}
+          else if(beforeStatus==='bloqueado')t.blockedReason=null
         }else if(hasOwn(args,'motivo_bloqueio'))t.blockedReason=args.motivo_bloqueio
+
         let nextOccurrence=null;if(t.status==='feito'&&beforeStatus!=='feito')nextOccurrence=generateNextOccurrence(tasks,t)
-        t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tarefa atualizada via MCP por '+who.nome+'.'});await writeTasks(supabase,tasks)
-        const newIds=(Array.isArray(t.assigneeIds)?t.assigneeIds:[]).filter((id:string)=>!beforeIds.includes(id));await notifyUsers(supabase,who,newIds,'task_assigned','Nova tarefa atribuída',t.title,String(t.id),'assigned:'+String(t.id)+':'+newIds.join(','))
-        if(hasOwn(args,'status')&&beforeStatus!==t.status)await notifyUsers(supabase,who,t.assigneeIds||[],'task_status','Status alterado: '+t.title,'Novo status: '+t.status,String(t.id),null)
-        if(hasOwn(args,'prazo')&&beforeDue!==dueValue(t))await notifyUsers(supabase,who,t.assigneeIds||[],'task_due','Prazo atualizado: '+t.title,dueValue(t)?'Novo prazo: '+dueValue(t):'Prazo removido',String(t.id),null)
-        await audit(supabase,who,'atualizar_tarefa','tarefa',String(t.id),{campos:Object.keys(args).filter(k=>k!=='id'),status:t.status,arquivada:!!t.archivedAt});return toolText({tarefa:publicTask(t),proxima_ocorrencia:nextOccurrence?publicTask(nextOccurrence):null})
+        recordTaskChanges(t,before,who)
+        const avisos=taskDeadlineWarnings(t,tasks)
+        await writeTasks(supabase,tasks)
+        const newIds=(Array.isArray(t.assigneeIds)?t.assigneeIds:[]).filter((id:string)=>!beforeIds.includes(id));await notifyUsers(supabase,who,newIds,'task_assigned','Nova tarefa atribuída',t.title,String(t.id),'assigned:'+String(t.id))
+        if(hasOwn(args,'status')&&beforeStatus!==t.status)await notifyUsers(supabase,who,t.assigneeIds||[],'task_status','Status alterado: '+t.title,'Novo status: '+t.status,String(t.id),'status:'+String(t.id)+':'+String(beforeStatus)+'>'+String(t.status)+':'+operationAt)
+        if(hasOwn(args,'prazo')&&beforeDue!==dueValue(t))await notifyUsers(supabase,who,t.assigneeIds||[],'task_due','Prazo atualizado: '+t.title,dueValue(t)?'Novo prazo: '+dueValue(t):'Prazo removido',String(t.id),'due:'+String(t.id)+':'+String(beforeDue)+'>'+String(dueValue(t))+':'+operationAt)
+        await audit(supabase,who,'atualizar_tarefa','tarefa',String(t.id),{campos:Object.keys(args).filter(k=>k!=='id'),status:t.status,arquivada:!!t.archivedAt,avisos})
+        return toolText({tarefa:publicTask(t),proxima_ocorrencia:nextOccurrence?publicTask(nextOccurrence):null,avisos})
       })
       server.registerTool('definir_dependencia', {
-        description: 'Adiciona uma dependência. A tarefa bloqueada só poderá ser concluída após a tarefa que bloqueia. Impede ciclos.',
-        inputSchema:z.object({
-          tarefa_bloqueada:z.string().min(1),
-          tarefa_que_bloqueia:z.string().min(1),
-        }),
+        description: 'Adiciona dependência entre tarefas da mesma marca. Impede ciclos e informa incoerência de prazo.',
+        inputSchema:z.object({tarefa_bloqueada:z.string().min(1),tarefa_que_bloqueia:z.string().min(1)}),
       }, async (args:AnyRow) => {
-        const tasks=await readState(supabase,TASKS_KEY)
-        const t=findTask(tasks,args.tarefa_bloqueada)
-        const dep=findTask(tasks,args.tarefa_que_bloqueia)
+        const tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,args.tarefa_bloqueada),dep=findTask(tasks,args.tarefa_que_bloqueia)
+        if(!taskSharesBrand(t,dep))throw new Error('Dependência entre marcas diferentes não é permitida.')
         if(String(t.id)===String(dep.id)||hasDependencyPath(tasks,String(dep.id),String(t.id))) throw new Error('Esse vínculo criaria um ciclo de dependências.')
         t.dependencies=Array.isArray(t.dependencies)?t.dependencies:[]
         if(!t.dependencies.some((x:string)=>String(x)===String(dep.id))) t.dependencies.push(String(dep.id))
-        const who=await actor(supabase)
-        t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Dependência adicionada via MCP por '+who.nome+': "'+dep.title+'".'})
-        await writeTasks(supabase,tasks)
-        await audit(supabase,who,'definir_dependencia','tarefa',String(t.id),{tarefa_que_bloqueia:dep.id})
-        return toolText({tarefa:publicTask(t),dependencia:publicTask(dep)})
+        const who=await actor(supabase);t.history=Array.isArray(t.history)?t.history:[]
+        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',campo:'dependências',antes:null,depois:String(dep.id),text:'Dependência adicionada: "'+dep.title+'".'})
+        const avisos=taskDeadlineWarnings(t,tasks)
+        await writeTasks(supabase,tasks);await audit(supabase,who,'definir_dependencia','tarefa',String(t.id),{tarefa_que_bloqueia:dep.id,avisos})
+        return toolText({tarefa:publicTask(t),dependencia:publicTask(dep),avisos})
       })
 
       server.registerTool('remover_dependencia', {
@@ -1662,47 +1932,35 @@ const protectedHandler = withOAuthProtectedResource(
       })
 
       server.registerTool('definir_checklist', {
-        description: 'Define ou substitui a checklist da tarefa. Pode torná-la obrigatória para conclusão.',
-        inputSchema:z.object({
-          id:z.string().min(1),
-          itens:z.array(z.string().min(1).max(500)).max(100),
-          obrigatoria:z.boolean().default(false),
-        }),
+        description: 'Mescla a checklist preservando id, progresso e autoria dos itens existentes; adiciona apenas itens novos.',
+        inputSchema:z.object({id:z.string().min(1),itens:z.array(z.string().min(1).max(500)).max(100),obrigatoria:z.boolean().default(false)}),
       }, async (args:AnyRow) => {
-        const tasks=await readState(supabase,TASKS_KEY)
-        const t=findTask(tasks,args.id)
-        t.checklist=(args.itens||[]).map((text:string)=>({id:'check-'+crypto.randomUUID().slice(0,8),text,done:false}))
-        t.conferenceRequired=!!args.obrigatoria
-        const who=await actor(supabase)
+        const tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,args.id),who=await actor(supabase),old=Array.isArray(t.checklist)?structuredClone(t.checklist):[]
+        t.checklist=mergeChecklist(old,args.itens||[]);t.conferenceRequired=!!args.obrigatoria
+        const oldIds=new Set(old.map((x:AnyRow)=>String(x.id))),newIds=new Set(t.checklist.map((x:AnyRow)=>String(x.id)))
+        const added=t.checklist.filter((x:AnyRow)=>!oldIds.has(String(x.id))),removed=old.filter((x:AnyRow)=>!newIds.has(String(x.id)))
         t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Checklist definida via MCP por '+who.nome+' com '+t.checklist.length+' item(ns).'})
-        await writeTasks(supabase,tasks)
-        await audit(supabase,who,'definir_checklist','tarefa',String(t.id),{itens:t.checklist.length,obrigatoria:t.conferenceRequired})
+        for(const x of added)t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',campo:'checklist',antes:null,depois:x.text,text:'Item de checklist adicionado: "'+x.text+'".'})
+        for(const x of removed)t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',campo:'checklist',antes:x.text,depois:null,text:'Item de checklist removido: "'+x.text+'".'})
+        await writeTasks(supabase,tasks);await audit(supabase,who,'definir_checklist','tarefa',String(t.id),{itens:t.checklist.length,adicionados:added.length,removidos:removed.length,obrigatoria:t.conferenceRequired})
         return toolText({tarefa:{...publicTask(t),checklist:t.checklist,lista_conferencia_obrigatoria:t.conferenceRequired}})
       })
 
       server.registerTool('marcar_item_checklist', {
-        description: 'Marca ou desmarca um item de checklist pelo item_id retornado em obter_tarefa ou definir_checklist.',
-        inputSchema:z.object({
-          id:z.string().min(1),
-          item_id:z.string().min(1),
-          concluido:z.boolean().default(true),
-        }),
+        description: 'Marca ou desmarca um item de checklist preservando id e registrando quem/quando concluiu.',
+        inputSchema:z.object({id:z.string().min(1),item_id:z.string().min(1),concluido:z.boolean().default(true)}),
       }, async (args:AnyRow) => {
-        const tasks=await readState(supabase,TASKS_KEY)
-        const t=findTask(tasks,args.id)
-        const item=(Array.isArray(t.checklist)?t.checklist:[]).find((x:AnyRow)=>String(x.id)===String(args.item_id))
+        const tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,args.id),item=(Array.isArray(t.checklist)?t.checklist:[]).find((x:AnyRow)=>String(x.id)===String(args.item_id))
         if(!item) throw new Error('Item de checklist não encontrado.')
-        item.done=!!args.concluido
-        item.updatedAt=nowIso()
-        const who=await actor(supabase)
+        const who=await actor(supabase),before=!!item.done,ts=nowIso();item.done=!!args.concluido;item.updatedAt=ts
+        if(item.done){item.completedAt=item.completedAt||ts;item.completedBy=item.completedBy||who.id}else{item.completedAt=null;item.completedBy=null}
         t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Checklist atualizado via MCP por '+who.nome+': "'+item.text+'" = '+(item.done?'concluído':'pendente')+'.'})
-        await writeTasks(supabase,tasks)
-        await audit(supabase,who,'marcar_item_checklist','tarefa',String(t.id),{item_id:item.id,concluido:item.done})
+        if(before!==item.done)t.history.unshift({at:ts,by:who.nome,authorId:who.id,origin:'mcp',campo:'checklist',antes:before,depois:item.done,text:'Item "'+item.text+'": '+(before?'concluído':'pendente')+' → '+(item.done?'concluído':'pendente')+'.'})
+        await writeTasks(supabase,tasks);await audit(supabase,who,'marcar_item_checklist','tarefa',String(t.id),{item_id:item.id,concluido:item.done})
         return toolText({tarefa:{...publicTask(t),checklist:t.checklist}})
       })
 
+      
       
 
       server.registerTool('registrar_entrega_texto_legado',{
@@ -1722,24 +1980,15 @@ const protectedHandler = withOAuthProtectedResource(
         return toolText({tarefa:publicTask(t),entrega:fullDelivery(ds.find((d:any)=>String(d.id)===deliveryId),tasks,campaigns),aviso:'Ferramenta obsoleta; use registrar_entrega.'})
       })
       server.registerTool('comentar_tarefa', {
-        description: 'Adiciona comentário com autoria do usuário OAuth e origem MCP. Notifica os responsáveis reais da tarefa.',
-        inputSchema:z.object({
-          id:z.string().min(1),
-          comentario:z.string().min(1).max(10000),
-        }),
+        description: 'Adiciona comentário não vazio, com autoria OAuth e origem MCP.',
+        inputSchema:z.object({id:z.string().min(1),comentario:z.string().max(10000).refine(v=>v.trim().length>0,{message:'Comentário vazio ou só com espaços não é permitido.'})}),
       }, async ({id,comentario}:{id:string;comentario:string}) => {
-        const tasks=await readState(supabase,TASKS_KEY)
-        const t=findTask(tasks,id)
-        const who=await actor(supabase)
-        t.comments=Array.isArray(t.comments)?t.comments:[]
-        const comment={id:'mcp-comment-'+crypto.randomUUID(),author:who.nome,authorId:who.id,text:comentario.trim(),at:nowIso(),source:'mcp'}
-        t.comments.unshift(comment)
-        t.history=Array.isArray(t.history)?t.history:[]
-        t.history.unshift({at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Comentário via MCP por '+who.nome+'.'})
-        await writeTasks(supabase,tasks)
-        await notifyUsers(supabase,who,t.assigneeIds||[],'task_comment','Novo comentário: '+t.title,comentario.trim().slice(0,500),String(t.id),null)
-        await audit(supabase,who,'comentar_tarefa','tarefa',String(t.id),{comment_id:comment.id})
-        return toolText({tarefa:{id:String(t.id),link:taskLink(String(t.id))},comentario:comment})
+        const text=comentario.trim();if(!text)throw new Error('Comentário vazio ou só com espaços não é permitido.')
+        const tasks=await readState(supabase,TASKS_KEY),t=findTask(tasks,id),who=await actor(supabase),ts=nowIso()
+        t.comments=Array.isArray(t.comments)?t.comments:[];const comment={id:'mcp-comment-'+crypto.randomUUID(),author:who.nome,authorId:who.id,text,at:ts,source:'mcp'};t.comments.unshift(comment)
+        t.history=Array.isArray(t.history)?t.history:[];t.history.unshift({at:ts,by:who.nome,authorId:who.id,origin:'mcp',campo:'comentário',antes:null,depois:text,text:'Comentário adicionado.'})
+        await writeTasks(supabase,tasks);await notifyUsers(supabase,who,t.assigneeIds||[],'task_comment','Novo comentário: '+t.title,text.slice(0,500),String(t.id),'comment:'+comment.id)
+        await audit(supabase,who,'comentar_tarefa','tarefa',String(t.id),{comment_id:comment.id});return toolText({tarefa:{id:String(t.id),link:taskLink(String(t.id))},comentario:comment})
       })
 
       server.registerTool('listar_notificacoes', {
@@ -1798,7 +2047,7 @@ Deno.serve(async (req: Request) => {
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
       oauth_discovery_status,
-      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","atualizar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
+      tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","atualizar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","listar_gatilhos","listar_acoes","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
       tool_schema_version: TOOL_SCHEMA_VERSION,
       tools_list_changed: true,
       deletion_tool: false,

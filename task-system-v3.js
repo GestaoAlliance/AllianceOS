@@ -291,6 +291,31 @@
   const v3Parent = (t) => t.parentTaskId ? v3Task(t.parentTaskId) : null;
   const v3Children = (t) => taskData.filter(x=>String(x.parentTaskId||'')===String(t.id));
 
+  function v3Descendants(t){
+    const out=[],seen=new Set(),queue=[String(t.id)];
+    while(queue.length){const id=queue.shift();for(const c of taskData.filter(x=>String(x.parentTaskId||'')===id)){if(seen.has(String(c.id)))continue;seen.add(String(c.id));out.push(c);queue.push(String(c.id));}}
+    return out;
+  }
+  function v3DueMs(t){
+    const raw=t?.dueAt||t?.due;if(!raw)return null;
+    const text=String(raw),d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(text)?text+'T23:59:59-03:00':text);
+    return Number.isNaN(d.getTime())?null:d.getTime();
+  }
+  function v3DeadlineWarnings(t){
+    const out=[],me=v3DueMs(t),parent=v3Parent(t);
+    if(me!=null&&me<Date.now()&&t.status!=='feito'&&!t.archivedAt)out.push('Prazo no passado.');
+    if(parent){const pm=v3DueMs(parent);if(pm!=null&&me!=null&&me>pm)out.push('Subtarefa vence depois da tarefa mãe.');}
+    for(const dep of v3Dependencies(t)){const dm=v3DueMs(dep);if(dm!=null&&me!=null&&me<dm)out.push('Vence antes da tarefa que a bloqueia: '+dep.title+'.');}
+    if(me!=null)for(const child of v3Children(t)){const cm=v3DueMs(child);if(cm!=null&&cm>me)out.push('A tarefa mãe vence antes da subtarefa: '+child.title+'.');}
+    return [...new Set(out)];
+  }
+  function v3RecordFieldChanges(t,before){
+    const actor=v3ActorInfo(),fields=[['title','Nome'],['description','Descrição'],['brand','Marca'],['project','Lista'],['listId','Lista'],['campaignId','Campanha'],['assignees','Responsáveis'],['dueAt','Prazo'],['priority','Prioridade'],['parentTaskId','Tarefa mãe'],['status','Status'],['blockedReason','Motivo do bloqueio'],['deliveryRequired','Entrega obrigatória'],['archivedAt','Arquivamento']];
+    t.history=Array.isArray(t.history)?t.history:[];
+    for(const [key,label] of fields){const a=before?.[key]??null,b=t?.[key]??null;if(JSON.stringify(a)===JSON.stringify(b))continue;t.history.unshift({at:v3NowIso(),by:actor.by,authorId:actor.authorId,origin:'interface',campo:label.toLowerCase(),antes:a,depois:b,text:label+': '+(a??'—')+' → '+(b??'—')+'.'});}
+  }
+
+
   function v3HasDependencyPath(fromId,targetId,seen=new Set()){
     if(String(fromId)===String(targetId)) return true;
     if(seen.has(String(fromId))) return false;
@@ -784,13 +809,17 @@
     if(taskState.view==='board')renderBoard(canvas,data);else if(taskState.view==='campaign')renderCampaign(canvas,data);else if(taskState.view==='people')renderPeople(canvas,data);else if(taskState.view==='people-campaign')renderPeopleCampaign(canvas,data);else if(taskState.view==='week')renderWeek(canvas,data);else renderList(canvas,data);
   };
 
-  function v3CompletionProblem(t){
-    const blockers=v3Blockers(t);
-    if(blockers.length)return `Conclua antes: ${blockers.slice(0,3).map(x=>x.title).join(', ')}${blockers.length>3?'…':''}`;
+  function v3CompletionProblem(t,ignoreChildren=false,assumeDoneIds=new Set()){
+    const blockers=v3Blockers(t).filter(x=>!assumeDoneIds.has(String(x.id)));
+    if(blockers.length)return 'Conclua antes: '+blockers.slice(0,3).map(x=>x.title).join(', ')+(blockers.length>3?'…':'');
+    if(!ignoreChildren){
+      const open=v3Descendants(t).filter(x=>!x.archivedAt&&x.status!=='feito'&&!assumeDoneIds.has(String(x.id)));
+      if(open.length)return 'Há '+open.length+' subtarefa(s) aberta(s): '+open.slice(0,3).map(x=>x.title).join(', ')+'.';
+    }
     if(t.conferenceRequired){
       const pending=(t.checklist||[]).filter(x=>!x.done);
       if(!(t.checklist||[]).length)return 'A lista de conferência obrigatória está sem itens.';
-      if(pending.length)return `Confira os ${pending.length} item(ns) obrigatórios da lista de conferência.`;
+      if(pending.length)return 'Confira os '+pending.length+' item(ns) obrigatórios da lista de conferência.';
     }
     if(t.deliveryRequired&&!v3HasOfficialDelivery(t))return 'Esta tarefa exige uma entrega existente na coleção oficial antes da conclusão.';
     return '';
@@ -798,19 +827,23 @@
 
   function v3Complete(t,done=true){
     if(done){
-      const problem=v3CompletionProblem(t);
-      if(problem){showToast(problem);return false;}
+      const open=v3Descendants(t).filter(x=>!x.archivedAt&&x.status!=='feito');
+      const group=new Set(open.map(x=>String(x.id)));
+      if(open.length){
+        const ok=window.confirm('Esta tarefa tem '+open.length+' subtarefa(s) aberta(s). Deseja concluir as subtarefas junto?');
+        if(!ok){showToast('Conclusão cancelada. As subtarefas continuam abertas.');return false;}
+        for(const child of [...open].reverse()){const p=v3CompletionProblem(child,true,group);if(p){showToast('Não foi possível concluir “'+child.title+'”: '+p);return false;}}
+        for(const child of [...open].reverse()){const before=structuredClone(child),at=v3NowIso();child.status='feito';child.completedAt=at;child.blockedReason=null;v3RecordFieldChanges(child,before);const rec=v3GenerateNextOccurrence(child);if(rec)v3HistoryOnce(child,'recurrence-created:'+String(rec.id),'Próxima ocorrência recorrente criada para '+v3DueLabel(rec)+'.');}
+      }
+      const problem=v3CompletionProblem(t,true,group);if(problem){showToast(problem);return false;}
       if(t.status!=='feito'){
         const old=t.status,completedAt=v3NowIso();t.status='feito';t.completedAt=completedAt;
-        v3HistoryOnce(t,'status-feito:'+completedAt,`Status alterado de “${old}” para “feito”.`);
-        for(const next of v3Dependents(t)) v3HistoryOnce(next,'dependency-release:'+String(t.id)+':'+completedAt,`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`);
-        const recurring=v3GenerateNextOccurrence(t);
-        if(recurring)v3HistoryOnce(t,'recurrence-created:'+String(recurring.id),`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`);
+        v3HistoryOnce(t,'status-feito:'+completedAt,'Status alterado de “'+old+'” para “feito”.');
+        for(const next of v3Dependents(t))v3HistoryOnce(next,'dependency-release:'+String(t.id)+':'+completedAt,'Dependência concluída: “'+t.title+'”. Esta tarefa está liberada para execução.');
+        const recurring=v3GenerateNextOccurrence(t);if(recurring)v3HistoryOnce(t,'recurrence-created:'+String(recurring.id),'Próxima ocorrência recorrente criada para '+v3DueLabel(recurring)+'.');
       }
-    } else if(t.status==='feito') {
-      t.status='a fazer';t.completedAt=null;v3HistoryOnce(t,'reopened:'+v3NowIso(),'Tarefa reaberta.');
-    }
-    v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('atualizar_tarefa',t,{status:t.status});return true;
+    }else if(t.status==='feito'){t.status='a fazer';t.completedAt=null;v3HistoryOnce(t,'reopened:'+v3NowIso(),'Tarefa reaberta.');}
+    v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('atualizar_tarefa',t,{status:t.status,concluir_subtarefas:done&&v3Descendants(t).length>0});return true;
   }
 
   bindTaskElements = function(){
@@ -835,7 +868,7 @@
 
   function v3DetailCampaign(t){
     const selected=t.listId||t.campaignId||'';
-    return `<select id="detailCampaign">${v3CampaignOptions(t.brand,selected,t.project)}</select>`;
+    return `<select id="detailCampaign" ${t.parentTaskId?'disabled title="Desvincule a subtarefa antes de mudar de lista/campanha"':''}>${v3CampaignOptions(t.brand,selected,t.project)}</select>`;
   }
 
   openTaskDetail = function(id){
@@ -850,7 +883,7 @@
   renderTaskDetailBody = function(t){
     v3NormalizeTask(t);
     const body=document.getElementById('taskDetailBody');
-    const deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t), parent=v3Parent(t), completed=(t.checklist||[]).filter(x=>x.done).length, candidates=v3DependencyCandidates(t), completionProblem=v3CompletionProblem(t), recurrenceSpec=v3RecurrenceSpec(t);
+    const deps=v3Dependencies(t), blockers=v3Blockers(t), next=v3Dependents(t), parent=v3Parent(t), completed=(t.checklist||[]).filter(x=>x.done).length, candidates=v3DependencyCandidates(t), completionProblem=v3CompletionProblem(t), recurrenceSpec=v3RecurrenceSpec(t), deadlineWarnings=v3DeadlineWarnings(t);
     body.innerHTML=`<div class="tdetail-layout v3-detail-layout"><main class="tdetail-main">
       ${t.status==='bloqueado'?`<div class="v3-block-banner"><div><strong>Tarefa bloqueada</strong><span>${esc(t.blockedReason||'Motivo não informado')}</span></div><span>bloqueada</span></div>`:blockers.length?`<div class="v3-block-banner"><div><strong>Esta tarefa está bloqueada por dependências</strong><span>Conclua ${blockers.length===1?'a tarefa abaixo':'as tarefas abaixo'} antes de finalizar esta.</span></div><span>${blockers.length} pendente${blockers.length>1?'s':''}</span></div>`:`<div class="v3-ready-banner"><span>✓</span><div><strong>Pronta para executar</strong><small>${deps.length?'Todas as dependências foram concluídas.':'Não há dependências pendentes.'}</small></div></div>`}
       <section class="tsection v3-section" style="margin-top:0"><div class="tsection-head"><div><strong>Briefing e resultado esperado</strong><span>O que precisa ficar pronto, contexto, links e critério de aceite.</span></div></div><textarea class="description-area" id="detailDescription" placeholder="Descreva o resultado esperado desta tarefa, o contexto necessário para executar e como saber que ficou pronto.">${esc(t.description||'')}</textarea></section>
@@ -871,7 +904,7 @@
       <div class="tfield"><label>Apoio / colaboradores</label><div class="v3-support-list">${t.assignees.slice(1).map(a=>`<span>${esc(v3Short(a))}<button type="button" data-remove-assignee="${esc(a)}">×</button></span>`).join('')||'<small>Ninguém adicionado</small>'}</div><select id="detailAddAssignee"><option value="">+ adicionar colaborador</option>${v3TeamUsers().filter(x=>!t.assignees.includes(x)).map(x=>`<option value="${esc(x)}">${esc(v3Short(x))}</option>`).join('')}</select></div>
       <div class="tfield"><label>Prioridade</label><select id="detailPriority">${["urgente","alta","normal","baixa"].map(v=>`<option value="${v}" ${v===v3PriorityCanon(t.priority)?'selected':''}>${v3PriorityLabel(v)}</option>`).join('')}</select></div>
       <div class="tfield"><label>Data de início</label><input type="date" id="detailStart" value="${t.start||''}"></div>
-      <div class="tfield"><label>Prazo com horário</label><input type="datetime-local" id="detailDue" value="${v3ToLocalInput(t.dueAt,t.due)}"><small>${esc(v3DueLabel(t))}</small></div>
+      <div class="tfield"><label>Prazo com horário</label><input type="datetime-local" id="detailDue" value="${v3ToLocalInput(t.dueAt,t.due)}"><small>${esc(v3DueLabel(t))}</small>${deadlineWarnings.length?`<small class="v3-deadline-warning">⚠ ${esc(deadlineWarnings.join(' '))}</small>`:''}</div>
       <div class="tfield"><label>Campanha / planejamento</label>${v3DetailCampaign(t)}<small class="v3-field-help">Lista ligada às campanhas da ${esc(t.brand||'marca')}.</small></div>
       <div class="tfield"><label>Recorrência</label><select id="detailRecurrence"><option value="nenhuma" ${recurrenceSpec.tipo==='nenhuma'?'selected':''}>Não repetir</option><option value="semanal" ${recurrenceSpec.tipo==='semanal'?'selected':''}>Semanal</option><option value="quinzenal" ${recurrenceSpec.tipo==='quinzenal'?'selected':''}>Quinzenal</option><option value="mensal" ${recurrenceSpec.tipo==='mensal'?'selected':''}>Mensal</option><option value="dias_semana" ${recurrenceSpec.tipo==='dias_semana'?'selected':''}>Dias específicos</option></select></div>
       <div class="tfield" id="detailRecurrenceDays" ${recurrenceSpec.tipo==='dias_semana'?'':'hidden'}><label>Dias da semana</label><div class="v3-weekday-picks">${[['1','Seg'],['2','Ter'],['3','Qua'],['4','Qui'],['5','Sex'],['6','Sáb'],['7','Dom']].map(([v,l])=>`<label><input type="checkbox" value="${v}" ${recurrenceSpec.dias_semana.includes(Number(v))?'checked':''}>${l}</label>`).join('')}</div></div>
@@ -903,7 +936,7 @@
       const support=(t.assignees||[]).slice(1).filter(Boolean).filter(x=>x!==primary);
       t.assignees=[primary,...support].filter(Boolean);
     }
-    if(get('detailCampaign')) {
+    if(get('detailCampaign')&&!t.parentTaskId) {
       const c=v3FindCampaign(get('detailCampaign').value,t.brand);
       t.listId=c?.listId||t.listId||null;
       t.campaignId=c?._structured?(c.campaignId||null):(c?.id||null);
@@ -915,7 +948,20 @@
   bindDetailInteractions = function(t){
     document.getElementById('detailRecurrence')?.addEventListener('change',e=>{const box=document.getElementById('detailRecurrenceDays');if(box)box.hidden=e.target.value!=='dias_semana';});
     document.getElementById('detailStatus')?.addEventListener('change',e=>{if(e.target.value==='bloqueado')document.getElementById('detailBlockedReason')?.focus();});
-    document.getElementById('archiveTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);t.archivedAt=t.archivedAt?null:new Date().toISOString();t.archivedBy=t.archivedAt?(v3CurrentNames()[0]||'Equipe'):null;v3AddHistory(t,t.archivedAt?'Tarefa arquivada.':'Tarefa desarquivada.');v3Persist(true);window.AllianceOSOps?.recordTaskAction?.(t.archivedAt?'arquivar_tarefa':'desarquivar_tarefa',t,{});closeTaskDetail();showToast(t.archivedAt?'Tarefa arquivada':'Tarefa desarquivada');});
+    document.getElementById('archiveTaskBtn')?.addEventListener('click',()=>{
+      syncDetailDraft(t);const before=structuredClone(t);
+      if(!t.archivedAt){
+        const direct=v3Children(t).filter(x=>!x.archivedAt);
+        if(direct.length){
+          const choice=String(window.prompt('Esta tarefa tem subtarefas ativas. Digite "arquivar" para arquivar todas junto ou "desvincular" para manter as filhas ativas como tarefas soltas.','')||'').trim().toLowerCase();
+          if(choice!=='arquivar'&&choice!=='desvincular'){showToast('Arquivamento cancelado: escolha o que fazer com as subtarefas.');return;}
+          if(choice==='arquivar')for(const child of v3Descendants(t)){if(child.archivedAt)continue;const cb=structuredClone(child);child.archivedAt=v3NowIso();child.archivedBy=v3ActorInfo().authorId;v3RecordFieldChanges(child,cb);}
+          else for(const child of direct){const cb=structuredClone(child);child.parentTaskId=null;v3RecordFieldChanges(child,cb);}
+        }
+        t.archivedAt=v3NowIso();t.archivedBy=v3ActorInfo().authorId;
+      }else{t.archivedAt=null;t.archivedBy=null;}
+      v3RecordFieldChanges(t,before);v3Persist(true);window.AllianceOSOps?.recordTaskAction?.(t.archivedAt?'arquivar_tarefa':'desarquivar_tarefa',t,{});closeTaskDetail();showToast(t.archivedAt?'Tarefa arquivada':'Tarefa desarquivada');
+    });
     document.getElementById('detailAddAssignee')?.addEventListener('change',e=>{if(e.target.value&&!t.assignees.includes(e.target.value)){syncDetailDraft(t);t.assignees.push(e.target.value);v3AddHistory(t,`${v3Short(e.target.value)} foi adicionado como colaborador.`);renderTaskDetailBody(t)}});
     document.querySelectorAll('[data-remove-assignee]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.assignees=t.assignees.filter(x=>x!==b.dataset.removeAssignee);renderTaskDetailBody(t)}));
     document.querySelectorAll('[data-check-id]').forEach(c=>c.addEventListener('change',()=>{const x=t.checklist.find(y=>String(y.id)===String(c.dataset.checkId));if(x)x.done=c.checked;syncDetailDraft(t);v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('marcar_item_checklist',t,{item_id:c.dataset.checkId,concluido:c.checked});renderTaskDetailBody(t)}));
@@ -958,33 +1004,20 @@
 
   saveCurrentTask = function(){
     const t=v3Task(taskState.selected);if(!t)return;
-    const oldStatus=t.status, oldBlocked=t.blockedReason;
-    const wanted=document.getElementById('detailStatus')?.value||t.status;
-    syncDetailDraft(t);
-    t.title=document.getElementById('taskTitleInput').value.trim()||t.title;
-    if(wanted==='bloqueado'&&!String(t.blockedReason||'').trim()){
-      t.status=oldStatus;t.blockedReason=oldBlocked;showToast('Informe o motivo do bloqueio.');renderTaskDetailBody(t);return;
-    }
-    if(wanted==='feito'&&oldStatus!=='feito'){
-      const problem=v3CompletionProblem(t);
-      if(problem){t.status=oldStatus;showToast(problem);renderTaskDetailBody(t);return;}
-    }
+    const before=structuredClone(t),oldStatus=t.status,oldBlocked=t.blockedReason,wanted=document.getElementById('detailStatus')?.value||t.status;
+    const dueInput=document.getElementById('detailDue')?.value||'',proposedDue=v3FromLocalInput(dueInput);
+    if(proposedDue&&proposedDue!==t.dueAt&&new Date(proposedDue).getTime()<Date.now()&&!window.confirm('O prazo informado está no passado. Deseja salvar mesmo assim?')){showToast('Prazo não alterado.');return;}
+    syncDetailDraft(t);t.title=document.getElementById('taskTitleInput').value.trim()||t.title;
+    if(wanted==='bloqueado'&&!String(t.blockedReason||'').trim()){Object.assign(t,before);showToast('Informe o motivo do bloqueio.');renderTaskDetailBody(t);return;}
+    if(wanted==='feito'&&oldStatus!=='feito'){const problem=v3CompletionProblem(t);if(problem){t.status=oldStatus;showToast(problem+' Use o botão “Concluir tarefa” para a opção de concluir subtarefas junto.');renderTaskDetailBody(t);return;}}
     t.status=wanted;
-    if(oldStatus!==t.status){
-      if(oldStatus==='bloqueado'&&t.status!=='bloqueado'&&oldBlocked){
-        v3AddHistory(t,`Bloqueio encerrado. Motivo anterior: ${oldBlocked}`);
-        t.blockedReason=null;
-      }
-      v3AddHistory(t,`Status alterado de “${oldStatus}” para “${t.status}”.`);
-      if(t.status==='feito'){
-        const completedAt=t.completedAt||v3NowIso();t.completedAt=completedAt;
-        for(const x of v3Dependents(t))v3HistoryOnce(x,'dependency-release:'+String(t.id)+':'+completedAt,`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`);
-        const recurring=v3GenerateNextOccurrence(t);
-        if(recurring)v3HistoryOnce(t,'recurrence-created:'+String(recurring.id),`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`);
-      }
+    if(!t.parentTaskId&&(String(before.listId||'')!==String(t.listId||'')||String(before.campaignId||'')!==String(t.campaignId||'')||String(before.project||'')!==String(t.project||''))){
+      for(const child of v3Descendants(t)){const cb=structuredClone(child);child.brand=t.brand;child.project=t.project;child.listId=t.listId;child.campaignId=t.campaignId;v3RecordFieldChanges(child,cb);}
     }
-    v3AddHistory(t,`${v3ActorInfo().by} salvou alterações na tarefa.`);
-    v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('atualizar_tarefa',t,{status:t.status,prazo:t.dueAt||t.due});showToast('Tarefa salva');closeTaskDetail();
+    if(oldStatus==='bloqueado'&&t.status!=='bloqueado')t.blockedReason=null;
+    if(oldStatus!==t.status&&t.status==='feito'){const completedAt=t.completedAt||v3NowIso();t.completedAt=completedAt;for(const x of v3Dependents(t))v3HistoryOnce(x,'dependency-release:'+String(t.id)+':'+completedAt,'Dependência concluída: “'+t.title+'”. Esta tarefa está liberada para execução.');const recurring=v3GenerateNextOccurrence(t);if(recurring)v3HistoryOnce(t,'recurrence-created:'+String(recurring.id),'Próxima ocorrência recorrente criada para '+v3DueLabel(recurring)+'.');}
+    v3RecordFieldChanges(t,before);
+    v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('atualizar_tarefa',t,{status:t.status,prazo:t.dueAt||t.due,confirmar_prazo_passado:!!(t.dueAt&&new Date(t.dueAt).getTime()<Date.now())});showToast('Tarefa salva');closeTaskDetail();
   };
 
   let v3NewConferenceDraft=[];
@@ -1095,6 +1128,7 @@
     if(recurrenceTipo==='dias_semana'&&!recurrenceDays.length){showToast('Escolha pelo menos um dia da semana.');return;}
     const localDue=document.getElementById('newDue').value||'';
     const dueAt=v3FromLocalInput(localDue);
+    if(dueAt&&new Date(dueAt).getTime()<Date.now()&&!window.confirm('O prazo informado está no passado. Deseja criar a tarefa mesmo assim?')){showToast('Criação cancelada para revisar o prazo.');return;}
     const selectedAssignee=document.getElementById('newAssignee').value||'';
     const selectedMember=(window.AllianceOSDirectory?.members||[]).find(m=>m.tipo==='usuario'&&m.atribuivel!==false&&m.nome===selectedAssignee);
     if(selectedAssignee&&!selectedMember){showToast('Escolha um usuário real para a atribuição.');return;}
@@ -1108,7 +1142,11 @@
       recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'interface',dependencies:dependencyId?[dependencyId]:[],parentTaskId:v3NewPreset.parentTaskId||null,deliveryRequired:!!document.getElementById('newDeliveryRequired')?.checked,archivedAt:null
     });
     v3ApplyRecurrence(t,recurrenceTipo,recurrenceDays);
+    const parent=t.parentTaskId?v3Task(t.parentTaskId):null;
+    if(parent&&(parent.brand!==t.brand||String(parent.listId||'')!==String(t.listId||'')||String(parent.campaignId||'')!==String(t.campaignId||''))){showToast('Subtarefa precisa usar a mesma lista, marca e campanha da tarefa mãe.');return;}
+    const dep=dependencyId?v3Task(dependencyId):null;if(dep&&dep.brand!==t.brand){showToast('Dependência entre marcas diferentes não é permitida.');return;}
     taskData.unshift(t);
+    const warnings=v3DeadlineWarnings(t);if(warnings.length)showToast('⚠ '+warnings.join(' '));
     if(v3NewPreset.blocksTaskId){
       const parent=v3Task(v3NewPreset.blocksTaskId);
       if(parent){v3NormalizeTask(parent);if(!parent.dependencies.some(x=>String(x)===String(t.id)))parent.dependencies.push(t.id);v3AddHistory(parent,`Nova etapa anterior criada: “${t.title}”.`);if(parent.status==='feito')parent.status='a fazer';}
