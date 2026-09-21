@@ -197,6 +197,18 @@
     } finally { checking = false; }
   }
 
+  window.AllianceOSStateSync={
+    ready:()=>ready,
+    async save(key,value){
+      if(!belongs(key))throw new Error('Chave fora do escopo sincronizado: '+key);
+      const raw=serialize(value);
+      rawSet.call(localStorage,key,raw);
+      if(!ready){pending.add(key);throw new Error('Sincronização ainda não está pronta. Tente novamente em instantes.')}
+      await saveKey(key,raw);
+      return {ok:true,key};
+    }
+  };
+
   hydrate().catch((e) => {
     ready = true;
     pending.clear();

@@ -11,7 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const TOOL_SCHEMA_VERSION = '2026-09-21.3'
+const TOOL_SCHEMA_VERSION = '2026-09-21.4'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -693,7 +693,7 @@ function fullNormalizeDeliveryShape(input:any,strict=false){
     if(parsed.value!=null)d[key]=parsed.value
     if(strict&&d[key]&&!fullHasOffsetDateTime(d[key]))throw new Error('Data de entrega inválida em '+key+'. Use ISO 8601 com hora e fuso.')
   }
-  normalize('createdAt');normalize('updatedAt')
+  normalize('createdAt');normalize('updatedAt');normalize('sentAt')
   d.events=Array.isArray(d.events)?d.events.map((e:any)=>{
     const x=structuredClone(e||{}),parsed=fullParseLegacyDeliveryDate(x.at)
     if(parsed.original&&!x.atOriginal)x.atOriginal=parsed.original
@@ -1323,7 +1323,7 @@ const protectedHandler = withOAuthProtectedResource(
       try{const body:any=await req.clone().json();mcpMethod=Array.isArray(body)?String(body[0]?.method||''):String(body?.method||'')}catch{}
     }
     const handler = createMcpHandler(() => {
-      const server = new McpServer({ name: 'AllianceOS Gestão', version: '2.2.0' })
+      const server = new McpServer({ name: 'AllianceOS Gestão', version: '2.3.0' })
 
       
       server.registerTool('listar_marcas', {
@@ -1776,7 +1776,7 @@ const protectedHandler = withOAuthProtectedResource(
       return server
     },{bus:MCP_EVENT_BUS})
     const response=await handler.fetch(req)
-    if(mcpMethod==='initialize'||mcpMethod==='notifications/initialized'||mcpMethod==='subscriptions/listen'){
+    if(mcpMethod==='initialize'||mcpMethod==='notifications/initialized'||mcpMethod==='subscriptions/listen'||mcpMethod==='tools/list'){
       queueMicrotask(()=>{try{void handler.notify.toolsChanged()}catch(e){console.error('tools/list_changed',e)}})
     }
     return response

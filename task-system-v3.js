@@ -102,8 +102,12 @@
   }
   function v3ActorInfo(){
     const name=(typeof v3CurrentNames==='function'&&v3CurrentNames()[0])||v3Short(user?.firstName||'Equipe');
-    const member=window.AllianceOSDirectory?.members?.find(x=>x?.tipo==='usuario'&&x?.atribuivel!==false&&(x.nome===name||v3Short(x.nome)===v3Short(name)));
-    return {by:name,authorId:member?.id||null};
+    const members=window.AllianceOSDirectory?.members||[];
+    const currentId=window.user?.id||user?.id||null;
+    const member=(currentId?members.find(x=>String(x?.id||'')===String(currentId)):null)
+      ||members.find(x=>x&&(x.nome===name||v3Short(x.nome)===v3Short(name)))
+      ||null;
+    return {by:member?.nome||name,authorId:member?.id||currentId||null,tipo:member?.tipo||null};
   }
   function v3HistoryOnce(t,key,text){
     t.history=Array.isArray(t.history)?t.history:[];
@@ -111,6 +115,38 @@
     const actor=v3ActorInfo();
     t.history.unshift({at:v3NowIso(),by:actor.by,authorId:actor.authorId,text,eventKey:key,origin:'interface'});
     return true;
+  }
+  function v3AddHistory(t,text,key=''){
+    if(key)return v3HistoryOnce(t,key,text);
+    t.history=Array.isArray(t.history)?t.history:[];
+    const actor=v3ActorInfo();
+    t.history.unshift({at:v3NowIso(),by:actor.by,authorId:actor.authorId,text,origin:'interface'});
+    return true;
+  }
+
+  const v3DeliveryStorageKey='central.deliveries.workspace.v1';
+  function v3OfficialDeliveries(){
+    try{const rows=JSON.parse(localStorage.getItem(v3DeliveryStorageKey)||'[]');return Array.isArray(rows)?rows:[]}catch{return[]}
+  }
+  async function v3SaveOfficialDeliveries(rows){
+    const value=Array.isArray(rows)?rows:[];
+    if(window.AllianceOSStateSync?.save){
+      await window.AllianceOSStateSync.save(v3DeliveryStorageKey,value);
+      return;
+    }
+    localStorage.setItem(v3DeliveryStorageKey,JSON.stringify(value));
+  }
+  function v3OfficialDeliveryForTask(t){
+    return v3OfficialDeliveries().filter(d=>String(d?.sourceTaskId||'')===String(t?.id||'')&&!d?.archivedAt&&!d?.arquivado_em);
+  }
+  function v3HasOfficialDelivery(t){return v3OfficialDeliveryForTask(t).length>0}
+  function v3DeliveryMembers(){
+    return (window.AllianceOSDirectory?.members||[]).filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false);
+  }
+  function v3DeliveryRecipientOptions(t){
+    const members=v3DeliveryMembers(),preferred=(t.assigneeIds||[])[0]||'';
+    if(!members.length)return '<option value="">Nenhum usuário disponível</option>';
+    return '<option value="">Enviar para…</option>'+members.map(m=>`<option value="${esc(m.id)}" ${String(m.id)===String(preferred)?'selected':''}>${esc(m.nome||m.email||'Usuário')}</option>`).join('');
   }
 
   const v3TodayIso = () => {
@@ -756,7 +792,7 @@
       if(!(t.checklist||[]).length)return 'A lista de conferência obrigatória está sem itens.';
       if(pending.length)return `Confira os ${pending.length} item(ns) obrigatórios da lista de conferência.`;
     }
-    if(t.deliveryRequired&&!(t.deliveries||[]).length)return 'Esta tarefa exige uma entrega antes da conclusão.';
+    if(t.deliveryRequired&&!v3HasOfficialDelivery(t))return 'Esta tarefa exige uma entrega existente na coleção oficial antes da conclusão.';
     return '';
   }
 
@@ -785,7 +821,7 @@
 
   bindDrag = function(){
     document.querySelectorAll('[data-drag-id]').forEach(card=>{card.addEventListener('dragstart',e=>{card.classList.add('dragging');e.dataTransfer.setData('text/plain',card.dataset.dragId)});card.addEventListener('dragend',()=>card.classList.remove('dragging'))});
-    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v3Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'){const problem=v3CompletionProblem(t);if(problem){showToast(problem);return;}}if(next==='bloqueado'&&!t.blockedReason){t.blockedReason='Bloqueada manualmente no quadro';}const old=t.status;t.status=next;t.history.unshift({at:v3NowIso(),text:`Status alterado de “${old}” para “${next}”.`});if(next!=='bloqueado'&&old==='bloqueado'&&t.blockedReason){t.history.unshift({at:v3NowIso(),text:`Bloqueio encerrado. Motivo anterior: ${t.blockedReason}`});t.blockedReason=null;}if(next==='feito'){const completedAt=v3NowIso();t.completedAt=completedAt;for(const x of v3Dependents(t))v3HistoryOnce(x,'dependency-release:'+String(t.id)+':'+completedAt,`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`);v3GenerateNextOccurrence(t);}v3Persist(true)})});
+    document.querySelectorAll('[data-v3-drop-status]').forEach(col=>{col.addEventListener('dragover',e=>e.preventDefault());col.addEventListener('drop',e=>{e.preventDefault();const t=v3Task(e.dataTransfer.getData('text/plain'));if(!t)return;const next=col.dataset.v3DropStatus;if(t.status===next)return;if(next==='feito'){const problem=v3CompletionProblem(t);if(problem){showToast(problem);return;}}if(next==='bloqueado'&&!t.blockedReason){t.blockedReason='Bloqueada manualmente no quadro';}const old=t.status;t.status=next;v3AddHistory(t,`Status alterado de “${old}” para “${next}”.`);if(next!=='bloqueado'&&old==='bloqueado'&&t.blockedReason){v3AddHistory(t,`Bloqueio encerrado. Motivo anterior: ${t.blockedReason}`);t.blockedReason=null;}if(next==='feito'){const completedAt=v3NowIso();t.completedAt=completedAt;for(const x of v3Dependents(t))v3HistoryOnce(x,'dependency-release:'+String(t.id)+':'+completedAt,`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`);v3GenerateNextOccurrence(t);}v3Persist(true)})});
   };
 
   function v3FlowTaskRow(x,relation){
@@ -825,7 +861,7 @@
       </section>
       <section class="tsection v3-section ${t.conferenceRequired?'v3-conference-required':''}"><div class="tsection-head"><div><strong>${t.conferenceRequired?'Lista de conferência':'Checklist interno'}</strong><span>${t.conferenceRequired?'Obrigatória: confira todos os itens antes de enviar a entrega ou concluir a tarefa.':'Use para itens pequenos da mesma execução.'}</span></div><span>${completed}/${(t.checklist||[]).length}</span></div><div id="detailChecklist">${(t.checklist||[]).map(c=>`<label class="check-row ${c.done?'done':''}"><input type="checkbox" data-check-id="${esc(c.id)}" ${c.done?'checked':''}><span>${esc(c.text)}</span><button type="button" data-remove-check="${esc(c.id)}">×</button></label>`).join('')}</div><div class="addline"><input id="newCheckText" placeholder="Adicionar item pequeno desta mesma tarefa"><button type="button" id="addCheckBtn">Adicionar</button></div></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Anexos</strong><span>Arquivos e referências usados nesta execução.</span></div><span>${(t.attachments||[]).length}</span></div><label class="attachment-drop v3-attachment-drop">Adicionar arquivos<input type="file" id="attachmentInput" multiple></label><div id="attachmentList">${(t.attachments||[]).map((f,i)=>`<div class="file-pill"><span>◫</span><b>${esc(f.name)}</b><small>${esc(f.size||'')}</small><button type="button" data-remove-attachment="${i}">×</button></div>`).join('')}</div></section>
-      <section class="tsection v3-section"><div class="tsection-head"><div><strong>Entrega</strong><span>${t.deliveryRequired?'Obrigatória para concluir.':'Registre o resultado final, link ou observação.'}</span></div><span>${(t.deliveries||[]).length}</span></div><div class="addline"><input id="newDeliveryText" placeholder="Cole o link ou descreva a entrega"><button type="button" id="addDeliveryBtn">Registrar entrega</button></div><div id="deliveryList">${(t.deliveries||[]).map((d,i)=>`<div class="file-pill"><span>↗</span><b>${esc(d.text||d.url||d.name||'Entrega')}</b><small>${esc(d.at||'')}</small><button type="button" data-remove-delivery="${i}">×</button></div>`).join('')}</div></section>
+      <section class="tsection v3-section"><div class="tsection-head"><div><strong>Entrega</strong><span>${t.deliveryRequired?'Obrigatória para concluir. Só conta quando existe na coleção oficial.':'Registre o resultado final e envie para aprovação.'}</span></div><span>${v3OfficialDeliveryForTask(t).length}</span></div><div class="addline v3-delivery-add"><select id="newDeliveryRecipient" aria-label="Destinatário da entrega">${v3DeliveryRecipientOptions(t)}</select><input id="newDeliveryText" placeholder="Cole o link ou descreva a entrega"><button type="button" id="addDeliveryBtn">Registrar entrega</button></div><div id="deliveryList">${(t.deliveries||[]).map((d)=>`<div class="file-pill ${d.archivedAt?'is-archived':''}"><span>↗</span><b>${esc(d.text||d.note||d.url||d.name||'Entrega')}</b><small>${esc((d.status||'enviado')+' · '+v3TimeLabel(d.at||d.sentAt||d.createdAt))}</small>${d.migrationStatus==='pendente'?'<em>migração pendente</em>':''}<button type="button" data-archive-delivery="${esc(d.id||d.deliveryId||'')}" ${d.archivedAt?'disabled':''}>${d.archivedAt?'Arquivada':'Arquivar'}</button></div>`).join('')}</div></section>
       <section class="tsection v3-section v3-continuity"><div class="tsection-head"><div><strong>Conclusão e continuidade</strong><span>O fluxo libera automaticamente as próximas tarefas. Não é necessário escolher “próxima tarefa”.</span></div></div>${blockers.length?`<div class="v3-continuity-note blocked">Ainda faltam ${blockers.length} dependência${blockers.length>1?'s':''}: ${blockers.slice(0,3).map(x=>esc(x.title)).join(', ')}.</div>`:`<div class="v3-continuity-note">${next.length?`Ao concluir, ${next.length===1?`“${esc(next[0].title)}” será liberada`:`${next.length} tarefas serão liberadas`} automaticamente.`:'Esta é a última etapa conhecida deste fluxo.'}</div>`}<button type="button" id="v3CompleteTaskBtn" class="v3-complete-btn ${t.status==='feito'?'secondary':''}" ${blockers.length&&t.status!=='feito'?'disabled':''}>${t.status==='feito'?'Reabrir tarefa':next.length?'Concluir e liberar próximas':'Concluir tarefa'}</button></section>
       <section class="tsection v3-section"><div class="tsection-head"><div><strong>Comentários e atividade</strong><span>Decisões e mudanças importantes ficam registradas aqui.</span></div><span>${(t.comments||[]).length} comentário(s)</span></div><div class="addline v3-comment-add"><input id="newCommentText" placeholder="Escreva um comentário"><button type="button" id="addCommentBtn">Comentar</button></div><div id="commentList">${(t.comments||[]).map(c=>`<div class="comment"><div class="cav">${v3AvatarInner(c.author,c.authorId)}</div><div class="comment-body"><b>${esc(c.author)}</b><p>${esc(c.text)}</p><small>${esc(v3TimeLabel(c.at))}</small></div></div>`).join('')}</div><div class="v3-history">${(t.history||[]).filter(h=>!h?.duplicado).map(h=>`<div class="activity"><b>${esc(v3TimeLabel(h.at))}</b><p>${esc(h.text)}</p></div>`).join('')}</div></section>
     </main><aside class="tdetail-side"><div class="v3-side-title"><strong>Contexto da tarefa</strong><span>${esc(t.brand||'')} · ${esc(t.project||'Operação')}</span></div><div class="tdetail-grid">
@@ -879,19 +915,42 @@
   bindDetailInteractions = function(t){
     document.getElementById('detailRecurrence')?.addEventListener('change',e=>{const box=document.getElementById('detailRecurrenceDays');if(box)box.hidden=e.target.value!=='dias_semana';});
     document.getElementById('detailStatus')?.addEventListener('change',e=>{if(e.target.value==='bloqueado')document.getElementById('detailBlockedReason')?.focus();});
-    document.getElementById('archiveTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);t.archivedAt=t.archivedAt?null:new Date().toISOString();t.archivedBy=t.archivedAt?(v3CurrentNames()[0]||'Equipe'):null;t.history.unshift({at:v3NowIso(),text:t.archivedAt?'Tarefa arquivada.':'Tarefa desarquivada.'});v3Persist(true);window.AllianceOSOps?.recordTaskAction?.(t.archivedAt?'arquivar_tarefa':'desarquivar_tarefa',t,{});closeTaskDetail();showToast(t.archivedAt?'Tarefa arquivada':'Tarefa desarquivada');});
-    document.getElementById('detailAddAssignee')?.addEventListener('change',e=>{if(e.target.value&&!t.assignees.includes(e.target.value)){syncDetailDraft(t);t.assignees.push(e.target.value);t.history.unshift({at:v3NowIso(),text:`${v3Short(e.target.value)} foi adicionado como colaborador.`});renderTaskDetailBody(t)}});
+    document.getElementById('archiveTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);t.archivedAt=t.archivedAt?null:new Date().toISOString();t.archivedBy=t.archivedAt?(v3CurrentNames()[0]||'Equipe'):null;v3AddHistory(t,t.archivedAt?'Tarefa arquivada.':'Tarefa desarquivada.');v3Persist(true);window.AllianceOSOps?.recordTaskAction?.(t.archivedAt?'arquivar_tarefa':'desarquivar_tarefa',t,{});closeTaskDetail();showToast(t.archivedAt?'Tarefa arquivada':'Tarefa desarquivada');});
+    document.getElementById('detailAddAssignee')?.addEventListener('change',e=>{if(e.target.value&&!t.assignees.includes(e.target.value)){syncDetailDraft(t);t.assignees.push(e.target.value);v3AddHistory(t,`${v3Short(e.target.value)} foi adicionado como colaborador.`);renderTaskDetailBody(t)}});
     document.querySelectorAll('[data-remove-assignee]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.assignees=t.assignees.filter(x=>x!==b.dataset.removeAssignee);renderTaskDetailBody(t)}));
     document.querySelectorAll('[data-check-id]').forEach(c=>c.addEventListener('change',()=>{const x=t.checklist.find(y=>String(y.id)===String(c.dataset.checkId));if(x)x.done=c.checked;syncDetailDraft(t);v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('marcar_item_checklist',t,{item_id:c.dataset.checkId,concluido:c.checked});renderTaskDetailBody(t)}));
     document.querySelectorAll('[data-remove-check]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.checklist=t.checklist.filter(x=>String(x.id)!==String(b.dataset.removeCheck));v3Persist(false);renderTaskDetailBody(t)}));
     document.getElementById('addCheckBtn')?.addEventListener('click',()=>{const i=document.getElementById('newCheckText');if(!i.value.trim())return;syncDetailDraft(t);t.checklist.push({id:v3Id('check'),text:i.value.trim(),done:false});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('definir_checklist',t,{itens:t.checklist.length});renderTaskDetailBody(t)});
     document.getElementById('attachmentInput')?.addEventListener('change',e=>{syncDetailDraft(t);[...e.target.files].forEach(f=>t.attachments.push({name:f.name,size:`${Math.max(1,Math.round(f.size/1024))} KB`}));v3Persist(false);renderTaskDetailBody(t)});
     document.querySelectorAll('[data-remove-attachment]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.attachments.splice(Number(b.dataset.removeAttachment),1);v3Persist(false);renderTaskDetailBody(t)}));
-    document.getElementById('addDeliveryBtn')?.addEventListener('click',()=>{const i=document.getElementById('newDeliveryText');if(!i?.value.trim())return;syncDetailDraft(t);t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];t.deliveries.unshift({id:v3Id('delivery'),text:i.value.trim(),at:v3NowIso(),author:v3CurrentNames()[0]||user.firstName||'Equipe',source:'interface'});t.history.unshift({at:v3NowIso(),text:'Entrega registrada.'});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('registrar_entrega',t,{entrega:i.value.trim()});renderTaskDetailBody(t)});
-    document.querySelectorAll('[data-remove-delivery]').forEach(b=>b.addEventListener('click',()=>{syncDetailDraft(t);t.deliveries.splice(Number(b.dataset.removeDelivery),1);v3Persist(false);renderTaskDetailBody(t)}));
+    document.getElementById('addDeliveryBtn')?.addEventListener('click',async()=>{
+      const i=document.getElementById('newDeliveryText'),recipientId=document.getElementById('newDeliveryRecipient')?.value;
+      const text=String(i?.value||'').trim();if(!text)return;
+      const recipient=v3DeliveryMembers().find(m=>String(m.id)===String(recipientId||''));
+      if(!recipient){showToast('Escolha um destinatário real para a entrega.');return}
+      syncDetailDraft(t);
+      const actor=v3ActorInfo(),ts=v3NowIso(),id='del-'+Date.now()+'-'+Math.random().toString(36).slice(2,10),ds=v3OfficialDeliveries();
+      const links=/^https?:\/\//i.test(text)?[{id:'l-'+Math.random().toString(36).slice(2,10),label:'Link',url:text}]:[];
+      const version=ds.filter(d=>String(d?.sourceTaskId||'')===String(t.id)&&String(d?.to||'')===String(recipient.nome||recipient.email||'')).length+1;
+      const official={id,sourceTaskId:String(t.id),targetTaskId:'',campaignId:t.campaignId||null,campaignSource:'task',title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:actor.by,fromId:actor.authorId,to:recipient.nome||recipient.email||'Usuário',toId:recipient.id,note:text,status:'enviado',createdAt:ts,updatedAt:ts,sentAt:ts,version,completeTask:false,files:[],links,events:[{at:ts,by:actor.by,authorId:actor.authorId,origin:'interface',text:'Entrega enviada para '+(recipient.nome||recipient.email||'Usuário')+'.'}],origin:'interface',archivedAt:null,archivedBy:null};
+      ds.unshift(official);
+      try{await v3SaveOfficialDeliveries(ds)}catch(e){console.error('[AllianceOS entrega] falha ao salvar coleção oficial',e);showToast('Não foi possível salvar a entrega oficial. Nada foi alterado na tarefa.');return}
+      t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];
+      t.deliveries.unshift({id,deliveryId:id,text:official.title,note:text,at:ts,sentAt:ts,author:actor.by,authorId:actor.authorId,to:official.to,toId:official.toId,source:'interface',status:'enviado',campaignId:official.campaignId,targetTaskId:'',links:structuredClone(links),files:[],archivedAt:null,archivedBy:null});
+      v3AddHistory(t,'Entrega registrada na coleção oficial e enviada para '+official.to+'.','delivery-created:'+id);
+      v3Persist(false);
+      window.AllianceOSOps?.recordTaskAction?.('registrar_entrega',t,{entrega:text,delivery_id:id,destinatario:official.to});
+      renderTaskDetailBody(t)
+    });
+    document.querySelectorAll('[data-archive-delivery]').forEach(b=>b.addEventListener('click',async()=>{
+      const id=b.dataset.archiveDelivery;if(!id)return;syncDetailDraft(t);const actor=v3ActorInfo(),ts=v3NowIso(),ds=v3OfficialDeliveries(),official=ds.find(d=>String(d?.id||'')===String(id));
+      if(official){official.archivedAt=official.archivedAt||ts;official.archivedBy=actor.authorId;official.updatedAt=ts;official.events=Array.isArray(official.events)?official.events:[];official.events.push({at:ts,by:actor.by,authorId:actor.authorId,origin:'interface',text:'Entrega arquivada pela interface.'});try{await v3SaveOfficialDeliveries(ds)}catch(e){console.error('[AllianceOS entrega] falha ao arquivar na coleção oficial',e);showToast('Não foi possível arquivar a entrega oficial.');return}}
+      const embedded=(t.deliveries||[]).find(d=>String(d?.id||d?.deliveryId||'')===String(id));if(embedded){embedded.archivedAt=embedded.archivedAt||ts;embedded.archivedBy=actor.authorId}
+      v3AddHistory(t,'Entrega arquivada pela interface.','delivery-archived:'+id);v3Persist(false);renderTaskDetailBody(t)
+    }));
     document.getElementById('addCommentBtn')?.addEventListener('click',()=>{const i=document.getElementById('newCommentText');if(!i.value.trim())return;syncDetailDraft(t);const text=i.value.trim();t.comments.unshift({id:v3Id('comment'),author:v3CurrentNames()[0]||user.firstName||'Equipe',authorId:window.user?.id||null,text,at:v3NowIso(),source:'interface'});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('comentar_tarefa',t,{comentario:text});renderTaskDetailBody(t)});
-    document.getElementById('linkDependencyBtn')?.addEventListener('click',()=>{const id=document.getElementById('detailAddDependency')?.value;if(!id)return;if(v3WouldCycle(t,id)){showToast('Esse vínculo criaria um ciclo de dependências.');return;}syncDetailDraft(t);if(!t.dependencies.some(x=>String(x)===String(id)))t.dependencies.push(id);const child=v3Task(id);if(child&&!child.parentTaskId)child.parentTaskId=t.id;if(t.status==='feito'){t.status='a fazer';t.history.unshift({at:v3NowIso(),text:'Tarefa reaberta porque ganhou uma nova dependência.'})}t.history.unshift({at:v3NowIso(),text:`Dependência adicionada: “${child?.title||id}”.`});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('definir_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)});
-    document.querySelectorAll('[data-unlink-dep]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();syncDetailDraft(t);const id=b.dataset.unlinkDep;t.dependencies=t.dependencies.filter(x=>String(x)!==String(id));const child=v3Task(id);if(child&&String(child.parentTaskId||'')===String(t.id))child.parentTaskId=null;t.history.unshift({at:v3NowIso(),text:`Dependência removida: “${child?.title||id}”.`});v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('remover_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)}));
+    document.getElementById('linkDependencyBtn')?.addEventListener('click',()=>{const id=document.getElementById('detailAddDependency')?.value;if(!id)return;if(v3WouldCycle(t,id)){showToast('Esse vínculo criaria um ciclo de dependências.');return;}syncDetailDraft(t);if(!t.dependencies.some(x=>String(x)===String(id)))t.dependencies.push(id);const child=v3Task(id);if(child&&!child.parentTaskId)child.parentTaskId=t.id;if(t.status==='feito'){t.status='a fazer';v3AddHistory(t,'Tarefa reaberta porque ganhou uma nova dependência.')}v3AddHistory(t,`Dependência adicionada: “${child?.title||id}”.`);v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('definir_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)});
+    document.querySelectorAll('[data-unlink-dep]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();syncDetailDraft(t);const id=b.dataset.unlinkDep;t.dependencies=t.dependencies.filter(x=>String(x)!==String(id));const child=v3Task(id);if(child&&String(child.parentTaskId||'')===String(t.id))child.parentTaskId=null;v3AddHistory(t,`Dependência removida: “${child?.title||id}”.`);v3Persist(false);window.AllianceOSOps?.recordTaskAction?.('remover_dependencia',t,{tarefa_que_bloqueia:id});renderTaskDetailBody(t)}));
     document.getElementById('createPreviousTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);v3Persist(false);closeTaskDetail();openNewTask('a fazer',{parentTaskId:t.id,blocksTaskId:t.id,brand:t.brand,campaignId:t.campaignId,project:t.project})});
     document.querySelectorAll('[data-flow-open]').forEach(el=>el.addEventListener('click',e=>{if(e.target.closest('[data-unlink-dep]'))return;syncDetailDraft(t);v3Persist(false);openTaskDetail(el.dataset.flowOpen)}));
     document.getElementById('v3CompleteTaskBtn')?.addEventListener('click',()=>{syncDetailDraft(t);if(t.status==='feito')v3Complete(t,false);else if(v3Complete(t,true))closeTaskDetail()});
@@ -913,17 +972,18 @@
     t.status=wanted;
     if(oldStatus!==t.status){
       if(oldStatus==='bloqueado'&&t.status!=='bloqueado'&&oldBlocked){
-        t.history.unshift({at:v3NowIso(),text:`Bloqueio encerrado. Motivo anterior: ${oldBlocked}`});
+        v3AddHistory(t,`Bloqueio encerrado. Motivo anterior: ${oldBlocked}`);
         t.blockedReason=null;
       }
-      t.history.unshift({at:v3NowIso(),text:`Status alterado de “${oldStatus}” para “${t.status}”.`});
+      v3AddHistory(t,`Status alterado de “${oldStatus}” para “${t.status}”.`);
       if(t.status==='feito'){
-        for(const x of v3Dependents(t))x.history.unshift({at:v3NowIso(),text:`Dependência concluída: “${t.title}”. Esta tarefa está liberada.`});
+        const completedAt=t.completedAt||v3NowIso();t.completedAt=completedAt;
+        for(const x of v3Dependents(t))v3HistoryOnce(x,'dependency-release:'+String(t.id)+':'+completedAt,`Dependência concluída: “${t.title}”. Esta tarefa está liberada para execução.`);
         const recurring=v3GenerateNextOccurrence(t);
-        if(recurring)t.history.unshift({at:v3NowIso(),text:`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`});
+        if(recurring)v3HistoryOnce(t,'recurrence-created:'+String(recurring.id),`Próxima ocorrência recorrente criada para ${v3DueLabel(recurring)}.`);
       }
     }
-    t.history.unshift({at:v3NowIso(),text:`${v3CurrentNames()[0]||user.firstName||'Equipe'} salvou alterações na tarefa.`});
+    v3AddHistory(t,`${v3ActorInfo().by} salvou alterações na tarefa.`);
     v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('atualizar_tarefa',t,{status:t.status,prazo:t.dueAt||t.due});showToast('Tarefa salva');closeTaskDetail();
   };
 
@@ -1051,7 +1111,7 @@
     taskData.unshift(t);
     if(v3NewPreset.blocksTaskId){
       const parent=v3Task(v3NewPreset.blocksTaskId);
-      if(parent){v3NormalizeTask(parent);if(!parent.dependencies.some(x=>String(x)===String(t.id)))parent.dependencies.push(t.id);parent.history.unshift({at:v3NowIso(),text:`Nova etapa anterior criada: “${t.title}”.`});if(parent.status==='feito')parent.status='a fazer';}
+      if(parent){v3NormalizeTask(parent);if(!parent.dependencies.some(x=>String(x)===String(t.id)))parent.dependencies.push(t.id);v3AddHistory(parent,`Nova etapa anterior criada: “${t.title}”.`);if(parent.status==='feito')parent.status='a fazer';}
     }
     const createdAsStep=!!v3NewPreset.blocksTaskId;v3Persist(true);window.AllianceOSOps?.recordTaskAction?.('criar_tarefa',t,{status:t.status,prazo:t.dueAt||t.due});closeNewTask();showToast(createdAsStep?'Etapa criada e vinculada':'Nova tarefa criada');
   };
