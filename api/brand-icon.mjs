@@ -8,7 +8,7 @@ export default function handler(req,res){
   res.setHeader('Content-Type','image/png');
   res.setHeader('Cache-Control','public, max-age=31536000, immutable');
   res.setHeader('Content-Length',String(body.length));
-  res.setHeader('X-AllianceOS-Brand','20260921-1');
+  res.setHeader('X-AllianceOS-Brand','20260921-2');
   if(req.method==='HEAD')return res.status(200).end();
   return res.status(200).send(body);
 }

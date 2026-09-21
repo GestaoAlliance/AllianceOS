@@ -57,7 +57,7 @@
     return ''+
       '<div class="showcase-device">'+
         '<aside class="preview-sidebar">'+
-          '<div class="preview-logo"><span><img src="/api/brand-icon?v=20260921-1" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
+          '<div class="preview-logo"><span><img src="/api/brand-icon?v=20260921-2" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
           '<nav class="preview-nav">'+
             '<div><i>⌂</i><span>Início</span></div>'+
             '<div class="active"><i>✓</i><span>Tarefas</span></div>'+
@@ -146,7 +146,7 @@
       '<main class="auth-stage">'+
         '<div class="auth-frame">'+
           '<section class="auth-panel">'+
-            '<div class="auth-wordmark"><span class="auth-mark"><img src="/api/brand-icon?v=20260921-1" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
+            '<div class="auth-wordmark"><span class="auth-mark"><img src="/api/brand-icon?v=20260921-2" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
             '<div class="auth-form-wrap">'+(signup?signupForm():loginForm())+'</div>'+
           '</section>'+
           showcase()+
@@ -185,7 +185,7 @@
     const label=((profile?.nome)||session?.user?.email||'?').slice(0,1).toUpperCase();
     root().innerHTML=''+
       '<main class="auth-stage"><div class="auth-frame">'+
-        '<section class="auth-panel"><div class="auth-wordmark"><span class="auth-mark"><img src="/api/brand-icon?v=20260921-1" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
+        '<section class="auth-panel"><div class="auth-wordmark"><span class="auth-mark"><img src="/api/brand-icon?v=20260921-2" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
           '<div class="auth-form-wrap"><div class="auth-pending-card"><div class="auth-user-dot">'+esc(label)+'</div><h1>Acesso pendente</h1><p>'+esc(profile?.email||session?.user?.email||'')+'</p><small>Sua conta existe, mas ainda precisa ser liberada pela Alliance.</small><button class="auth-primary" id="authPendingSignout" type="button">Sair desta conta</button></div></div>'+
         '</section>'+showcase()+
       '</div></main>';
@@ -196,7 +196,7 @@
     showRoot();
     root().innerHTML=''+
       '<main class="auth-stage"><div class="auth-frame">'+
-        '<section class="auth-panel"><div class="auth-wordmark"><span class="auth-mark"><img src="/api/brand-icon?v=20260921-1" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
+        '<section class="auth-panel"><div class="auth-wordmark"><span class="auth-mark"><img src="/api/brand-icon?v=20260921-2" alt="" aria-hidden="true"></span><strong>AllianceOS</strong></div>'+
           '<div class="auth-form-wrap"><div class="auth-heading"><h1>Defina uma nova senha.</h1><p>Escolha pelo menos 8 caracteres.</p></div><div id="authMessage" class="auth-message" hidden></div>'+
           '<form id="authRecoveryForm" class="auth-form"><label>Nova senha<input id="authRecoveryPassword" type="password" minlength="8" required autocomplete="new-password"></label><label>Confirmar senha<input id="authRecoveryConfirm" type="password" minlength="8" required autocomplete="new-password"></label><button class="auth-primary" id="authRecoveryButton" type="submit">Salvar nova senha</button></form></div>'+
         '</section>'+showcase()+
