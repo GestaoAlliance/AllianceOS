@@ -479,7 +479,7 @@
     return '<div class="aa-login"><h2>Entrar para administrar</h2><p>Equipe, listas e notificações usam a conta real do AllianceOS e respeitam as políticas RLS.</p><label>E-mail<input id="aaLoginEmail" type="email" autocomplete="email"></label><label>Senha<input id="aaLoginPassword" type="password" autocomplete="current-password"></label><button id="aaLoginButton" class="primary">Entrar</button><button id="aaMagicButton">Enviar link mágico</button><small id="aaLoginMsg"></small></div>';
   }
 
-  function memberBadge(m){return m.tipo==='usuario'?'<span class="aa-badge ok">usuário real</span>':m.tipo==='legado'?'<span class="aa-badge warn">legado</span>':'<span class="aa-badge">convite pendente</span>';}
+  function memberBadge(m){return m.tipo==='usuario'?'<span class="aa-badge ok">usuário real</span>':m.tipo==='servico'?'<span class="aa-badge">conta de serviço</span>':m.tipo==='legado'?'<span class="aa-badge warn">legado</span>':'<span class="aa-badge">convite pendente</span>';}
   function inviteStatusHtml(m){
     if(m.convite_aceito_em)return '<span class="aa-badge ok">convite aceito · '+esc(new Date(m.convite_aceito_em).toLocaleString('pt-BR'))+'</span>';
     if(m.convite_status==='enviado')return '<span class="aa-badge ok">enviado · '+esc(m.convite_enviado_em?new Date(m.convite_enviado_em).toLocaleString('pt-BR'):'agora')+'</span>';
@@ -490,12 +490,14 @@
 
   function teamView(){
     const real=state.members.filter(m=>m.tipo==='usuario');
+    const services=state.members.filter(m=>m.tipo==='servico');
     const legacy=state.members.filter(m=>m.tipo==='legado');
     const pending=state.members.filter(m=>m.tipo==='convite_pendente');
     const admin=state.profile?.papel==='admin';
     return '<div class="aa-section"><div class="aa-title"><div><h2>Equipe</h2><p>Somente usuários reais recebem novas atribuições e notificações.</p></div><span>'+real.length+' ativos</span></div>'+
       (admin?'<form id="aaInviteForm" class="aa-form"><input id="aaInviteName" placeholder="Nome" required><input id="aaInviteEmail" type="email" placeholder="E-mail" required><input id="aaInviteRoleName" placeholder="Cargo"><select id="aaInviteRole"><option value="membro">Membro</option><option value="admin">Admin</option></select><select id="aaInviteBrand" multiple>'+state.brands.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.nome)+'</option>').join('')+'</select><button class="primary">Convidar por e-mail</button></form>':'')+
       '<div class="aa-grid-list">'+real.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+memberBadge(m)+inviteStatusHtml(m)+(admin?'<input class="aa-member-cargo" data-aa-member-cargo="'+esc(m.id)+'" value="'+esc(m.cargo||'')+'" placeholder="Cargo"><select data-aa-member-role="'+esc(m.id)+'"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Admin</option></select><button data-aa-save-member="'+esc(m.id)+'">Salvar</button>':'')+'</article>').join('')+'</div>'+
+      (services.length?'<h3>Contas de serviço</h3><div class="aa-grid-list">'+services.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+(m.cargo?' · '+esc(m.cargo):'')+'</small></div>'+memberBadge(m)+'<small>Não atribuível · ações identificadas no histórico</small></article>').join('')+'</div>':'')+
       (pending.length?'<h3>Convites pendentes</h3><div class="aa-grid-list">'+pending.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+inviteStatusHtml(m)+(admin?'<button data-aa-resend-invite="'+esc(m.email)+'">Reenviar convite</button>':'')+'</article>').join('')+'</div>':'')+
       (legacy.length?'<h3>Responsáveis legados para migrar</h3><div class="aa-grid-list">'+legacy.map(m=>'<article class="aa-legacy"><div><b>'+esc(m.nome)+'</b><small>Nome importado, sem conta real</small></div><select data-aa-migrate-select="'+esc(m.nome)+'"><option value="">Vincular a usuário…</option>'+real.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.nome)+'</option>').join('')+'</select><button data-aa-migrate="'+esc(m.nome)+'" '+(!admin?'disabled':'')+'>Migrar tarefas</button></article>').join('')+'</div>':'<div class="aa-empty">Nenhum responsável legado pendente.</div>')+
       '</div>';

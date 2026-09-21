@@ -11,7 +11,7 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const TOOL_SCHEMA_VERSION = '2026-09-21.2'
+const TOOL_SCHEMA_VERSION = '2026-09-21.3'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -634,7 +634,8 @@ function fullIsoActivityDate(v:any){
   const raw=String(v??'').trim()
   if(!raw)return null
   if(raw==='Agora')return null
-  const normalized=raw.replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T')
+  let normalized=raw.replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T')
+  normalized=normalized.replace(/([+-]\d{2})$/,'$1:00')
   const d=new Date(normalized)
   return Number.isNaN(d.getTime())?null:d.toISOString()
 }
@@ -672,6 +673,11 @@ function fullParseLegacyDeliveryDate(v:any){
   if(!raw)return{value:null,original:null}
   if(fullHasOffsetDateTime(raw))return{value:raw,original:null}
   if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return{value:raw+'T00:00:00-03:00',original:raw}
+  if(/^\d{4}-\d{2}-\d{2}[ T]/.test(raw)){
+    let normalized=raw.replace(/^(\d{4}-\d{2}-\d{2})\s+/,'$1T').replace(/([+-]\d{2})$/,'$1:00')
+    const parsed=new Date(normalized)
+    if(!Number.isNaN(parsed.getTime()))return{value:parsed.toISOString(),original:raw}
+  }
   const months:any={jan:1,janeiro:1,fev:2,fevereiro:2,mar:3,marco:3,'março':3,abr:4,abril:4,mai:5,maio:5,jun:6,junho:6,jul:7,julho:7,ago:8,agosto:8,set:9,setembro:9,out:10,outubro:10,nov:11,novembro:11,dez:12,dezembro:12}
   const m=raw.match(/^(\d{1,2})\s+(?:de\s+)?([A-Za-zÀ-ÿ]+)(?:\s*[·,\-]\s*|\s+)(\d{1,2}):(\d{2})$/i)
   if(!m)return{value:raw,original:null}
