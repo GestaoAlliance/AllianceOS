@@ -195,18 +195,8 @@
 
   async function loadNotifications(){
     if(!state.user){state.notifications=[];renderBell();return;}
-    const now=Date.now(), horizon=now+24*60*60*1000;
-    const assigned=state.tasks.filter(t=>!t.archivedAt&&(t.assigneeIds||[]).includes(state.user.id));
-    for(const t of assigned){
-      const raw=t.dueAt||t.due;if(!raw)continue;
-      const ms=t.dueAt?new Date(t.dueAt).getTime():new Date(String(t.due)+'T18:00:00').getTime();
-      if(Number.isNaN(ms)||ms<now||ms>horizon)continue;
-      await insertNotificationOnce({
-        user_id:state.user.id,actor_id:state.user.id,kind:'task_due_soon',title:'Prazo próximo: '+(t.title||'Tarefa'),
-        body:t.dueAt?'Prazo: '+new Date(t.dueAt).toLocaleString('pt-BR'):'Prazo: '+t.due,
-        task_id:String(t.id),event_key:'due:'+String(t.id)+':'+String(raw)
-      });
-    }
+    // Geração de prazo próximo é centralizada no pg_cron (app.generate_due_notifications).
+    // A interface somente lê; abrir várias abas nunca tenta criar a mesma notificação.
     const {data}=await state.sb.from('notifications').select('id,kind,title,body,task_id,created_at,read_at').eq('user_id',state.user.id).order('created_at',{ascending:false}).limit(50);
     state.notifications=data||[];renderBell();
   }
@@ -526,8 +516,8 @@
   function listsView(){
     const admin=state.profile?.papel==='admin';
     return '<div class="aa-section"><div class="aa-title"><div><h2>Listas</h2><p>Hierarquia: marca → lista/campanha → tarefa → subtarefa.</p></div><span>'+state.lists.filter(l=>!l.arquivada).length+' ativas</span></div>'+
-      '<form id="aaListForm" class="aa-form"><input id="aaListName" placeholder="Nome da lista" required><select id="aaListBrand">'+state.brands.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.nome)+'</option>').join('')+'</select><input id="aaListCampaign" placeholder="ID de campanha (opcional)"><button class="primary">Criar lista</button></form>'+
-      '<div class="aa-grid-list">'+state.lists.map(l=>'<article class="'+(l.arquivada?'archived':'')+'"><div><input class="aa-inline-name" data-aa-list-name="'+esc(l.id)+'" value="'+esc(l.nome)+'"><small>'+esc(l.marca)+(l.campanha_id?' · campanha '+esc(l.campanha_id):'')+'</small></div><button data-aa-save-list="'+esc(l.id)+'">Salvar</button><button data-aa-archive-list="'+esc(l.id)+'">'+(l.arquivada?'Desarquivar':'Arquivar')+'</button></article>').join('')+'</div></div>';
+      '<form id="aaListForm" class="aa-form"><input id="aaListName" placeholder="Nome da lista" maxlength="150" required><select id="aaListBrand">'+state.brands.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.nome)+'</option>').join('')+'</select><input id="aaListCampaign" placeholder="ID de campanha (opcional)"><button class="primary">Criar lista</button></form>'+
+      '<div class="aa-grid-list">'+state.lists.map(l=>'<article class="'+(l.arquivada?'archived':'')+'"><div><input class="aa-inline-name" data-aa-list-name="'+esc(l.id)+'" value="'+esc(l.nome)+'" maxlength="150"><small>'+esc(l.marca)+(l.campanha_id?' · campanha '+esc(l.campanha_id):'')+'</small></div><button data-aa-save-list="'+esc(l.id)+'">Salvar</button><button data-aa-archive-list="'+esc(l.id)+'">'+(l.arquivada?'Desarquivar':'Arquivar')+'</button></article>').join('')+'</div></div>';
   }
 
   function cleanupView(){
@@ -628,17 +618,25 @@
     $('#aaListForm')?.addEventListener('submit',async e=>{
       e.preventDefault();try{
         const nome=$('#aaListName').value.trim(),brand_id=$('#aaListBrand').value,campanha_id=$('#aaListCampaign').value.trim()||null;
+        if(nome.length>150)throw new Error('O nome da lista pode ter no máximo 150 caracteres.');
+        const warnings=[];if(nome.length>120)warnings.push('nome com '+nome.length+' caracteres');
+        const dup=state.lists.find(x=>!x.arquivada&&String(x.brand_id)===String(brand_id)&&norm(x.nome)===norm(nome));if(dup)warnings.push('já existe lista com esse nome nesta marca');
+        if(warnings.length)toast('⚠ '+warnings.join(' · '));
         const {data,error}=await state.sb.from('task_lists').insert({nome,brand_id,campanha_id,criado_por:state.user.id}).select('id').single();if(error)throw error;
-        await audit('criar_lista','lista',data.id,{nome,brand_id});toast('Lista criada');await refreshAll();
+        await audit('criar_lista','lista',data.id,{nome,brand_id,avisos:warnings});toast('Lista criada');await refreshAll();
       }catch(err){toast(err.message||String(err));}
     });
     $$('[data-aa-save-list]').forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.dataset.aaSaveList,l=state.lists.find(x=>String(x.id)===String(id)),nome=$('[data-aa-list-name="'+id+'"]')?.value.trim();if(!l||!nome)return;
       try{
+        if(nome.length>150)throw new Error('O nome da lista pode ter no máximo 150 caracteres.');
+        const warnings=[];if(nome.length>120)warnings.push('nome com '+nome.length+' caracteres');
+        const dup=state.lists.find(x=>!x.arquivada&&String(x.id)!==String(id)&&x.marca===l.marca&&norm(x.nome)===norm(nome));if(dup)warnings.push('já existe lista com esse nome nesta marca');
+        if(warnings.length)toast('⚠ '+warnings.join(' · '));
         const {error}=await state.sb.from('task_lists').update({nome}).eq('id',id);if(error)throw error;
         let changed=0;for(const t of state.tasks){if(String(t.listId||'')===String(id)||(!t.listId&&norm(t.brand)===norm(l.marca)&&norm(t.project||'Operação')===norm(l.nome))){t.listId=id;t.project=nome;changed++;}}
         if(changed){await writeTasks(state.tasks);localStorage.setItem(TASKS_KEY,JSON.stringify(state.tasks));}
-        await audit('atualizar_lista','lista',id,{nome});toast('Lista atualizada');await refreshAll();
+        await audit('atualizar_lista','lista',id,{mudancas:[{campo:'nome',antes:l.nome,depois:nome}],avisos:warnings});toast('Lista atualizada');await refreshAll();
       }catch(err){toast(err.message||String(err));}
     }));
     $$('[data-aa-archive-list]').forEach(btn=>btn.addEventListener('click',async()=>{

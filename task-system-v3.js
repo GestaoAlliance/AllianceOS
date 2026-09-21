@@ -88,6 +88,18 @@
 
   const v3Id = (p='task') => `${p}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
   const v3NowIso = () => new Date().toISOString();
+  const v3NameNorm = v => String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  function v3ValidateTaskName(name,excludeId=null,brand=null){
+    const value=String(name||'').trim();
+    if(value.length>150){showToast('O nome da tarefa pode ter no máximo 150 caracteres.');return false;}
+    const warnings=[];
+    if(value.length>120)warnings.push('nome com '+value.length+' caracteres; revise para manter a listagem legível');
+    const targetBrand=brand||v3Task(excludeId)?.brand||v3ActiveBrand()||'';
+    const dup=taskData.find(x=>!x.archivedAt&&String(x.id)!==String(excludeId||'')&&v3NameNorm(x.title)===v3NameNorm(value)&&(!targetBrand||x.brand===targetBrand||(Array.isArray(x.brands)&&x.brands.includes(targetBrand))));
+    if(dup)warnings.push('já existe uma tarefa com esse nome nesta marca (#'+String(dup.id).slice(-7)+')');
+    if(warnings.length)showToast('⚠ '+warnings.join('. ')+'.');
+    return true;
+  }
   function v3TimeLabel(value){
     const raw=String(value||'').trim();
     if(!raw)return 'Data desconhecida';
@@ -875,7 +887,7 @@
     const t=v3Task(id);if(!t)return;v3NormalizeTask(t);taskState.selected=t.id;
     const parent=v3Parent(t);
     document.getElementById('taskDetailKicker').textContent=`${t.brand||''} · ${t.project||'Operação'}${parent?` · etapa de ${parent.title}`:''} · #${String(t.id).slice(-7)}`;
-    document.getElementById('taskTitleInput').value=t.title;
+    const titleInput=document.getElementById('taskTitleInput');titleInput.value=t.title;titleInput.maxLength=150;
     renderTaskDetailBody(t);
     document.getElementById('taskDetailDrawer').classList.add('open');
   };
@@ -1007,7 +1019,8 @@
     const before=structuredClone(t),oldStatus=t.status,oldBlocked=t.blockedReason,wanted=document.getElementById('detailStatus')?.value||t.status;
     const dueInput=document.getElementById('detailDue')?.value||'',proposedDue=v3FromLocalInput(dueInput);
     if(proposedDue&&proposedDue!==t.dueAt&&new Date(proposedDue).getTime()<Date.now()&&!window.confirm('O prazo informado está no passado. Deseja salvar mesmo assim?')){showToast('Prazo não alterado.');return;}
-    syncDetailDraft(t);t.title=document.getElementById('taskTitleInput').value.trim()||t.title;
+    const proposedTitle=document.getElementById('taskTitleInput').value.trim()||t.title;if(!v3ValidateTaskName(proposedTitle,t.id,t.brand))return;
+    syncDetailDraft(t);t.title=proposedTitle;
     if(wanted==='bloqueado'&&!String(t.blockedReason||'').trim()){Object.assign(t,before);showToast('Informe o motivo do bloqueio.');renderTaskDetailBody(t);return;}
     if(wanted==='feito'&&oldStatus!=='feito'){const problem=v3CompletionProblem(t);if(problem){t.status=oldStatus;showToast(problem+' Use o botão “Concluir tarefa” para a opção de concluir subtarefas junto.');renderTaskDetailBody(t);return;}}
     t.status=wanted;
@@ -1107,7 +1120,8 @@
     if(conferenceToggle)conferenceToggle.checked=false;
     v3RenderNewConferenceDraft();
     document.getElementById('newTaskModal').classList.add('open');
-    setTimeout(()=>document.getElementById('newTitle')?.focus(),20);
+    const newTitle=document.getElementById('newTitle');if(newTitle)newTitle.maxLength=150;
+    setTimeout(()=>newTitle?.focus(),20);
   };
   closeNewTask = function(){document.getElementById('newTaskModal').classList.remove('open');document.getElementById('newTaskForm').reset();v3NewPreset={};};
 
@@ -1115,6 +1129,7 @@
     e.preventDefault();
     const title=document.getElementById('newTitle').value.trim();if(!title)return;
     const brand=v3NewPreset.brand||v3ActiveBrand()||document.getElementById('newBrand')?.value||v3Brands()[0];
+    if(!v3ValidateTaskName(title,null,brand))return;
     const campaign=v3FindCampaign(document.getElementById('newCampaign')?.value,brand);
     const dependencyId=document.getElementById('newDependency')?.value||'';
     const conferenceRequired=!!document.getElementById('newConferenceRequired')?.checked;

@@ -155,6 +155,28 @@
     try{const s=await client(),{data,error}=await s.from('alliance_automations').select('*,brands(nome)').is('arquivado_em',null).order('nome');if(error)throw error;body.innerHTML='<div class="afu-card"><table class="afu-table"><thead><tr><th>Automação</th><th>Marca</th><th>Canal</th><th>Status</th><th>Última execução</th></tr></thead><tbody>'+((data||[]).map(x=>'<tr><td><b>'+esc(x.nome)+'</b></td><td>'+esc(x.brands?.nome||'—')+'</td><td>'+esc(x.canal)+'</td><td><span class="afu-pill">'+esc(x.status)+'</span></td><td>'+esc(x.ultima_execucao?new Date(x.ultima_execucao).toLocaleString('pt-BR'):'—')+'</td></tr>').join('')||'<tr><td colspan="5">Nenhuma automação cadastrada.</td></tr>')+'</tbody></table></div>'}catch(e){body.textContent=e?.message||String(e)}
   }
 
+  function campaignNameInput(el){
+    if(!(el instanceof HTMLInputElement))return false;
+    if(!el.closest('#campaignsView,#campaignWorkspace'))return false;
+    const key=norm([el.id,el.name,el.placeholder,el.getAttribute('aria-label'),el.dataset?.field].filter(Boolean).join(' '));
+    return /(nome|name)/.test(key)&&/(campanha|campaign)/.test(key);
+  }
+  function installNameGuards(){
+    document.querySelectorAll('#campaignsView input,#campaignWorkspace input').forEach(el=>{if(campaignNameInput(el))el.maxLength=120});
+  }
+  document.addEventListener('input',e=>{
+    const el=e.target;if(!campaignNameInput(el))return;
+    el.maxLength=120;
+    if(el.value.length>120){el.value=el.value.slice(0,120);window.showToast?.('O nome da campanha pode ter no máximo 120 caracteres.')}
+  },true);
+  document.addEventListener('blur',e=>{
+    const el=e.target;if(!campaignNameInput(el))return;
+    const value=String(el.value||'').trim();if(!value)return;
+    const brand=activeBrand(),ref=monthRef();
+    const dup=campaignRows().find(c=>!c.archivedAt&&norm(c.name)===norm(value)&&(!brand||norm(c.brand)===norm(brand))&&campaignRef(c)===ref);
+    if(dup)window.showToast?.('⚠ Já existe campanha com esse nome nesta marca e mês. O cadastro não foi bloqueado.');
+  },true);
+
   function wire(){
     if(wired)return;
     const clients=document.querySelector('.ref2-nav-btn[data-key="clients"]'),autos=document.querySelector('.ref2-nav-btn[data-key="automations"]');
@@ -167,8 +189,8 @@
     document.getElementById('campaignsNav')?.addEventListener('click',()=>setTimeout(refreshConsistency,80));
     document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();installMapImport()},120));
     document.getElementById('painelNav')?.addEventListener('click',()=>setTimeout(enhanceReports,120));
-    new MutationObserver(()=>installMapImport()).observe(document.body,{childList:true,subtree:true});
-    refreshConsistency();installMapImport();
+    new MutationObserver(()=>{installMapImport();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
+    refreshConsistency();installMapImport();installNameGuards();
   }
   window.AllianceFullSystem={refreshConsistency,enhanceReports,importMap,openClients,openAutomations};
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',wire,{once:true});else wire();
