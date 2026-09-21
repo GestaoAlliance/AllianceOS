@@ -46,13 +46,34 @@
     }).catch(()=>{});
   }
 
+  async function notificationExists(userId,kind,taskId,eventKey){
+    if(!eventKey||!state.sb)return false;
+    let q=state.sb.from('notifications').select('id').eq('user_id',userId).eq('kind',kind).eq('event_key',eventKey).limit(1);
+    q=taskId?q.eq('task_id',String(taskId)):q.is('task_id',null);
+    const {data,error}=await q;
+    if(error){console.warn('[AllianceOS notifications precheck]',error.message);return false;}
+    return !!data?.length;
+  }
+
+  async function insertNotificationOnce(row){
+    if(!row?.event_key){
+      const {error}=await state.sb.from('notifications').insert(row);
+      if(error&&!String(error.message).toLowerCase().includes('duplicate'))console.warn('[AllianceOS notifications]',error.message);
+      return !error;
+    }
+    if(await notificationExists(row.user_id,row.kind,row.task_id,row.event_key))return false;
+    const {error}=await state.sb.from('notifications').insert(row);
+    if(error&&!String(error.message).toLowerCase().includes('duplicate'))console.warn('[AllianceOS notifications]',error.message);
+    return !error;
+  }
+
   async function notify(ids,kind,title,body,taskId,eventKey=null){
     if(!state.user||!state.sb)return;
     const uniq=[...new Set((ids||[]).filter(Boolean).filter(id=>id!==state.user.id))];
     if(!uniq.length)return;
-    const rows=uniq.map(user_id=>({user_id,actor_id:state.user.id,kind,title,body,task_id:taskId||null,event_key:eventKey}));
-    const {error}=await state.sb.from('notifications').insert(rows);
-    if(error&&!String(error.message).toLowerCase().includes('duplicate'))console.warn('[AllianceOS notifications]',error.message);
+    for(const user_id of uniq){
+      await insertNotificationOnce({user_id,actor_id:state.user.id,kind,title,body,task_id:taskId||null,event_key:eventKey});
+    }
   }
 
   function idsForNames(names=[]){
@@ -180,12 +201,11 @@
       const raw=t.dueAt||t.due;if(!raw)continue;
       const ms=t.dueAt?new Date(t.dueAt).getTime():new Date(String(t.due)+'T18:00:00').getTime();
       if(Number.isNaN(ms)||ms<now||ms>horizon)continue;
-      const {error:dueError}=await state.sb.from('notifications').insert({
+      await insertNotificationOnce({
         user_id:state.user.id,actor_id:state.user.id,kind:'task_due_soon',title:'Prazo próximo: '+(t.title||'Tarefa'),
         body:t.dueAt?'Prazo: '+new Date(t.dueAt).toLocaleString('pt-BR'):'Prazo: '+t.due,
         task_id:String(t.id),event_key:'due:'+String(t.id)+':'+String(raw)
       });
-      if(dueError&&!String(dueError.message).toLowerCase().includes('duplicate'))console.warn('[AllianceOS due notification]',dueError.message);
     }
     const {data}=await state.sb.from('notifications').select('id,kind,title,body,task_id,created_at,read_at').eq('user_id',state.user.id).order('created_at',{ascending:false}).limit(50);
     state.notifications=data||[];renderBell();
