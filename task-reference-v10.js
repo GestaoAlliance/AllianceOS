@@ -146,6 +146,29 @@
   const r10Priority = t => ({urgent:'Urgente',high:'Alta',alta:'Alta',normal:'Normal',low:'Baixa',baixa:'Baixa'}[String(t.priority||'').toLowerCase()]||String(t.priority||'Normal'));
 
   const r10Norm = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const r10BrandRecord = t => {
+    const brands=window.AllianceOSDirectory?.brands||[];
+    const id=t?.brandId||t?.brand_id||'';
+    if(id){
+      const byId=brands.find(b=>String(b.id||'')===String(id));
+      if(byId)return byId;
+    }
+    const legacy=r10Norm(t?.brand||t?.client||'');
+    if(!legacy)return null;
+    return brands.find(b=>{
+      if(r10Norm(b.nome)===legacy||r10Norm(b.slug)===legacy)return true;
+      const aliases=Array.isArray(b?.configuracoes?.aliases)?b.configuracoes.aliases:[];
+      return aliases.some(a=>r10Norm(a)===legacy);
+    })||null;
+  };
+  const r10BrandIdentity = t => {
+    const brand=r10BrandRecord(t);
+    const name=brand?.nome||t?.brand||'—';
+    const avatar=brand?.foto_url
+      ? '<span class="r10-brand-avatar"><img src="'+r10Esc(brand.foto_url)+'" crossorigin="anonymous" data-brand-photo="1" alt=""></span>'
+      : '<span class="r10-brand-avatar r10-brand-fallback" style="background:'+r10Esc(brand?.cor||'#aab2b8')+'">'+r10Esc((String(name).trim()[0]||'M').toUpperCase())+'</span>';
+    return avatar+'<span>'+r10Esc(name)+'</span>';
+  };
   const r10BrandTone = brand => {
     const n=r10Norm(brand);
     if(n.includes('botanika'))return 'botanika';
@@ -772,7 +795,7 @@
     const info=document.createElement('section');info.className='r10-side-card r10-status-card';info.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('statusPanel')+'</span><strong>Status e informações</strong></div><div class="r10-side-card-body"></div>';const ib=info.querySelector('.r10-side-card-body');[statusField,ownerField,dueField,priorityField].filter(Boolean).forEach(x=>ib.appendChild(x));stack.appendChild(info);
 
     const context=document.createElement('section');context.className='r10-side-card r10-context-card';context.innerHTML='<div class="r10-side-card-head"><span class="r10-side-card-icon">'+r10Icon('folder')+'</span><strong>'+(t.campaignId?'Contexto da campanha':'Contexto da tarefa')+'</strong></div><div class="r10-side-card-body"></div>';const cb=context.querySelector('.r10-side-card-body');if(campaignField)cb.appendChild(campaignField);
-    cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value r10-client-value"><i class="r10-brand-dot '+r10BrandTone(t.brand)+'"></i><span>'+r10Esc(t.brand||'—')+'</span></span></div>');
+    cb.insertAdjacentHTML('beforeend','<div class="r10-context-row"><span>Cliente</span><span class="r10-context-value r10-client-value">'+r10BrandIdentity(t)+'</span></div>');
     stack.appendChild(context);
 
     const r10UniqueTasks=rows=>{
@@ -1044,6 +1067,14 @@
   if(r10MainShell)r10ShellObserver.observe(r10MainShell);
   if(r10ToolbarShell)r10ShellObserver.observe(r10ToolbarShell);
   if(r10SidebarShell)r10ShellObserver.observe(r10SidebarShell);
+
+  window.addEventListener('allianceos:directory',()=>{
+    const drawer=document.getElementById('taskDetailDrawer');
+    if(drawer?.classList.contains('open')&&taskState?.selected){
+      const current=r10Task(taskState.selected);
+      if(current)queueMicrotask(()=>renderTaskDetailBody(current));
+    }
+  });
 
   const r10Drawer=document.getElementById('taskDetailDrawer');
   if(r10Drawer&&!r10Drawer.dataset.r10ScrollGuard){

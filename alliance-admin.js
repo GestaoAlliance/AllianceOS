@@ -43,6 +43,29 @@
   const memberBrandIds=(profileId)=>state.brandMemberships.filter(x=>String(x.profile_id)===String(profileId)).map(x=>String(x.brand_id));
   const memberHasBrand=(member,brand)=>!!member&&!!brand&&(member.papel==='admin'||memberBrandIds(member.id).includes(String(brand.id)));
 
+  function migrateLocalBrandIdentity(brandId,aliases,newName){
+    const normalized=new Set((aliases||[]).filter(Boolean).map(norm));
+    const patchRows=rows=>{
+      if(!Array.isArray(rows))return rows;
+      return rows.map(row=>{
+        if(!row||typeof row!=='object')return row;
+        const matches=String(row.brandId||'')===String(brandId)||normalized.has(norm(row.brand));
+        return matches?{...row,brandId:String(brandId),brand:newName}:row;
+      });
+    };
+    state.tasks=patchRows(state.tasks);
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(!key||!(/^(central\.tasks\.|allianceos\.tasks\.|central\.campaigns\.)/.test(key)||key==='central.deliveries.workspace.v1'))continue;
+        try{
+          const rows=JSON.parse(localStorage.getItem(key)||'[]');
+          if(Array.isArray(rows))localStorage.setItem(key,JSON.stringify(patchRows(rows)));
+        }catch{}
+      }
+    }catch{}
+  }
+
   function alphaBounds(ctx,w,h){
     const px=ctx.getImageData(0,0,w,h).data;
     let minX=w,minY=h,maxX=-1,maxY=-1;
@@ -598,8 +621,10 @@
     const real=state.members.filter(m=>m.tipo==='usuario');
     const select=$('#brandSelect');
     const selected=select?.value||'';
-    const isAll=/todas/i.test(selected);
-    const brand=isAll?null:state.brands.find(b=>norm(b.nome)===norm(selected));
+    const selectedOpt=select?.selectedOptions?.[0]||null;
+    const selectedBrandId=selectedOpt?.dataset?.brandId||'';
+    const isAll=selectedBrandId==='__all__'||/todas/i.test(selected);
+    const brand=isAll?null:(state.brands.find(b=>String(b.id)===String(selectedBrandId))||state.brands.find(b=>norm(b.nome)===norm(selected)));
     const displayProfile=isAll?allBrandsEditorProfile():brand;
     if(select&&isAll){
       const allOpt=Array.from(select.options||[]).find(o=>/todas/i.test(String(o.value||''))||/todas/i.test(String(o.textContent||'')));
@@ -838,6 +863,7 @@
           });
           if(saveError)throw saveError;
           const savedBrand=saved?.brand||{...brand,nome,slug,cor,site_url,descricao,foto_url,configuracoes};
+          migrateLocalBrandIdentity(brand.id,[saved?.old_name,saved?.old_slug,brand.nome,brand.slug],savedBrand.nome);
           state.brands=state.brands.map(x=>String(x.id)===String(brand.id)?{...x,...savedBrand}:x);
           state.brandMemberships=state.brandMemberships.filter(x=>String(x.brand_id)!==String(brand.id));
           const returnedMembers=Array.isArray(saved?.member_ids)?saved.member_ids:[...wanted];
@@ -854,9 +880,13 @@
             const allOpt=Array.from(liveSelect.options||[]).find(o=>/todas/i.test(String(o.value||''))||/todas/i.test(String(o.textContent||'')));
             if(allOpt)allOpt.textContent=nome;
           }else{
-            const oldName=String(brand.nome||'');
-            const opt=Array.from(liveSelect.options||[]).find(o=>String(o.value||'')===oldName||String(o.textContent||'')===oldName);
-            if(opt){opt.value=nome;opt.textContent=nome;if(liveSelect.value===oldName)liveSelect.value=nome;}
+            const opt=Array.from(liveSelect.options||[]).find(o=>String(o.dataset?.brandId||'')===String(brand.id))
+              ||Array.from(liveSelect.options||[]).find(o=>String(o.value||'')===String(brand.nome||''));
+            if(opt){
+              const wasSelected=liveSelect.selectedOptions?.[0]===opt;
+              opt.value=nome;opt.textContent=nome;opt.dataset.brandId=String(brand.id);
+              if(wasSelected)liveSelect.value=nome;
+            }
           }
         }
         renderDirectoryChrome();

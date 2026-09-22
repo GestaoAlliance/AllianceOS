@@ -138,15 +138,23 @@
     const directory=window.AllianceOSDirectory;
     if(directory?.loaded){
       const current=select.value;
+      const currentId=select.selectedOptions?.[0]?.dataset?.brandId||'';
       const brands=Array.isArray(directory.brands)?directory.brands:[];
       select.replaceChildren();
       for(const b of brands){
         const o=document.createElement('option');
         o.textContent=b.nome;o.value=b.nome;o.dataset.brandId=b.id||'';o.dataset.brandPhoto=b.foto_url||'';select.appendChild(o);
       }
-      const all=document.createElement('option');all.textContent='Todas as marcas';all.value='Todas as marcas';select.appendChild(all);
-      const allowed=[...select.options].map(o=>o.value);
-      select.value=allowed.includes(current)?current:(brands[0]?.nome||'Todas as marcas');
+      const allProfile=directory.allBrandsProfile||{};
+      const allName=allProfile?.configuracoes?.profile_name||allProfile?.nome||'Todas as marcas';
+      const all=document.createElement('option');
+      all.textContent=allName;all.value='Todas as marcas';all.dataset.brandId='__all__';all.dataset.brandPhoto=allProfile?.foto_url||'';select.appendChild(all);
+      const byId=currentId&&[...select.options].find(o=>String(o.dataset.brandId||'')===String(currentId));
+      if(byId)select.value=byId.value;
+      else{
+        const allowed=[...select.options].map(o=>o.value);
+        select.value=allowed.includes(current)?current:(brands[0]?.nome||'Todas as marcas');
+      }
       return current!==select.value;
     }
     return false;
@@ -267,11 +275,13 @@
       workspace.appendChild(brand);
       const syncWorkspace=()=>{
         const value=brand.value;
-        const displayValue=/todas/i.test(value)?'Todas as marcas':value;
         const directory=window.AllianceOSDirectory||{};
-        const isAll=/todas/i.test(value);
-        const realInfo=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+        const selectedOpt=brand.selectedOptions?.[0]||null;
+        const brandId=selectedOpt?.dataset?.brandId||'';
+        const isAll=brandId==='__all__'||/todas/i.test(value);
+        const realInfo=!isAll?((directory.brands||[]).find(x=>String(x.id||'')===String(brandId))||(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''))):null;
         const info=realInfo||(isAll?directory.allBrandsProfile:null);
+        const displayValue=info?.configuracoes?.profile_name||info?.nome||selectedOpt?.textContent||value;
         const members=(directory.members||[]).filter(x=>x?.tipo==='usuario');
         const memberships=directory.brandMemberships||[];
         const memberCount=!isAll&&realInfo
@@ -308,8 +318,10 @@
       const openDefaultView=()=>{
         const value=brand.value;
         const directory=window.AllianceOSDirectory||{};
-        const isAll=/todas/i.test(value);
-        const info=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''))||(isAll?directory.allBrandsProfile:null);
+        const selectedOpt=brand.selectedOptions?.[0]||null;
+        const brandId=selectedOpt?.dataset?.brandId||'';
+        const isAll=brandId==='__all__'||/todas/i.test(value);
+        const info=(!isAll?((directory.brands||[]).find(x=>String(x.id||'')===String(brandId))||(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''))):null)||(isAll?directory.allBrandsProfile:null);
         const cfg=(info?.configuracoes&&typeof info.configuracoes==='object')?info.configuracoes:{};
         const view=String(cfg.default_view||'inicio');
         const map={inicio:'home',tarefas:'tasks',campanhas:'campaigns',entregas:'deliveries'};
@@ -358,9 +370,10 @@
           btn.type='button';
           btn.setAttribute('role','option');
           btn.setAttribute('aria-selected',String(value===brand.value));
-          const isAll=/todas/i.test(value);
           const directory=window.AllianceOSDirectory||{};
-          const info=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''))||(isAll?directory.allBrandsProfile:null);
+          const brandId=opt.dataset?.brandId||'';
+          const isAll=brandId==='__all__'||/todas/i.test(value);
+          const info=(!isAll?((directory.brands||[]).find(x=>String(x.id||'')===String(brandId))||(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''))):null)||(isAll?directory.allBrandsProfile:null);
           const scale=info?.configuracoes?.avatar_crop_version===2?'':'transform:scale(1.125);';
           const avatar=info?.foto_url
             ? '<span style="width:24px;height:24px;border-radius:7px;overflow:hidden;display:grid;place-items:center;background:#f1f3f4;flex:0 0 24px;position:relative"><img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;'+scale+'"></span>'

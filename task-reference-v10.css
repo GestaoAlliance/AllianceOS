@@ -3305,3 +3305,15 @@ body.r10-task-modal-open{
   border-color:#b9c5cc!important;
   box-shadow:0 0 0 2px rgba(64,92,110,.055)!important;
 }
+
+/* Dynamic brand identity */
+#taskDetailDrawer .r10-brand-avatar{
+  width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;
+  border-radius:7px!important;overflow:hidden!important;display:grid!important;place-items:center!important;
+  flex:0 0 22px!important;font-size:8px!important;font-weight:750!important;color:#fff!important;background:#e9edef!important;
+}
+#taskDetailDrawer .r10-brand-avatar img{
+  width:100%!important;height:100%!important;object-fit:cover!important;display:block!important;border-radius:inherit!important;
+}
+#taskDetailDrawer .r10-client-value{min-width:0!important}
+#taskDetailDrawer .r10-client-value>span:last-child{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
