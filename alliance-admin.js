@@ -6,6 +6,16 @@
   const APP_URL='https://alliance-os-sooty.vercel.app';
   const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null};
   window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],loaded:false};
+  const BRAND_MODULES=[
+    ['home','Início'],
+    ['tasks','Tarefas'],
+    ['campaigns','Campanhas'],
+    ['deliveries','Entregas'],
+    ['clients','Clientes'],
+    ['automations','Automações'],
+    ['notifications','Notificações'],
+    ['reports','Relatórios']
+  ];
 
   const esc=(v)=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const norm=(v)=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -563,6 +573,11 @@
     const timezone=String(cfg.timezone||'America/Sao_Paulo');
     const notifications=cfg.notifications_enabled!==false;
     const compact=cfg.compact_mode===true;
+    const modules=(cfg.modules&&typeof cfg.modules==='object')?cfg.modules:{};
+    const moduleRows=BRAND_MODULES.map(([key,label])=>{
+      const checked=modules[key]!==false;
+      return '<label class="aa-brand-toggle aa-brand-module"><input type="checkbox" data-aa-brand-module="'+esc(key)+'" '+(checked?'checked':'')+'><span><b>'+esc(label)+'</b><small>Disponível quando esta marca estiver selecionada.</small></span></label>';
+    }).join('');
     const memberRows=members.map(m=>{
       const globalAdmin=m.papel==='admin';
       const checked=globalAdmin||memberBrandIds(m.id).includes(String(b.id));
@@ -586,6 +601,8 @@
           '<label class="aa-brand-toggle"><input id="aaBrandNotifications" type="checkbox" '+(notifications?'checked':'')+'><span><b>Notificações da marca</b><small>Ativar alertas e avisos operacionais.</small></span></label>'+
           '<label class="aa-brand-toggle"><input id="aaBrandCompact" type="checkbox" '+(compact?'checked':'')+'><span><b>Modo compacto</b><small>Preferir visualização mais densa.</small></span></label>'+
         '</div>'+
+        '<div class="aa-brand-subhead"><div><b>Módulos desta marca</b><small>Escolha quais áreas do AllianceOS aparecem neste perfil.</small></div></div>'+
+        '<div class="aa-brand-modules">'+moduleRows+'</div>'+
         '<div class="aa-brand-subhead"><div><b>Usuários desta marca</b><small>Quem pode ver e trabalhar neste perfil. Administradores globais sempre têm acesso.</small></div><span>'+members.length+' usuários</span></div>'+
         '<div class="aa-brand-members">'+memberRows+'</div>'+
         '<div class="aa-brand-savebar"><small>As alterações valem apenas para '+esc(b.nome)+'.</small><button type="button" class="primary" id="aaSaveBrand">Salvar configurações</button></div>'+
@@ -648,7 +665,8 @@
           default_view:$('#aaBrandDefaultView').value,
           timezone:$('#aaBrandTimezone').value,
           notifications_enabled:!!$('#aaBrandNotifications').checked,
-          compact_mode:!!$('#aaBrandCompact').checked
+          compact_mode:!!$('#aaBrandCompact').checked,
+          modules:Object.fromEntries($('[data-aa-brand-module]').map(x=>[String(x.dataset.aaBrandModule),!!x.checked]))
         };
         const {error}=await state.sb.from('brands').update({
           nome,slug,cor,site_url,descricao,foto_url,configuracoes,
@@ -860,7 +878,14 @@
     const bell=$('.ref2-top-bell');if(!bell||bell.dataset.aaBound)return;bell.dataset.aaBound='1';bell.addEventListener('click',openNotifications,true);
   }
 
-  window.AllianceOSAdmin={open:openModal,refresh:refreshAll};
+  window.AllianceOSAdmin={
+    open:openModal,
+    openBrand:(brandId)=>{
+      if(brandId)state.brandEditingId=String(brandId);
+      openModal('brands');
+    },
+    refresh:refreshAll
+  };
 
   async function boot(){
     try{
