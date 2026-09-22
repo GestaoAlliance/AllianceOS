@@ -26,17 +26,20 @@
   const brandAvatarInner=(brand,fallbackName='')=>brand?.foto_url
     ? '<img src="'+esc(brand.foto_url)+'" crossorigin="anonymous" data-brand-photo="1" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
     : esc((String(brand?.nome||fallbackName||'M').trim()[0]||'M').toUpperCase());
-  const allBrandsEditorProfile=()=>({
-    id:'__all__',
-    nome:'Todas as marcas',
-    slug:'todas-as-marcas',
-    foto_url:state.allBrandsProfile?.foto_url||null,
-    cor:state.allBrandsProfile?.cor||'#f1f3f4',
-    descricao:state.allBrandsProfile?.descricao||'Visão geral de todas as marcas',
-    site_url:null,
-    configuracoes:(state.allBrandsProfile?.configuracoes&&typeof state.allBrandsProfile.configuracoes==='object')?state.allBrandsProfile.configuracoes:{},
-    isAll:true
-  });
+  const allBrandsEditorProfile=()=>{
+    const cfg=(state.allBrandsProfile?.configuracoes&&typeof state.allBrandsProfile.configuracoes==='object')?state.allBrandsProfile.configuracoes:{};
+    return {
+      id:'__all__',
+      nome:String(cfg.profile_name||'Todas as marcas'),
+      slug:String(cfg.profile_slug||'todas-as-marcas'),
+      foto_url:state.allBrandsProfile?.foto_url||null,
+      cor:state.allBrandsProfile?.cor||'#f1f3f4',
+      descricao:state.allBrandsProfile?.descricao||'Visão geral de todas as marcas',
+      site_url:null,
+      configuracoes:cfg,
+      isAll:true
+    };
+  };
   const memberBrandIds=(profileId)=>state.brandMemberships.filter(x=>String(x.profile_id)===String(profileId)).map(x=>String(x.brand_id));
   const memberHasBrand=(member,brand)=>!!member&&!!brand&&(member.papel==='admin'||memberBrandIds(member.id).includes(String(brand.id)));
 
@@ -598,6 +601,10 @@
     const isAll=/todas/i.test(selected);
     const brand=isAll?null:state.brands.find(b=>norm(b.nome)===norm(selected));
     const displayProfile=isAll?allBrandsEditorProfile():brand;
+    if(select&&isAll){
+      const allOpt=Array.from(select.options||[]).find(o=>/todas/i.test(String(o.value||''))||/todas/i.test(String(o.textContent||'')));
+      if(allOpt)allOpt.textContent=displayProfile?.nome||'Todas as marcas';
+    }
     const visible=brand?real.filter(m=>memberHasBrand(m,brand)):real;
     const count=visible.length;
     $$('.ref2-workspace-copy span').forEach(el=>el.textContent=count+' membro'+(count===1?'':'s'));
@@ -702,8 +709,8 @@
     }).join('');
 
     const identityFields=isAll
-      ? '<label><span>Nome do perfil</span><input id="aaBrandName" readonly value="Todas as marcas"></label><label><span>Slug</span><input id="aaBrandSlug" readonly value="todas-as-marcas"></label><label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#f1f3f4')+'"></label><label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como a visão geral deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>'
-      : '<label><span>Nome da marca</span><input id="aaBrandName" maxlength="120" readonly value="'+esc(b.nome)+'"></label><label><span>Slug</span><input id="aaBrandSlug" maxlength="80" readonly value="'+esc(b.slug)+'"></label><label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#111519')+'"></label><label><span>Site</span><input id="aaBrandSite" type="url" placeholder="https://" value="'+esc(b.site_url||'')+'"></label><label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como esta marca deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>';
+      ? '<label><span>Nome do perfil</span><input id="aaBrandName" maxlength="120" value="'+esc(b.nome)+'"></label><label><span>Slug</span><input id="aaBrandSlug" maxlength="80" value="'+esc(b.slug)+'"></label><label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#f1f3f4')+'"></label><label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como a visão geral deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>'
+      : '<label><span>Nome da marca</span><input id="aaBrandName" maxlength="120" value="'+esc(b.nome)+'"></label><label><span>Slug</span><input id="aaBrandSlug" maxlength="80" value="'+esc(b.slug)+'"></label><label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#111519')+'"></label><label><span>Site</span><input id="aaBrandSite" type="url" placeholder="https://" value="'+esc(b.site_url||'')+'"></label><label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como esta marca deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>';
 
     const usersSection=isAll
       ? '<div class="aa-brand-subhead"><div><b>Usuários da visão geral</b><small>“Todas as marcas” reúne automaticamente todos os usuários visíveis nas marcas individuais. Os acessos continuam sendo configurados em cada marca.</small></div><span>'+members.length+' usuários</span></div>'
@@ -797,6 +804,7 @@
 
         const configuracoes={
           ...(brand.configuracoes&&typeof brand.configuracoes==='object'?brand.configuracoes:{}),
+          ...(isAll?{profile_name:nome,profile_slug:slug}:{}),
           default_view:$('#aaBrandDefaultView')?.value||'inicio',
           timezone:$('#aaBrandTimezone')?.value||'America/Sao_Paulo',
           notifications_enabled:!!$('#aaBrandNotifications')?.checked,
@@ -813,7 +821,7 @@
             p_configuracoes:configuracoes
           });
           if(saveError)throw saveError;
-          state.allBrandsProfile={id:'all_brands',nome:'Todas as marcas',slug:'todas-as-marcas',...(saved||{}),configuracoes:(saved?.configuracoes||configuracoes)};
+          state.allBrandsProfile={id:'all_brands',nome,slug,...(saved||{}),configuracoes:(saved?.configuracoes||configuracoes)};
           window.AllianceOSDirectory={...(window.AllianceOSDirectory||{}),allBrandsProfile:state.allBrandsProfile,loaded:true};
           window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
           await audit('atualizar_todas_marcas','workspace_profile','all_brands',{configuracoes,foto_url,cor});
@@ -840,6 +848,17 @@
         }
 
         state.brandPhotoFile=null;
+        const liveSelect=$('#brandSelect');
+        if(liveSelect){
+          if(isAll){
+            const allOpt=Array.from(liveSelect.options||[]).find(o=>/todas/i.test(String(o.value||''))||/todas/i.test(String(o.textContent||'')));
+            if(allOpt)allOpt.textContent=nome;
+          }else{
+            const oldName=String(brand.nome||'');
+            const opt=Array.from(liveSelect.options||[]).find(o=>String(o.value||'')===oldName||String(o.textContent||'')===oldName);
+            if(opt){opt.value=nome;opt.textContent=nome;if(liveSelect.value===oldName)liveSelect.value=nome;}
+          }
+        }
         renderDirectoryChrome();
         window.dispatchEvent(new CustomEvent('allianceos:brandchange',{detail:{brandId:isAll?'__all__':brand.id}}));
         toast('Configurações de '+nome+' salvas e aplicadas.');
