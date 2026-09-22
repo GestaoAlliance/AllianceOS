@@ -49,12 +49,24 @@
   const v5Parent = t => t.parentTaskId ? v5Task(t.parentTaskId) : null;
   const v5Children = t => taskData.filter(x=>String(x.parentTaskId||'')===String(t.id));
 
+  function v5SlimEmbeddedDelivery(d){
+    const id=String(d?.deliveryId||d?.id||'');
+    const slim={
+      id,deliveryId:id,status:d?.status||'enviado',author:d?.author||d?.from||null,authorId:d?.authorId||d?.fromId||null,
+      at:d?.at||d?.createdAt||null,sentAt:d?.sentAt||d?.createdAt||null,to:d?.to||null,toId:d?.toId||null,
+      targetTaskId:d?.targetTaskId||'',campaignId:d?.campaignId||null,source:d?.source||d?.origin||'interface',
+      version:d?.version??null,archivedAt:d?.archivedAt||d?.arquivado_em||null,archivedBy:d?.archivedBy||d?.arquivado_por||null,
+      migrationStatus:d?.migrationStatus||null,official:true
+    };
+    return Object.fromEntries(Object.entries(slim).filter(([,v])=>v!==null&&v!==undefined&&v!==''));
+  }
   function v5Normalize(t, setDefault=true){
     if(!t) return t;
     if(!Array.isArray(t.dependencies)) t.dependencies=[];
     if(!Array.isArray(t.deliveries)) t.deliveries=[];
     if(!Array.isArray(t.history)) t.history=[];
     if(!Array.isArray(t.assignees)) t.assignees=[];
+    const officialById=new Map(v5OfficialDeliveries().map(x=>[String(x?.id||''),x]));
     t.deliveries=t.deliveries.filter(Boolean).map(d=>{
       if(!d.id)d.id=v5Id('delivery');
       if(d.text&&!d.note)d.note=d.text;
@@ -64,7 +76,8 @@
       if(d.status==='sent')d.status='enviado';
       if(d.status==='approved')d.status='aprovado';
       if(d.status==='rejected')d.status='ajustes';
-      return d;
+      const official=officialById.get(String(d.deliveryId||d.id||''));
+      return official?v5SlimEmbeddedDelivery({...d,status:official.status||d.status,archivedAt:official.archivedAt||d.archivedAt,archivedBy:official.archivedBy||d.archivedBy}):d;
     });
     if(setDefault && typeof t.deliveryRequired!=='boolean') t.deliveryRequired=v5Dependents(t).length>0;
     return t;
@@ -342,7 +355,12 @@
 
   function v5DeliveryRecord(t,id){
     v5Normalize(t);
-    return (t.deliveries||[]).find(d=>String(d.id)===String(id))||null;
+    const wanted=String(id||'');
+    const official=v5OfficialDeliveries().find(d=>String(d?.id||'')===wanted);
+    if(official){
+      return structuredClone({...official,id:String(official.id),deliveryId:String(official.id),author:official.from||'Equipe',at:official.createdAt||official.sentAt||null,sentAt:official.sentAt||official.createdAt||null});
+    }
+    return (t.deliveries||[]).find(d=>String(d.id)===wanted||String(d.deliveryId||'')===wanted)||null;
   }
   function v5DeliveryKey(value){
     const raw=String(value||'');
@@ -357,6 +375,8 @@
     const ts=v5NowIso(),rows=v5OfficialDeliveries(),official=d?rows.find(x=>String(x.id)===String(v5OfficialId(d))):null;
     if(official&&d){
       official.note=d.note??d.text??'';official.files=structuredClone(d.files||[]);official.links=structuredClone(d.links||[]);official.updatedAt=ts;official.events=Array.isArray(official.events)?official.events:[];official.events.push({at:ts,by:v5Who(),authorId:v5ActorId(),origin:'interface',text:message});v5SaveOfficialDeliveries(rows);
+      const idx=(t.deliveries||[]).findIndex(x=>String(v5OfficialId(x))===String(official.id));
+      if(idx>=0)t.deliveries[idx]=v5SlimEmbeddedDelivery({...t.deliveries[idx],...official,author:official.from||t.deliveries[idx]?.author,at:official.createdAt||t.deliveries[idx]?.at});
     }
     v5HistoryOnce(t,'delivery-edit:'+String(v5OfficialId(d))+':'+ts,message);
     v5Persist(false);
@@ -457,7 +477,7 @@
     officialRows.unshift(official);
     v5SaveOfficialDeliveries(officialRows);
     const delivery={id,deliveryId:id,status:'enviado',author:v5Who(),at:ts,sentAt:ts,note,files,links,to,targetTaskId:official.targetTaskId,campaignId:official.campaignId,source:'interface',version};
-    t.deliveries.push(delivery);
+    t.deliveries.push(v5SlimEmbeddedDelivery(delivery));
     v5HistoryOnce(t,'delivery-sent:'+id,`${v5Who()} enviou a entrega desta etapa${files.length?` com ${files.length} arquivo(s)`:''}${links.length?' e link':''} para ${to}.`);
     v5Persist(false);
     if(completeAfter){
