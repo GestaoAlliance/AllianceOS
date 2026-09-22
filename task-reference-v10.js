@@ -4,6 +4,85 @@
   const r10BaseRenderDetail = renderTaskDetailBody;
   const r10Esc = v => String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});
 
+  const r10SafeHref = value => {
+    const raw=String(value||'').trim();
+    if(/^(https?:\/\/|mailto:)/i.test(raw))return r10Esc(raw);
+    return '#';
+  };
+  const r10InlineMarkdown = value => {
+    let text=r10Esc(value||'');
+    const stash=[];
+    const keep=html=>{stash.push(html);return '\u0000'+(stash.length-1)+'\u0000'};
+    text=text.replace(/`([^`\n]+)`/g,(_,v)=>keep('<code>'+v+'</code>'));
+    text=text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(_,label,href)=>{
+      const safe=r10SafeHref(href);
+      return safe==='#'?label:keep('<a href="'+safe+'" target="_blank" rel="noopener noreferrer">'+label+'</a>');
+    });
+    text=text.replace(/\*\*([^*\n][\s\S]*?)\*\*/g,'<strong>$1</strong>');
+    text=text.replace(/__([^_\n][\s\S]*?)__/g,'<strong>$1</strong>');
+    text=text.replace(/~~([^~\n]+)~~/g,'<del>$1</del>');
+    text=text.replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s).,!?:;])/g,'$1<em>$2</em>');
+    text=text.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,!?:;])/g,'$1<em>$2</em>');
+    text=text.replace(/\u0000(\d+)\u0000/g,(_,i)=>stash[Number(i)]||'');
+    return text;
+  };
+  const r10MarkdownHtml = source => {
+    const lines=String(source||'').replace(/\r\n?/g,'\n').split('\n');
+    const out=[];
+    let paragraph=[],listType=null,listItems=[],inCode=false,code=[];
+    const flushParagraph=()=>{
+      if(!paragraph.length)return;
+      out.push('<p>'+paragraph.map(r10InlineMarkdown).join('<br>')+'</p>');
+      paragraph=[];
+    };
+    const flushList=()=>{
+      if(!listType||!listItems.length){listType=null;listItems=[];return}
+      out.push('<'+listType+'>'+listItems.map(v=>'<li>'+r10InlineMarkdown(v)+'</li>').join('')+'</'+listType+'>');
+      listType=null;listItems=[];
+    };
+    const flushAll=()=>{flushParagraph();flushList()};
+    for(const raw of lines){
+      const line=String(raw||'');
+      if(/^\s*```/.test(line)){
+        flushAll();
+        if(inCode){
+          out.push('<pre><code>'+r10Esc(code.join('\n'))+'</code></pre>');
+          code=[];inCode=false;
+        }else inCode=true;
+        continue;
+      }
+      if(inCode){code.push(line);continue}
+      if(!line.trim()){flushAll();continue}
+
+      let m=line.match(/^\s*(#{1,4})\s+(.+)$/);
+      if(m){flushAll();const level=Math.min(4,m[1].length+1);out.push('<h'+level+'>'+r10InlineMarkdown(m[2])+'</h'+level+'>');continue}
+
+      m=line.match(/^\s*>\s?(.*)$/);
+      if(m){flushAll();out.push('<blockquote>'+r10InlineMarkdown(m[1])+'</blockquote>');continue}
+
+      m=line.match(/^\s*[-+*]\s+(.+)$/);
+      if(m){
+        flushParagraph();
+        if(listType&&listType!=='ul')flushList();
+        listType='ul';listItems.push(m[1]);continue;
+      }
+
+      m=line.match(/^\s*\d+[.)]\s+(.+)$/);
+      if(m){
+        flushParagraph();
+        if(listType&&listType!=='ol')flushList();
+        listType='ol';listItems.push(m[1]);continue;
+      }
+
+      if(/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)){flushAll();out.push('<hr>');continue}
+      flushList();
+      paragraph.push(line.trim());
+    }
+    if(inCode)out.push('<pre><code>'+r10Esc(code.join('\n'))+'</code></pre>');
+    flushAll();
+    return out.join('')||'<p class="r10-objective-empty">Adicione o objetivo, contexto e critério de aceite desta tarefa.</p>';
+  };
+
   const r10Icon = name => {
     const paths={
       campaign:'<rect x="4" y="4" width="6" height="6" rx="1.3"/><rect x="14" y="4" width="6" height="6" rx="1.3"/><rect x="4" y="14" width="6" height="6" rx="1.3"/><path d="M17 14v6M14 17h6"/>',
@@ -398,17 +477,47 @@
       briefing.classList.add('r10-objective-card');
       const head=briefing.querySelector('.tsection-head');
       const textarea=briefing.querySelector('.description-area');
-      if(head)head.innerHTML='<span class="r10-objective-heading"><span class="r10-section-icon r10-objective-icon">'+r10Icon('objectiveTarget')+'</span><strong>Objetivo</strong></span>';
+      if(head)head.innerHTML='<span class="r10-objective-heading"><span class="r10-section-icon r10-objective-icon">'+r10Icon('objectiveTarget')+'</span><strong>Objetivo</strong></span><button type="button" class="r10-objective-edit" aria-label="Editar objetivo">'+r10Icon('pencil')+'<span>Editar</span></button>';
       if(textarea){
         textarea.setAttribute('aria-label','Objetivo da tarefa');
         textarea.setAttribute('placeholder','Descreva o resultado esperado desta tarefa, o contexto necessário para executar e como saber que ficou pronto.');
+
+        const preview=document.createElement('div');
+        preview.className='r10-objective-preview';
+        preview.setAttribute('role','document');
+        preview.setAttribute('aria-label','Objetivo formatado da tarefa');
+        const renderPreview=()=>{preview.innerHTML=r10MarkdownHtml(textarea.value)};
+        renderPreview();
+        textarea.insertAdjacentElement('afterend',preview);
+        textarea.hidden=true;
+
+        const editButton=head?.querySelector('.r10-objective-edit');
         const fit=()=>{
           textarea.style.setProperty('height','auto','important');
-          textarea.style.setProperty('height',Math.max(78,textarea.scrollHeight)+'px','important');
+          textarea.style.setProperty('height',Math.max(120,textarea.scrollHeight)+'px','important');
         };
         textarea._r10Fit=fit;
-        textarea.addEventListener('input',fit);
-        requestAnimationFrame(fit);
+
+        const setEditing=editing=>{
+          briefing.classList.toggle('is-editing',!!editing);
+          textarea.hidden=!editing;
+          preview.hidden=!!editing;
+          if(editButton){
+            editButton.classList.toggle('active',!!editing);
+            editButton.querySelector('span').textContent=editing?'Concluir edição':'Editar';
+          }
+          if(editing){
+            requestAnimationFrame(()=>{fit();textarea.focus();textarea.setSelectionRange(textarea.value.length,textarea.value.length)});
+          }else renderPreview();
+        };
+        editButton?.addEventListener('click',()=>setEditing(textarea.hidden));
+        preview.addEventListener('click',()=>setEditing(true));
+        textarea.addEventListener('input',()=>{fit();renderPreview()});
+        textarea.addEventListener('keydown',e=>{
+          if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();setEditing(false)}
+          if(e.key==='Escape'){e.preventDefault();setEditing(false)}
+        });
+        requestAnimationFrame(renderPreview);
       }
     }
     const legacyAttachments=oldMain.querySelector('#attachmentInput')&&oldMain.querySelector('#attachmentInput').closest('.v3-section');
@@ -787,8 +896,9 @@
     const centerStack=center.querySelector('.r10-center-stack');if(conferenceSection)conferenceSection.remove();[briefing,attachments,incoming,delivery,completionAction].filter(Boolean).forEach(x=>centerStack.appendChild(x));workspace.appendChild(center);
     const objectiveTextarea=briefing?.querySelector('.description-area');
     if(objectiveTextarea?._r10Fit){
-      requestAnimationFrame(()=>{objectiveTextarea._r10Fit();requestAnimationFrame(()=>objectiveTextarea._r10Fit());});
-      window.addEventListener('resize',objectiveTextarea._r10Fit,{passive:true,once:false});
+      const refit=()=>{if(!objectiveTextarea.hidden)objectiveTextarea._r10Fit()};
+      requestAnimationFrame(()=>{refit();requestAnimationFrame(refit)});
+      window.addEventListener('resize',refit,{passive:true,once:false});
     }
 
     const side=document.createElement('aside');side.className='r10-side';side.innerHTML='<div class="r10-side-stack"></div>';const stack=side.querySelector('.r10-side-stack');

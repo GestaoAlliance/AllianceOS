@@ -3317,3 +3317,145 @@ body.r10-task-modal-open{
 }
 #taskDetailDrawer .r10-client-value{min-width:0!important}
 #taskDetailDrawer .r10-client-value>span:last-child{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+
+
+/* ===== Task Objective Markdown · rendered view ===== */
+#taskDetailDrawer .r10-objective-card>.tsection-head{
+  justify-content:space-between!important;
+  padding-right:16px!important;
+}
+#taskDetailDrawer .r10-objective-edit{
+  height:34px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  flex:0 0 auto!important;
+  padding:0 10px!important;
+  border:1px solid #dde3e7!important;
+  border-radius:9px!important;
+  background:#fff!important;
+  color:#68747d!important;
+  font:620 10px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  cursor:pointer!important;
+}
+#taskDetailDrawer .r10-objective-edit:hover,
+#taskDetailDrawer .r10-objective-edit.active{
+  background:#f2f4f5!important;
+  color:#252d33!important;
+  border-color:#d2d9dd!important;
+}
+#taskDetailDrawer .r10-objective-edit .r10-svg{
+  width:15px!important;
+  height:15px!important;
+  stroke-width:1.8!important;
+}
+#taskDetailDrawer .r10-main .r10-objective-card .description-area[hidden]{
+  display:none!important;
+}
+#taskDetailDrawer .r10-objective-preview{
+  box-sizing:border-box!important;
+  width:100%!important;
+  padding:2px 24px 24px 72px!important;
+  color:#65717b!important;
+  font:430 15px/1.62 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  letter-spacing:-.006em!important;
+  cursor:text!important;
+  overflow-wrap:anywhere!important;
+}
+#taskDetailDrawer .r10-objective-preview>*:first-child{margin-top:0!important}
+#taskDetailDrawer .r10-objective-preview>*:last-child{margin-bottom:0!important}
+#taskDetailDrawer .r10-objective-preview p{
+  margin:0 0 14px!important;
+  color:#65717b!important;
+}
+#taskDetailDrawer .r10-objective-preview h2,
+#taskDetailDrawer .r10-objective-preview h3,
+#taskDetailDrawer .r10-objective-preview h4,
+#taskDetailDrawer .r10-objective-preview h5{
+  margin:22px 0 9px!important;
+  color:#30383e!important;
+  font-weight:680!important;
+  letter-spacing:-.02em!important;
+  line-height:1.25!important;
+}
+#taskDetailDrawer .r10-objective-preview h2{font-size:18px!important}
+#taskDetailDrawer .r10-objective-preview h3{font-size:16.5px!important}
+#taskDetailDrawer .r10-objective-preview h4,
+#taskDetailDrawer .r10-objective-preview h5{font-size:15px!important}
+#taskDetailDrawer .r10-objective-preview strong{
+  color:#465159!important;
+  font-weight:680!important;
+}
+#taskDetailDrawer .r10-objective-preview em{font-style:italic!important}
+#taskDetailDrawer .r10-objective-preview ul,
+#taskDetailDrawer .r10-objective-preview ol{
+  margin:8px 0 16px!important;
+  padding-left:24px!important;
+}
+#taskDetailDrawer .r10-objective-preview li{
+  margin:5px 0!important;
+  padding-left:2px!important;
+}
+#taskDetailDrawer .r10-objective-preview blockquote{
+  margin:12px 0 16px!important;
+  padding:10px 14px!important;
+  border-left:3px solid #d1d8dc!important;
+  border-radius:0 8px 8px 0!important;
+  background:#f6f8f9!important;
+  color:#68747d!important;
+}
+#taskDetailDrawer .r10-objective-preview code{
+  padding:2px 5px!important;
+  border:1px solid #e0e5e8!important;
+  border-radius:5px!important;
+  background:#f4f6f7!important;
+  color:#3d4850!important;
+  font:500 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace!important;
+}
+#taskDetailDrawer .r10-objective-preview pre{
+  margin:12px 0 16px!important;
+  padding:12px 14px!important;
+  border:1px solid #e0e5e8!important;
+  border-radius:10px!important;
+  background:#f6f8f9!important;
+  overflow:auto!important;
+}
+#taskDetailDrawer .r10-objective-preview pre code{
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+#taskDetailDrawer .r10-objective-preview a{
+  color:#315f9f!important;
+  text-decoration:underline!important;
+  text-underline-offset:2px!important;
+}
+#taskDetailDrawer .r10-objective-preview hr{
+  margin:18px 0!important;
+  border:0!important;
+  border-top:1px solid #e4e8ea!important;
+}
+#taskDetailDrawer .r10-objective-empty{
+  color:#929ca2!important;
+  font-style:italic!important;
+}
+#taskDetailDrawer .r10-objective-card.is-editing .description-area{
+  display:block!important;
+  min-height:160px!important;
+  padding:8px 24px 24px 72px!important;
+  border-top:1px solid #f0f2f3!important;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important;
+  font-size:13px!important;
+  line-height:1.55!important;
+  color:#4f5b63!important;
+}
+@media(max-width:760px){
+  #taskDetailDrawer .r10-objective-preview{
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  #taskDetailDrawer .r10-objective-card.is-editing .description-area{
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+}
