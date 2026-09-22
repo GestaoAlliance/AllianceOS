@@ -446,7 +446,13 @@
         finish({authenticated:false,onboardingError:true,client,session,context});
         return;
       }
-      showRoot();
+      // First access should feel like an overlay on the real product, not a
+      // separate page. Reveal the authenticated app before mounting onboarding;
+      // the onboarding root itself blocks interaction and blurs the workspace.
+      exposeIdentity(context);
+      showApp();
+      if(location.pathname==='/login'||location.pathname==='/cadastro')history.replaceState({},'','/');
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       await window.AllianceOSOnboarding.run({client,session,data:onboarding});
       document.documentElement.classList.remove('alliance-onboarding-open');
       try{sessionStorage.removeItem('allianceos.explicit-login')}catch{}

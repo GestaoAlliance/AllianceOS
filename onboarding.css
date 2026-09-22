@@ -1,9 +1,9 @@
 #allianceOnboardingRoot{
   position:fixed;inset:0;z-index:2147483646!important;
-  display:grid;place-items:center;padding:24px;box-sizing:border-box;
-  background:rgba(17,21,24,.24);
-  backdrop-filter:blur(10px) saturate(.82);
-  -webkit-backdrop-filter:blur(10px) saturate(.82);
+  display:grid;place-items:center;padding:22px;box-sizing:border-box;
+  background:rgba(17,21,24,.16);
+  backdrop-filter:blur(7px) saturate(.78);
+  -webkit-backdrop-filter:blur(7px) saturate(.78);
   font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   color:#191d20;overflow:auto
 }
@@ -13,29 +13,30 @@ html.alliance-auth-locked #allianceOnboardingRoot,
 html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;visibility:visible!important}
 
 .ob-shell{
-  width:min(920px,calc(100vw - 48px));
-  height:min(650px,calc(100dvh - 48px));
-  min-height:560px;margin:0;
-  display:grid;grid-template-columns:210px minmax(0,1fr);
+  width:min(820px,calc(100vw - 44px));
+  height:auto;
+  max-height:min(590px,calc(100dvh - 44px));
+  min-height:0;margin:0;
+  display:grid;grid-template-columns:188px minmax(0,1fr);
   overflow:hidden;background:#fff;border:1px solid rgba(211,218,222,.96);
   border-radius:24px;
   box-shadow:0 30px 90px rgba(14,19,22,.28),0 1px 0 rgba(255,255,255,.9) inset
 }
 .ob-rail{
-  min-height:0;background:#121619;color:#fff;padding:22px 16px 18px;
+  min-height:0;background:#121619;color:#fff;padding:19px 14px 15px;
   display:flex;flex-direction:column;box-sizing:border-box
 }
 .ob-logo{display:flex;align-items:center;gap:9px;font-size:14px;padding:0 4px}
 .ob-logo>span{width:31px;height:31px;border-radius:9px;display:grid;place-items:center;overflow:hidden}
 .ob-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .ob-logo b{font-weight:650;letter-spacing:-.02em}
-.ob-rail-copy{margin:31px 5px 0}
+.ob-rail-copy{margin:24px 4px 0}
 .ob-rail-copy small{font-size:8px;letter-spacing:.18em;color:#727d84;font-weight:750}
-.ob-rail-copy h2{font-size:20px;line-height:1.05;letter-spacing:-.035em;margin:8px 0 5px;font-weight:620}
+.ob-rail-copy h2{font-size:18px;line-height:1.05;letter-spacing:-.035em;margin:7px 0 4px;font-weight:620}
 .ob-rail-copy p{font-size:9px;color:#7f898f;margin:0}
-.ob-rail-steps{display:grid;gap:3px;margin-top:25px}
+.ob-rail-steps{display:grid;gap:2px;margin-top:18px}
 .ob-rail-step{
-  display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:10px;color:#747e84
+  display:flex;align-items:center;gap:8px;padding:6px 7px;border-radius:9px;color:#747e84
 }
 .ob-rail-step>span{
   width:24px;height:24px;border:1px solid #31393e;border-radius:7px;
@@ -61,28 +62,28 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 
 .ob-main{display:flex;flex-direction:column;min-width:0;min-height:0;background:#fff}
 .ob-content{
-  width:auto;margin:0;padding:32px 34px 18px;flex:1 1 auto;min-height:0;
+  width:auto;margin:0;padding:25px 28px 14px;flex:0 1 auto;min-height:0;
   overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin
 }
 .ob-step{animation:obIn .2s ease both}
 @keyframes obIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .ob-kicker{font-size:8px;letter-spacing:.16em;color:#8b959b;font-weight:760;margin-bottom:9px}
-.ob-step h1{font-size:28px;line-height:1.06;letter-spacing:-.04em;margin:0;color:#171b1f;font-weight:620}
+.ob-step h1{font-size:25px;line-height:1.06;letter-spacing:-.04em;margin:0;color:#171b1f;font-weight:620}
 .ob-lead{font-size:12px;line-height:1.5;color:#6f7980;margin:9px 0 0;max-width:610px}
 .ob-lead b{color:#30373c;font-weight:620}
 
 /* Personalized first screen */
 .ob-welcome-person{
   display:grid;grid-template-columns:70px minmax(0,1fr);gap:17px;align-items:start;
-  padding:17px;border:1px solid #e1e5e7;border-radius:17px;background:#fafbfb
+  padding:14px;border:1px solid #e1e5e7;border-radius:15px;background:#fafbfb
 }
 .ob-welcome-avatar{
-  width:64px;height:64px;border-radius:17px;overflow:hidden;
+  width:56px;height:56px;border-radius:15px;overflow:hidden;
   background:#171b1f;color:#fff;display:grid;place-items:center;
   font-size:18px;font-weight:700;box-shadow:0 5px 16px rgba(18,23,26,.10)
 }
 .ob-welcome-avatar img{width:100%;height:100%;object-fit:cover;display:block}
-.ob-welcome-copy h1{font-size:27px}
+.ob-welcome-copy h1{font-size:24px}
 .ob-welcome-copy .ob-lead{margin-top:6px;max-width:540px}
 .ob-person-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
 .ob-person-meta>span{
@@ -95,9 +96,9 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 .ob-person-meta>span.brands i{grid-column:2;grid-row:1/3;display:flex;align-items:center;font-style:normal}
 .ob-person-meta .ob-brand-logo{width:21px;height:21px;border-radius:7px;margin-left:-5px;border:2px solid #fff}
 .ob-person-meta .ob-brand-logo:first-child{margin-left:0}
-.ob-welcome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.ob-welcome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
 .ob-welcome-grid article{
-  min-height:52px;padding:10px 11px;border:1px solid #e4e8ea;border-radius:12px;
+  min-height:45px;padding:8px 9px;border:1px solid #e4e8ea;border-radius:11px;
   background:#fff;display:flex;gap:9px;align-items:flex-start
 }
 .ob-welcome-grid article>span{
@@ -108,7 +109,7 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 .ob-welcome-grid p{font-size:8px;line-height:1.35;color:#858e94;margin:3px 0 0}
 .ob-note{
   display:flex;justify-content:space-between;align-items:center;gap:15px;
-  padding:9px 11px;border-radius:10px;background:#f2f4f5;margin-top:9px
+  padding:7px 9px;border-radius:9px;background:#f2f4f5;margin-top:7px
 }
 .ob-note b{font-size:9px}.ob-note span{font-size:8px;color:#7f888e}
 
@@ -193,11 +194,11 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 
 .ob-error{margin-top:9px;padding:8px 10px;border-radius:9px;background:#fff1f1;color:#a33b3b;border:1px solid #f1d4d4;font-size:8.5px}
 .ob-footer{
-  flex:0 0 auto;border-top:1px solid #e7eaec;padding:11px 20px;
+  flex:0 0 auto;border-top:1px solid #e7eaec;padding:9px 16px;
   display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff
 }
 .ob-footer-right{display:flex;align-items:center;gap:10px}.ob-footer-right>span{font-size:7.5px;color:#959ea4}
-.ob-btn{border:0;border-radius:10px;height:36px;padding:0 13px;font:inherit;font-size:9px;font-weight:650;cursor:pointer}
+.ob-btn{border:0;border-radius:9px;height:33px;padding:0 12px;font:inherit;font-size:8.5px;font-weight:650;cursor:pointer}
 .ob-btn.primary{background:#151a1d;color:#fff;min-width:112px}.ob-btn.primary i{font-style:normal;margin-left:7px}
 .ob-btn.primary:disabled{opacity:.55;cursor:wait}.ob-btn.ghost{background:#f1f3f4;color:#535c62}
 .ob-mobile-progress{display:none}
@@ -227,4 +228,11 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
   .ob-flow{grid-template-columns:1fr}.ob-flow>i{height:10px;transform:rotate(90deg)}
   .ob-summary{grid-template-columns:1fr}.ob-summary>div.wide{grid-column:auto}
   .ob-footer{padding:10px 14px}.ob-footer-right>span{display:none}
+}
+
+@media(min-width:821px){
+  .ob-main{max-height:min(590px,calc(100dvh - 44px))}
+  .ob-content:has(.ob-welcome){flex:0 0 auto;overflow:visible}
+  .ob-shell:has(.ob-welcome){max-height:none}
+  .ob-shell:has(.ob-welcome) .ob-rail{min-height:430px}
 }
