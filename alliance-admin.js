@@ -233,11 +233,11 @@
     modal.innerHTML='<div class="aa-backdrop" data-aa-close></div><section class="aa-panel"><header><div><strong>Configurações do AllianceOS</strong><span>Marcas, acessos, equipe e estrutura operacional</span></div><button type="button" data-aa-close>×</button></header><nav><button data-aa-tab="brands">Marcas</button><button data-aa-tab="team" class="active">Equipe</button><button data-aa-tab="lists">Listas</button><button data-aa-tab="cleanup">Limpeza</button></nav><div id="allianceAdminBody"></div></section>';
     document.body.appendChild(modal);
     $$('[data-aa-close]',modal).forEach(b=>b.addEventListener('click',closeModal));
-    $$('[data-aa-tab]',modal).forEach(b=>b.addEventListener('click',()=>{modal.dataset.tab=b.dataset.aaTab;$$('[data-aa-tab]',modal).forEach(x=>x.classList.toggle('active',x===b));renderModalBody();}));
+    $Array.from(modal.querySelectorAll('[data-aa-tab]')).forEach(b=>b.addEventListener('click',()=>{modal.dataset.tab=b.dataset.aaTab;$Array.from(modal.querySelectorAll('[data-aa-tab]')).forEach(x=>x.classList.toggle('active',x===b));renderModalBody();}));
     modal.dataset.tab='team';
   }
 
-  function openModal(tab='team'){ensureModal();const modal=$('#allianceAdminModal');modal.dataset.tab=tab;$('[data-aa-tab]',modal).forEach(x=>x.classList.toggle('active',x.dataset.aaTab===tab));modal.classList.add('open');refreshAll();}
+  function openModal(tab='team'){ensureModal();const modal=$('#allianceAdminModal');modal.dataset.tab=tab;Array.from(modal.querySelectorAll('[data-aa-tab]')).forEach(x=>x.classList.toggle('active',x.dataset.aaTab===tab));modal.classList.add('open');refreshAll();}
   function closeModal(){$('#allianceAdminModal')?.classList.remove('open');}
 
 
@@ -639,7 +639,7 @@
   }
 
   function bindBrands(){
-    $('[data-aa-brand-open]').forEach(btn=>btn.addEventListener('click',()=>{
+    Array.from(document.querySelectorAll('[data-aa-brand-open]')).forEach(btn=>btn.addEventListener('click',()=>{
       state.brandEditingId=btn.dataset.aaBrandOpen;state.brandPhotoFile=null;renderModalBody();
     }));
     const photo=$('#aaBrandPhoto');
@@ -666,7 +666,7 @@
           timezone:$('#aaBrandTimezone').value,
           notifications_enabled:!!$('#aaBrandNotifications').checked,
           compact_mode:!!$('#aaBrandCompact').checked,
-          modules:Object.fromEntries($('[data-aa-brand-module]').map(x=>[String(x.dataset.aaBrandModule),!!x.checked]))
+          modules:Object.fromEntries(Array.from(document.querySelectorAll('[data-aa-brand-module]')).map(x=>[String(x.dataset.aaBrandModule),!!x.checked]))
         };
         const {error}=await state.sb.from('brands').update({
           nome,slug,cor,site_url,descricao,foto_url,configuracoes,
@@ -675,7 +675,7 @@
         if(error)throw error;
 
         const editableMembers=state.members.filter(m=>m.tipo==='usuario'&&m.papel!=='admin');
-        const wanted=new Set($('[data-aa-brand-member]').filter(x=>!x.disabled&&x.checked).map(x=>String(x.dataset.aaBrandMember)));
+        const wanted=new Set(Array.from(document.querySelectorAll('[data-aa-brand-member]')).filter(x=>!x.disabled&&x.checked).map(x=>String(x.dataset.aaBrandMember)));
         const current=new Set(state.brandMemberships.filter(x=>String(x.brand_id)===String(brand.id)).map(x=>String(x.profile_id)).filter(id=>editableMembers.some(m=>String(m.id)===id)));
         const add=[...wanted].filter(id=>!current.has(id));
         const remove=[...current].filter(id=>!wanted.has(id));
@@ -754,7 +754,7 @@
   }
 
   function bindTeam(){
-    $$('[data-aa-save-member]').forEach(btn=>btn.addEventListener('click',async()=>{
+    $Array.from(document.querySelectorAll('[data-aa-save-member]')).forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.dataset.aaSaveMember,cargo=$('[data-aa-member-cargo="'+id+'"]')?.value.trim()||null,papel=$('[data-aa-member-role="'+id+'"]')?.value||'membro';
       try{
         if(id===state.user.id&&state.profile?.papel==='admin'&&papel!=='admin'&&state.members.filter(m=>m.tipo==='usuario'&&m.papel==='admin').length<=1)throw new Error('Não é possível remover o último administrador.');
@@ -773,7 +773,7 @@
         toast(envio.status==='enviado'?'Convite enviado':'Convite registrado; envio falhou: '+(envio.erro||'erro desconhecido'));await refreshAll();
       }catch(err){toast(err.message||String(err));}
     });
-    $$('[data-aa-resend-invite]').forEach(btn=>btn.addEventListener('click',async()=>{
+    $Array.from(document.querySelectorAll('[data-aa-resend-invite]')).forEach(btn=>btn.addEventListener('click',async()=>{
       const email=btn.dataset.aaResendInvite;btn.disabled=true;
       try{
         const envio=await sendInviteFromInterface(email);
@@ -782,7 +782,7 @@
         await refreshAll();
       }catch(err){toast(err.message||String(err));btn.disabled=false;}
     }));
-    $$('[data-aa-migrate]').forEach(btn=>btn.addEventListener('click',async()=>{
+    $Array.from(document.querySelectorAll('[data-aa-migrate]')).forEach(btn=>btn.addEventListener('click',async()=>{
       const legacy=btn.dataset.aaMigrate,select=$('[data-aa-migrate-select="'+CSS.escape(legacy)+'"]'),profileId=select?.value;
       if(!profileId){toast('Escolha um usuário real.');return;}
       if(!confirm('Migrar todas as tarefas de "'+legacy+'" para o usuário escolhido?'))return;
@@ -810,7 +810,7 @@
         await audit('criar_lista','lista',data.id,{nome,brand_id,avisos:warnings});toast('Lista criada');await refreshAll();
       }catch(err){toast(err.message||String(err));}
     });
-    $$('[data-aa-save-list]').forEach(btn=>btn.addEventListener('click',async()=>{
+    $Array.from(document.querySelectorAll('[data-aa-save-list]')).forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.dataset.aaSaveList,l=state.lists.find(x=>String(x.id)===String(id)),nome=$('[data-aa-list-name="'+id+'"]')?.value.trim();if(!l||!nome)return;
       try{
         if(nome.length>150)throw new Error('O nome da lista pode ter no máximo 150 caracteres.');
@@ -823,7 +823,7 @@
         await audit('atualizar_lista','lista',id,{mudancas:[{campo:'nome',antes:l.nome,depois:nome}],avisos:warnings});toast('Lista atualizada');await refreshAll();
       }catch(err){toast(err.message||String(err));}
     }));
-    $$('[data-aa-archive-list]').forEach(btn=>btn.addEventListener('click',async()=>{
+    $Array.from(document.querySelectorAll('[data-aa-archive-list]')).forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.dataset.aaArchiveList,l=state.lists.find(x=>String(x.id)===String(id));if(!l)return;
       try{
         const {error}=await state.sb.from('task_lists').update({arquivado_em:l.arquivada?null:new Date().toISOString(),arquivado_por:l.arquivada?null:state.user.id}).eq('id',id);if(error)throw error;
@@ -833,7 +833,7 @@
   }
 
   function bindCleanup(){
-    $$('[data-aa-clean]').forEach(btn=>btn.addEventListener('click',async()=>{
+    $Array.from(document.querySelectorAll('[data-aa-clean]')).forEach(btn=>btn.addEventListener('click',async()=>{
       const sourceId=btn.dataset.aaClean,targetId=$('[data-aa-clean-target="'+sourceId+'"]')?.value;
       if(!targetId){toast('Escolha a lista destino.');return;}
       const src=state.lists.find(x=>String(x.id)===String(sourceId)),dst=state.lists.find(x=>String(x.id)===String(targetId));
