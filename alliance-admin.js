@@ -24,7 +24,7 @@
     ? '<img src="'+esc(person.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
     : esc(initials(person?.nome||fallbackName));
   const brandAvatarInner=(brand,fallbackName='')=>brand?.foto_url
-    ? '<img src="'+esc(brand.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;'+((brand?.configuracoes?.avatar_crop_version===2)?'':'transform:scale(1.125);')+'">'
+    ? '<img src="'+esc(brand.foto_url)+'" crossorigin="anonymous" data-brand-photo="1" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
     : esc((String(brand?.nome||fallbackName||'M').trim()[0]||'M').toUpperCase());
   const allBrandsEditorProfile=()=>({
     id:'__all__',
@@ -39,6 +39,67 @@
   });
   const memberBrandIds=(profileId)=>state.brandMemberships.filter(x=>String(x.profile_id)===String(profileId)).map(x=>String(x.brand_id));
   const memberHasBrand=(member,brand)=>!!member&&!!brand&&(member.papel==='admin'||memberBrandIds(member.id).includes(String(brand.id)));
+
+  function alphaBounds(ctx,w,h){
+    const px=ctx.getImageData(0,0,w,h).data;
+    let minX=w,minY=h,maxX=-1,maxY=-1;
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        if(px[(y*w+x)*4+3]>12){
+          if(x<minX)minX=x;if(x>maxX)maxX=x;
+          if(y<minY)minY=y;if(y>maxY)maxY=y;
+        }
+      }
+    }
+    return maxX>=minX&&maxY>=minY?{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1}:null;
+  }
+
+  function autocropBrandImage(img){
+    if(!img||img.dataset.brandCropDone==='1'||img.dataset.brandCropBusy==='1')return;
+    if(!img.complete||!img.naturalWidth||!img.naturalHeight){
+      img.addEventListener('load',()=>autocropBrandImage(img),{once:true});
+      return;
+    }
+    img.dataset.brandCropBusy='1';
+    try{
+      const w=img.naturalWidth,h=img.naturalHeight;
+      const src=document.createElement('canvas');src.width=w;src.height=h;
+      const sctx=src.getContext('2d',{willReadFrequently:true});
+      sctx.drawImage(img,0,0,w,h);
+      const box=alphaBounds(sctx,w,h);
+      if(!box){img.dataset.brandCropDone='1';delete img.dataset.brandCropBusy;return;}
+      const needsCrop=box.x>2||box.y>2||(box.x+box.w)<w-2||(box.y+box.h)<h-2;
+      if(!needsCrop){img.dataset.brandCropDone='1';delete img.dataset.brandCropBusy;return;}
+
+      const size=512,out=document.createElement('canvas');out.width=size;out.height=size;
+      const octx=out.getContext('2d');
+      const scale=Math.max(size/box.w,size/box.h);
+      const dw=box.w*scale,dh=box.h*scale;
+      octx.drawImage(src,box.x,box.y,box.w,box.h,(size-dw)/2,(size-dh)/2,dw,dh);
+      img.dataset.brandCropDone='1';
+      img.src=out.toDataURL('image/png');
+    }catch(err){
+      img.dataset.brandCropDone='1';
+      console.warn('[AllianceOS brand photo crop]',err);
+    }finally{
+      delete img.dataset.brandCropBusy;
+    }
+  }
+
+  window.AllianceOSFixBrandImage=autocropBrandImage;
+  const cropBrandImages=(root=document)=>{
+    root.querySelectorAll?.('img[data-brand-photo],img[src*="/brands/"]').forEach(autocropBrandImage);
+  };
+  const brandImageObserver=new MutationObserver(records=>{
+    for(const record of records){
+      for(const node of record.addedNodes){
+        if(node.nodeType!==1)continue;
+        if(node.matches?.('img[data-brand-photo],img[src*="/brands/"]'))autocropBrandImage(node);
+        cropBrandImages(node);
+      }
+    }
+  });
+  brandImageObserver.observe(document.documentElement,{childList:true,subtree:true});
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const toast=(msg)=>{
@@ -256,6 +317,7 @@
       const body=$('#allianceAdminBody');
       if(body&&!body.textContent.trim())body.innerHTML='<div class="aa-empty" style="margin:24px">Não foi possível carregar os dados das marcas. '+esc(directoryError?.message||String(directoryError))+'</div>';
     }
+    cropBrandImages(document);
   }
 
   function ensureModal(){
@@ -569,6 +631,7 @@
       if(av){av.innerHTML=avatarInner(state.profile,state.profile.nome);av.style.overflow='hidden';}
       const profileBtn=$('.ref2-profile');if(profileBtn)profileBtn.setAttribute('aria-label','Editar perfil · '+(state.profile.nome||'Perfil'));
     }
+    cropBrandImages(document);
   }
 
   function loginView(){
@@ -671,12 +734,22 @@
       const url=URL.createObjectURL(file),img=new Image();
       img.onload=()=>{
         try{
+          const maxSide=2048;
+          const ratio=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+          const sw=Math.max(1,Math.round(img.naturalWidth*ratio));
+          const sh=Math.max(1,Math.round(img.naturalHeight*ratio));
+          const src=document.createElement('canvas');src.width=sw;src.height=sh;
+          const sctx=src.getContext('2d',{willReadFrequently:true});
+          sctx.clearRect(0,0,sw,sh);
+          sctx.drawImage(img,0,0,sw,sh);
+          const box=alphaBounds(sctx,sw,sh)||{x:0,y:0,w:sw,h:sh};
+
           const size=512,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
           const ctx=canvas.getContext('2d');ctx.clearRect(0,0,size,size);
-          const scale=Math.max(size/img.naturalWidth,size/img.naturalHeight);
-          const w=Math.max(1,img.naturalWidth*scale),h=Math.max(1,img.naturalHeight*scale);
-          ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
-          canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Não foi possível preparar a imagem.'));},'image/webp',0.94);
+          const scale=Math.max(size/box.w,size/box.h);
+          const w=Math.max(1,box.w*scale),h=Math.max(1,box.h*scale);
+          ctx.drawImage(src,box.x,box.y,box.w,box.h,(size-w)/2,(size-h)/2,w,h);
+          canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Não foi possível preparar a imagem.'));},'image/webp',0.96);
         }catch(err){URL.revokeObjectURL(url);reject(err);}
       };
       img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Imagem inválida.'));};

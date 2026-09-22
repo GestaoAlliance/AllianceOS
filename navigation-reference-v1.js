@@ -282,7 +282,7 @@
         const icon=q('.ref2-workspace-icon');
         if(icon){
           if(info?.foto_url){
-            icon.innerHTML='<img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="" style="'+(info?.configuracoes?.avatar_crop_version===2?'':'transform:scale(1.125);')+'">';
+            icon.innerHTML='<img src="'+info.foto_url.replace(/"/g,'&quot;')+'" crossorigin="anonymous" data-brand-photo="1" alt="" style="'+(info?.configuracoes?.avatar_crop_version===2?'':'transform:scale(1.125);')+'">';
             icon.style.background='#fff';icon.style.color='inherit';
           }else if(info&&!isAll){
             icon.textContent=(String(info.nome||'M')[0]||'M').toUpperCase();

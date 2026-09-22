@@ -35,3 +35,12 @@
 .aa-brand-module b{display:block;font-size:11px;color:#242a2e}
 .aa-brand-module small{display:block;margin-top:4px;color:#879198;font-size:9px;line-height:1.35}
 @media(max-width:720px){.aa-brand-modules{grid-template-columns:1fr}}
+
+/* Brand photo edge-to-edge */
+.aa-brand-avatar,.aa-brand-photo{position:relative!important;padding:0!important}
+.aa-brand-avatar:has(img),.aa-brand-photo:has(img){background:transparent!important}
+.aa-brand-avatar>img,.aa-brand-photo>img{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  max-width:none!important;max-height:none!important;object-fit:cover!important;
+  border-radius:inherit!important;display:block!important;
+}
