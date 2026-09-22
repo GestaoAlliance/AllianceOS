@@ -113,7 +113,11 @@
       let campId;
       if(legacy!=null&&String(legacy).trim()){
         const found=byId.get(String(legacy))||byName.get(norm(n.campaign_name??n.campanha??text));
-        if(found)campId=found.id;else warnings.push({no:k,texto:text,campanha_legada:String(legacy)});
+        if(found)campId=found.id;
+        else{
+          campId=String(legacy);
+          warnings.push({no:k,texto:text,campanha_legada:String(legacy)});
+        }
       }
       return{id:ids.get(k),pai:p==null?null:(ids.get(String(p))||null),t:text,x:Number.isFinite(Number(n.x))?Number(n.x):520,y:Number.isFinite(Number(n.y))?Number(n.y):320,cor:n.cor??n.color??0,fech:n.aberto!==undefined?!n.aberto:!!n.fech,campId};
     });
@@ -121,9 +125,164 @@
     return{v:2,layout:raw?.layout||'direita',prox:nodes.length+1,proxItem:1,nome:raw?.nome||raw?.name||'',itens:Array.isArray(raw?.itens)?raw.itens:[],nos:nodes,avisos:warnings};
   }
 
+  const MONTH_NAMES=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+  let mapHydrateSeq=0;
+  const mapSaveTimers=new Map();
+
+  const mapLocalKey=brand=>'central.planning.map.'+uid()+(brand?'.'+brand:'');
+  async function authReady(){
+    try{if(window.AllianceOSAuth?.ready)await window.AllianceOSAuth.ready}catch{}
+    return client();
+  }
+  async function canonicalMapContext(brandName,{createMonth=false}={}){
+    const brand=String(brandName||activeBrand()||'').trim();
+    if(!brand)return null;
+    const s=await authReady();
+    const {data:brands,error:be}=await s.from('brands').select('id,nome').eq('ativo',true);
+    if(be)throw be;
+    const br=(brands||[]).find(x=>norm(x.nome)===norm(brand));
+    if(!br)throw new Error('Marca não encontrada no AllianceOS: '+brand);
+    const [ano,mes]=monthRef().split('-').map(Number);
+    let {data:months,error:me}=await s.from('planning_months')
+      .select('*').eq('brand_id',br.id).eq('ano',ano).eq('mes',mes)
+      .is('arquivado_em',null).order('atualizado_em',{ascending:false}).limit(1);
+    if(me)throw me;
+    let month=months?.[0]||null;
+    if(!month&&createMonth){
+      const ins=await s.from('planning_months').insert({
+        brand_id:br.id,ano,mes,meta1:0,meta2:0,meta3:0,meta_ativa:1,
+        ticket_medio_previsto:0,origem:'interface'
+      }).select('*').single();
+      if(ins.error)throw ins.error;month=ins.data;
+    }
+    if(!month)return{s,brand:br,month:null,map:null};
+    const {data:maps,error:mae}=await s.from('planning_maps').select('*')
+      .eq('brand_id',br.id).eq('month_id',month.id).is('arquivado_em',null)
+      .order('atualizado_em',{ascending:false}).limit(1);
+    if(mae)throw mae;
+    return{s,brand:br,month,map:maps?.[0]||null};
+  }
+
+  function canonicalPayload(mapRow,nodeRows){
+    const visual=mapRow?.estado&&typeof mapRow.estado==='object'?mapRow.estado:{};
+    return{
+      nome:mapRow?.nome||'Planejamento',
+      layout:mapRow?.layout||visual.layout||'direita',
+      itens:Array.isArray(visual.itens)?visual.itens:[],
+      proxItem:Number(visual.proxItem||1),
+      nos:(nodeRows||[]).map(n=>({
+        node_key:n.node_key,parent_key:n.parent_key,texto:n.texto,
+        x:Number(n.x||0),y:Number(n.y||0),cor:n.cor,
+        aberto:n.aberto,campaign_id:n.campaign_id
+      }))
+    };
+  }
+
+  async function hydrateCanonicalMap({silent=false}={}){
+    const brand=window.MapaMental?.marca?.()||activeBrand();
+    if(!brand)return null;
+    const seq=++mapHydrateSeq;
+    const state=document.getElementById('mindSaveState');
+    if(state&&!silent)state.textContent='Sincronizando mapa…';
+    try{
+      const ctx=await canonicalMapContext(brand);
+      if(seq!==mapHydrateSeq)return null;
+      if(!ctx?.map){
+        if(state&&!silent)state.textContent='Nenhum mapa salvo neste mês';
+        return null;
+      }
+      const {data:nodes,error}=await ctx.s.from('planning_map_nodes').select('*')
+        .eq('map_id',ctx.map.id).is('arquivado_em',null).order('criado_em',{ascending:true});
+      if(error)throw error;
+      if(!nodes?.length)return null;
+      const map=normalizeMap(canonicalPayload(ctx.map,nodes));
+      const visual=ctx.map.estado&&typeof ctx.map.estado==='object'?ctx.map.estado:{};
+      map.nome=ctx.map.nome||map.nome;
+      map.layout=ctx.map.layout||map.layout;
+      map.itens=Array.isArray(visual.itens)?visual.itens:map.itens;
+      map.proxItem=Number(visual.proxItem||map.proxItem||1);
+      map.prox=Math.max(Number(visual.prox||0),map.prox||2);
+      localStorage.setItem(mapLocalKey(ctx.brand.nome),JSON.stringify(map));
+      window.MapaMental?.recarregar?.();
+      if(state&&!silent)state.textContent='Mapa sincronizado do AllianceOS';
+      return map;
+    }catch(e){
+      console.error('[AllianceOS mapa canônico] falha ao carregar',e);
+      if(state&&!silent)state.textContent='Não foi possível sincronizar o mapa';
+      return null;
+    }
+  }
+
+  async function saveCanonicalMapNow(map,brandName){
+    if(!map||!Array.isArray(map.nos)||!map.nos.length)return;
+    const ctx=await canonicalMapContext(brandName,{createMonth:true});
+    if(!ctx?.month)return;
+    const s=ctx.s,now=new Date().toISOString();
+    let row=ctx.map;
+    const generatedName='Planejamento ['+MONTH_NAMES[(ctx.month.mes||1)-1]+'-'+String(ctx.brand.nome||'').toUpperCase()+']';
+    const wantedName=String(map.nome||row?.nome||generatedName).trim().slice(0,200)||generatedName;
+    const estado={itens:Array.isArray(map.itens)?map.itens:[],prox:Number(map.prox||2),proxItem:Number(map.proxItem||1)};
+    if(!row){
+      const ins=await s.from('planning_maps').insert({
+        brand_id:ctx.brand.id,month_id:ctx.month.id,nome:wantedName,
+        layout:String(map.layout||'direita'),estado,origem:'interface'
+      }).select('*').single();
+      if(ins.error)throw ins.error;row=ins.data;
+    }else{
+      const upd=await s.from('planning_maps').update({
+        nome:wantedName,layout:String(map.layout||'direita'),estado,
+        atualizado_em:now,origem:'interface'
+      }).eq('id',row.id).select('*').single();
+      if(upd.error)throw upd.error;row=upd.data;
+    }
+
+    const live=(map.nos||[]).map(n=>({
+      map_id:row.id,
+      node_key:String(n.id),
+      parent_key:n.pai==null?null:String(n.pai),
+      texto:String(n.t||'sem título').trim().slice(0,2000)||'sem título',
+      x:Number(n.x||0),y:Number(n.y||0),
+      cor:n.cor==null?null:String(n.cor),
+      aberto:!n.fech,
+      campaign_id:n.campId==null||String(n.campId).trim()===''?null:String(n.campId),
+      origem:'interface',
+      arquivado_em:null,arquivado_por:null,
+      atualizado_em:now
+    }));
+    const up=await s.from('planning_map_nodes').upsert(live,{onConflict:'map_id,node_key'});
+    if(up.error)throw up.error;
+
+    const {data:existing,error:ee}=await s.from('planning_map_nodes').select('node_key')
+      .eq('map_id',row.id).is('arquivado_em',null);
+    if(ee)throw ee;
+    const keys=new Set(live.map(n=>n.node_key));
+    const missing=(existing||[]).map(n=>String(n.node_key)).filter(k=>!keys.has(k));
+    if(missing.length){
+      const ar=await s.from('planning_map_nodes').update({arquivado_em:now,atualizado_em:now})
+        .eq('map_id',row.id).in('node_key',missing).is('arquivado_em',null);
+      if(ar.error)throw ar.error;
+    }
+    const state=document.getElementById('mindSaveState');
+    if(state)state.textContent='Salvo no AllianceOS';
+  }
+
+  function queueCanonicalMapSave(map,brandName){
+    const brand=String(brandName||activeBrand()||'').trim();
+    if(!brand)return Promise.resolve();
+    clearTimeout(mapSaveTimers.get(brand));
+    return new Promise(resolve=>{
+      mapSaveTimers.set(brand,setTimeout(async()=>{
+        mapSaveTimers.delete(brand);
+        try{await saveCanonicalMapNow(JSON.parse(JSON.stringify(map)),brand)}
+        catch(e){console.error('[AllianceOS mapa canônico] falha ao salvar',e);window.showToast?.('Não foi possível sincronizar o mapa com o AllianceOS.')}
+        resolve();
+      },650));
+    });
+  }
+
   function importMap(payload){
     const map=normalizeMap(payload),brand=window.MapaMental?.marca?.()||activeBrand(),key='central.planning.map.'+uid()+(brand?'.'+brand:'');
-    localStorage.setItem(key,JSON.stringify(map));window.MapaMental?.recarregar?.();
+    localStorage.setItem(key,JSON.stringify(map));window.MapaMental?.recarregar?.();queueCanonicalMapSave(map,brand);
     if(map.avisos?.length){console.warn('[AllianceOS mapa] nós sem campanha:',map.avisos);window.showToast?.(map.avisos.length+' nó(s) ficaram sem vínculo de campanha.')}
     return map;
   }
@@ -185,13 +344,19 @@
     clients.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();openClients()},{capture:true});
     autos.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();openAutomations()},{capture:true});
     document.querySelectorAll('.ref2-nav-btn:not([data-key="clients"]):not([data-key="automations"])').forEach(b=>b.addEventListener('click',()=>{closeFull();if(b.dataset.key==='reports')setTimeout(enhanceReports,100)},{capture:true}));
-    document.getElementById('brandSelect')?.addEventListener('change',()=>{refreshConsistency();setTimeout(enhanceReports,80)});
+    document.getElementById('brandSelect')?.addEventListener('change',()=>{
+      refreshConsistency();setTimeout(enhanceReports,80);
+      if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),90);
+    });
     document.getElementById('campaignsNav')?.addEventListener('click',()=>setTimeout(refreshConsistency,80));
-    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();installMapImport()},120));
+    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();installMapImport();hydrateCanonicalMap()},120));
     document.getElementById('painelNav')?.addEventListener('click',()=>setTimeout(enhanceReports,120));
     new MutationObserver(()=>{installMapImport();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
     refreshConsistency();installMapImport();installNameGuards();
+    if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),180);
+    window.addEventListener('allianceos:auth',()=>setTimeout(()=>hydrateCanonicalMap({silent:true}),500));
   }
-  window.AllianceFullSystem={refreshConsistency,enhanceReports,importMap,openClients,openAutomations};
+  window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow};
+  window.AllianceFullSystem={refreshConsistency,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',wire,{once:true});else wire();
 })();
