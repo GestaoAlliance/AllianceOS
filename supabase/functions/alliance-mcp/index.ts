@@ -16,7 +16,7 @@ const MCP_ICON_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 51
 const MCP_ICON_DATA_URI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(MCP_ICON_SVG)
 const MCP_ICON_URL = APP_URL + '/api/brand-icon?v=' + MCP_BRAND_VERSION
 const MCP_ICON_SVG_URL = APP_URL + '/api/brand-icon?format=svg&v=' + MCP_BRAND_VERSION
-const TOOL_SCHEMA_VERSION = '2026-09-22.2'
+const TOOL_SCHEMA_VERSION = '2026-09-22.3'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -142,19 +142,20 @@ function duplicateCampaignWarnings(rows:any[],name:any,brand:any,monthRef:any,ex
 }
 
 
+const OAUTH_SESSION_ERROR = 'Sessão OAuth expirada ou inválida. Reconecte o AllianceOS no Claude para renovar a autorização.'
+
 async function actor(supabase: any) {
-  const { data: authData, error: authError } = await supabase.auth.getUser()
-  if (authError || !authData?.user) throw new Error('Usuário OAuth não autenticado.')
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('id,nome,email,papel,cargo,ativo')
-    .eq('id', authData.user.id)
-    .maybeSingle()
-  if (error || !profile?.ativo) throw new Error('Usuário sem perfil ativo no AllianceOS.')
+  const { data, error } = await supabase.rpc('mcp_current_actor')
+  const profile = Array.isArray(data) ? data[0] : data
+  if (error || !profile?.id) {
+    console.warn('mcp_actor_unavailable', { code: error?.code || null, message: error?.message || null })
+    throw new Error(OAUTH_SESSION_ERROR)
+  }
+  if (!profile.ativo) throw new Error('Usuário sem perfil ativo no AllianceOS.')
   return {
     id: String(profile.id),
-    nome: profile.nome || authData.user.email || 'Usuário',
-    email: profile.email || authData.user.email || null,
+    nome: profile.nome || profile.email || 'Usuário',
+    email: profile.email || null,
     papel: profile.papel || null,
     cargo: profile.cargo || null,
   }
@@ -1605,11 +1606,37 @@ const protectedHandler = withOAuthProtectedResource(
     if(req.method==='POST'){
       try{const body:any=await req.clone().json();mcpMethod=Array.isArray(body)?String(body[0]?.method||''):String(body?.method||'')}catch{}
     }
+
+    // Every actual tool call must have a live user identity. This prevents the
+    // misleading state where public/readable data still works after OAuth has
+    // expired while writes fail later inside actor().
+    if(mcpMethod==='tools/call'){
+      try{
+        await actor(supabase)
+      }catch(error){
+        const message=error instanceof Error?error.message:OAUTH_SESSION_ERROR
+        if(message===OAUTH_SESSION_ERROR){
+          return new Response(JSON.stringify({
+            error:'oauth_session_expired',
+            error_description:OAUTH_SESSION_ERROR,
+            reconnect_required:true
+          }),{
+            status:401,
+            headers:{
+              'Content-Type':'application/json; charset=utf-8',
+              'Cache-Control':'no-store',
+              'WWW-Authenticate':'Bearer'
+            }
+          })
+        }
+        throw error
+      }
+    }
     const handler = createMcpHandler(() => {
       const server = new McpServer({
         name: 'AllianceOS Gestão',
         title: 'AllianceOS',
-        version: '2.3.4',
+        version: '2.3.5',
         description: 'Sistema operacional da Alliance para tarefas, campanhas, entregas, planejamento e automações.',
         websiteUrl: APP_URL,
         icons: [{ src: MCP_ICON_URL, mimeType: 'image/png', sizes: ['512x512'] }, { src: MCP_ICON_SVG_URL, mimeType: 'image/svg+xml', sizes: ['any'] }, { src: MCP_ICON_DATA_URI, mimeType: 'image/svg+xml', sizes: ['any'] }],
@@ -2184,6 +2211,8 @@ Deno.serve(async (req: Request) => {
       icon: MCP_ICON_URL,
       transport: 'Streamable HTTP',
       oauth: 'Supabase Auth OAuth 2.1',
+      oauth_identity_source: 'request JWT via public.mcp_current_actor()',
+      oauth_tool_call_guard: true,
       oauth_discovery_status,
       tools: ["listar_marcas","listar_listas","criar_lista","atualizar_lista","consolidar_lista","listar_membros","convidar_membro","reenviar_convite","migrar_responsavel_legado","listar_responsaveis_legados_pendentes","reimportar_dados_clickup","buscar_tarefas","obter_tarefa","criar_tarefa","atualizar_tarefa","definir_dependencia","remover_dependencia","definir_checklist","marcar_item_checklist","registrar_entrega_texto_legado","comentar_tarefa","listar_notificacoes","marcar_notificacao_lida","listar_canais","listar_fontes_receita","criar_campanha","atualizar_campanha","listar_campanhas","obter_campanha","criar_mes","atualizar_mes","listar_meses","obter_mes","definir_tap","obter_tap","atualizar_secao_tap","gerar_tarefas_do_tap","criar_mapa","listar_mapas","obter_mapa","atualizar_mapa","adicionar_no","atualizar_no","mover_no","vincular_no_a_campanha","arquivar_no","listar_entregas","obter_entrega","registrar_entrega","atualizar_entrega","aprovar_ou_reprovar_entrega","criar_cliente","atualizar_cliente","listar_clientes","obter_cliente","vincular_cliente_a_campanha","listar_automacoes","obter_automacao","listar_gatilhos","listar_acoes","criar_automacao","atualizar_automacao","ativar_ou_pausar_automacao","registrar_resultado","listar_resultados","atualizar_resultado","obter_resultado_campanha","obter_resultado_mes","comparar_planejado_realizado","criar_tag","listar_tags","atualizar_tag","marcar_tag","desmarcar_tag","criar_tarefas_em_lote","atualizar_tarefas_em_lote","busca_global","auditar_vinculos_campanha","auditar_taps_legados","exportar_mes"],
       tool_schema_version: TOOL_SCHEMA_VERSION,
