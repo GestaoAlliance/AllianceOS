@@ -6,27 +6,23 @@
   "rewrites": [
     {
       "source": "/favicon.ico",
-      "destination": "/api/brand-icon?v=20260922-3"
+      "destination": "/api/brand-icon?v=20260922-4"
     },
     {
       "source": "/favicon.png",
-      "destination": "/api/brand-icon?v=20260922-3"
-    },
-    {
-      "source": "/apple-touch-icon.png",
-      "destination": "/api/brand-icon?v=20260922-3"
+      "destination": "/api/brand-icon?v=20260922-4"
     },
     {
       "source": "/icon-192.png",
-      "destination": "/api/brand-icon?v=20260922-3"
+      "destination": "/api/brand-icon?v=20260922-4"
     },
     {
       "source": "/icon-512.png",
-      "destination": "/api/brand-icon?v=20260922-3"
+      "destination": "/api/brand-icon?v=20260922-4"
     },
     {
       "source": "/manifest.webmanifest",
-      "destination": "/api/manifest?v=20260922-3"
+      "destination": "/api/manifest?v=20260922-4"
     },
     {
       "source": "/oauth/consent",
