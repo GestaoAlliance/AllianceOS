@@ -1075,39 +1075,185 @@
     input.focus();
   }
 
+  function v3UpdateNewTaskConditionalFields(){
+    const recurrence=document.getElementById('newRecurrence')?.value||'nenhuma';
+    const recurrenceDays=document.getElementById('newRecurrenceDays');
+    if(recurrenceDays)recurrenceDays.hidden=recurrence!=='dias_semana';
+
+    const status=document.getElementById('newStatus')?.value||'a fazer';
+    const blocked=document.getElementById('newBlockedReasonField');
+    if(blocked)blocked.hidden=status!=='bloqueado';
+  }
+
   function v3RebuildNewTaskForm(){
     const form=document.getElementById('newTaskForm');if(!form)return;
-    form.innerHTML=`<div class="v3-new-head"><div><h2>Nova tarefa</h2><p>Crie uma execução clara, com responsável, prazo e vínculo com o planejamento.</p></div></div><div class="newgrid v3-new-grid">
-      <div class="newfield full"><label>Título da tarefa</label><input id="newTitle" required placeholder="Ex.: Criar copy do disparo de sexta"></div>
-      <div class="newfield"><label>Responsável pela execução</label><select id="newAssignee"></select></div>
-      <div class="newfield"><label>Prioridade</label><select id="newPriority"><option value="urgente">Urgente</option><option value="alta">Alta</option><option value="normal" selected>Normal</option><option value="baixa">Baixa</option></select></div>
-      <div class="newfield"><label>Status inicial</label><select id="newStatus">${TASK_STATUSES.filter(x=>x!=='feito').map(x=>`<option>${x}</option>`).join('')}</select></div>
-      <div class="newfield"><label>Data de início</label><input id="newStart" type="date"></div>
-      <div class="newfield"><label>Prazo com horário</label><input id="newDue" type="datetime-local"><small>O horário faz parte do prazo.</small></div>
-      <div class="newfield"><label>Recorrência</label><select id="newRecurrence"><option value="nenhuma">Não repetir</option><option value="semanal">Semanal</option><option value="quinzenal">Quinzenal</option><option value="mensal">Mensal</option><option value="dias_semana">Dias específicos da semana</option></select></div>
-      <div class="newfield full" id="newRecurrenceDays" hidden><label>Dias da semana</label><div class="v3-weekday-picks"><label><input type="checkbox" value="1">Seg</label><label><input type="checkbox" value="2">Ter</label><label><input type="checkbox" value="3">Qua</label><label><input type="checkbox" value="4">Qui</label><label><input type="checkbox" value="5">Sex</label><label><input type="checkbox" value="6">Sáb</label><label><input type="checkbox" value="7">Dom</label></div></div>
-      <div class="newfield full"><label>Motivo do bloqueio <span>obrigatório se status = bloqueado</span></label><input id="newBlockedReason" placeholder="Ex.: aguardando aprovação da Meta"></div>
-      <div class="newfield full"><label class="v3-conference-toggle"><span><b>Entrega obrigatória</b><small>impede conclusão sem entrega</small></span><input id="newDeliveryRequired" type="checkbox"><i></i></label></div>
-      <div class="newfield"><label>Campanha / planejamento</label><select id="newCampaign"></select><small>Somente campanhas cadastradas para esta marca.</small></div>
-      <div class="newfield full"><label>Depende de outra tarefa? <span>opcional</span></label><select id="newDependency"></select><small>Use quando esta tarefa só pode começar depois de outra.</small></div>
-      <div class="newfield full v3-brand-field" id="newBrandField"><label>Marca</label><select id="newBrand"></select></div>
-      <div class="newfield full"><label>Briefing / resultado esperado</label><textarea id="newDescription" placeholder="O que precisa ficar pronto? Inclua contexto, links e o critério para considerar esta tarefa bem executada."></textarea></div>
-      <div class="newfield full v3-new-conference">
-        <label class="v3-conference-toggle"><span><b>Lista de conferência</b><small>opcional</small></span><input id="newConferenceRequired" type="checkbox"><i></i></label>
-        <small>Ative quando o executor precisar conferir itens obrigatórios antes de enviar a entrega ou concluir a tarefa.</small>
-        <div id="newConferenceBuilder" class="v3-new-conference-builder" hidden>
-          <div id="newConferenceList" class="v3-new-conference-list"></div>
-          <div class="v3-new-conference-add"><input id="newConferenceItem" type="text" placeholder="Ex.: Conferir preço, cupom e condições da oferta"><button id="addNewConferenceItem" type="button">+ Adicionar item</button></div>
-          <small>Todos os itens desta lista precisarão estar marcados como conferidos.</small>
+    form.innerHTML=`
+      <div class="v3-new-head">
+        <div class="v3-new-head-copy">
+          <span class="v3-new-kicker">NOVA EXECUÇÃO</span>
+          <h2>Nova tarefa</h2>
+          <p>Crie uma tarefa que já nasça pronta para ser executada, sem contexto perdido.</p>
         </div>
+        <button type="button" class="v3-new-close" id="cancelNewTaskTop" aria-label="Fechar">×</button>
       </div>
-    </div><div class="new-actions"><button type="button" id="cancelNewTask">Cancelar</button><button class="primary" type="submit">Criar tarefa</button></div>`;
+
+      <div class="v3-new-scroll">
+        <section class="v3-new-section v3-new-section-main">
+          <div class="v3-new-section-title">
+            <div><span>01</span><strong>Essencial</strong></div>
+            <small>O mínimo para alguém saber o que fazer e quem é o dono.</small>
+          </div>
+          <div class="newgrid v3-new-grid">
+            <div class="newfield full v3-title-field">
+              <label>Título da tarefa</label>
+              <input id="newTitle" required placeholder="Ex.: Criar copy do disparo de sexta">
+            </div>
+            <div class="newfield">
+              <label>Responsável</label>
+              <select id="newAssignee"></select>
+            </div>
+            <div class="newfield">
+              <label>Prioridade</label>
+              <select id="newPriority">
+                <option value="urgente">Urgente</option>
+                <option value="alta">Alta</option>
+                <option value="normal" selected>Normal</option>
+                <option value="baixa">Baixa</option>
+              </select>
+            </div>
+            <div class="newfield">
+              <label>Status inicial</label>
+              <select id="newStatus">${TASK_STATUSES.filter(x=>x!=='feito').map(x=>`<option>${x}</option>`).join('')}</select>
+            </div>
+            <div class="newfield v3-brand-field" id="newBrandField">
+              <label>Marca</label>
+              <select id="newBrand"></select>
+            </div>
+            <div class="newfield full" id="newBlockedReasonField" hidden>
+              <label>Motivo do bloqueio <span>obrigatório</span></label>
+              <input id="newBlockedReason" placeholder="Ex.: aguardando aprovação da Meta">
+            </div>
+          </div>
+        </section>
+
+        <section class="v3-new-section">
+          <div class="v3-new-section-title">
+            <div><span>02</span><strong>Prazo e fluxo</strong></div>
+            <small>Quando começa, quando precisa terminar e o que precisa acontecer antes.</small>
+          </div>
+          <div class="newgrid v3-new-grid">
+            <div class="newfield">
+              <label>Data de início <span>opcional</span></label>
+              <input id="newStart" type="date">
+            </div>
+            <div class="newfield">
+              <label>Prazo com horário</label>
+              <input id="newDue" type="datetime-local">
+              <small>Use horário quando existir publicação, disparo, reunião ou dependência.</small>
+            </div>
+            <div class="newfield">
+              <label>Recorrência</label>
+              <select id="newRecurrence">
+                <option value="nenhuma">Não repetir</option>
+                <option value="semanal">Semanal</option>
+                <option value="quinzenal">Quinzenal</option>
+                <option value="mensal">Mensal</option>
+                <option value="dias_semana">Dias específicos da semana</option>
+              </select>
+            </div>
+            <div class="newfield">
+              <label>Campanha / planejamento <span>opcional</span></label>
+              <select id="newCampaign"></select>
+              <small>Vincule quando a tarefa fizer parte de uma campanha.</small>
+            </div>
+            <div class="newfield full v3-week-field" id="newRecurrenceDays" hidden>
+              <label>Dias da semana</label>
+              <div class="v3-weekday-picks">
+                <label><input type="checkbox" value="1"><span>Seg</span></label>
+                <label><input type="checkbox" value="2"><span>Ter</span></label>
+                <label><input type="checkbox" value="3"><span>Qua</span></label>
+                <label><input type="checkbox" value="4"><span>Qui</span></label>
+                <label><input type="checkbox" value="5"><span>Sex</span></label>
+                <label><input type="checkbox" value="6"><span>Sáb</span></label>
+                <label><input type="checkbox" value="7"><span>Dom</span></label>
+              </div>
+            </div>
+            <div class="newfield full">
+              <label>Depende de outra tarefa? <span>opcional</span></label>
+              <select id="newDependency"></select>
+              <small>Use apenas quando esta tarefa realmente não puder começar antes da anterior.</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="v3-new-section">
+          <div class="v3-new-section-title">
+            <div><span>03</span><strong>Contexto para executar</strong></div>
+            <small>O que a pessoa precisa saber para fazer certo sem pedir o briefing de novo.</small>
+          </div>
+          <div class="newfield full v3-briefing-field">
+            <label>Briefing / resultado esperado</label>
+            <textarea id="newDescription" placeholder="Explique o que precisa ficar pronto, contexto, links, referências e como saber que a tarefa foi bem executada."></textarea>
+          </div>
+        </section>
+
+        <section class="v3-new-section">
+          <div class="v3-new-section-title">
+            <div><span>04</span><strong>Regras de conclusão</strong></div>
+            <small>Ative somente as travas que realmente definem qualidade ou entrega.</small>
+          </div>
+
+          <div class="v3-new-rules">
+            <div class="newfield v3-new-rule">
+              <label class="v3-conference-toggle">
+                <span>
+                  <b>Entrega obrigatória</b>
+                  <small>Impede concluir sem registrar o resultado final.</small>
+                </span>
+                <input id="newDeliveryRequired" type="checkbox"><i></i>
+              </label>
+            </div>
+
+            <div class="newfield v3-new-conference v3-new-rule">
+              <label class="v3-conference-toggle">
+                <span>
+                  <b>Lista de conferência</b>
+                  <small>Trava a conclusão até todos os itens serem conferidos.</small>
+                </span>
+                <input id="newConferenceRequired" type="checkbox"><i></i>
+              </label>
+              <div id="newConferenceBuilder" class="v3-new-conference-builder" hidden>
+                <div id="newConferenceList" class="v3-new-conference-list"></div>
+                <div class="v3-new-conference-add">
+                  <input id="newConferenceItem" type="text" placeholder="Ex.: Conferir preço, cupom e condição da oferta">
+                  <button id="addNewConferenceItem" type="button">+ Adicionar</button>
+                </div>
+                <small>Todos os itens precisarão estar marcados antes da conclusão.</small>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="new-actions v3-new-actions">
+        <div class="v3-new-actions-copy">
+          <strong>Pronto para criar?</strong>
+          <span>Confira responsável, prazo e contexto antes de salvar.</span>
+        </div>
+        <div class="v3-new-actions-buttons">
+          <button type="button" id="cancelNewTask">Cancelar</button>
+          <button class="primary" type="submit">Criar tarefa</button>
+        </div>
+      </div>`;
+
     document.getElementById('newConferenceRequired')?.addEventListener('change',v3RenderNewConferenceDraft);
     document.getElementById('addNewConferenceItem')?.addEventListener('click',v3AddNewConferenceItem);
     document.getElementById('newConferenceItem')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();v3AddNewConferenceItem();}});
-    document.getElementById('newRecurrence')?.addEventListener('change',e=>{
-      const days=document.getElementById('newRecurrenceDays');if(days)days.hidden=e.target.value!=='dias_semana';
-    });
+    document.getElementById('newRecurrence')?.addEventListener('change',v3UpdateNewTaskConditionalFields);
+    document.getElementById('newStatus')?.addEventListener('change',v3UpdateNewTaskConditionalFields);
+    document.getElementById('cancelNewTask')?.addEventListener('click',()=>closeNewTask());
+    document.getElementById('cancelNewTaskTop')?.addEventListener('click',()=>closeNewTask());
+    v3UpdateNewTaskConditionalFields();
   }
 
   function v3PopulateNewTaskForm(status='a fazer'){
@@ -1127,6 +1273,7 @@
     if(v3NewPreset.dependencyId)dep.value=String(v3NewPreset.dependencyId);
     if(v3NewPreset.blocksTaskId){dep.closest('.newfield').style.display='none';}
     document.getElementById('newBrand')?.addEventListener('change',e=>{const b=e.target.value;document.getElementById('newCampaign').innerHTML=v3CampaignOptions(b,null,null);const d=document.getElementById('newDependency');d.innerHTML='<option value="">Não depende de outra tarefa</option>'+taskData.filter(t=>t.brand===b&&t.status!=='feito').slice(0,100).map(t=>`<option value="${esc(t.id)}">${esc(t.title)}</option>`).join('')});
+    v3UpdateNewTaskConditionalFields();
   }
 
   openNewTask = function(status='a fazer',preset={}){
