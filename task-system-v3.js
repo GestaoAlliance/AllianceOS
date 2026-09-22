@@ -546,8 +546,37 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v9.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V6.5Z"/><path d="M3.5 9h17"/></svg>';
   }
 
+  function v4PlainMarkdown(value){
+    let text=String(value||'').replace(/\r\n?/g,'\n');
+
+    // Keep readable content, remove Markdown presentation syntax.
+    text=text.replace(/^\s*```[^\n]*$/gm,' ');
+    text=text.replace(/!\[([^\]]*)\]\([^)]+\)/g,'$1');
+    text=text.replace(/\[([^\]]+)\]\([^)]+\)/g,'$1');
+    text=text.replace(/^\s{0,3}#{1,6}\s+/gm,'');
+    text=text.replace(/^\s*>\s?/gm,'');
+    text=text.replace(/^\s*[-+*]\s+/gm,'');
+    text=text.replace(/^\s*\d+[.)]\s+/gm,'');
+    text=text.replace(/\*\*([^*]+)\*\*/g,'$1');
+    text=text.replace(/__([^_]+)__/g,'$1');
+    text=text.replace(/~~([^~]+)~~/g,'$1');
+    text=text.replace(/`([^`]+)`/g,'$1');
+    text=text.replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s).,!?:;])/g,'$1$2');
+    text=text.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,!?:;])/g,'$1$2');
+    text=text.replace(/^\s*([-*_])(?:\s*\1){2,}\s*$/gm,' ');
+    return text.replace(/\s+/g,' ').trim();
+  }
+
+  function v4TaskPreview(t,max=180){
+    const clean=v4PlainMarkdown(t?.description||'');
+    if(!clean)return 'Sem descrição adicionada';
+    if(clean.length<=max)return clean;
+    const cut=clean.slice(0,max+1),at=cut.lastIndexOf(' ');
+    return (at>Math.floor(max*.72)?cut.slice(0,at):clean.slice(0,max)).trim()+'…';
+  }
+
   renderListRow = function(t){
-    const blockers=v3Blockers(t),due=v4Due(t),description=String(t.description||'').trim(),parent=v3Parent(t);
+    const blockers=v3Blockers(t),due=v4Due(t),description=v4TaskPreview(t),parent=v3Parent(t);
     return `<div class="cu-row v4-work-row ${parent?'v4-is-subtask ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
       <div class="cu-row-title">
         <!--v5-tree-->
@@ -613,7 +642,7 @@
     const columns=TASK_STATUSES.map(status=>{
       const rows=data.filter(t=>t.status===status);
       const cards=rows.map(t=>{
-        const description=String(t.description||'').trim();
+        const description=v4TaskPreview(t);
         return '<article class="cu-card v11-board-card" draggable="true" data-drag-id="'+esc(t.id)+'" data-task-id="'+esc(t.id)+'">'+
           '<div class="v11-card-top">'+v11Campaign(t.project||'Operação')+v11Subtask(t)+'</div>'+
           '<div class="cu-card-title">'+esc(t.title)+'</div>'+
@@ -642,7 +671,7 @@
         return '<div class="v11-campaign-status">'+
           '<div class="v11-campaign-status-head"><i style="--v11-status:'+esc(STATUS_COLORS[status]||'#8e989f')+'"></i><b>'+esc(status)+'</b><span>'+statusRows.length+'</span></div>'+
           statusRows.map(t=>{
-            const description=String(t.description||'').trim();
+            const description=v4TaskPreview(t);
             return '<div class="cu-campaign-row v11-campaign-task" data-task-id="'+esc(t.id)+'">'+
               '<div class="v11-campaign-task-main">'+v11Subtask(t)+'<b>'+esc(t.title)+'</b><small>'+esc(description||'Sem descrição adicionada')+'</small></div>'+
               '<div class="v11-campaign-task-owner">'+v11Owner(t,true)+'</div>'+
@@ -686,7 +715,7 @@
           '<div class="v12-person-progress"><span>'+done+'/'+rows.length+' concluídas</span><i><b style="width:'+pct+'%"></b></i></div>'+
         '</div>'+
         '<div class="v12-person-rows">'+rows.map(t=>{
-          const description=String(t.description||'').trim();
+          const description=v4TaskPreview(t);
           const parent=v3Parent(t);
           return '<div class="v12-person-row '+(parent?'is-subtask ':'')+'" data-task-id="'+esc(t.id)+'">'+
             '<div class="v12-person-task">'+
@@ -714,7 +743,7 @@
     const campaignNames=[...new Set(data.map(t=>t.project||'Operação'))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
 
     const taskRow=t=>{
-      const description=String(t.description||'').trim();
+      const description=v4TaskPreview(t);
       const parent=v3Parent(t);
       return '<div class="v13-pc-task '+(parent?'is-subtask ':'')+'" data-task-id="'+esc(t.id)+'">'+
         '<div class="v13-pc-main">'+
@@ -811,7 +840,7 @@
         return '<section class="cu-day v11-day '+(iso===today?'today':'')+'">'+
           '<div class="cu-day-head v11-day-head"><div><span>'+names[i]+'</span><b>'+String(d.getDate()).padStart(2,'0')+'</b></div><div><small>'+rows.length+' tarefa'+(rows.length===1?'':'s')+'</small>'+(iso===today?'<em>Hoje</em>':'')+'</div></div>'+
           '<div class="v11-day-body">'+(rows.length?rows.map(t=>{
-            const description=String(t.description||'').trim();
+            const description=v4TaskPreview(t);
             return '<div class="cu-week-card v11-week-card" data-task-id="'+esc(t.id)+'">'+
               '<div class="v11-week-card-top">'+v11Campaign(t.project||'Operação')+v11Subtask(t)+'</div>'+
               '<b>'+esc(t.title)+'</b>'+
