@@ -117,7 +117,7 @@ async function main() {
     c.schedule=Array.isArray(c.schedule)?c.schedule:(Array.isArray(c.cronograma)?c.cronograma:[]);
     return c;
   }
-  function filteredCampaigns(){const q=(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();const st=document.getElementById('campaignStatusFilter')?.value||'';const brand=getSelectedBrand();return campaignData.map(normalizeCampaign).filter(c=>{if(brand&&c.brand!==brand)return false;if(st&&c.status!==st)return false;if(q&&!\`\${c.name} \${c.type} \${c.owner} \${c.offer} \${c.channels.join(' ')}\`.toLowerCase().includes(q))return false;return true})}`;
+  function filteredCampaigns(){const q=(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();const st=document.getElementById('campaignStatusFilter')?.value||'';const brand=getSelectedBrand();const allowed=new Set((window.AllianceOSDirectory?.brands||[]).map(b=>String(b?.nome||'')).filter(Boolean));return campaignData.map(normalizeCampaign).filter(c=>{if(allowed.size&&c.brand&&!allowed.has(String(c.brand)))return false;if(brand&&c.brand!==brand)return false;if(st&&c.status!==st)return false;if(q&&!\`\${c.name} \${c.type} \${c.owner} \${c.offer} \${c.channels.join(' ')}\`.toLowerCase().includes(q))return false;return true})}`;
           if (!s.includes(oldFilteredCampaigns)) throw new Error('Não encontrei filteredCampaigns legado para normalizar');
           s = s.replace(oldFilteredCampaigns, newFilteredCampaigns);
 

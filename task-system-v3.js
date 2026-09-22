@@ -182,9 +182,12 @@
     } catch { return []; }
   };
   const v3Brands = () => {
+    const fromDirectory=(window.AllianceOSDirectory?.brands||[]).map(b=>b?.nome).filter(Boolean);
+    if(window.AllianceOSDirectory?.loaded)return [...new Set(fromDirectory)];
     const fromSelect=[...document.querySelectorAll('#brandSelect option')].map(o=>o.value||o.textContent).filter(x=>x&&x!=='Todas as marcas');
-    return [...new Set([...fromSelect,'Botanika','Revita','VermeFree','Shoty'])];
+    return [...new Set(fromSelect)];
   };
+  const v3AllowedBrandSet=()=>new Set(v3Brands().map(String));
   const v3ActiveBrand = () => {
     const b = brandFilter();
     if(b) return b;
@@ -194,7 +197,14 @@
   const v3TeamUsers = () => {
     const directory=window.AllianceOSDirectory;
     if(directory&&Array.isArray(directory.members)){
-      const live=directory.members.filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false).map(x=>x.nome).filter(Boolean);
+      const active=v3ActiveBrand();
+      const brand=(directory.brands||[]).find(b=>String(b?.nome||'')===String(active||''));
+      const memberships=directory.brandMemberships||[];
+      const live=directory.members.filter(x=>{
+        if(x?.tipo!=='usuario'||x?.atribuivel===false)return false;
+        if(!brand)return true;
+        return x.papel==='admin'||memberships.some(m=>String(m.profile_id)===String(x.id)&&String(m.brand_id)===String(brand.id));
+      }).map(x=>x.nome).filter(Boolean);
       return [...new Set(live)].sort((a,b)=>v3Short(a).localeCompare(v3Short(b),'pt-BR'));
     }
     return [];
@@ -427,11 +437,13 @@
     const pr=document.getElementById('priorityFilter')?.value||'';
     const proj=document.getElementById('projectFilter')?.value||'';
     const brand=brandFilter();
+    const allowed=v3AllowedBrandSet();
     const meus=v3CurrentNames();
     const meuId=window.AllianceOSSession?.user?.id||window.user?.id||null;
     return taskData.filter(t=>{
       v3NormalizeTask(t);
       if(t.archivedAt&&!q)return false;
+      if(allowed.size&&t.brand&&!allowed.has(String(t.brand)))return false;
       if(brand&&t.brand!==brand)return false;
       if(taskState.onlyMe&&!((meuId&&(t.assigneeIds||[]).some(id=>String(id)===String(meuId)))||t.assignees.some(a=>meus.some(m=>v3Short(a)===v3Short(m)))))return false;
       if(ass&&!t.assignees.includes(ass))return false;
@@ -453,7 +465,8 @@
     const currentA=ass.value,currentP=proj.value,currentS=st.value;
     ass.innerHTML='<option value="">Todo mundo</option>'+v3TeamUsers().map(x=>`<option value="${esc(x)}">${esc(v3Short(x))}</option>`).join('');
     const brand=brandFilter();
-    const allProjects=[...new Set(taskData.filter(t=>!brand||t.brand===brand).map(t=>t.project).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const allowed=v3AllowedBrandSet();
+    const allProjects=[...new Set(taskData.filter(t=>(!allowed.size||!t.brand||allowed.has(String(t.brand)))&&(!brand||t.brand===brand)).map(t=>t.project).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     proj.innerHTML='<option value="">Todas as campanhas</option>'+allProjects.map(x=>`<option>${esc(x)}</option>`).join('');
     st.innerHTML='<option value="">Todos os status</option>'+TASK_STATUSES.map(x=>`<option>${x}</option>`).join('');
     if([...ass.options].some(o=>o.value===currentA))ass.value=currentA;

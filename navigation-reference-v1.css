@@ -1041,3 +1041,5 @@
   width:100%!important;height:100%!important;display:block!important;object-fit:contain!important;
   object-position:50% 50%!important;margin:0!important;padding:0!important;transform:none!important;
 }
+
+.ref2-workspace-icon img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important;border-radius:inherit!important}

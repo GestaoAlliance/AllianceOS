@@ -135,11 +135,21 @@
     document.body.appendChild(n);setTimeout(()=>n.remove(),1600);
   };
   function ensureBrands(select){
-    ['Botanika','Revita','VermeFree','Shoty','Todas as marcas'].forEach(name=>{
-      if(![...select.options].some(o=>o.textContent.trim()===name)){
-        const o=document.createElement('option');o.textContent=name;o.value=name;select.appendChild(o);
+    const directory=window.AllianceOSDirectory;
+    if(directory?.loaded){
+      const current=select.value;
+      const brands=Array.isArray(directory.brands)?directory.brands:[];
+      select.replaceChildren();
+      for(const b of brands){
+        const o=document.createElement('option');
+        o.textContent=b.nome;o.value=b.nome;o.dataset.brandId=b.id||'';o.dataset.brandPhoto=b.foto_url||'';select.appendChild(o);
       }
-    });
+      const all=document.createElement('option');all.textContent='Todas as marcas';all.value='Todas as marcas';select.appendChild(all);
+      const allowed=[...select.options].map(o=>o.value);
+      select.value=allowed.includes(current)?current:(brands[0]?.nome||'Todas as marcas');
+      return current!==select.value;
+    }
+    return false;
   }
   function setup(){
     const sidebar=q('.sidebar'), toolbar=q('.global-toolbar'), legacyNav=q('.nav',sidebar);
@@ -249,11 +259,36 @@
       const syncWorkspace=()=>{
         const value=brand.value;
         const displayValue=/todas/i.test(value)?'Todas as marcas':value;
-        const s=q('.ref2-workspace-copy strong');if(s)s.textContent=displayValue;
+        const directory=window.AllianceOSDirectory||{};
+        const info=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+        const members=(directory.members||[]).filter(x=>x?.tipo==='usuario');
+        const memberships=directory.brandMemberships||[];
+        const memberCount=info
+          ? members.filter(m=>m.papel==='admin'||memberships.some(x=>String(x.profile_id)===String(m.id)&&String(x.brand_id)===String(info.id))).length
+          : members.length;
+        const title=q('.ref2-workspace-copy strong');if(title)title.textContent=displayValue;
+        const sub=q('.ref2-workspace-copy span');if(sub)sub.textContent=memberCount+' membro'+(memberCount===1?'':'s');
+        const icon=q('.ref2-workspace-icon');
+        if(icon){
+          if(info?.foto_url){
+            icon.innerHTML='<img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="">';
+            icon.style.background='#fff';icon.style.color='inherit';
+          }else if(info){
+            icon.textContent=(String(info.nome||'M')[0]||'M').toUpperCase();
+            icon.style.background=info.cor||'#eef1f2';icon.style.color='#fff';
+          }else{
+            icon.textContent='✦';icon.style.background='#f1f3f4';icon.style.color='#5d6770';
+          }
+        }
         workspace.dataset.brand=String(value||'');
-        workspace.setAttribute('aria-label','Marca atual: '+displayValue+'. Clique para trocar.');
+        workspace.setAttribute('aria-label','Marca atual: '+displayValue+'. '+memberCount+' membro'+(memberCount===1?'':'s')+'. Clique para trocar.');
       };
       brand.addEventListener('change',syncWorkspace);syncWorkspace();
+      window.addEventListener('allianceos:directory',()=>{
+        const changed=ensureBrands(brand);
+        syncWorkspace();
+        if(changed)brand.dispatchEvent(new Event('change',{bubbles:true}));
+      });
 
       workspace.setAttribute('role','button');
       workspace.setAttribute('tabindex','0');
@@ -289,7 +324,11 @@
           btn.type='button';
           btn.setAttribute('role','option');
           btn.setAttribute('aria-selected',String(value===brand.value));
-          btn.textContent=opt.textContent;
+          const info=(window.AllianceOSDirectory?.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+          const avatar=info?.foto_url
+            ? '<span style="width:24px;height:24px;border-radius:7px;overflow:hidden;display:grid;place-items:center;background:#f1f3f4;flex:0 0 24px"><img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="" style="width:100%;height:100%;object-fit:cover"></span>'
+            : '<span style="width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:'+(info?.cor||'#f1f3f4')+';color:'+(info?'#fff':'#657078')+';font:750 10px Inter,system-ui;flex:0 0 24px">'+(info?(String(info.nome||'M')[0]||'M').toUpperCase():'✦')+'</span>';
+          btn.innerHTML=avatar+'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+opt.textContent+'</span>';
           Object.assign(btn.style,{
             width:'100%',
             height:'38px',
@@ -299,6 +338,7 @@
             background:value===brand.value?'#f1f4f5':'transparent',
             color:'#252b30',
             textAlign:'left',
+            display:'flex',alignItems:'center',gap:'9px',
             font:'600 11px/1 Inter,system-ui,sans-serif',
             cursor:'pointer'
           });

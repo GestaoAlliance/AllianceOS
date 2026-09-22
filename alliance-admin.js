@@ -4,8 +4,8 @@
   const CONFIG_URL='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
   const TASKS_KEY='central.tasks.vitor-gutierrez';
   const APP_URL='https://alliance-os-sooty.vercel.app';
-  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],areas:[],links:[],invites:[],tasks:[],notifications:[]};
-  window.AllianceOSDirectory={members:[],lists:[],brands:[]};
+  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null};
+  window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],loaded:false};
 
   const esc=(v)=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const norm=(v)=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -13,6 +13,11 @@
   const avatarInner=(person,fallbackName='')=>person?.foto_url
     ? '<img src="'+esc(person.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
     : esc(initials(person?.nome||fallbackName));
+  const brandAvatarInner=(brand,fallbackName='')=>brand?.foto_url
+    ? '<img src="'+esc(brand.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
+    : esc((String(brand?.nome||fallbackName||'M').trim()[0]||'M').toUpperCase());
+  const memberBrandIds=(profileId)=>state.brandMemberships.filter(x=>String(x.profile_id)===String(profileId)).map(x=>String(x.brand_id));
+  const memberHasBrand=(member,brand)=>!!member&&!!brand&&(member.papel==='admin'||memberBrandIds(member.id).includes(String(brand.id)));
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const toast=(msg)=>{
@@ -125,25 +130,28 @@
 
   async function loadDirectory(){
     if(!state.user){
-      state.members=[];state.lists=[];state.brands=[];state.tasks=[];
+      state.members=[];state.lists=[];state.brands=[];state.brandMemberships=[];state.tasks=[];
       localStorage.removeItem(TASKS_KEY);
       sessionStorage.removeItem('allianceos.rls_tasks_hydrated');
-      window.AllianceOSDirectory={members:[],lists:[],brands:[]};
+      window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],loaded:true};
       return;
     }
-    const [profileR,profilesR,brandsR,areasR,listsR,linksR,invitesR,tasks]=await Promise.all([
+    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,tasks]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('ativo',true).order('nome'),
-      state.sb.from('brands').select('id,nome,slug,ativo').eq('ativo',true).order('nome'),
+      state.sb.from('brands').select('id,nome,slug,ativo,foto_url,cor,descricao,site_url,configuracoes,atualizado_em').eq('ativo',true).order('nome'),
+      state.sb.from('profile_brands').select('profile_id,brand_id'),
       state.sb.from('areas').select('id,nome').order('nome'),
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),
-      state.sb.from('equipe_convites').select('email,nome,cargo,papel,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
+      state.sb.from('equipe_convites').select('email,nome,cargo,papel,marcas,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
       readTasks()
     ]);
     state.profile=profileR.data||null;
     state.brands=brandsR.data||[];
+    state.brandMemberships=membershipR.data||[];
     state.areas=areasR.data||[];
+    window.AllianceOSSession={...(window.AllianceOSSession||{}),user:state.user,profile:state.profile};
     state.links=linksR.data||[];
     state.invites=invitesR.data||[];
     state.tasks=tasks;
@@ -166,7 +174,7 @@
     const profileEmails=new Set((profilesR.data||[]).map(p=>norm(p.email)).filter(Boolean));
     state.members=(profilesR.data||[]).map(p=>{
       const c=inviteByEmail.get(norm(p.email)),tipo=p.tipo_membro==='servico'?'servico':'usuario';
-      return {...p,tipo,atribuivel:tipo==='usuario',
+      return {...p,tipo,atribuivel:tipo==='usuario',brand_ids:memberBrandIds(p.id),
         convite_status:c?.aceito_em?'aceito':(c?.envio_status||null),
         convite_enviado_em:c?.enviado_em||null,
         convite_ultimo_envio_em:c?.ultimo_envio_em||null,
@@ -184,13 +192,13 @@
     }
     for(const c of state.invites){
       if(c.aceito_em||profileEmails.has(norm(c.email)))continue;
-      state.members.push({id:'convite:'+c.email,nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,tipo:'convite_pendente',atribuivel:false,
+      state.members.push({id:'convite:'+c.email,nome:c.nome||c.email,email:c.email,papel:c.papel,cargo:c.cargo,tipo:'convite_pendente',atribuivel:false,brand_ids:Array.isArray(c.marcas)?c.marcas.map(String):[],
         convite_status:c.envio_status||'pendente',convite_enviado_em:c.enviado_em||null,convite_ultimo_envio_em:c.ultimo_envio_em||null,
         convite_erro:c.envio_erro||null,convite_aceito_em:c.aceito_em||null,convite_tentativas:Number(c.tentativas_envio||0)});
     }
     const brandMap=new Map(state.brands.map(b=>[String(b.id),b]));
     state.lists=(listsR.data||[]).map(l=>({...l,marca:brandMap.get(String(l.brand_id))?.nome||'',arquivada:!!l.arquivado_em}));
-    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,areas:state.areas};
+    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,brandMemberships:state.brandMemberships,areas:state.areas,loaded:true};
     window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
     renderDirectoryChrome();
     installNav();
@@ -212,14 +220,14 @@
     if($('#allianceAdminModal'))return;
     const modal=document.createElement('div');
     modal.id='allianceAdminModal';
-    modal.innerHTML='<div class="aa-backdrop" data-aa-close></div><section class="aa-panel"><header><div><strong>Administração do AllianceOS</strong><span>Equipe, listas, migração e limpeza</span></div><button type="button" data-aa-close>×</button></header><nav><button data-aa-tab="team" class="active">Equipe</button><button data-aa-tab="lists">Listas</button><button data-aa-tab="cleanup">Limpeza</button></nav><div id="allianceAdminBody"></div></section>';
+    modal.innerHTML='<div class="aa-backdrop" data-aa-close></div><section class="aa-panel"><header><div><strong>Configurações do AllianceOS</strong><span>Marcas, acessos, equipe e estrutura operacional</span></div><button type="button" data-aa-close>×</button></header><nav><button data-aa-tab="brands">Marcas</button><button data-aa-tab="team" class="active">Equipe</button><button data-aa-tab="lists">Listas</button><button data-aa-tab="cleanup">Limpeza</button></nav><div id="allianceAdminBody"></div></section>';
     document.body.appendChild(modal);
     $$('[data-aa-close]',modal).forEach(b=>b.addEventListener('click',closeModal));
     $$('[data-aa-tab]',modal).forEach(b=>b.addEventListener('click',()=>{modal.dataset.tab=b.dataset.aaTab;$$('[data-aa-tab]',modal).forEach(x=>x.classList.toggle('active',x===b));renderModalBody();}));
     modal.dataset.tab='team';
   }
 
-  function openModal(){ensureModal();$('#allianceAdminModal').classList.add('open');refreshAll();}
+  function openModal(tab='team'){ensureModal();const modal=$('#allianceAdminModal');modal.dataset.tab=tab;$('[data-aa-tab]',modal).forEach(x=>x.classList.toggle('active',x.dataset.aaTab===tab));modal.classList.add('open');refreshAll();}
   function closeModal(){$('#allianceAdminModal')?.classList.remove('open');}
 
 
@@ -465,22 +473,41 @@
         e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();handler(e);
       },true);
     };
-    bindCapture($('.ref2-nav-btn[data-key="settings"]'),'aaAdminBound',()=>openModal());
-    bindCapture($('.ref2-team'),'aaAdminBound',()=>openModal());
+    bindCapture($('.ref2-nav-btn[data-key="settings"]'),'aaAdminBound',()=>openModal('brands'));
+    bindCapture($('.ref2-team'),'aaAdminBound',()=>openModal('team'));
     bindCapture($('.ref2-profile'),'aaProfileBound',()=>state.user?openProfileModal():openModal());
     bindCapture($('.ref2-nav-btn[data-key="notifications"]'),'aaNotifBound',e=>state.user?openNotifications(e):openModal());
   }
 
   function renderDirectoryChrome(){
     const real=state.members.filter(m=>m.tipo==='usuario');
-    const count=real.length;
-    $$('.ref2-workspace-copy span').forEach(el=>el.textContent=count+' membro'+(count===1?'':'s'));
+    const select=$('#brandSelect');
+    const selected=select?.value||'';
+    const brand=/todas/i.test(selected)?null:state.brands.find(b=>norm(b.nome)===norm(selected));
+    const visible=brand?real.filter(m=>memberHasBrand(m,brand)):real;
+    const count=visible.length;
+    $('.ref2-workspace-copy span').forEach(el=>el.textContent=count+' membro'+(count===1?'':'s'));
+    const icon=$('.ref2-workspace-icon');
+    if(icon){
+      if(brand){
+        icon.innerHTML=brandAvatarInner(brand,brand.nome);
+        icon.style.overflow='hidden';
+        icon.style.background=brand.foto_url?'#fff':(brand.cor||'#f2f4f5');
+        icon.style.color=brand.foto_url?'inherit':'#fff';
+      }else{
+        icon.textContent='✦';icon.style.background='#f1f3f4';icon.style.color='#5d6770';
+      }
+    }
     const team=$('.ref2-team');
     if(team){
-      team.setAttribute('aria-label','Equipe Alliance · '+count+' membro'+(count===1?'':'s'));
-      const shown=real.slice(0,2);
+      team.setAttribute('aria-label',(brand?brand.nome:'Alliance')+' · '+count+' membro'+(count===1?'':'s'));
+      const shown=visible.slice(0,2);
       team.innerHTML=shown.map(m=>'<span class="ref2-team-avatar">'+avatarInner(m,m.nome)+'</span>').join('')+
         (count>2?'<span class="ref2-team-avatar more">+'+(count-2)+'</span>':'');
+    }
+    if(select&&!select.dataset.aaBrandChromeBound){
+      select.dataset.aaBrandChromeBound='1';
+      select.addEventListener('change',()=>{renderDirectoryChrome();window.dispatchEvent(new CustomEvent('allianceos:brandchange',{detail:{brand:select.value}}));});
     }
     if(state.profile){
       const av=$('.ref2-avatar');
@@ -517,6 +544,140 @@
       '</div>';
   }
 
+
+  function memberCountForBrand(brandId){
+    const direct=new Set(state.brandMemberships.filter(x=>String(x.brand_id)===String(brandId)).map(x=>String(x.profile_id)));
+    state.members.filter(m=>m.tipo==='usuario'&&m.papel==='admin').forEach(m=>direct.add(String(m.id)));
+    return direct.size;
+  }
+
+  function brandsView(){
+    const isAdmin=state.profile?.papel==='admin';
+    if(!state.brands.length)return '<div class="aa-empty">Nenhuma marca disponível para esta conta.</div>';
+    if(!isAdmin)return '<div class="aa-section"><div class="aa-title"><div><h2>Marcas</h2><p>Seu acesso é definido pelos administradores do AllianceOS.</p></div></div><div class="aa-brand-readonly">'+state.brands.map(b=>'<article><span class="aa-brand-avatar">'+brandAvatarInner(b,b.nome)+'</span><div><b>'+esc(b.nome)+'</b><small>'+esc(b.descricao||b.site_url||'Perfil da marca')+'</small></div></article>').join('')+'</div></div>';
+    if(!state.brandEditingId||!state.brands.some(b=>String(b.id)===String(state.brandEditingId)))state.brandEditingId=state.brands[0]?.id||null;
+    const b=state.brands.find(x=>String(x.id)===String(state.brandEditingId))||state.brands[0];
+    const members=state.members.filter(m=>m.tipo==='usuario');
+    const cfg=b.configuracoes&&typeof b.configuracoes==='object'?b.configuracoes:{};
+    const defaultView=String(cfg.default_view||'inicio');
+    const timezone=String(cfg.timezone||'America/Sao_Paulo');
+    const notifications=cfg.notifications_enabled!==false;
+    const compact=cfg.compact_mode===true;
+    const memberRows=members.map(m=>{
+      const globalAdmin=m.papel==='admin';
+      const checked=globalAdmin||memberBrandIds(m.id).includes(String(b.id));
+      return '<label class="aa-brand-member '+(globalAdmin?'global-admin':'')+'"><input type="checkbox" data-aa-brand-member="'+esc(m.id)+'" '+(checked?'checked':'')+' '+(globalAdmin?'disabled':'')+'><span class="aa-brand-member-avatar">'+avatarInner(m,m.nome)+'</span><span class="aa-brand-member-copy"><b>'+esc(m.nome)+'</b><small>'+esc(m.cargo||m.email||'Membro')+(globalAdmin?' · administrador global':'')+'</small></span><span class="aa-badge '+(checked?'ok':'')+'">'+(globalAdmin?'global':checked?'acesso':'sem acesso')+'</span></label>';
+    }).join('');
+    return '<div class="aa-section aa-brands-section"><div class="aa-title"><div><h2>Perfis das marcas</h2><p>Cada marca tem identidade, preferências e equipe próprias.</p></div><span>'+state.brands.length+' marcas</span></div>'+
+      '<div class="aa-brand-layout"><aside class="aa-brand-list">'+state.brands.map(x=>'<button type="button" class="aa-brand-list-item '+(String(x.id)===String(b.id)?'active':'')+'" data-aa-brand-open="'+esc(x.id)+'"><span class="aa-brand-avatar">'+brandAvatarInner(x,x.nome)+'</span><span><b>'+esc(x.nome)+'</b><small>'+memberCountForBrand(x.id)+' membro'+(memberCountForBrand(x.id)===1?'':'s')+'</small></span><i>›</i></button>').join('')+'</aside>'+
+      '<section class="aa-brand-editor">'+
+        '<div class="aa-brand-editor-head"><div class="aa-brand-photo" id="aaBrandPhotoPreview">'+brandAvatarInner(b,b.nome)+'</div><div><h3>'+esc(b.nome)+'</h3><p>Foto/logo quadrada, identidade e comportamento desta marca.</p><input id="aaBrandPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif">'+(b.foto_url?'<label class="aa-brand-remove"><input id="aaBrandRemovePhoto" type="checkbox"> Remover foto atual</label>':'')+'</div></div>'+
+        '<div class="aa-brand-fields">'+
+          '<label><span>Nome da marca</span><input id="aaBrandName" maxlength="120" readonly value="'+esc(b.nome)+'"></label>'+
+          '<label><span>Slug</span><input id="aaBrandSlug" maxlength="80" readonly value="'+esc(b.slug)+'"></label>'+
+          '<label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#111519')+'"></label>'+
+          '<label><span>Site</span><input id="aaBrandSite" type="url" placeholder="https://" value="'+esc(b.site_url||'')+'"></label>'+
+          '<label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como esta marca deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>'+
+        '</div>'+
+        '<div class="aa-brand-subhead"><div><b>Configuração do sistema</b><small>Preferências específicas quando esta marca estiver selecionada.</small></div></div>'+
+        '<div class="aa-brand-fields">'+
+          '<label><span>Tela padrão</span><select id="aaBrandDefaultView"><option value="inicio" '+(defaultView==='inicio'?'selected':'')+'>Início</option><option value="tarefas" '+(defaultView==='tarefas'?'selected':'')+'>Tarefas</option><option value="campanhas" '+(defaultView==='campanhas'?'selected':'')+'>Campanhas</option><option value="entregas" '+(defaultView==='entregas'?'selected':'')+'>Entregas</option></select></label>'+
+          '<label><span>Fuso horário</span><select id="aaBrandTimezone"><option value="America/Sao_Paulo" '+(timezone==='America/Sao_Paulo'?'selected':'')+'>Brasília / São Paulo</option><option value="UTC" '+(timezone==='UTC'?'selected':'')+'>UTC</option></select></label>'+
+          '<label class="aa-brand-toggle"><input id="aaBrandNotifications" type="checkbox" '+(notifications?'checked':'')+'><span><b>Notificações da marca</b><small>Ativar alertas e avisos operacionais.</small></span></label>'+
+          '<label class="aa-brand-toggle"><input id="aaBrandCompact" type="checkbox" '+(compact?'checked':'')+'><span><b>Modo compacto</b><small>Preferir visualização mais densa.</small></span></label>'+
+        '</div>'+
+        '<div class="aa-brand-subhead"><div><b>Usuários desta marca</b><small>Quem pode ver e trabalhar neste perfil. Administradores globais sempre têm acesso.</small></div><span>'+members.length+' usuários</span></div>'+
+        '<div class="aa-brand-members">'+memberRows+'</div>'+
+        '<div class="aa-brand-savebar"><small>As alterações valem apenas para '+esc(b.nome)+'.</small><button type="button" class="primary" id="aaSaveBrand">Salvar configurações</button></div>'+
+      '</section></div></div>';
+  }
+
+  function brandImageBlob(file){
+    return new Promise((resolve,reject)=>{
+      if(!file)return reject(new Error('Selecione uma imagem.'));
+      const url=URL.createObjectURL(file),img=new Image();
+      img.onload=()=>{
+        try{
+          const size=512,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+          const ctx=canvas.getContext('2d');ctx.clearRect(0,0,size,size);
+          const pad=28,max=size-pad*2,scale=Math.min(max/img.naturalWidth,max/img.naturalHeight);
+          const w=Math.max(1,img.naturalWidth*scale),h=Math.max(1,img.naturalHeight*scale);
+          ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
+          canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Não foi possível preparar a imagem.'));},'image/webp',0.94);
+        }catch(err){URL.revokeObjectURL(url);reject(err);}
+      };
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Imagem inválida.'));};
+      img.src=url;
+    });
+  }
+
+  async function uploadBrandImage(file,brandId){
+    const blob=await brandImageBlob(file);
+    const path=state.user.id+'/brands/'+brandId+'/'+Date.now()+'.webp';
+    const {error}=await state.sb.storage.from('profile-avatars').upload(path,blob,{contentType:'image/webp',upsert:false,cacheControl:'31536000'});
+    if(error)throw error;
+    const {data}=state.sb.storage.from('profile-avatars').getPublicUrl(path);
+    if(!data?.publicUrl)throw new Error('Não foi possível obter a URL da imagem.');
+    return data.publicUrl;
+  }
+
+  function bindBrands(){
+    $('[data-aa-brand-open]').forEach(btn=>btn.addEventListener('click',()=>{
+      state.brandEditingId=btn.dataset.aaBrandOpen;state.brandPhotoFile=null;renderModalBody();
+    }));
+    const photo=$('#aaBrandPhoto');
+    photo?.addEventListener('change',()=>{
+      const file=photo.files?.[0];state.brandPhotoFile=file||null;
+      if(!file)return;
+      const url=URL.createObjectURL(file),preview=$('#aaBrandPhotoPreview');
+      if(preview)preview.innerHTML='<img src="'+esc(url)+'" alt="">';
+    });
+    $('#aaSaveBrand')?.addEventListener('click',async()=>{
+      const brand=state.brands.find(x=>String(x.id)===String(state.brandEditingId));if(!brand)return;
+      const btn=$('#aaSaveBrand');btn.disabled=true;btn.textContent='Salvando…';
+      try{
+        const nome=$('#aaBrandName').value.trim(),slug=$('#aaBrandSlug').value.trim().toLowerCase(),cor=$('#aaBrandColor').value||null;
+        const site_url=$('#aaBrandSite').value.trim()||null,descricao=$('#aaBrandDescription').value.trim()||null;
+        if(!nome)throw new Error('Digite o nome da marca.');
+        if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))throw new Error('Use um slug como "minha-marca".');
+        let foto_url=brand.foto_url||null;
+        if($('#aaBrandRemovePhoto')?.checked)foto_url=null;
+        if(state.brandPhotoFile)foto_url=await uploadBrandImage(state.brandPhotoFile,brand.id);
+        const configuracoes={
+          ...(brand.configuracoes&&typeof brand.configuracoes==='object'?brand.configuracoes:{}),
+          default_view:$('#aaBrandDefaultView').value,
+          timezone:$('#aaBrandTimezone').value,
+          notifications_enabled:!!$('#aaBrandNotifications').checked,
+          compact_mode:!!$('#aaBrandCompact').checked
+        };
+        const {error}=await state.sb.from('brands').update({
+          nome,slug,cor,site_url,descricao,foto_url,configuracoes,
+          atualizado_em:new Date().toISOString(),atualizado_por:state.user.id
+        }).eq('id',brand.id);
+        if(error)throw error;
+
+        const editableMembers=state.members.filter(m=>m.tipo==='usuario'&&m.papel!=='admin');
+        const wanted=new Set($('[data-aa-brand-member]').filter(x=>!x.disabled&&x.checked).map(x=>String(x.dataset.aaBrandMember)));
+        const current=new Set(state.brandMemberships.filter(x=>String(x.brand_id)===String(brand.id)).map(x=>String(x.profile_id)).filter(id=>editableMembers.some(m=>String(m.id)===id)));
+        const add=[...wanted].filter(id=>!current.has(id));
+        const remove=[...current].filter(id=>!wanted.has(id));
+        if(remove.length){
+          const {error:removeError}=await state.sb.from('profile_brands').delete().eq('brand_id',brand.id).in('profile_id',remove);
+          if(removeError)throw removeError;
+        }
+        if(add.length){
+          const {error:addError}=await state.sb.from('profile_brands').insert(add.map(profile_id=>({profile_id,brand_id:brand.id})));
+          if(addError)throw addError;
+        }
+        await audit('atualizar_marca','marca',brand.id,{nome,slug,membros_adicionados:add,membros_removidos:remove,configuracoes});
+        state.brandPhotoFile=null;
+        toast('Configurações de '+nome+' salvas.');
+        await refreshAll();
+      }catch(err){toast(err.message||String(err));}
+      finally{const live=$('#aaSaveBrand');if(live){live.disabled=false;live.textContent='Salvar configurações';}}
+    });
+  }
+
   function listsView(){
     const admin=state.profile?.papel==='admin';
     return '<div class="aa-section"><div class="aa-title"><div><h2>Listas</h2><p>Hierarquia: marca → lista/campanha → tarefa → subtarefa.</p></div><span>'+state.lists.filter(l=>!l.arquivada).length+' ativas</span></div>'+
@@ -536,7 +697,8 @@
     const body=$('#allianceAdminBody');if(!body)return;
     if(!state.user){body.innerHTML=loginView();bindLogin();return;}
     const tab=$('#allianceAdminModal')?.dataset.tab||'team';
-    body.innerHTML=tab==='lists'?listsView():tab==='cleanup'?cleanupView():teamView();
+    body.innerHTML=tab==='brands'?brandsView():tab==='lists'?listsView():tab==='cleanup'?cleanupView():teamView();
+    if(tab==='brands')bindBrands();
     if(tab==='team')bindTeam();
     if(tab==='lists')bindLists();
     if(tab==='cleanup')bindCleanup();
