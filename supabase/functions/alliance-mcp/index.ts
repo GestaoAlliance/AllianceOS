@@ -11,10 +11,11 @@ const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
 const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
-const MCP_BRAND_VERSION = '20260922-2'
+const MCP_BRAND_VERSION = '20260922-3'
 const MCP_ICON_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\" role=\"img\" aria-label=\"AllianceOS\"><rect x=\"23\" y=\"23\" width=\"466\" height=\"466\" rx=\"103\" fill=\"#101418\"/><g stroke=\"#fff\" stroke-width=\"38\" stroke-linecap=\"round\"><path d=\"M256 169v174\"/><path d=\"M169 256h174\"/><path d=\"M194.5 194.5l123 123\"/><path d=\"M317.5 194.5l-123 123\"/></g></svg>"
 const MCP_ICON_DATA_URI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(MCP_ICON_SVG)
-const MCP_ICON_URL = APP_URL + '/api/brand-icon?format=svg&v=' + MCP_BRAND_VERSION
+const MCP_ICON_URL = APP_URL + '/api/brand-icon?v=' + MCP_BRAND_VERSION
+const MCP_ICON_SVG_URL = APP_URL + '/api/brand-icon?format=svg&v=' + MCP_BRAND_VERSION
 const TOOL_SCHEMA_VERSION = '2026-09-22.1'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
@@ -1578,10 +1579,10 @@ const protectedHandler = withOAuthProtectedResource(
       const server = new McpServer({
         name: 'AllianceOS Gestão',
         title: 'AllianceOS',
-        version: '2.3.3',
+        version: '2.3.4',
         description: 'Sistema operacional da Alliance para tarefas, campanhas, entregas, planejamento e automações.',
         websiteUrl: APP_URL,
-        icons: [{ src: MCP_ICON_URL, mimeType: 'image/svg+xml', sizes: ['any'] }, { src: MCP_ICON_DATA_URI, mimeType: 'image/svg+xml', sizes: ['any'] }],
+        icons: [{ src: MCP_ICON_URL, mimeType: 'image/png', sizes: ['512x512'] }, { src: MCP_ICON_SVG_URL, mimeType: 'image/svg+xml', sizes: ['any'] }, { src: MCP_ICON_DATA_URI, mimeType: 'image/svg+xml', sizes: ['any'] }],
       })
 
       

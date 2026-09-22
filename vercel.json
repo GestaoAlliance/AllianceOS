@@ -5,6 +5,14 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/mcp/oauth-protected-resource",
+      "destination": "/api/mcp-resource"
+    },
+    {
+      "source": "/mcp",
+      "destination": "/api/mcp"
+    },
+    {
       "source": "/favicon.ico",
       "destination": "/api/brand-icon?v=20260922-4"
     },
