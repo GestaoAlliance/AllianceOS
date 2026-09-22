@@ -38,13 +38,56 @@
 
   function areaIcon(name){
     const n=String(name||'').toLowerCase();
-    if(n.includes('design'))return '✦';
-    if(n.includes('tráfego')||n.includes('trafego'))return '↗';
-    if(n.includes('social'))return '◫';
-    if(n.includes('autom'))return '⚡';
-    if(n.includes('atend'))return '◌';
-    if(n.includes('gest'))return '◎';
-    return '•';
+    const svg=(body)=>'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+body+'</svg>';
+
+    if(n.includes('gest')){
+      return svg(
+        '<path d="M4 19V9"/>'+
+        '<path d="M10 19V5"/>'+
+        '<path d="M16 19v-7"/>'+
+        '<path d="M22 19H2"/>'
+      );
+    }
+    if(n.includes('tráfego')||n.includes('trafego')){
+      return svg(
+        '<path d="M4 17 10 11l4 4 6-8"/>'+
+        '<path d="M15 7h5v5"/>'
+      );
+    }
+    if(n.includes('social')){
+      return svg(
+        '<rect x="3.5" y="4" width="17" height="16" rx="4"/>'+
+        '<path d="M8 9h8"/>'+
+        '<path d="M8 13h5"/>'+
+        '<path d="m15.5 16 1.8 1.8"/>'
+      );
+    }
+    if(n.includes('autom')){
+      return svg(
+        '<circle cx="6" cy="6" r="2.5"/>'+
+        '<circle cx="18" cy="18" r="2.5"/>'+
+        '<circle cx="18" cy="6" r="2.5"/>'+
+        '<path d="M8.5 6h7"/>'+
+        '<path d="M18 8.5v7"/>'+
+        '<path d="M8 7.5c1.5 4 3.5 7 7.5 9"/>'
+      );
+    }
+    if(n.includes('atend')){
+      return svg(
+        '<path d="M4 13v-2a8 8 0 0 1 16 0v2"/>'+
+        '<path d="M4 13a2 2 0 0 1 2-2h1v7H6a2 2 0 0 1-2-2z"/>'+
+        '<path d="M20 13a2 2 0 0 0-2-2h-1v7h1a2 2 0 0 0 2-2z"/>'+
+        '<path d="M17 18c0 1.7-1.3 3-3 3h-2"/>'
+      );
+    }
+    if(n.includes('design')){
+      return svg(
+        '<path d="m4 20 4.2-1 9.9-9.9a2.8 2.8 0 0 0-4-4L4.2 15z"/>'+
+        '<path d="m12.8 6.4 4.8 4.8"/>'+
+        '<path d="M4.2 15 8 18.8"/>'
+      );
+    }
+    return svg('<circle cx="12" cy="12" r="4.5"/>');
   }
 
   function run({client,data,session}){
