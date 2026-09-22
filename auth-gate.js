@@ -250,10 +250,16 @@
     if(password.length<8){setMessage('Use pelo menos 8 caracteres.','error');return}
     setBusy(b,true,'Criando conta…');setMessage('');
     try{
-      const info=await conviteInfo(email);
-      if(info.ja_tem_conta){renderAuth('login',email);setMessage('Este e-mail já tem conta. Entre com sua senha.','info');return}
-      if(!info.convidado){setMessage('Este e-mail ainda não foi convidado para o AllianceOS.','error');return}
-      const {data,error}=await client.auth.signUp({email,password,options:{data:{nome:name,full_name:name,first_name:first,last_name:last},emailRedirectTo:location.origin+'/'}}); 
+      let info={};
+      try{info=await conviteInfo(email)}catch{}
+      if(info?.ja_tem_conta){renderAuth('login',email);setMessage('Este e-mail já tem conta. Entre com sua senha.','info');return}
+      const {data,error}=await client.auth.signUp({
+        email,password,
+        options:{
+          data:{nome:name,full_name:name,first_name:first,last_name:last},
+          emailRedirectTo:location.origin+'/?auth=signup'
+        }
+      });
       if(error)throw error;
       if(data?.session){location.replace('/');return}
       setMessage('Conta criada. Confirme o e-mail para concluir o acesso.','success');
@@ -265,11 +271,17 @@
     const b=document.getElementById('authGoogleButton');
     setBusy(b,true,'Conectando…');setMessage('');
     try{
-      const {error}=await client.auth.signInWithOAuth({
+      const {data,error}=await client.auth.signInWithOAuth({
         provider:'google',
-        options:{redirectTo:location.origin+'/'}
+        options:{
+          redirectTo:location.origin+'/?auth=google',
+          skipBrowserRedirect:true,
+          queryParams:{prompt:'select_account'}
+        }
       });
       if(error)throw error;
+      if(!data?.url)throw new Error('O Google não retornou uma URL de autenticação.');
+      location.assign(data.url);
     }catch(err){
       setBusy(b,false);
       setMessage(err?.message||'Não foi possível iniciar o login com Google.','error');
@@ -283,9 +295,15 @@
     if(!email){setMessage('Digite seu e-mail primeiro.','error');return}
     setBusy(b,true,'Enviando…');setMessage('');
     try{
-      const info=await conviteInfo(email);
-      if(!info.ja_tem_conta&&!info.convidado){setMessage('Este e-mail ainda não foi convidado para o AllianceOS.','error');return}
-      const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+'/',shouldCreateUser:!info.ja_tem_conta&&!!info.convidado}});
+      let info={};
+      try{info=await conviteInfo(email)}catch{}
+      const {error}=await client.auth.signInWithOtp({
+        email,
+        options:{
+          emailRedirectTo:location.origin+'/?auth=magic',
+          shouldCreateUser:!info?.ja_tem_conta
+        }
+      });
       if(error)throw error;
       setMessage('Link enviado. Abra o e-mail para entrar no AllianceOS.','success');
     }catch(err){setMessage(err?.message||String(err),'error')}
