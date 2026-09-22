@@ -58,6 +58,95 @@
     ]
   };
 
+  const ACTION_LABELS={
+    'task-create':'Criar tarefa',
+    'task-detail':'Usar uma tarefa',
+    'mind-map':'Mapa mental',
+    'campaign-assistant':'Criar campanha pelo mapa',
+    'campaign-create':'Criar campanha',
+    'campaign-detail':'Dentro da campanha',
+    'campaign-tap':'TAP da campanha',
+    'campaign-offer':'Oferta da campanha',
+    'campaign-schedule':'Cronograma da campanha',
+    'campaign-tasks':'Tarefas da campanha'
+  };
+
+  const ACTION_TOURS={
+    'task-create':[
+      ['field:#newTitle','Escreva o resultado, não só a atividade','Prefira um título que deixe claro o que precisa ficar pronto. “Criar copy do disparo de sexta” é melhor do que “Copy”.'],
+      ['field:#newAssignee','Toda tarefa precisa ter dono','Escolha quem executa. Apoio e colaboradores podem entrar depois, mas deve existir uma pessoa claramente responsável pela entrega.'],
+      ['field:#newDue','Prazo inclui horário','Use data e hora quando o trabalho precisa estar pronto antes de uma publicação, reunião, disparo ou dependência.'],
+      ['field:#newCampaign','Vincule ao contexto certo','Se a tarefa nasceu de uma campanha, vincule aqui. Assim ela aparece no progresso, no fluxo e na leitura daquela campanha.'],
+      ['field:#newDependency','Use dependência quando existe ordem real','Vincule outra tarefa apenas quando esta realmente não puder começar antes da anterior. O AllianceOS usa isso para bloquear e liberar o fluxo automaticamente.'],
+      ['field:#newDescription','Briefing é o que evita retrabalho','Escreva contexto, links, resultado esperado e critério de aceite. A pessoa deve conseguir executar sem precisar perguntar o básico no WhatsApp.'],
+      ['field:#newConferenceRequired','Checklist pode virar trava de qualidade','Ative a lista de conferência quando os itens forem obrigatórios para considerar a execução correta — site no ar, preço conferido, cupom validado, disparo revisado.'],
+      ['field:#newDeliveryRequired','Entrega obrigatória protege o resultado','Ative quando a tarefa precisa terminar com um material registrado: arte, copy, link, arquivo, relatório ou outra evidência.'],
+      ['css:#newTaskForm .new-actions','Crie só quando o contexto estiver claro','Antes de confirmar, confira dono, prazo, campanha e resultado esperado. Isso faz a tarefa nascer pronta para execução.']
+    ],
+    'task-detail':[
+      ['css:#taskTitleInput','Aqui é a ficha viva da tarefa','Tudo que mudar durante a execução deve ficar nesta ficha: contexto, prazo, dependência, checklist, material, entrega e decisão.'],
+      ['section:#detailDescription','Comece pelo briefing','Leia o resultado esperado antes de executar. Se estiver incompleto, ajuste aqui em vez de criar contexto paralelo em mensagens.'],
+      ['section:#detailAddDependency','Entenda o que vem antes e depois','Dependências representam ordem real de execução. Quando a anterior termina, as próximas podem ser liberadas automaticamente.'],
+      ['section:#detailChecklist','Use o checklist durante a execução','Marque cada item conforme confere. Se a lista for obrigatória, a tarefa não poderá ser concluída com item pendente.'],
+      ['section:#attachmentInput','Anexos são insumos, não entrega final','Use esta área para arquivos e referências necessários para trabalhar. O resultado final deve ir em Entrega.'],
+      ['section:#addDeliveryBtn','Registre o resultado final','Cole o link ou descreva a entrega. Quando a entrega for obrigatória, concluir sem registrar o resultado fica bloqueado.'],
+      ['css:.tdetail-side','O contexto operacional fica ao lado','Status, responsável, prioridade, prazo, campanha e recorrência devem refletir a realidade da execução.'],
+      ['section:#v3CompleteTaskBtn','Concluir tem significado','Ao concluir, o AllianceOS valida dependências, checklist e entrega. Se houver próxima etapa, ela é liberada pelo fluxo.'],
+      ['section:#newCommentText','Decisões importantes ficam registradas','Use comentários para aprovações, mudanças e decisões que outra pessoa precisa entender depois.']
+    ],
+    'mind-map':[
+      ['css:.ref-strategy-tabs','O mapa é o começo da estratégia','Use esta sequência: Mapa mental → Campanhas → Mês → Semana. Primeiro organize a ideia; depois transforme em execução.'],
+      ['css:.mp-cerca','Pense visualmente antes de criar trabalho','O mapa serve para quebrar a estratégia em frentes, campanhas, conteúdos, CRM e ideias sem perder a visão do todo.'],
+      ['css:.mp-fer','A barra de ferramentas cria elementos livres','Notas, formas, texto e nós soltos ajudam a rascunhar. Para estruturar uma campanha, prefira os nós da árvore.'],
+      ['css:[data-fer="no"]','Nó é uma ideia que pode ganhar estrutura','Crie um nó quando precisar abrir uma nova frente. Tab cria filho, Enter cria irmão e F2 renomeia rapidamente.'],
+      ['css:#planAddCampaignBtn','Campanha nasce do planejamento','Use “Nova campanha” quando a ideia já precisa de datas, meta, verba, oferta e TAP. O assistente cria a estrutura conectada.'],
+      ['css:[data-alliance-import-map]','Mapas também podem ser importados','Se existir um planejamento em JSON, importe por aqui. Os vínculos de campanha ficam preservados quando os IDs são válidos.'],
+      ['css:.mp-dica','Atalhos aceleram muito o trabalho','Tab cria filho · Enter cria irmão · F2 renomeia · Espaço fecha ramo · botão direito abre ações · F ativa tela cheia.']
+    ],
+    'campaign-assistant':[
+      ['css:.as-cx','Este assistente cria a campanha completa','Ele não cria apenas um nome: monta formato, datas, oferta, meta, verba, canais e o esqueleto do TAP.'],
+      ['css:.as-ops','Comece pelo formato da ação','Escolha o tipo que mais se aproxima da estratégia. O formato traz uma estrutura inicial que você pode refinar depois.'],
+      ['css:.as-passos','Siga o assistente na ordem','Cada etapa resolve uma parte do planejamento. Evite pular contexto só para chegar mais rápido ao botão de criar.'],
+      ['css:.as-resumo','Confira os números antes de confirmar','O resumo ajuda a validar soma de meta, verba e ROAS. Se não fechar com a estratégia, ajuste antes de criar.'],
+      ['css:.as-bts','Confirmar cria o contexto conectado','Ao concluir, a campanha passa a existir no mapa, na área Campanhas e no planejamento com o TAP correspondente.']
+    ],
+    'campaign-create':[
+      ['field:#campaignName','Dê um nome que identifique a ação','O nome deve ser reconhecível no mapa, nas tarefas e nos relatórios. Evite nomes genéricos que se repetem todo mês.'],
+      ['field:#campaignType','Formato define o tipo de operação','Escolha o formato que melhor representa a ação. Isso ajuda a equipe a entender rapidamente como ela funciona.'],
+      ['field:#campaignStart','Datas definem a janela da campanha','Início e fim organizam cronograma, leitura mensal e urgência das tarefas.'],
+      ['field:#campaignOwner','Toda campanha precisa de uma referência','O responsável não precisa executar tudo, mas é quem acompanha se a operação inteira está caminhando.'],
+      ['field:#campaignGoal','Meta e verba precisam conversar','A meta e o investimento formam a leitura de ROAS esperado. Depois, o TAP detalha esses valores por fonte.'],
+      ['field:#campaignObjective','Registre a direção estratégica','Objetivo, oferta e canais evitam que a campanha vire apenas uma lista de tarefas sem contexto.'],
+      ['css:#campaignForm button[type="submit"]','Crie para depois detalhar o TAP','Depois da campanha existir, use o workspace para completar oferta, cronograma, TAP e tarefas.']
+    ],
+    'campaign-detail':[
+      ['css:#campaignWorkspace .cw-top','Esta é a central da campanha','Aqui você acompanha contexto, período, responsável, status e tudo que pertence a esta ação.'],
+      ['css:#campaignWorkspace .cw-tabs','As abas contam a campanha inteira','Resumo mostra o todo; Oferta explica o que vende; Cronograma organiza quando; TAP é a fonte estruturada; Tarefas mostra a execução.'],
+      ['css:[data-cw-pane="summary"].active','Use o Resumo para bater o olho','Antes de uma reunião ou revisão, comece aqui para ver estratégia, números, oferta e progresso de tarefas.'],
+      ['css:#cwEdit','Edite o básico sem mexer no histórico','Use “Editar campanha” para dados gerais. Para estrutura operacional detalhada, prefira editar o TAP.'],
+      ['css:[data-cw-tab="tap"]','O TAP é a fonte de verdade operacional','Quando objetivo, oferta, metas por fonte ou cronograma mudarem, mantenha o TAP atualizado para o restante da campanha refletir isso.'],
+      ['css:[data-cw-tab="tasks"]','Execução deve continuar ligada à campanha','As tarefas vinculadas aparecem aqui e alimentam o progresso da campanha.']
+    ],
+    'campaign-tap':[
+      ['css:[data-cw-tab="tap"].active','Você está no TAP','O TAP concentra a estrutura operacional da campanha. É aqui que planejamento deixa de ser ideia e vira regra de execução.'],
+      ['css:[data-cw-pane="tap"].active .tap-section','Edite a seção certa, não um resumo paralelo','As informações daqui alimentam outras partes da interface. Alterar o TAP mantém a campanha consistente.'],
+      ['css:[data-cw-pane="tap"].active .tap-table','Tabelas do TAP são operacionais','Use linhas para responsáveis, fases, metas e cronograma. Mantenha nomes e números claros para a equipe e para o MCP.'],
+      ['css:[data-cw-pane="tap"].active','Revise o TAP antes de gerar tarefas','Antes de distribuir execução, confira se oferta, metas, responsáveis e prazos representam o plano real.']
+    ],
+    'campaign-offer':[
+      ['css:[data-cw-tab="offer"].active','Oferta é o que a campanha vende','Revise produto, preço, desconto, benefício, frete, brinde e bônus. Uma oferta incompleta gera tarefa correta executando estratégia errada.'],
+      ['css:[data-cw-pane="offer"].active','Use esta aba para conferência rápida','A fonte detalhada continua sendo o TAP, mas esta visão facilita validar o que vai chegar ao cliente.']
+    ],
+    'campaign-schedule':[
+      ['css:[data-cw-tab="schedule"].active','Cronograma organiza o ritmo da campanha','Aqui você confere o que acontece, em qual canal, quando e com qual responsável.'],
+      ['css:[data-cw-pane="schedule"].active','Transforme cronograma em execução real','Se algo no cronograma exige trabalho, garanta que exista uma tarefa correspondente com dono e prazo.']
+    ],
+    'campaign-tasks':[
+      ['css:[data-cw-tab="tasks"].active','Estas são as tarefas da campanha','Só entram aqui tarefas realmente vinculadas à campanha. Isso permite medir progresso sem depender do nome da lista.'],
+      ['css:[data-cw-pane="tasks"].active','Use esta visão para cobrar o fluxo, não pessoas no escuro','Veja o que está aberto, concluído ou travado e entre na tarefa para entender a causa antes de cobrar.']
+    ]
+  };
+
   const $=(s,r=document)=>r.querySelector(s);
   const visible=(el)=>{
     if(!el||!(el instanceof Element))return false;
@@ -83,6 +172,15 @@
   const target=(token)=>{
     if(!token)return null;
     if(token.startsWith('nav:'))return $('.ref2-nav-btn[data-key="'+token.slice(4)+'"]');
+    if(token.startsWith('css:'))return $(token.slice(4));
+    if(token.startsWith('field:')){
+      const el=$(token.slice(6));
+      return el?.closest('.newfield,.camp-field,.tfield,.v3-new-conference')||el;
+    }
+    if(token.startsWith('section:')){
+      const el=$(token.slice(8));
+      return el?.closest('.tsection,.v3-section,.tap-section,.cw-card')||el;
+    }
     if(token==='workspace')return $('.ref2-workspace');
     if(token==='globalSearch')return $('#globalSearch')||$('.ref2-search input')||$('input[placeholder*="Buscar tarefas"]');
     if(token==='topBell')return $('.ref2-top-bell');
@@ -102,9 +200,14 @@
     return null;
   };
   const uid=()=>window.AllianceOSSession?.user?.id||window.user?.id||'browser';
-  const doneKey=area=>'allianceos.context-guide.v'+VERSION+'.'+uid()+'.'+area;
-  const isDone=area=>{try{return localStorage.getItem(doneKey(area))==='1'}catch{return false}};
-  const markDone=area=>{try{localStorage.setItem(doneKey(area),'1')}catch{}};
+  const isAction=key=>Object.prototype.hasOwnProperty.call(ACTION_TOURS,key);
+  const guideSteps=key=>isAction(key)?ACTION_TOURS[key]:TOURS[key];
+  const guideLabel=key=>isAction(key)?ACTION_LABELS[key]:AREA_LABELS[key];
+  const doneKey=key=>isAction(key)
+    ? 'allianceos.action-guide.v1.'+uid()+'.'+key
+    : 'allianceos.context-guide.v'+VERSION+'.'+uid()+'.'+key;
+  const isDone=key=>{try{return localStorage.getItem(doneKey(key))==='1'}catch{return false}};
+  const markDone=key=>{try{localStorage.setItem(doneKey(key),'1')}catch{}};
 
   let currentArea='home',active=null,index=0,raf=0;
   let rootEl,focusEl,cardEl,blockerEl,launcherEl;
@@ -115,7 +218,7 @@
       launcherEl.id='allianceContextGuideLauncher';
       launcherEl.type='button';
       launcherEl.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2H20v17H8.5A3.5 3.5 0 0 0 5 22z"/><path d="M5 5.5V22"/><path d="M9 7h7M9 11h5"/></svg><span>Guia</span>';
-      launcherEl.addEventListener('click',()=>start(currentArea,true));
+      launcherEl.addEventListener('click',()=>start(detectAction()||currentArea,true));
       document.body.appendChild(launcherEl);
     }
   }
@@ -130,6 +233,7 @@
     if(mark&&active)markDone(active);
     cancelAnimationFrame(raf);
     rootEl?.remove();rootEl=focusEl=cardEl=blockerEl=null;active=null;index=0;
+    setTimeout(scanActions,120);
   }
   function areaFromNav(){
     return $('.ref2-nav-btn.active[data-key]')?.dataset.key||currentArea||'home';
@@ -153,7 +257,7 @@
   }
   function paint(){
     if(!active||!rootEl)return;
-    const steps=TOURS[active]||[],step=steps[index];
+    const steps=guideSteps(active)||[],step=steps[index];
     let el=target(step?.[0]);
     if(el&&!visible(el))el=null;
     if(el){
@@ -171,11 +275,11 @@
     }
   }
   function render(){
-    const steps=TOURS[active]||[],step=steps[index];if(!step){close(true);return}
+    const steps=guideSteps(active)||[],step=steps[index];if(!step){close(true);return}
     cardEl.classList.remove('centered');
     const last=index===steps.length-1;
     cardEl.innerHTML=
-      '<div class="cg-kicker">'+AREA_LABELS[active]+' · '+(index+1)+' de '+steps.length+'</div>'+
+      '<div class="cg-kicker">'+(isAction(active)?'PRIMEIRA VEZ · ':'')+guideLabel(active)+' · '+(index+1)+' de '+steps.length+'</div>'+
       '<h3>'+step[1]+'</h3><p>'+step[2]+'</p>'+
       '<div class="cg-progress">'+steps.map((_,i)=>'<i class="'+(i<=index?'on':'')+'"></i>').join('')+'</div>'+
       '<div class="cg-actions">'+
@@ -189,16 +293,47 @@
     requestAnimationFrame(paint);
   }
   function renderStep(){
-    const step=(TOURS[active]||[])[index],el=target(step?.[0]);
+    const step=(guideSteps(active)||[])[index],el=target(step?.[0]);
     if(el&&visible(el)&&!el.closest('.ref2-nav'))el.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
     render();
     setTimeout(paint,220);
   }
-  function start(area,force=false){
-    if(!TOURS[area]||document.getElementById('allianceOnboardingRoot'))return;
-    if(!force&&isDone(area))return;
-    close(false);active=area;index=0;buildTourUi();renderStep();
+  function start(key,force=false){
+    if(!guideSteps(key)||document.getElementById('allianceOnboardingRoot'))return;
+    if(!force&&isDone(key))return;
+    if(rootEl)close(false);
+    active=key;index=0;buildTourUi();renderStep();
   }
+  function detectAction(){
+    if(visible($('#newTaskModal.open')))return 'task-create';
+    if(visible($('#taskDetailDrawer.open')))return 'task-detail';
+    if(visible($('.as-fundo')))return 'campaign-assistant';
+    if(visible($('#campaignModal.open')))return 'campaign-create';
+    const workspace=$('#campaignWorkspace.active');
+    if(visible(workspace)){
+      if(visible($('[data-cw-tab="tap"].active')))return 'campaign-tap';
+      if(visible($('[data-cw-tab="offer"].active')))return 'campaign-offer';
+      if(visible($('[data-cw-tab="schedule"].active')))return 'campaign-schedule';
+      if(visible($('[data-cw-tab="tasks"].active')))return 'campaign-tasks';
+      return 'campaign-detail';
+    }
+    const planning=$('#planningView');
+    const mindActive=visible($('.ref-strategy-tabs [data-strategy-tab="mind"].active'))||
+      visible($('#planningView [data-plan-pane="mind"].active'))||
+      visible($('#planningView .mp-cerca'));
+    if(visible(planning)&&mindActive)return 'mind-map';
+    return null;
+  }
+  let actionScanTimer=0;
+  function scanActions(){
+    clearTimeout(actionScanTimer);
+    actionScanTimer=setTimeout(()=>{
+      if(active||document.getElementById('allianceOnboardingRoot'))return;
+      const key=detectAction();
+      if(key&&!isDone(key))start(key,false);
+    },180);
+  }
+
   function maybe(area){
     currentArea=area;
     if(!TOURS[area]||isDone(area)||document.getElementById('allianceOnboardingRoot'))return;
@@ -215,9 +350,29 @@
     },true);
     window.addEventListener('resize',()=>active&&paint());
     window.addEventListener('scroll',()=>active&&paint(),true);
-    window.addEventListener('allianceos:auth',()=>setTimeout(()=>{currentArea=areaFromNav();maybe(currentArea)},900));
-    setTimeout(()=>{currentArea=areaFromNav();maybe(currentArea)},1200);
+    window.addEventListener('allianceos:auth',()=>setTimeout(()=>{currentArea=areaFromNav();maybe(currentArea);scanActions()},900));
+
+    document.addEventListener('click',e=>{
+      const tab=e.target.closest?.('[data-cw-tab],[data-strategy-tab],#newCampaignBtn,#planAddCampaignBtn,[data-task-id],[data-inline-new]');
+      if(tab)setTimeout(scanActions,220);
+    },true);
+
+    new MutationObserver(()=>scanActions()).observe(document.body,{
+      childList:true,subtree:true,attributes:true,attributeFilter:['class','hidden','style']
+    });
+
+    setTimeout(()=>{currentArea=areaFromNav();maybe(currentArea);scanActions()},1200);
   }
-  window.AllianceOSContextGuide={start,reset:(area)=>{try{localStorage.removeItem(doneKey(area||currentArea))}catch{}},current:()=>currentArea};
+  window.AllianceOSContextGuide={
+    start,
+    reset:(key)=>{try{localStorage.removeItem(doneKey(key||detectAction()||currentArea))}catch{}},
+    resetAll:()=>{
+      try{
+        const prefixA='allianceos.context-guide.',prefixB='allianceos.action-guide.';
+        Object.keys(localStorage).filter(k=>k.startsWith(prefixA)||k.startsWith(prefixB)).forEach(k=>localStorage.removeItem(k));
+      }catch{}
+    },
+    current:()=>detectAction()||currentArea
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
