@@ -252,19 +252,38 @@
     try{
       let info={};
       try{info=await conviteInfo(email)}catch{}
-      if(info?.ja_tem_conta){renderAuth('login',email);setMessage('Este e-mail já tem conta. Entre com sua senha.','info');return}
-      const {data,error}=await client.auth.signUp({
-        email,password,
-        options:{
-          data:{nome:name,full_name:name,first_name:first,last_name:last},
-          emailRedirectTo:location.origin+'/?auth=signup'
+      if(info?.ja_tem_conta){
+        renderAuth('login',email);
+        setMessage('Este e-mail já tem conta. Entre com sua senha.','info');
+        return;
+      }
+
+      const {data:created,error:createError}=await client.functions.invoke('signup-direct',{
+        body:{
+          email,
+          password,
+          name,
+          first_name:first,
+          last_name:last
         }
       });
-      if(error)throw error;
-      if(data?.session){location.replace('/');return}
-      setMessage('Conta criada. Confirme o e-mail para concluir o acesso.','success');
-    }catch(err){setMessage(err?.message||String(err),'error')}
-    finally{setBusy(b,false)}
+      if(createError)throw createError;
+      if(created?.error)throw new Error(created.error);
+
+      const {data:login,error:loginError}=await client.auth.signInWithPassword({email,password});
+      if(loginError)throw loginError;
+      if(!login?.session)throw new Error('Conta criada, mas não foi possível iniciar a sessão automaticamente.');
+
+      location.replace('/');
+    }catch(err){
+      const msg=err?.context?.body?.error||err?.message||String(err);
+      if(/já tem conta|already|registered|exists/i.test(msg)){
+        renderAuth('login',email);
+        setMessage('Este e-mail já tem conta. Entre com sua senha.','info');
+        return;
+      }
+      setMessage(msg,'error');
+    }finally{setBusy(b,false)}
   }
 
   async function googleLogin(){
@@ -329,6 +348,22 @@
     return data||{};
   }
 
+  async function loadContextWithRetry(){
+    let lastError=null;
+    for(const delay of [0,180,450,900]){
+      if(delay)await new Promise(r=>setTimeout(r,delay));
+      try{
+        const ctx=await loadContext();
+        if(ctx?.perfil?.id)return ctx;
+        lastError=new Error('Perfil ainda não disponível.');
+      }catch(err){
+        lastError=err;
+        console.warn('[AllianceOS auth context retry]',err);
+      }
+    }
+    throw lastError||new Error('Não foi possível carregar seu perfil.');
+  }
+
   function exposeIdentity(ctx){
     const p=ctx?.perfil||{};
     const first=String(p.nome||session?.user?.email||'Equipe').trim().split(/\s+/)[0]||'Equipe';
@@ -351,9 +386,22 @@
       finish({authenticated:true,recovery:true,client,session,context:null});
       return;
     }
-    try{context=await loadContext()}catch(err){console.warn('[AllianceOS auth context]',err);context=null}
+    try{
+      context=await loadContextWithRetry();
+    }catch(err){
+      console.warn('[AllianceOS auth context]',err);
+      showRoot();
+      root().innerHTML='<div class="auth-fatal"><strong>Não foi possível carregar sua conta</strong><span>'+esc(err?.message||String(err))+'</span><button onclick="location.reload()">Tentar novamente</button></div>';
+      finish({authenticated:false,contextError:true,client,session,context:null});
+      return;
+    }
     const profile=context?.perfil||null;
-    if(!profile?.ativo||profile?.tipo_membro==='servico'||profile?.papel==='externo'){
+    if(profile&&!profile.ativo){
+      renderPending(profile);
+      finish({authenticated:false,pending:true,client,session,context});
+      return;
+    }
+    if(profile?.tipo_membro==='servico'||profile?.papel==='externo'){
       renderPending(profile);
       finish({authenticated:false,pending:true,client,session,context});
       return;
@@ -383,7 +431,7 @@
       showRoot();
       await window.AllianceOSOnboarding.run({client,session,data:onboarding});
       document.documentElement.classList.remove('alliance-onboarding-open');
-      try{context=await loadContext()}catch(err){console.warn('[AllianceOS auth context after onboarding]',err)}
+      try{context=await loadContextWithRetry()}catch(err){console.warn('[AllianceOS auth context after onboarding]',err)}
     }
 
     const freshProfile=context?.perfil||profile;
