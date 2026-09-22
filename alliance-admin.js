@@ -148,7 +148,7 @@
       window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],loaded:true};
       return;
     }
-    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,tasks]=await Promise.all([
+    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('ativo',true).order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo,foto_url,cor,descricao,site_url,configuracoes,atualizado_em').eq('ativo',true).order('nome'),
@@ -156,9 +156,15 @@
       state.sb.from('areas').select('id,nome').order('nome'),
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),
-      state.sb.from('equipe_convites').select('email,nome,cargo,papel,marcas,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
-      readTasks()
+      state.sb.from('equipe_convites').select('email,nome,cargo,papel,marcas,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome')
     ]);
+    let tasks=[];
+    try{tasks=await readTasks();}
+    catch(taskErr){
+      console.warn('[AllianceOS tasks scope]',taskErr);
+      try{tasks=JSON.parse(localStorage.getItem(TASKS_KEY)||'[]');}catch{tasks=[];}
+      if(!Array.isArray(tasks))tasks=[];
+    }
     state.profile=profileR.data||null;
     state.brands=brandsR.data||[];
     state.brandMemberships=membershipR.data||[];
@@ -225,7 +231,18 @@
   }
 
   async function refreshAll(){
-    try{await loadDirectory();await loadNotifications();renderModalBody();}catch(e){console.warn('[AllianceOS admin]',e);}
+    let directoryError=null;
+    try{await loadDirectory();}catch(e){directoryError=e;console.warn('[AllianceOS admin directory]',e);}
+    try{await loadNotifications();}catch(e){console.warn('[AllianceOS admin notifications]',e);}
+    try{renderModalBody();}catch(e){
+      console.warn('[AllianceOS admin render]',e);
+      const body=$('#allianceAdminBody');
+      if(body)body.innerHTML='<div class="aa-empty" style="margin:24px">Não foi possível carregar esta área. Atualize a página. '+esc(e?.message||String(e))+'</div>';
+    }
+    if(directoryError){
+      const body=$('#allianceAdminBody');
+      if(body&&!body.textContent.trim())body.innerHTML='<div class="aa-empty" style="margin:24px">Não foi possível carregar os dados das marcas. '+esc(directoryError?.message||String(directoryError))+'</div>';
+    }
   }
 
   function ensureModal(){
@@ -239,7 +256,15 @@
     modal.dataset.tab='team';
   }
 
-  function openModal(tab='team'){ensureModal();const modal=$('#allianceAdminModal');modal.dataset.tab=tab;Array.from(modal.querySelectorAll('[data-aa-tab]')).forEach(x=>x.classList.toggle('active',x.dataset.aaTab===tab));modal.classList.add('open');refreshAll();}
+  function openModal(tab='team'){
+    ensureModal();
+    const modal=$('#allianceAdminModal');
+    modal.dataset.tab=tab;
+    Array.from(modal.querySelectorAll('[data-aa-tab]')).forEach(x=>x.classList.toggle('active',x.dataset.aaTab===tab));
+    modal.classList.add('open');
+    try{renderModalBody();}catch(e){console.warn('[AllianceOS admin immediate render]',e);}
+    refreshAll();
+  }
   function closeModal(){$('#allianceAdminModal')?.classList.remove('open');}
 
 
