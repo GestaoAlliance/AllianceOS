@@ -4,8 +4,8 @@
   const CONFIG_URL='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
   const TASKS_KEY='central.tasks.vitor-gutierrez';
   const APP_URL='https://alliance-os-sooty.vercel.app';
-  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null};
-  window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],loaded:false};
+  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null};
+  window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,loaded:false};
   const BRAND_MODULES=[
     ['home','Início'],
     ['tasks','Tarefas'],
@@ -24,8 +24,19 @@
     ? '<img src="'+esc(person.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
     : esc(initials(person?.nome||fallbackName));
   const brandAvatarInner=(brand,fallbackName='')=>brand?.foto_url
-    ? '<img src="'+esc(brand.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">'
+    ? '<img src="'+esc(brand.foto_url)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;'+((brand?.configuracoes?.avatar_crop_version===2)?'':'transform:scale(1.125);')+'">'
     : esc((String(brand?.nome||fallbackName||'M').trim()[0]||'M').toUpperCase());
+  const allBrandsEditorProfile=()=>({
+    id:'__all__',
+    nome:'Todas as marcas',
+    slug:'todas-as-marcas',
+    foto_url:state.allBrandsProfile?.foto_url||null,
+    cor:state.allBrandsProfile?.cor||'#f1f3f4',
+    descricao:state.allBrandsProfile?.descricao||'Visão geral de todas as marcas',
+    site_url:null,
+    configuracoes:(state.allBrandsProfile?.configuracoes&&typeof state.allBrandsProfile.configuracoes==='object')?state.allBrandsProfile.configuracoes:{},
+    isAll:true
+  });
   const memberBrandIds=(profileId)=>state.brandMemberships.filter(x=>String(x.profile_id)===String(profileId)).map(x=>String(x.brand_id));
   const memberHasBrand=(member,brand)=>!!member&&!!brand&&(member.papel==='admin'||memberBrandIds(member.id).includes(String(brand.id)));
   const $=(s,r=document)=>r.querySelector(s);
@@ -142,13 +153,13 @@
 
   async function loadDirectory(){
     if(!state.user){
-      state.members=[];state.lists=[];state.brands=[];state.brandMemberships=[];state.tasks=[];
+      state.members=[];state.lists=[];state.brands=[];state.brandMemberships=[];state.allBrandsProfile=null;state.tasks=[];
       localStorage.removeItem(TASKS_KEY);
       sessionStorage.removeItem('allianceos.rls_tasks_hydrated');
-      window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],loaded:true};
+      window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,loaded:true};
       return;
     }
-    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR]=await Promise.all([
+    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,workspaceR]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('ativo',true).order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo,foto_url,cor,descricao,site_url,configuracoes,atualizado_em').eq('ativo',true).order('nome'),
@@ -156,7 +167,8 @@
       state.sb.from('areas').select('id,nome').order('nome'),
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),
-      state.sb.from('equipe_convites').select('email,nome,cargo,papel,marcas,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome')
+      state.sb.from('equipe_convites').select('email,nome,cargo,papel,marcas,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
+      state.sb.from('workspace_settings').select('id,foto_url,cor,descricao,configuracoes,atualizado_em').eq('id','all_brands').maybeSingle()
     ]);
     let tasks=[];
     try{tasks=await readTasks();}
@@ -168,6 +180,7 @@
     state.profile=profileR.data||null;
     state.brands=brandsR.data||[];
     state.brandMemberships=membershipR.data||[];
+    state.allBrandsProfile={id:'all_brands',nome:'Todas as marcas',slug:'todas-as-marcas',...(workspaceR.data||{})};
     state.areas=areasR.data||[];
     window.AllianceOSSession={...(window.AllianceOSSession||{}),user:state.user,profile:state.profile};
     state.links=linksR.data||[];
@@ -216,7 +229,7 @@
     }
     const brandMap=new Map(state.brands.map(b=>[String(b.id),b]));
     state.lists=(listsR.data||[]).map(l=>({...l,marca:brandMap.get(String(l.brand_id))?.nome||'',arquivada:!!l.arquivado_em}));
-    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,brandMemberships:state.brandMemberships,areas:state.areas,loaded:true};
+    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,brandMemberships:state.brandMemberships,allBrandsProfile:state.allBrandsProfile,areas:state.areas,loaded:true};
     window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
     renderDirectoryChrome();
     installNav();
@@ -520,7 +533,9 @@
     const real=state.members.filter(m=>m.tipo==='usuario');
     const select=$('#brandSelect');
     const selected=select?.value||'';
-    const brand=/todas/i.test(selected)?null:state.brands.find(b=>norm(b.nome)===norm(selected));
+    const isAll=/todas/i.test(selected);
+    const brand=isAll?null:state.brands.find(b=>norm(b.nome)===norm(selected));
+    const displayProfile=isAll?allBrandsEditorProfile():brand;
     const visible=brand?real.filter(m=>memberHasBrand(m,brand)):real;
     const count=visible.length;
     $$('.ref2-workspace-copy span').forEach(el=>el.textContent=count+' membro'+(count===1?'':'s'));
@@ -531,8 +546,11 @@
         icon.style.overflow='hidden';
         icon.style.background=brand.foto_url?'#fff':(brand.cor||'#f2f4f5');
         icon.style.color=brand.foto_url?'inherit':'#fff';
+      }else if(displayProfile?.foto_url){
+        icon.innerHTML=brandAvatarInner(displayProfile,'Todas as marcas');
+        icon.style.overflow='hidden';icon.style.background='#fff';icon.style.color='inherit';
       }else{
-        icon.textContent='✦';icon.style.background='#f1f3f4';icon.style.color='#5d6770';
+        icon.textContent='✦';icon.style.background=displayProfile?.cor||'#f1f3f4';icon.style.color='#5d6770';
       }
     }
     const team=$('.ref2-team');
@@ -592,8 +610,12 @@
     const isAdmin=state.profile?.papel==='admin';
     if(!state.brands.length)return '<div class="aa-empty">Nenhuma marca disponível para esta conta.</div>';
     if(!isAdmin)return '<div class="aa-section"><div class="aa-title"><div><h2>Marcas</h2><p>Seu acesso é definido pelos administradores do AllianceOS.</p></div></div><div class="aa-brand-readonly">'+state.brands.map(b=>'<article><span class="aa-brand-avatar">'+brandAvatarInner(b,b.nome)+'</span><div><b>'+esc(b.nome)+'</b><small>'+esc(b.descricao||b.site_url||'Perfil da marca')+'</small></div></article>').join('')+'</div></div>';
-    if(!state.brandEditingId||!state.brands.some(b=>String(b.id)===String(state.brandEditingId)))state.brandEditingId=state.brands[0]?.id||null;
-    const b=state.brands.find(x=>String(x.id)===String(state.brandEditingId))||state.brands[0];
+
+    const allProfile=allBrandsEditorProfile();
+    const profiles=[...state.brands,allProfile];
+    if(!state.brandEditingId||!profiles.some(b=>String(b.id)===String(state.brandEditingId)))state.brandEditingId=state.brands[0]?.id||'__all__';
+    const b=profiles.find(x=>String(x.id)===String(state.brandEditingId))||state.brands[0]||allProfile;
+    const isAll=!!b.isAll;
     const members=state.members.filter(m=>m.tipo==='usuario');
     const cfg=b.configuracoes&&typeof b.configuracoes==='object'?b.configuracoes:{};
     const defaultView=String(cfg.default_view||'inicio');
@@ -603,35 +625,42 @@
     const modules=(cfg.modules&&typeof cfg.modules==='object')?cfg.modules:{};
     const moduleRows=BRAND_MODULES.map(([key,label])=>{
       const checked=modules[key]!==false;
-      return '<label class="aa-brand-toggle aa-brand-module"><input type="checkbox" data-aa-brand-module="'+esc(key)+'" '+(checked?'checked':'')+'><span><b>'+esc(label)+'</b><small>Disponível quando esta marca estiver selecionada.</small></span></label>';
+      return '<label class="aa-brand-toggle aa-brand-module"><input type="checkbox" data-aa-brand-module="'+esc(key)+'" '+(checked?'checked':'')+'><span><b>'+esc(label)+'</b><small>Disponível quando este perfil estiver selecionado.</small></span></label>';
     }).join('');
-    const memberRows=members.map(m=>{
+    const memberRows=isAll?'':members.map(m=>{
       const globalAdmin=m.papel==='admin';
       const checked=globalAdmin||memberBrandIds(m.id).includes(String(b.id));
       return '<label class="aa-brand-member '+(globalAdmin?'global-admin':'')+'"><input type="checkbox" data-aa-brand-member="'+esc(m.id)+'" '+(checked?'checked':'')+' '+(globalAdmin?'disabled':'')+'><span class="aa-brand-member-avatar">'+avatarInner(m,m.nome)+'</span><span class="aa-brand-member-copy"><b>'+esc(m.nome)+'</b><small>'+esc(m.cargo||m.email||'Membro')+(globalAdmin?' · administrador global':'')+'</small></span><span class="aa-badge '+(checked?'ok':'')+'">'+(globalAdmin?'global':checked?'acesso':'sem acesso')+'</span></label>';
     }).join('');
-    return '<div class="aa-section aa-brands-section"><div class="aa-title"><div><h2>Perfis das marcas</h2><p>Cada marca tem identidade, preferências e equipe próprias.</p></div><span>'+state.brands.length+' marcas</span></div>'+
-      '<div class="aa-brand-layout"><aside class="aa-brand-list">'+state.brands.map(x=>'<button type="button" class="aa-brand-list-item '+(String(x.id)===String(b.id)?'active':'')+'" data-aa-brand-open="'+esc(x.id)+'"><span class="aa-brand-avatar">'+brandAvatarInner(x,x.nome)+'</span><span><b>'+esc(x.nome)+'</b><small>'+memberCountForBrand(x.id)+' membro'+(memberCountForBrand(x.id)===1?'':'s')+'</small></span><i>›</i></button>').join('')+'</aside>'+
+
+    const listHtml=profiles.map(x=>{
+      const count=x.isAll?members.length:memberCountForBrand(x.id);
+      return '<button type="button" class="aa-brand-list-item '+(String(x.id)===String(b.id)?'active':'')+'" data-aa-brand-open="'+esc(x.id)+'"><span class="aa-brand-avatar">'+(x.isAll&&!x.foto_url?'✦':brandAvatarInner(x,x.nome))+'</span><span><b>'+esc(x.nome)+'</b><small>'+count+' membro'+(count===1?'':'s')+'</small></span><i>›</i></button>';
+    }).join('');
+
+    const identityFields=isAll
+      ? '<label><span>Nome do perfil</span><input id="aaBrandName" readonly value="Todas as marcas"></label><label><span>Slug</span><input id="aaBrandSlug" readonly value="todas-as-marcas"></label><label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#f1f3f4')+'"></label><label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como a visão geral deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>'
+      : '<label><span>Nome da marca</span><input id="aaBrandName" maxlength="120" readonly value="'+esc(b.nome)+'"></label><label><span>Slug</span><input id="aaBrandSlug" maxlength="80" readonly value="'+esc(b.slug)+'"></label><label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#111519')+'"></label><label><span>Site</span><input id="aaBrandSite" type="url" placeholder="https://" value="'+esc(b.site_url||'')+'"></label><label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como esta marca deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>';
+
+    const usersSection=isAll
+      ? '<div class="aa-brand-subhead"><div><b>Usuários da visão geral</b><small>“Todas as marcas” reúne automaticamente todos os usuários visíveis nas marcas individuais. Os acessos continuam sendo configurados em cada marca.</small></div><span>'+members.length+' usuários</span></div>'
+      : '<div class="aa-brand-subhead"><div><b>Usuários desta marca</b><small>Quem pode ver e trabalhar neste perfil. Administradores globais sempre têm acesso.</small></div><span>'+members.length+' usuários</span></div><div class="aa-brand-members">'+memberRows+'</div>';
+
+    return '<div class="aa-section aa-brands-section"><div class="aa-title"><div><h2>Perfis das marcas</h2><p>Cada marca — e a visão geral — tem identidade e preferências próprias.</p></div><span>'+state.brands.length+' marcas</span></div>'+
+      '<div class="aa-brand-layout"><aside class="aa-brand-list">'+listHtml+'</aside>'+
       '<section class="aa-brand-editor">'+
-        '<div class="aa-brand-editor-head"><div class="aa-brand-photo" id="aaBrandPhotoPreview">'+brandAvatarInner(b,b.nome)+'</div><div><h3>'+esc(b.nome)+'</h3><p>Foto/logo quadrada, identidade e comportamento desta marca.</p><input id="aaBrandPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif">'+(b.foto_url?'<label class="aa-brand-remove"><input id="aaBrandRemovePhoto" type="checkbox"> Remover foto atual</label>':'')+'</div></div>'+
-        '<div class="aa-brand-fields">'+
-          '<label><span>Nome da marca</span><input id="aaBrandName" maxlength="120" readonly value="'+esc(b.nome)+'"></label>'+
-          '<label><span>Slug</span><input id="aaBrandSlug" maxlength="80" readonly value="'+esc(b.slug)+'"></label>'+
-          '<label><span>Cor de destaque</span><input id="aaBrandColor" type="color" value="'+esc(b.cor||'#111519')+'"></label>'+
-          '<label><span>Site</span><input id="aaBrandSite" type="url" placeholder="https://" value="'+esc(b.site_url||'')+'"></label>'+
-          '<label class="wide"><span>Descrição</span><textarea id="aaBrandDescription" rows="3" maxlength="500" placeholder="Como esta marca deve aparecer no AllianceOS">'+esc(b.descricao||'')+'</textarea></label>'+
-        '</div>'+
-        '<div class="aa-brand-subhead"><div><b>Configuração do sistema</b><small>Preferências específicas quando esta marca estiver selecionada.</small></div></div>'+
+        '<div class="aa-brand-editor-head"><div class="aa-brand-photo" id="aaBrandPhotoPreview">'+(isAll&&!b.foto_url?'✦':brandAvatarInner(b,b.nome))+'</div><div><h3>'+esc(b.nome)+'</h3><p>Foto/logo quadrada, identidade e comportamento deste perfil.</p><input id="aaBrandPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif">'+(b.foto_url?'<label class="aa-brand-remove"><input id="aaBrandRemovePhoto" type="checkbox"> Remover foto atual</label>':'')+'</div></div>'+
+        '<div class="aa-brand-fields">'+identityFields+'</div>'+
+        '<div class="aa-brand-subhead"><div><b>Configuração do sistema</b><small>Preferências específicas quando este perfil estiver selecionado.</small></div></div>'+
         '<div class="aa-brand-fields">'+
           '<label><span>Tela padrão</span><select id="aaBrandDefaultView"><option value="inicio" '+(defaultView==='inicio'?'selected':'')+'>Início</option><option value="tarefas" '+(defaultView==='tarefas'?'selected':'')+'>Tarefas</option><option value="campanhas" '+(defaultView==='campanhas'?'selected':'')+'>Campanhas</option><option value="entregas" '+(defaultView==='entregas'?'selected':'')+'>Entregas</option></select></label>'+
           '<label><span>Fuso horário</span><select id="aaBrandTimezone"><option value="America/Sao_Paulo" '+(timezone==='America/Sao_Paulo'?'selected':'')+'>Brasília / São Paulo</option><option value="UTC" '+(timezone==='UTC'?'selected':'')+'>UTC</option></select></label>'+
-          '<label class="aa-brand-toggle"><input id="aaBrandNotifications" type="checkbox" '+(notifications?'checked':'')+'><span><b>Notificações da marca</b><small>Ativar alertas e avisos operacionais.</small></span></label>'+
+          '<label class="aa-brand-toggle"><input id="aaBrandNotifications" type="checkbox" '+(notifications?'checked':'')+'><span><b>Notificações</b><small>Ativar alertas e avisos operacionais.</small></span></label>'+
           '<label class="aa-brand-toggle"><input id="aaBrandCompact" type="checkbox" '+(compact?'checked':'')+'><span><b>Modo compacto</b><small>Preferir visualização mais densa.</small></span></label>'+
         '</div>'+
-        '<div class="aa-brand-subhead"><div><b>Módulos desta marca</b><small>Escolha quais áreas do AllianceOS aparecem neste perfil.</small></div></div>'+
+        '<div class="aa-brand-subhead"><div><b>Módulos deste perfil</b><small>Escolha quais áreas do AllianceOS aparecem quando ele estiver selecionado.</small></div></div>'+
         '<div class="aa-brand-modules">'+moduleRows+'</div>'+
-        '<div class="aa-brand-subhead"><div><b>Usuários desta marca</b><small>Quem pode ver e trabalhar neste perfil. Administradores globais sempre têm acesso.</small></div><span>'+members.length+' usuários</span></div>'+
-        '<div class="aa-brand-members">'+memberRows+'</div>'+
+        usersSection+
         '<div class="aa-brand-savebar"><small>As alterações valem apenas para '+esc(b.nome)+'.</small><button type="button" class="primary" id="aaSaveBrand">Salvar configurações</button></div>'+
       '</section></div></div>';
   }
@@ -644,7 +673,7 @@
         try{
           const size=512,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
           const ctx=canvas.getContext('2d');ctx.clearRect(0,0,size,size);
-          const pad=28,max=size-pad*2,scale=Math.min(max/img.naturalWidth,max/img.naturalHeight);
+          const scale=Math.max(size/img.naturalWidth,size/img.naturalHeight);
           const w=Math.max(1,img.naturalWidth*scale),h=Math.max(1,img.naturalHeight*scale);
           ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
           canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Não foi possível preparar a imagem.'));},'image/webp',0.94);
@@ -674,60 +703,75 @@
       const file=photo.files?.[0];state.brandPhotoFile=file||null;
       if(!file)return;
       const url=URL.createObjectURL(file),preview=$('#aaBrandPhotoPreview');
-      if(preview)preview.innerHTML='<img src="'+esc(url)+'" alt="">';
+      if(preview)preview.innerHTML='<img src="'+esc(url)+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit">';
     });
+
     $('#aaSaveBrand')?.addEventListener('click',async()=>{
-      const brand=state.brands.find(x=>String(x.id)===String(state.brandEditingId));if(!brand)return;
+      const isAll=String(state.brandEditingId)==='__all__';
+      const brand=isAll?allBrandsEditorProfile():state.brands.find(x=>String(x.id)===String(state.brandEditingId));
+      if(!brand)return;
       const btn=$('#aaSaveBrand');btn.disabled=true;btn.textContent='Salvando…';
       try{
-        const nome=$('#aaBrandName').value.trim(),slug=$('#aaBrandSlug').value.trim().toLowerCase(),cor=$('#aaBrandColor').value||null;
-        const site_url=$('#aaBrandSite').value.trim()||null,descricao=$('#aaBrandDescription').value.trim()||null;
-        if(!nome)throw new Error('Digite o nome da marca.');
-        if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))throw new Error('Use um slug como "minha-marca".');
+        const nome=$('#aaBrandName')?.value.trim()||brand.nome;
+        const slug=$('#aaBrandSlug')?.value.trim().toLowerCase()||brand.slug;
+        const cor=$('#aaBrandColor')?.value||null;
+        const site_url=$('#aaBrandSite')?.value.trim()||null;
+        const descricao=$('#aaBrandDescription')?.value.trim()||null;
         let foto_url=brand.foto_url||null;
         if($('#aaBrandRemovePhoto')?.checked)foto_url=null;
-        if(state.brandPhotoFile)foto_url=await uploadBrandImage(state.brandPhotoFile,brand.id);
+        const uploaded=!!state.brandPhotoFile;
+        if(uploaded)foto_url=await uploadBrandImage(state.brandPhotoFile,isAll?'all-brands':brand.id);
+
         const configuracoes={
           ...(brand.configuracoes&&typeof brand.configuracoes==='object'?brand.configuracoes:{}),
-          default_view:$('#aaBrandDefaultView').value,
-          timezone:$('#aaBrandTimezone').value,
-          notifications_enabled:!!$('#aaBrandNotifications').checked,
-          compact_mode:!!$('#aaBrandCompact').checked,
-          modules:Object.fromEntries(Array.from(document.querySelectorAll('[data-aa-brand-module]')).map(x=>[String(x.dataset.aaBrandModule),!!x.checked]))
+          default_view:$('#aaBrandDefaultView')?.value||'inicio',
+          timezone:$('#aaBrandTimezone')?.value||'America/Sao_Paulo',
+          notifications_enabled:!!$('#aaBrandNotifications')?.checked,
+          compact_mode:!!$('#aaBrandCompact')?.checked,
+          modules:Object.fromEntries(Array.from(document.querySelectorAll('[data-aa-brand-module]')).map(x=>[String(x.dataset.aaBrandModule),!!x.checked])),
+          ...(uploaded?{avatar_crop_version:2}:{})
         };
-        const editableMembers=state.members.filter(m=>m.tipo==='usuario'&&m.papel!=='admin');
-        const wanted=new Set(Array.from(document.querySelectorAll('[data-aa-brand-member]')).filter(x=>!x.disabled&&x.checked).map(x=>String(x.dataset.aaBrandMember)));
-        const current=new Set(state.brandMemberships.filter(x=>String(x.brand_id)===String(brand.id)).map(x=>String(x.profile_id)).filter(id=>editableMembers.some(m=>String(m.id)===id)));
-        const add=[...wanted].filter(id=>!current.has(id));
-        const remove=[...current].filter(id=>!wanted.has(id));
 
-        const {data:saved,error:saveError}=await state.sb.rpc('salvar_configuracao_marca',{
-          p_brand_id:brand.id,
-          p_nome:nome,
-          p_slug:slug,
-          p_cor:cor,
-          p_site_url:site_url,
-          p_descricao:descricao,
-          p_foto_url:foto_url,
-          p_configuracoes:configuracoes,
-          p_member_ids:[...wanted]
-        });
-        if(saveError)throw saveError;
+        if(isAll){
+          const {data:saved,error:saveError}=await state.sb.rpc('salvar_configuracao_todas_marcas',{
+            p_foto_url:foto_url,
+            p_cor:cor,
+            p_descricao:descricao,
+            p_configuracoes:configuracoes
+          });
+          if(saveError)throw saveError;
+          state.allBrandsProfile={id:'all_brands',nome:'Todas as marcas',slug:'todas-as-marcas',...(saved||{}),configuracoes:(saved?.configuracoes||configuracoes)};
+          window.AllianceOSDirectory={...(window.AllianceOSDirectory||{}),allBrandsProfile:state.allBrandsProfile,loaded:true};
+          window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
+          await audit('atualizar_todas_marcas','workspace_profile','all_brands',{configuracoes,foto_url,cor});
+        }else{
+          const editableMembers=state.members.filter(m=>m.tipo==='usuario'&&m.papel!=='admin');
+          const wanted=new Set(Array.from(document.querySelectorAll('[data-aa-brand-member]')).filter(x=>!x.disabled&&x.checked).map(x=>String(x.dataset.aaBrandMember)));
+          const current=new Set(state.brandMemberships.filter(x=>String(x.brand_id)===String(brand.id)).map(x=>String(x.profile_id)).filter(id=>editableMembers.some(m=>String(m.id)===id)));
+          const add=[...wanted].filter(id=>!current.has(id));
+          const remove=[...current].filter(id=>!wanted.has(id));
 
-        const savedBrand=saved?.brand||{...brand,nome,slug,cor,site_url,descricao,foto_url,configuracoes};
-        state.brands=state.brands.map(x=>String(x.id)===String(brand.id)?{...x,...savedBrand}:x);
-        state.brandMemberships=state.brandMemberships.filter(x=>String(x.brand_id)!==String(brand.id));
-        const returnedMembers=Array.isArray(saved?.member_ids)?saved.member_ids:[...wanted];
-        state.brandMemberships.push(...returnedMembers.map(profile_id=>({profile_id,brand_id:brand.id})));
-        window.AllianceOSDirectory={...(window.AllianceOSDirectory||{}),brands:state.brands,brandMemberships:state.brandMemberships,loaded:true};
-        window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
-        await audit('atualizar_marca','marca',brand.id,{nome,slug,membros_adicionados:add,membros_removidos:remove,configuracoes});
+          const {data:saved,error:saveError}=await state.sb.rpc('salvar_configuracao_marca',{
+            p_brand_id:brand.id,p_nome:nome,p_slug:slug,p_cor:cor,p_site_url:site_url,p_descricao:descricao,
+            p_foto_url:foto_url,p_configuracoes:configuracoes,p_member_ids:[...wanted]
+          });
+          if(saveError)throw saveError;
+          const savedBrand=saved?.brand||{...brand,nome,slug,cor,site_url,descricao,foto_url,configuracoes};
+          state.brands=state.brands.map(x=>String(x.id)===String(brand.id)?{...x,...savedBrand}:x);
+          state.brandMemberships=state.brandMemberships.filter(x=>String(x.brand_id)!==String(brand.id));
+          const returnedMembers=Array.isArray(saved?.member_ids)?saved.member_ids:[...wanted];
+          state.brandMemberships.push(...returnedMembers.map(profile_id=>({profile_id,brand_id:brand.id})));
+          window.AllianceOSDirectory={...(window.AllianceOSDirectory||{}),brands:state.brands,brandMemberships:state.brandMemberships,allBrandsProfile:state.allBrandsProfile,loaded:true};
+          window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
+          await audit('atualizar_marca','marca',brand.id,{nome,slug,membros_adicionados:add,membros_removidos:remove,configuracoes});
+        }
+
         state.brandPhotoFile=null;
         renderDirectoryChrome();
-        window.dispatchEvent(new CustomEvent('allianceos:brandchange',{detail:{brandId:brand.id,brand:savedBrand}}));
+        window.dispatchEvent(new CustomEvent('allianceos:brandchange',{detail:{brandId:isAll?'__all__':brand.id}}));
         toast('Configurações de '+nome+' salvas e aplicadas.');
         await refreshAll();
-      }catch(err){toast(err.message||String(err));}
+      }catch(err){console.warn('[AllianceOS brand save]',err);toast(err.message||String(err));}
       finally{const live=$('#aaSaveBrand');if(live){live.disabled=false;live.textContent='Salvar configurações';}}
     });
   }

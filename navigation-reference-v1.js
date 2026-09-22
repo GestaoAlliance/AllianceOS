@@ -269,24 +269,26 @@
         const value=brand.value;
         const displayValue=/todas/i.test(value)?'Todas as marcas':value;
         const directory=window.AllianceOSDirectory||{};
-        const info=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+        const isAll=/todas/i.test(value);
+        const realInfo=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+        const info=realInfo||(isAll?directory.allBrandsProfile:null);
         const members=(directory.members||[]).filter(x=>x?.tipo==='usuario');
         const memberships=directory.brandMemberships||[];
-        const memberCount=info
-          ? members.filter(m=>m.papel==='admin'||memberships.some(x=>String(x.profile_id)===String(m.id)&&String(x.brand_id)===String(info.id))).length
+        const memberCount=!isAll&&realInfo
+          ? members.filter(m=>m.papel==='admin'||memberships.some(x=>String(x.profile_id)===String(m.id)&&String(x.brand_id)===String(realInfo.id))).length
           : members.length;
         const title=q('.ref2-workspace-copy strong');if(title)title.textContent=displayValue;
         const sub=q('.ref2-workspace-copy span');if(sub)sub.textContent=memberCount+' membro'+(memberCount===1?'':'s');
         const icon=q('.ref2-workspace-icon');
         if(icon){
           if(info?.foto_url){
-            icon.innerHTML='<img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="">';
+            icon.innerHTML='<img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="" style="'+(info?.configuracoes?.avatar_crop_version===2?'':'transform:scale(1.125);')+'">';
             icon.style.background='#fff';icon.style.color='inherit';
-          }else if(info){
+          }else if(info&&!isAll){
             icon.textContent=(String(info.nome||'M')[0]||'M').toUpperCase();
             icon.style.background=info.cor||'#eef1f2';icon.style.color='#fff';
           }else{
-            icon.textContent='✦';icon.style.background='#f1f3f4';icon.style.color='#5d6770';
+            icon.textContent='✦';icon.style.background=info?.cor||'#f1f3f4';icon.style.color='#5d6770';
           }
         }
         workspace.dataset.brand=String(value||'');
@@ -305,8 +307,9 @@
       };
       const openDefaultView=()=>{
         const value=brand.value;
-        if(value==='Todas as marcas')return;
-        const info=(window.AllianceOSDirectory?.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+        const directory=window.AllianceOSDirectory||{};
+        const isAll=/todas/i.test(value);
+        const info=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''))||(isAll?directory.allBrandsProfile:null);
         const cfg=(info?.configuracoes&&typeof info.configuracoes==='object')?info.configuracoes:{};
         const view=String(cfg.default_view||'inicio');
         const map={inicio:'home',tarefas:'tasks',campanhas:'campaigns',entregas:'deliveries'};
@@ -355,10 +358,13 @@
           btn.type='button';
           btn.setAttribute('role','option');
           btn.setAttribute('aria-selected',String(value===brand.value));
-          const info=(window.AllianceOSDirectory?.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+          const isAll=/todas/i.test(value);
+          const directory=window.AllianceOSDirectory||{};
+          const info=(directory.brands||[]).find(x=>String(x.nome||'')===String(value||''))||(isAll?directory.allBrandsProfile:null);
+          const scale=info?.configuracoes?.avatar_crop_version===2?'':'transform:scale(1.125);';
           const avatar=info?.foto_url
-            ? '<span style="width:24px;height:24px;border-radius:7px;overflow:hidden;display:grid;place-items:center;background:#f1f3f4;flex:0 0 24px"><img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="" style="width:100%;height:100%;object-fit:cover"></span>'
-            : '<span style="width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:'+(info?.cor||'#f1f3f4')+';color:'+(info?'#fff':'#657078')+';font:750 10px Inter,system-ui;flex:0 0 24px">'+(info?(String(info.nome||'M')[0]||'M').toUpperCase():'✦')+'</span>';
+            ? '<span style="width:24px;height:24px;border-radius:7px;overflow:hidden;display:grid;place-items:center;background:#f1f3f4;flex:0 0 24px;position:relative"><img src="'+info.foto_url.replace(/"/g,'&quot;')+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;'+scale+'"></span>'
+            : '<span style="width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:'+(info?.cor||'#f1f3f4')+';color:'+(!isAll&&info?'#fff':'#657078')+';font:750 10px Inter,system-ui;flex:0 0 24px">'+(!isAll&&info?(String(info.nome||'M')[0]||'M').toUpperCase():'✦')+'</span>';
           btn.innerHTML=avatar+'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+opt.textContent+'</span>';
           Object.assign(btn.style,{
             width:'100%',

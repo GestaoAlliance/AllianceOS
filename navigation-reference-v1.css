@@ -1043,3 +1043,11 @@
 }
 
 .ref2-workspace-icon img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important;border-radius:inherit!important}
+
+/* Brand avatar fill fix */
+.ref2-workspace-icon{padding:0!important;overflow:hidden!important;position:relative!important}
+.ref2-workspace-icon>img{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  max-width:none!important;max-height:none!important;object-fit:cover!important;display:block!important;
+  border-radius:inherit!important;transform-origin:center!important;
+}
