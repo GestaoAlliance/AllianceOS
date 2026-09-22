@@ -74,8 +74,15 @@ async function proxyMcp(req,res){
       if(HOP_BY_HOP.has(lower)||lower==='www-authenticate')continue;
       res.setHeader(key,value);
     }
-    if(upstream.headers.get('www-authenticate')){
-      res.setHeader('WWW-Authenticate',`Bearer resource_metadata="${MCP_RESOURCE_METADATA}"`);
+    const upstreamChallenge=upstream.headers.get('www-authenticate');
+    if(upstreamChallenge){
+      const invalidToken=/error\s*=\s*"?invalid_token"?/i.test(upstreamChallenge);
+      const parts=[`Bearer resource_metadata="${MCP_RESOURCE_METADATA}"`];
+      if(invalidToken){
+        parts.push('error="invalid_token"');
+        parts.push('error_description="Sessao OAuth expirada ou invalida; reconecte o AllianceOS."');
+      }
+      res.setHeader('WWW-Authenticate',parts.join(', '));
     }
     res.setHeader('X-AllianceOS-MCP','first-party-v1');
     if(req.method==='HEAD'||!upstream.body)return res.end();
