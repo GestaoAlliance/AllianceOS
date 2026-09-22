@@ -1031,3 +1031,13 @@
 /* AllianceOS canonical brand mark */
 .ref2-sidebar-logo,.ref2-top-logo-icon{background:transparent!important;box-shadow:none!important;overflow:hidden!important}
 .ref2-sidebar-logo img,.ref2-top-logo-icon img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important}
+
+/* Canonical AllianceOS mark 20260922-2. */
+.ref2-sidebar-logo,.ref2-top-logo-icon{
+  padding:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;
+  overflow:visible!important;display:flex!important;align-items:center!important;justify-content:center!important;
+}
+.ref2-sidebar-logo img,.ref2-top-logo-icon img{
+  width:100%!important;height:100%!important;display:block!important;object-fit:contain!important;
+  object-position:50% 50%!important;margin:0!important;padding:0!important;transform:none!important;
+}
