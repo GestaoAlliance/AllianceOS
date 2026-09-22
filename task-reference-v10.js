@@ -286,8 +286,37 @@
     if(p==='Urgente')return 'Urgente';
     return 'Prioridade normal';
   };
+  const r10PlainMarkdown = value => {
+    let text=String(value||'').replace(/\r\n?/g,'\n');
+
+    // Remove fenced code markers but keep the readable code content.
+    text=text.replace(/^\s*```[^\n]*$/gm,' ');
+
+    // Images become their alt text; links keep only the visible label.
+    text=text.replace(/!\[([^\]]*)\]\([^)]+\)/g,'$1');
+    text=text.replace(/\[([^\]]+)\]\([^)]+\)/g,'$1');
+
+    // Headings, quotes and list markers are presentation, not content.
+    text=text.replace(/^\s{0,3}#{1,6}\s+/gm,'');
+    text=text.replace(/^\s*>\s?/gm,'');
+    text=text.replace(/^\s*[-+*]\s+/gm,'');
+    text=text.replace(/^\s*\d+[.)]\s+/gm,'');
+
+    // Markdown emphasis / inline-code markers.
+    text=text.replace(/\*\*([^*]+)\*\*/g,'$1');
+    text=text.replace(/__([^_]+)__/g,'$1');
+    text=text.replace(/~~([^~]+)~~/g,'$1');
+    text=text.replace(/`([^`]+)`/g,'$1');
+    text=text.replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s).,!?:;])/g,'$1$2');
+    text=text.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,!?:;])/g,'$1$2');
+
+    // Remove horizontal-rule leftovers and normalize whitespace.
+    text=text.replace(/^\s*([-*_])(?:\s*\1){2,}\s*$/gm,' ');
+    return text.replace(/\s+/g,' ').trim();
+  };
+
   const r10BriefText = (value,max=190) => {
-    const clean=String(value||'').replace(/\s+/g,' ').trim();
+    const clean=r10PlainMarkdown(value);
     if(!clean)return '';
     const sentence=clean.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim()||clean;
     const source=sentence.length>=55?sentence:clean;
