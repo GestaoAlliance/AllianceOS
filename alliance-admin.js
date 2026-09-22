@@ -523,7 +523,7 @@
     const brand=/todas/i.test(selected)?null:state.brands.find(b=>norm(b.nome)===norm(selected));
     const visible=brand?real.filter(m=>memberHasBrand(m,brand)):real;
     const count=visible.length;
-    $('.ref2-workspace-copy span').forEach(el=>el.textContent=count+' membro'+(count===1?'':'s'));
+    $$('.ref2-workspace-copy span').forEach(el=>el.textContent=count+' membro'+(count===1?'':'s'));
     const icon=$('.ref2-workspace-icon');
     if(icon){
       if(brand){
