@@ -5,6 +5,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Content-Type': 'application/json; charset=utf-8',
+  'Cache-Control': 'no-store',
 }
 
 const ok = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: cors })
@@ -106,13 +107,33 @@ Deno.serve(async (req: Request) => {
     const { data: profile, error: profileError } = await userDb.from('profiles').select('id,papel,ativo,tipo_membro').eq('id', actorId).maybeSingle()
     if (profileError || !profile?.ativo || profile?.papel === 'externo' || profile?.tipo_membro === 'servico') return ok({ error: 'access_not_allowed' }, 403)
     if (req.method === 'GET') {
-      const { data, error } = await userDb.from('operacional_estado').select('chave,valor,atualizado_em').is('dono', null).or('chave.like.central.%,chave.like.allianceos.%').order('chave')
-      if (error) throw error
-      return ok({ items: data || [], user_id: actorId })
+      const url = new URL(req.url)
+      const mode = String(url.searchParams.get('mode') || '')
+      const key = String(url.searchParams.get('key') || '')
+      if (key) {
+        if (!validKey(key)) return ok({ error: 'invalid_key' }, 400)
+        const { data, error } = await userDb.from('operacional_estado').select('chave,valor,atualizado_em').eq('chave', key).is('dono', null).maybeSingle()
+        if (error) throw error
+        return ok({ item: data || null, user_id: actorId })
+      }
+      if (mode === 'meta') {
+        const { data, error } = await userDb.from('operacional_estado').select('chave,atualizado_em').is('dono', null).or('chave.like.central.%,chave.like.allianceos.%').order('chave')
+        if (error) throw error
+        return ok({ items: data || [], user_id: actorId, mode: 'meta' })
+      }
+      if (mode === 'full') {
+        const { data, error } = await userDb.from('operacional_estado').select('chave,valor,atualizado_em').is('dono', null).or('chave.like.central.%,chave.like.allianceos.%').order('chave')
+        if (error) throw error
+        return ok({ items: data || [], user_id: actorId, mode: 'full' })
+      }
+      // Clientes antigos faziam download de todo o workspace a cada 20 s.
+      // Falhar de forma explícita preserva o cache local desses clientes e
+      // interrompe o egress até que a aba seja recarregada com o sync v2.
+      return ok({ error: 'client_upgrade_required' }, 409)
     }
     if (req.method !== 'POST') return ok({ error: 'method_not_allowed' }, 405)
     const raw = await req.text()
-    if (raw.length > 5_000_000) return ok({ error: 'payload_too_large' }, 413)
+    if (raw.length > 12_000_000) return ok({ error: 'payload_too_large' }, 413)
     const body = JSON.parse(raw || '{}')
     const chave = String(body.chave || '')
     if (!validKey(chave)) return ok({ error: 'invalid_key' }, 400)
@@ -130,7 +151,14 @@ Deno.serve(async (req: Request) => {
     const row={chave,dono:null,valor:finalValue,atualizado_em:new Date().toISOString()}
     const { data, error } = await userDb.from('operacional_estado').upsert(row,{onConflict:'chave,dono'}).select('chave,valor,atualizado_em').single()
     if (error) throw error
-    return ok({ok:true,item:data})
+    const syncV2 = req.headers.get('x-alliance-sync-version') === '2'
+    if (!syncV2) return ok({ok:true,item:data})
+    const mergedChanged = !equal(finalValue, body.valor)
+    return ok({
+      ok:true,
+      merged:mergedChanged,
+      item:mergedChanged ? data : {chave:data.chave,atualizado_em:data.atualizado_em},
+    })
   } catch (e) {
     console.error(e)
     return ok({ error: e instanceof Error ? e.message : String(e) }, 500)
