@@ -267,7 +267,17 @@
     state.profile=profileR.data||null;
     state.brands=brandsR.data||[];
     state.brandMemberships=membershipR.data||[];
-    state.allBrandsProfile={id:'all_brands',nome:'Todas as marcas',slug:'todas-as-marcas',...(workspaceR.data||{})};
+    {
+      const workspaceData=workspaceR.data||{};
+      const workspaceCfg=(workspaceData.configuracoes&&typeof workspaceData.configuracoes==='object')?workspaceData.configuracoes:{};
+      state.allBrandsProfile={
+        id:'all_brands',
+        ...workspaceData,
+        nome:String(workspaceCfg.profile_name||workspaceData.nome||'Todas as marcas'),
+        slug:String(workspaceCfg.profile_slug||workspaceData.slug||'todas-as-marcas'),
+        configuracoes:workspaceCfg
+      };
+    }
     state.areas=areasR.data||[];
     window.AllianceOSSession={...(window.AllianceOSSession||{}),user:state.user,profile:state.profile};
     state.links=linksR.data||[];

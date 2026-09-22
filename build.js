@@ -186,6 +186,45 @@ async function main() {
           s = s.slice(0, confStart) + semConferenciaNaFicha + s.slice(confEnd);
         }
 
+        // AllianceOS: the legacy brand observer must preserve the configurable
+        // display name of the aggregate workspace (internally it still uses
+        // "Todas as marcas" as the sentinel value).
+        if (s.includes("const TODAS = 'Todas as marcas';") && s.includes('function opcoes(sel, { comTodas, valor })')) {
+          const oldApply = `  function aplicar() {
+    opcoes(document.getElementById('brandSelect'), { comTodas: true });`;
+          const newApply = `  function aplicar() {
+    const aoBrands = (window.AllianceOSDirectory?.brands || []).map((b) => b?.nome).filter(Boolean);
+    if (aoBrands.length) lista = aoBrands;
+    opcoes(document.getElementById('brandSelect'), { comTodas: true });`;
+          if (s.includes(oldApply)) s = s.replace(oldApply, newApply);
+
+          const oldOptions = `    if (tem.length === quer.length && tem.every((t, i) => t === quer[i])) {
+      if (escolhido && tem.includes(escolhido)) sel.value = escolhido;
+      return;
+    }
+    sel.innerHTML = quer.map((m) => \`<option\${m === escolhido ? ' selected' : ''}>\${m}</option>\`).join('');
+    if (escolhido && quer.includes(escolhido)) sel.value = escolhido;`;
+          const newOptions = `    const allLabel = window.AllianceOSDirectory?.allBrandsProfile?.configuracoes?.profile_name
+      || window.AllianceOSDirectory?.allBrandsProfile?.nome
+      || TODAS;
+    if (tem.length === quer.length && tem.every((t, i) => t === quer[i])) {
+      const allOpt = [...sel.options].find((o) => (o.value || o.textContent) === TODAS);
+      if (allOpt && allOpt.textContent !== allLabel) allOpt.textContent = allLabel;
+      if (escolhido && tem.includes(escolhido)) sel.value = escolhido;
+      return;
+    }
+    const opts = quer.map((m) => {
+      const o = document.createElement('option');
+      o.value = m;
+      o.textContent = m === TODAS ? allLabel : m;
+      if (m === escolhido) o.selected = true;
+      return o;
+    });
+    sel.replaceChildren(...opts);
+    if (escolhido && quer.includes(escolhido)) sel.value = escolhido;`;
+          if (s.includes(oldOptions)) s = s.replace(oldOptions, newOptions);
+        }
+
         s = s.replaceAll('Central', 'AllianceOS');
         s = s.replaceAll('Revitta Derma', 'Revita');
         s = s.replaceAll("['Botanika', 'VermeFree']", "['Botanika', 'Revita', 'VermeFree', 'Shoty']");
