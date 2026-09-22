@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const VERSION=2;
+  const VERSION=3;
   const STEPS=[
     ['Boas-vindas','Seu espaço no AllianceOS'],
     ['Seu perfil','Quem é você na operação'],
@@ -88,25 +88,30 @@
         const avatar=profile.foto_url?'<img src="'+esc(profile.foto_url)+'" alt="">':esc(initials(displayName));
         const brandPreview=selected.slice(0,4).map(b=>brandVisual(b)).join('');
         return '<section class="ob-step ob-welcome">'+
-          '<div class="ob-kicker">PRIMEIRO ACESSO · 2 MIN</div>'+
-          '<div class="ob-welcome-person">'+
+          '<div class="ob-welcome-head">'+
             '<div class="ob-welcome-avatar">'+avatar+'</div>'+
-            '<div class="ob-welcome-copy">'+
+            '<div>'+
+              '<div class="ob-kicker">SEU PRIMEIRO ACESSO</div>'+
               '<h1>Bem-vindo, '+esc(firstName)+'.</h1>'+
-              '<p class="ob-lead">Vamos ajustar seu contexto para você entrar no AllianceOS vendo só o que realmente faz parte da sua rotina.</p>'+
-              '<div class="ob-person-meta">'+
-                '<span><small>FUNÇÃO</small><b>'+esc(state.cargo||'Definir agora')+'</b></span>'+
-                '<span><small>ÁREA</small><b>'+esc(area?.nome||'Definir agora')+'</b></span>'+
-                '<span class="brands"><small>MARCAS</small><b>'+selected.length+' selecionada'+(selected.length===1?'':'s')+'</b><i>'+brandPreview+'</i></span>'+
-              '</div>'+
+              '<p class="ob-lead">Vamos deixar o AllianceOS com o seu contexto: quem você é, onde trabalha e o que precisa aparecer na sua rotina.</p>'+
             '</div>'+
           '</div>'+
-          '<div class="ob-welcome-grid">'+
-            '<article><span>01</span><div><b>Seu contexto</b><p>Perfil, área e marcas corretas.</p></div></article>'+
-            '<article><span>02</span><div><b>Menos ruído</b><p>Só o que é relevante para você.</p></div></article>'+
-            '<article><span>03</span><div><b>Mesmo processo</b><p>Uma lógica única de execução.</p></div></article>'+
+          '<div class="ob-context-card">'+
+            '<div class="ob-context-item"><span>Função</span><strong>'+esc(state.cargo||'Definir agora')+'</strong></div>'+
+            '<div class="ob-context-divider"></div>'+
+            '<div class="ob-context-item"><span>Área</span><strong>'+esc(area?.nome||'Definir agora')+'</strong></div>'+
+            '<div class="ob-context-divider"></div>'+
+            '<div class="ob-context-item brands"><span>Marcas</span><strong>'+selected.length+' selecionada'+(selected.length===1?'':'s')+'</strong><i>'+brandPreview+'</i></div>'+
           '</div>'+
-          '<div class="ob-note"><b>Configuração rápida</b><span>Você pode alterar tudo depois nas configurações.</span></div>'+
+          '<div class="ob-welcome-section">'+
+            '<div class="ob-section-title"><div><small>O QUE VAMOS CONFIGURAR</small><b>Três coisas e você entra.</b></div><span>Cerca de 2 minutos</span></div>'+
+            '<div class="ob-welcome-grid">'+
+              '<article><span>01</span><div><b>Seu perfil</b><p>Nome, função e área na operação.</p></div></article>'+
+              '<article><span>02</span><div><b>Suas marcas</b><p>Escolha onde você realmente trabalha.</p></div></article>'+
+              '<article><span>03</span><div><b>Seu contexto</b><p>Entenda o fluxo e comece pela visão certa.</p></div></article>'+
+            '</div>'+
+          '</div>'+
+          '<div class="ob-note"><span>⌁</span><div><b>Nada fica preso aqui.</b><p>Você pode alterar perfil e marcas depois nas configurações.</p></div></div>'+
         '</section>';
       }
 
