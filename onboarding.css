@@ -286,7 +286,8 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
   .ob-rail-step.active{background:#1c2327;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)}
   .ob-rail-help{margin-top:auto}
   .ob-main{max-height:none}
-  .ob-content:has(.ob-welcome){overflow:visible}
+  .ob-content:has(.ob-welcome){flex:1 1 auto;overflow:visible;display:flex}
+  .ob-content:has(.ob-welcome) .ob-welcome{flex:1 1 auto}
   .ob-shell:has(.ob-welcome){max-height:none}
   .ob-shell:has(.ob-welcome) .ob-rail{min-height:0}
 }
