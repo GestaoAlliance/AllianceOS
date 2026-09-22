@@ -13,18 +13,22 @@ html.alliance-auth-locked #allianceOnboardingRoot,
 html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;visibility:visible!important}
 
 .ob-shell{
-  width:min(820px,calc(100vw - 44px));
-  height:auto;
-  max-height:min(590px,calc(100dvh - 44px));
-  min-height:0;margin:0;
-  display:grid;grid-template-columns:188px minmax(0,1fr);
+  width:min(900px,calc(100vw - 52px));
+  height:min(570px,calc(100dvh - 52px));
+  min-height:520px;margin:0;
+  display:grid;grid-template-columns:204px minmax(0,1fr);
   overflow:hidden;background:#fff;border:1px solid rgba(211,218,222,.96);
-  border-radius:24px;
-  box-shadow:0 30px 90px rgba(14,19,22,.28),0 1px 0 rgba(255,255,255,.9) inset
+  border-radius:26px;
+  box-shadow:0 34px 100px rgba(14,19,22,.30),0 1px 0 rgba(255,255,255,.92) inset
 }
 .ob-rail{
-  min-height:0;background:#121619;color:#fff;padding:19px 14px 15px;
-  display:flex;flex-direction:column;box-sizing:border-box
+  min-height:0;
+  background:
+    radial-gradient(circle at 18% 0%,rgba(255,255,255,.055),transparent 24%),
+    linear-gradient(180deg,#12171a 0%,#101417 100%);
+  color:#fff;padding:22px 16px 17px;
+  display:flex;flex-direction:column;box-sizing:border-box;
+  border-right:1px solid rgba(255,255,255,.03)
 }
 .ob-logo{display:flex;align-items:center;gap:9px;font-size:14px;padding:0 4px}
 .ob-logo>span{width:31px;height:31px;border-radius:9px;display:grid;place-items:center;overflow:hidden}
@@ -60,9 +64,12 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 .ob-rail-help b{display:block;font-size:9px}
 .ob-rail-help small{display:block;color:#6f797f;font-size:7.5px;line-height:1.35;margin-top:2px}
 
-.ob-main{display:flex;flex-direction:column;min-width:0;min-height:0;background:#fff}
+.ob-main{
+  display:flex;flex-direction:column;min-width:0;min-height:0;
+  background:linear-gradient(180deg,#fff 0%,#fff 78%,#fbfcfc 100%)
+}
 .ob-content{
-  width:auto;margin:0;padding:15px 28px 10px;flex:0 1 auto;min-height:0;
+  width:auto;margin:0;padding:18px 30px 14px;flex:1 1 auto;min-height:0;
   overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin
 }
 .ob-step{animation:obIn .2s ease both}
@@ -73,21 +80,32 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 .ob-lead b{color:#30373c;font-weight:620}
 
 /* Personalized first screen */
+.ob-welcome{
+  min-height:100%;
+  display:grid;
+  grid-template-rows:auto auto auto auto;
+  align-content:space-between;
+  gap:14px;
+}
 .ob-welcome-person{
-  display:grid;grid-template-columns:70px minmax(0,1fr);gap:17px;align-items:start;
-  padding:14px;border:1px solid #e1e5e7;border-radius:15px;background:#fafbfb
+  display:grid;grid-template-columns:78px minmax(0,1fr);gap:18px;align-items:center;
+  padding:18px;border:1px solid #dfe4e7;border-radius:18px;
+  background:linear-gradient(135deg,#fafbfb 0%,#f6f8f8 100%);
+  box-shadow:0 8px 24px rgba(20,28,33,.035)
 }
 .ob-welcome-avatar{
-  width:56px;height:56px;border-radius:15px;overflow:hidden;
+  width:68px;height:68px;border-radius:18px;overflow:hidden;
   background:#171b1f;color:#fff;display:grid;place-items:center;
-  font-size:18px;font-weight:700;box-shadow:0 5px 16px rgba(18,23,26,.10)
+  font-size:19px;font-weight:700;
+  box-shadow:0 10px 25px rgba(18,23,26,.13),0 0 0 1px rgba(255,255,255,.7) inset
 }
 .ob-welcome-avatar img{width:100%;height:100%;object-fit:cover;display:block}
-.ob-welcome-copy h1{font-size:24px}
+.ob-welcome-copy h1{font-size:27px;letter-spacing:-.045em}
 .ob-welcome-copy .ob-lead{margin-top:6px;max-width:540px}
-.ob-person-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.ob-person-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .ob-person-meta>span{
-  min-width:112px;padding:7px 9px;border:1px solid #e4e8ea;border-radius:9px;background:#fff
+  min-width:118px;padding:8px 10px;border:1px solid #e0e5e7;border-radius:10px;
+  background:rgba(255,255,255,.9)
 }
 .ob-person-meta small{display:block;font-size:6.5px;letter-spacing:.09em;color:#9aa2a7;font-weight:750}
 .ob-person-meta b{display:block;margin-top:2px;font-size:9px;font-weight:620;color:#343b40}
@@ -96,10 +114,11 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 .ob-person-meta>span.brands i{grid-column:2;grid-row:1/3;display:flex;align-items:center;font-style:normal}
 .ob-person-meta .ob-brand-logo{width:21px;height:21px;border-radius:7px;margin-left:-5px;border:2px solid #fff}
 .ob-person-meta .ob-brand-logo:first-child{margin-left:0}
-.ob-welcome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:7px}
+.ob-welcome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:0}
 .ob-welcome-grid article{
-  min-height:45px;padding:8px 9px;border:1px solid #e4e8ea;border-radius:11px;
-  background:#fff;display:flex;gap:9px;align-items:flex-start
+  min-height:56px;padding:11px 12px;border:1px solid #e1e6e8;border-radius:13px;
+  background:#fff;display:flex;gap:10px;align-items:flex-start;
+  box-shadow:0 4px 14px rgba(18,24,28,.025)
 }
 .ob-welcome-grid article>span{
   width:22px;height:22px;border-radius:7px;background:#f0f2f3;
@@ -109,7 +128,7 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 .ob-welcome-grid p{font-size:8px;line-height:1.35;color:#858e94;margin:3px 0 0}
 .ob-note{
   display:flex;justify-content:space-between;align-items:center;gap:15px;
-  padding:7px 9px;border-radius:9px;background:#f2f4f5;margin-top:6px
+  padding:9px 11px;border-radius:11px;background:#f1f3f4;margin-top:0
 }
 .ob-note b{font-size:9px}.ob-note span{font-size:8px;color:#7f888e}
 
@@ -194,16 +213,17 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
 
 .ob-error{margin-top:9px;padding:8px 10px;border-radius:9px;background:#fff1f1;color:#a33b3b;border:1px solid #f1d4d4;font-size:8.5px}
 .ob-footer{
-  flex:0 0 auto;border-top:1px solid #e7eaec;padding:8px 16px;
-  display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff
+  flex:0 0 auto;border-top:1px solid #e6eaec;padding:11px 18px;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  background:rgba(252,253,253,.96)
 }
 .ob-footer-right{display:flex;align-items:center;gap:10px}.ob-footer-right>span{font-size:7.5px;color:#959ea4}
-.ob-btn{border:0;border-radius:9px;height:33px;padding:0 12px;font:inherit;font-size:8.5px;font-weight:650;cursor:pointer}
+.ob-btn{border:0;border-radius:10px;height:36px;padding:0 14px;font:inherit;font-size:9px;font-weight:650;cursor:pointer}
 .ob-btn.primary{background:#151a1d;color:#fff;min-width:112px}.ob-btn.primary i{font-style:normal;margin-left:7px}
 .ob-btn.primary:disabled{opacity:.55;cursor:wait}.ob-btn.ghost{background:#f1f3f4;color:#535c62}
 .ob-top-progress{
   flex:0 0 auto;
-  padding:15px 28px 0;
+  padding:17px 30px 0;
   background:#fff;
 }
 .ob-top-progress-copy{
@@ -218,10 +238,12 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
   font-size:8px;line-height:1;color:#30373c;font-weight:700;
 }
 .ob-top-progress-track{
-  height:4px;border-radius:99px;background:#eceff1;overflow:hidden;
+  height:5px;border-radius:99px;background:#ebeff1;overflow:hidden;
+  box-shadow:inset 0 1px 1px rgba(17,23,27,.03)
 }
 .ob-top-progress-track i{
-  display:block;height:100%;border-radius:inherit;background:#171c20;
+  display:block;height:100%;border-radius:inherit;
+  background:linear-gradient(90deg,#11171a 0%,#2a343a 100%);
   transition:width .24s ease;
 }
 
@@ -255,4 +277,16 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{display:grid!important;vi
   .ob-shell:has(.ob-welcome){max-height:none}
   .ob-shell:has(.ob-welcome) .ob-rail{min-height:0}
   .ob-shell:has(.ob-welcome) .ob-rail-help{margin-top:14px}
+}
+
+@media(min-width:821px){
+  .ob-rail-copy{margin-top:28px}
+  .ob-rail-steps{margin-top:24px;gap:4px}
+  .ob-rail-step{padding:7px 8px}
+  .ob-rail-step.active{background:#1c2327;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)}
+  .ob-rail-help{margin-top:auto}
+  .ob-main{max-height:none}
+  .ob-content:has(.ob-welcome){overflow:visible}
+  .ob-shell:has(.ob-welcome){max-height:none}
+  .ob-shell:has(.ob-welcome) .ob-rail{min-height:0}
 }
