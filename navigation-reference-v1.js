@@ -306,9 +306,15 @@
 
         const cfg=(info?.configuracoes&&typeof info.configuracoes==='object')?info.configuracoes:{};
         const modules=(cfg.modules&&typeof cfg.modules==='object')?cfg.modules:{};
+        const userProfile=window.AllianceOSSession?.profile||{};
+        const userCfg=(userProfile.configuracoes&&typeof userProfile.configuracoes==='object')?userProfile.configuracoes:{};
+        const userModules=(userCfg.modules&&typeof userCfg.modules==='object')?userCfg.modules:{};
+        const isAdmin=userProfile.papel==='admin';
         btns.forEach((button,key)=>{
           const alwaysVisible=key==='settings';
-          button.hidden=!alwaysVisible&&modules[key]===false;
+          const blockedByBrand=modules[key]===false;
+          const blockedByUser=!isAdmin&&userModules[key]===false;
+          button.hidden=!alwaysVisible&&(blockedByBrand||blockedByUser);
         });
         document.documentElement.dataset.brandCompact=cfg.compact_mode===true?'true':'false';
         document.documentElement.style.setProperty('--alliance-brand-color',info?.cor||'#111519');

@@ -4,7 +4,7 @@
   const CONFIG_URL='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
   const TASKS_KEY='central.tasks.vitor-gutierrez';
   const APP_URL='https://alliance-os-sooty.vercel.app';
-  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null};
+  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null,memberEditingId:null,memberPhotoFile:null,memberRemovePhoto:false};
   window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,loaded:false};
   const BRAND_MODULES=[
     ['home','Início'],
@@ -247,8 +247,8 @@
       return;
     }
     const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,workspaceR]=await Promise.all([
-      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('id',state.user.id).maybeSingle(),
-      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('ativo',true).order('nome'),
+      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro,configuracoes,onboarding_version,onboarding_completed_at').eq('id',state.user.id).maybeSingle(),
+      state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro,configuracoes,onboarding_version,onboarding_completed_at').order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo,foto_url,cor,descricao,site_url,configuracoes,atualizado_em').eq('ativo',true).order('nome'),
       state.sb.from('profile_brands').select('profile_id,brand_id,ativo').eq('ativo',true),
       state.sb.from('areas').select('id,nome').order('nome'),
@@ -689,19 +689,60 @@
     return '';
   }
 
+  function memberEditorView(m){
+    const cfg=(m?.configuracoes&&typeof m.configuracoes==='object')?m.configuracoes:{};
+    const modules=(cfg.modules&&typeof cfg.modules==='object')?cfg.modules:{};
+    const memberBrands=new Set(memberBrandIds(m.id));
+    const areaOptions='<option value="">Sem área</option>'+state.areas.map(a=>'<option value="'+esc(a.id)+'" '+(String(m.area_id||'')===String(a.id)?'selected':'')+'>'+esc(a.nome)+'</option>').join('');
+    const brandRows=state.brands.map(b=>'<label class="aa-user-access-row"><input type="checkbox" data-aa-user-brand="'+esc(b.id)+'" '+((m.papel==='admin'||memberBrands.has(String(b.id)))?'checked':'')+'><span class="aa-brand-avatar">'+brandAvatarInner(b,b.nome)+'</span><span><b>'+esc(b.nome)+'</b><small>'+esc(b.descricao||'Workspace da marca')+'</small></span></label>').join('');
+    const moduleRows=BRAND_MODULES.map(([key,label])=>'<label class="aa-user-module"><input type="checkbox" data-aa-user-module="'+esc(key)+'" '+((m.papel==='admin'||modules[key]!==false)?'checked':'')+'><span><b>'+esc(label)+'</b><small>'+(m.papel==='admin'?'Admin sempre tem acesso total; vale se virar membro.':'Permitir este módulo para esta conta.')+'</small></span></label>').join('');
+    const onboardingDone=Number(m.onboarding_version||0)>=1;
+    const onboardingDate=m.onboarding_completed_at?new Date(m.onboarding_completed_at).toLocaleString('pt-BR'):'Nunca concluído';
+    return '<div class="aa-section aa-user-editor">'+
+      '<div class="aa-user-editor-top"><button type="button" class="aa-user-back" id="aaUserBack">← Voltar para equipe</button><span class="aa-badge '+(m.ativo?'ok':'warn')+'">'+(m.ativo?'acesso ativo':'acesso suspenso')+'</span></div>'+
+      '<div class="aa-user-hero"><div class="aa-user-photo" id="aaUserPhotoPreview">'+avatarInner(m,m.nome)+'</div><div class="aa-user-hero-copy"><h2>'+esc(m.nome)+'</h2><p>'+esc(m.email||'')+'</p><div><input id="aaUserPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><button type="button" id="aaUserRemovePhoto" '+(!m.foto_url?'disabled':'')+'>Remover foto</button></div></div></div>'+
+      '<div class="aa-user-grid">'+
+        '<label><span>Nome completo</span><input id="aaUserName" value="'+esc(m.nome||'')+'" maxlength="120"></label>'+
+        '<label><span>E-mail</span><input id="aaUserEmail" type="email" value="'+esc(m.email||'')+'"></label>'+
+        '<label><span>Cargo / função</span><input id="aaUserCargo" value="'+esc(m.cargo||'')+'" maxlength="120"></label>'+
+        '<label><span>Área</span><select id="aaUserArea">'+areaOptions+'</select></label>'+
+        '<label><span>Nível de acesso</span><select id="aaUserRole"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Administrador</option></select></label>'+
+        '<label class="aa-user-active"><span>Status da conta</span><span class="aa-user-toggle-line"><input id="aaUserActive" type="checkbox" '+(m.ativo?'checked':'')+'><b>Permitir acesso ao AllianceOS</b></span><small>Suspender bloqueia o acesso aos dados via Supabase.</small></label>'+
+      '</div>'+
+      '<div class="aa-user-subhead"><div><b>Marcas que esta pessoa acessa</b><small>Aplicado no backend, não apenas escondido na interface.</small></div><span>'+memberBrands.size+' selecionadas</span></div>'+
+      '<div class="aa-user-access-grid">'+brandRows+'</div>'+
+      '<div class="aa-user-subhead"><div><b>Módulos disponíveis</b><small>Controle o que aparece no menu desta pessoa.</small></div></div>'+
+      '<div class="aa-user-modules">'+moduleRows+'</div>'+
+      '<div class="aa-user-subhead"><div><b>Primeiro acesso / onboarding</b><small>Status: '+(onboardingDone?'concluído':'pendente')+' · '+esc(onboardingDate)+'</small></div></div>'+
+      '<label class="aa-user-reset"><input id="aaUserResetOnboarding" type="checkbox"><span><b>Refazer onboarding no próximo login</b><small>Útil quando área, marcas ou processo mudaram.</small></span></label>'+
+      '<div class="aa-user-savebar"><span>Marcas e status passam a valer no backend assim que salvar.</span><button type="button" class="primary" id="aaUserSave">Salvar conta</button></div>'+
+      '<div class="aa-danger-zone"><div><b>Zona de risco</b><small>Excluir remove o login do Supabase Auth. Histórico operacional é preservado.</small></div><button type="button" class="danger" id="aaUserDelete" '+(String(m.id)===String(state.user?.id)?'disabled title="Você não pode excluir a própria conta"':'')+'>Excluir conta permanentemente</button></div>'+
+    '</div>';
+  }
+
   function teamView(){
     const real=state.members.filter(m=>m.tipo==='usuario');
     const services=state.members.filter(m=>m.tipo==='servico');
     const legacy=state.members.filter(m=>m.tipo==='legado');
     const pending=state.members.filter(m=>m.tipo==='convite_pendente');
-    const admin=state.profile?.papel==='admin';
-    return '<div class="aa-section"><div class="aa-title"><div><h2>Equipe</h2><p>Somente usuários reais recebem novas atribuições e notificações.</p></div><span>'+real.length+' ativos</span></div>'+
-      (admin?'<form id="aaInviteForm" class="aa-form"><input id="aaInviteName" placeholder="Nome" required><input id="aaInviteEmail" type="email" placeholder="E-mail" required><input id="aaInviteRoleName" placeholder="Cargo"><select id="aaInviteRole"><option value="membro">Membro</option><option value="admin">Admin</option></select><select id="aaInviteBrand" multiple>'+state.brands.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.nome)+'</option>').join('')+'</select><button class="primary">Convidar por e-mail</button></form>':'')+
-      '<div class="aa-grid-list">'+real.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+memberBadge(m)+inviteStatusHtml(m)+(admin?'<input class="aa-member-cargo" data-aa-member-cargo="'+esc(m.id)+'" value="'+esc(m.cargo||'')+'" placeholder="Cargo"><select data-aa-member-role="'+esc(m.id)+'"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Admin</option></select><button data-aa-save-member="'+esc(m.id)+'">Salvar</button>':'')+'</article>').join('')+'</div>'+
+    const adminUser=state.profile?.papel==='admin';
+    if(adminUser&&state.memberEditingId){
+      const member=real.find(m=>String(m.id)===String(state.memberEditingId));
+      if(member)return memberEditorView(member);
+      state.memberEditingId=null;
+    }
+    const activeCount=real.filter(m=>m.ativo).length;
+    const rows=real.map(m=>{
+      const brands=memberBrandIds(m.id);
+      return '<article class="aa-user-row '+(!m.ativo?'suspended':'')+'"><span class="aa-user-row-avatar">'+avatarInner(m,m.nome)+'</span><div class="aa-user-row-copy"><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+(m.cargo?' · '+esc(m.cargo):'')+'</small></div><span class="aa-badge '+(m.ativo?'ok':'warn')+'">'+(m.ativo?'ativo':'suspenso')+'</span><span class="aa-user-meta">'+(m.papel==='admin'?'Administrador':'Membro')+' · '+(m.papel==='admin'?'todas as marcas':brands.length+' marca'+(brands.length===1?'':'s'))+'</span>'+(adminUser?'<button type="button" data-aa-manage-user="'+esc(m.id)+'">Gerenciar</button>':'')+'</article>';
+    }).join('');
+    return '<div class="aa-section"><div class="aa-title"><div><h2>Equipe</h2><p>Gerencie perfil, acesso, marcas, módulos e status de cada conta.</p></div><span>'+activeCount+' ativos · '+real.length+' contas</span></div>'+
+      (adminUser?'<form id="aaInviteForm" class="aa-form"><input id="aaInviteName" placeholder="Nome" required><input id="aaInviteEmail" type="email" placeholder="E-mail" required><input id="aaInviteRoleName" placeholder="Cargo"><select id="aaInviteRole"><option value="membro">Membro</option><option value="admin">Admin</option></select><select id="aaInviteBrand" multiple>'+state.brands.map(b=>'<option value="'+esc(b.id)+'">'+esc(b.nome)+'</option>').join('')+'</select><button class="primary">Convidar por e-mail</button></form>':'')+
+      '<div class="aa-user-list">'+rows+'</div>'+
       (services.length?'<h3>Contas de serviço</h3><div class="aa-grid-list">'+services.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+(m.cargo?' · '+esc(m.cargo):'')+'</small></div>'+memberBadge(m)+'<small>Não atribuível · ações identificadas no histórico</small></article>').join('')+'</div>':'')+
-      (pending.length?'<h3>Convites pendentes</h3><div class="aa-grid-list">'+pending.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+inviteStatusHtml(m)+(admin?'<button data-aa-resend-invite="'+esc(m.email)+'">Reenviar convite</button>':'')+'</article>').join('')+'</div>':'')+
-      (legacy.length?'<h3>Responsáveis legados para migrar</h3><div class="aa-grid-list">'+legacy.map(m=>'<article class="aa-legacy"><div><b>'+esc(m.nome)+'</b><small>Nome importado, sem conta real</small></div><select data-aa-migrate-select="'+esc(m.nome)+'"><option value="">Vincular a usuário…</option>'+real.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.nome)+'</option>').join('')+'</select><button data-aa-migrate="'+esc(m.nome)+'" '+(!admin?'disabled':'')+'>Migrar tarefas</button></article>').join('')+'</div>':'<div class="aa-empty">Nenhum responsável legado pendente.</div>')+
-      '</div>';
+      (pending.length?'<h3>Convites pendentes</h3><div class="aa-grid-list">'+pending.map(m=>'<article><div><b>'+esc(m.nome)+'</b><small>'+esc(m.email||'')+'</small></div>'+inviteStatusHtml(m)+(adminUser?'<button data-aa-resend-invite="'+esc(m.email)+'">Reenviar convite</button>':'')+'</article>').join('')+'</div>':'')+
+      (legacy.length?'<h3>Responsáveis legados para migrar</h3><div class="aa-grid-list">'+legacy.map(m=>'<article class="aa-legacy"><div><b>'+esc(m.nome)+'</b><small>Nome importado, sem conta real</small></div><select data-aa-migrate-select="'+esc(m.nome)+'"><option value="">Vincular a usuário…</option>'+real.filter(r=>r.ativo).map(r=>'<option value="'+esc(r.id)+'">'+esc(r.nome)+'</option>').join('')+'</select><button data-aa-migrate="'+esc(m.nome)+'" '+(!adminUser?'disabled':'')+'>Migrar tarefas</button></article>').join('')+'</div>':'<div class="aa-empty">Nenhum responsável legado pendente.</div>')+
+    '</div>';
   }
 
 
@@ -965,48 +1006,92 @@
     return {status:patch.envio_status,erro:patch.envio_erro,enviado_em:patch.enviado_em||current?.enviado_em||null,ultimo_envio_em:attemptedAt};
   }
 
+  async function adminUploadUserPhoto(member,file){
+    if(!file)return member.foto_url||null;
+    if(file.size>5*1024*1024)throw new Error('A foto precisa ter no máximo 5 MB.');
+    if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type))throw new Error('Use JPG, PNG, WEBP ou GIF.');
+    const blob=await brandImageBlob(file);
+    const path=String(member.id)+'/avatar';
+    const upload=await state.sb.storage.from('profile-avatars').upload(path,blob,{upsert:true,contentType:'image/webp',cacheControl:'3600'});
+    if(upload.error)throw upload.error;
+    const pub=state.sb.storage.from('profile-avatars').getPublicUrl(path);
+    return (pub.data?.publicUrl||'')+'?v='+Date.now();
+  }
+
+  async function adminRemoveUserPhoto(member){
+    const path=String(member.id)+'/avatar';
+    const rem=await state.sb.storage.from('profile-avatars').remove([path]);
+    if(rem.error&&!String(rem.error.message||'').toLowerCase().includes('not found'))throw rem.error;
+    return null;
+  }
+
+  async function invokeUserAdmin(body){
+    const {data,error}=await state.sb.functions.invoke('admin-user-management',{body});
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+    return data;
+  }
+
   function bindTeam(){
-    Array.from(document.querySelectorAll('[data-aa-save-member]')).forEach(btn=>btn.addEventListener('click',async()=>{
-      const id=btn.dataset.aaSaveMember,cargo=$('[data-aa-member-cargo="'+id+'"]')?.value.trim()||null,papel=$('[data-aa-member-role="'+id+'"]')?.value||'membro';
-      try{
-        if(id===state.user.id&&state.profile?.papel==='admin'&&papel!=='admin'&&state.members.filter(m=>m.tipo==='usuario'&&m.papel==='admin').length<=1)throw new Error('Não é possível remover o último administrador.');
-        const {error}=await state.sb.from('profiles').update({cargo,papel}).eq('id',id);if(error)throw error;
-        await audit('atualizar_membro','membro',id,{cargo,papel});toast('Membro atualizado');await refreshAll();
-      }catch(err){toast(err.message||String(err));}
+    Array.from(document.querySelectorAll('[data-aa-manage-user]')).forEach(btn=>btn.addEventListener('click',()=>{
+      state.memberEditingId=btn.dataset.aaManageUser;state.memberPhotoFile=null;state.memberRemovePhoto=false;renderModalBody();
     }));
-    $('#aaInviteForm')?.addEventListener('submit',async e=>{
-      e.preventDefault();
+    $('#aaUserBack')?.addEventListener('click',()=>{state.memberEditingId=null;state.memberPhotoFile=null;state.memberRemovePhoto=false;renderModalBody();});
+    $('#aaUserPhoto')?.addEventListener('change',()=>{
+      const file=$('#aaUserPhoto')?.files?.[0]||null;if(!file)return;
+      state.memberPhotoFile=file;state.memberRemovePhoto=false;
+      const preview=$('#aaUserPhotoPreview');if(preview){const url=URL.createObjectURL(file);preview.innerHTML='<img src="'+esc(url)+'" alt="">';}
+    });
+    $('#aaUserRemovePhoto')?.addEventListener('click',()=>{
+      state.memberRemovePhoto=true;state.memberPhotoFile=null;
+      const preview=$('#aaUserPhotoPreview');if(preview)preview.textContent=initials($('#aaUserName')?.value||'');
+    });
+    $('#aaUserSave')?.addEventListener('click',async()=>{
+      const id=state.memberEditingId,member=state.members.find(m=>String(m.id)===String(id)&&m.tipo==='usuario');if(!member)return;
+      const btn=$('#aaUserSave');btn.disabled=true;btn.textContent='Salvando…';
       try{
-        const email=$('#aaInviteEmail').value.trim().toLowerCase(),nome=$('#aaInviteName').value.trim(),cargo=$('#aaInviteRoleName').value.trim(),papel=$('#aaInviteRole').value,marcas=[...$('#aaInviteBrand').selectedOptions].map(o=>o.value);
-        const {error}=await state.sb.from('equipe_convites').upsert({email,nome,cargo:cargo||null,papel,marcas,criado_por:state.user.id,envio_status:'pendente',envio_erro:null,atualizado_em:new Date().toISOString()},{onConflict:'email'});
+        const nome=$('#aaUserName')?.value.trim()||'',email=$('#aaUserEmail')?.value.trim().toLowerCase()||'',cargo=$('#aaUserCargo')?.value.trim()||null,area=$('#aaUserArea')?.value||null,papel=$('#aaUserRole')?.value||'membro',ativo=!!$('#aaUserActive')?.checked,reset=!!$('#aaUserResetOnboarding')?.checked;
+        const brandIds=Array.from(document.querySelectorAll('[data-aa-user-brand]')).filter(x=>x.checked).map(x=>x.dataset.aaUserBrand);
+        const modules=Object.fromEntries(Array.from(document.querySelectorAll('[data-aa-user-module]')).map(x=>[x.dataset.aaUserModule,!!x.checked]));
+        if(!nome)throw new Error('Digite o nome.');
+        if(!/^\S+@\S+\.\S+$/.test(email))throw new Error('E-mail inválido.');
+        let fotoUrl=member.foto_url||null;
+        if(state.memberRemovePhoto)fotoUrl=await adminRemoveUserPhoto(member);
+        else if(state.memberPhotoFile)fotoUrl=await adminUploadUserPhoto(member,state.memberPhotoFile);
+        if(norm(email)!==norm(member.email))await invokeUserAdmin({action:'update_email',user_id:id,email});
+        const {error}=await state.sb.rpc('admin_salvar_usuario',{p_profile_id:id,p_nome:nome,p_cargo:cargo,p_area_id:area,p_papel:papel,p_ativo:ativo,p_foto_url:fotoUrl,p_brand_ids:brandIds,p_modules:modules,p_reset_onboarding:reset});
         if(error)throw error;
-        const envio=await sendInviteFromInterface(email);
-        await audit('convidar_membro','membro',email,{nome,papel,marcas,envio_status:envio.status,envio_erro:envio.erro});
-        toast(envio.status==='enviado'?'Convite enviado':'Convite registrado; envio falhou: '+(envio.erro||'erro desconhecido'));await refreshAll();
+        state.memberPhotoFile=null;state.memberRemovePhoto=false;
+        toast('Conta atualizada e permissões aplicadas.');await refreshAll();state.memberEditingId=id;renderModalBody();
+      }catch(err){toast(err?.message||String(err));}
+      finally{const live=$('#aaUserSave');if(live){live.disabled=false;live.textContent='Salvar conta';}}
+    });
+    $('#aaUserDelete')?.addEventListener('click',async()=>{
+      const id=state.memberEditingId,member=state.members.find(m=>String(m.id)===String(id)&&m.tipo==='usuario');if(!member)return;
+      const typed=prompt('Esta ação é permanente. Digite o e-mail da conta para confirmar:\n\n'+member.email);
+      if(typed!==member.email){if(typed!==null)toast('Confirmação incorreta. Nada foi excluído.');return;}
+      if(!confirm('Excluir permanentemente a conta de '+member.nome+'?'))return;
+      const btn=$('#aaUserDelete');btn.disabled=true;btn.textContent='Excluindo…';
+      try{await invokeUserAdmin({action:'delete_user',user_id:id});state.memberEditingId=null;toast('Conta excluída permanentemente.');await refreshAll();}
+      catch(err){toast(err?.message||String(err));btn.disabled=false;btn.textContent='Excluir conta permanentemente';}
+    });
+    $('#aaInviteForm')?.addEventListener('submit',async e=>{
+      e.preventDefault();try{
+        const email=$('#aaInviteEmail').value.trim().toLowerCase(),nome=$('#aaInviteName').value.trim(),cargo=$('#aaInviteRoleName').value.trim(),papel=$('#aaInviteRole').value,marcas=[...$('#aaInviteBrand').selectedOptions].map(o=>o.value);
+        const {error}=await state.sb.from('equipe_convites').upsert({email,nome,cargo:cargo||null,papel,marcas,criado_por:state.user.id,envio_status:'pendente',envio_erro:null,atualizado_em:new Date().toISOString()},{onConflict:'email'});if(error)throw error;
+        const envio=await sendInviteFromInterface(email);await audit('convidar_membro','membro',email,{nome,papel,marcas,envio_status:envio.status,envio_erro:envio.erro});toast(envio.status==='enviado'?'Convite enviado':'Convite registrado; envio falhou: '+(envio.erro||'erro desconhecido'));await refreshAll();
       }catch(err){toast(err.message||String(err));}
     });
     Array.from(document.querySelectorAll('[data-aa-resend-invite]')).forEach(btn=>btn.addEventListener('click',async()=>{
       const email=btn.dataset.aaResendInvite;btn.disabled=true;
-      try{
-        const envio=await sendInviteFromInterface(email);
-        await audit('reenviar_convite','membro',email,{envio_status:envio.status,envio_erro:envio.erro});
-        toast(envio.status==='enviado'?'Convite reenviado':'Reenvio falhou: '+(envio.erro||'erro desconhecido'));
-        await refreshAll();
-      }catch(err){toast(err.message||String(err));btn.disabled=false;}
+      try{const envio=await sendInviteFromInterface(email);await audit('reenviar_convite','membro',email,{envio_status:envio.status,envio_erro:envio.erro});toast(envio.status==='enviado'?'Convite reenviado':'Reenvio falhou: '+(envio.erro||'erro desconhecido'));await refreshAll();}
+      catch(err){toast(err.message||String(err));btn.disabled=false;}
     }));
     Array.from(document.querySelectorAll('[data-aa-migrate]')).forEach(btn=>btn.addEventListener('click',async()=>{
-      const legacy=btn.dataset.aaMigrate,select=$('[data-aa-migrate-select="'+CSS.escape(legacy)+'"]'),profileId=select?.value;
-      if(!profileId){toast('Escolha um usuário real.');return;}
-      if(!confirm('Migrar todas as tarefas de "'+legacy+'" para o usuário escolhido?'))return;
-      btn.disabled=true;
-      try{
-        const {data,error}=await state.sb.rpc('migrar_responsavel_legado',{p_legacy_name:legacy,p_profile_id:profileId});
-        if(error)throw error;
-        const count=Number(data?.tarefas_migradas||0);
-        toast(count+' tarefa(s) migrada(s) com histórico preservado.');
-        await refreshAll();
-        setTimeout(()=>location.reload(),450);
-      }catch(err){toast(err.message||String(err));btn.disabled=false;}
+      const legacy=btn.dataset.aaMigrate,select=$('[data-aa-migrate-select="'+CSS.escape(legacy)+'"]'),profileId=select?.value;if(!profileId){toast('Escolha um usuário real.');return;}
+      if(!confirm('Migrar todas as tarefas de "'+legacy+'" para o usuário escolhido?'))return;btn.disabled=true;
+      try{const {data,error}=await state.sb.rpc('migrar_responsavel_legado',{p_legacy_name:legacy,p_profile_id:profileId});if(error)throw error;toast(Number(data?.tarefas_migradas||0)+' tarefa(s) migrada(s) com histórico preservado.');await refreshAll();setTimeout(()=>location.reload(),450);}
+      catch(err){toast(err.message||String(err));btn.disabled=false;}
     }));
   }
 
