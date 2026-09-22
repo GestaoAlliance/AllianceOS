@@ -250,7 +250,7 @@
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro').eq('ativo',true).order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo,foto_url,cor,descricao,site_url,configuracoes,atualizado_em').eq('ativo',true).order('nome'),
-      state.sb.from('profile_brands').select('profile_id,brand_id'),
+      state.sb.from('profile_brands').select('profile_id,brand_id,ativo').eq('ativo',true),
       state.sb.from('areas').select('id,nome').order('nome'),
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),

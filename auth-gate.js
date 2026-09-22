@@ -340,11 +340,40 @@
       finish({authenticated:false,pending:true,client,session,context});
       return;
     }
+    let onboarding=null;
+    try{
+      const {data:ob,error:obError}=await client.rpc('meu_onboarding');
+      if(obError)throw obError;
+      onboarding=ob||null;
+    }catch(err){
+      console.warn('[AllianceOS onboarding context]',err);
+      if(Number(profile?.onboarding_version||0)<1){
+        showRoot();
+        root().innerHTML='<div class="auth-fatal"><strong>Não foi possível preparar seu primeiro acesso</strong><span>'+esc(err?.message||String(err))+'</span><button onclick="location.reload()">Tentar novamente</button></div>';
+        finish({authenticated:false,onboardingError:true,client,session,context});
+        return;
+      }
+    }
+
+    if(onboarding?.precisa){
+      if(!window.AllianceOSOnboarding?.run){
+        showRoot();
+        root().innerHTML='<div class="auth-fatal"><strong>Onboarding indisponível</strong><span>Atualize a página para continuar.</span><button onclick="location.reload()">Atualizar</button></div>';
+        finish({authenticated:false,onboardingError:true,client,session,context});
+        return;
+      }
+      showRoot();
+      await window.AllianceOSOnboarding.run({client,session,data:onboarding});
+      document.documentElement.classList.remove('alliance-onboarding-open');
+      try{context=await loadContext()}catch(err){console.warn('[AllianceOS auth context after onboarding]',err)}
+    }
+
+    const freshProfile=context?.perfil||profile;
     exposeIdentity(context);
     showApp();
     if(location.pathname==='/login'||location.pathname==='/cadastro')history.replaceState({},'','/');
     finish({authenticated:true,client,session,context});
-    window.dispatchEvent(new CustomEvent('allianceos:auth',{detail:{user:session.user,profile,brands:context.marcas||[]}}));
+    window.dispatchEvent(new CustomEvent('allianceos:auth',{detail:{user:session.user,profile:freshProfile,brands:context?.marcas||[]}}));
   }
 
   window.AllianceOSAuth={
