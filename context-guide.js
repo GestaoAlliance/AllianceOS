@@ -84,15 +84,15 @@
       ['css:#newTaskForm .new-actions','Crie só quando o contexto estiver claro','Antes de confirmar, confira dono, prazo, campanha e resultado esperado. Isso faz a tarefa nascer pronta para execução.']
     ],
     'task-detail':[
-      ['css:#taskTitleInput','Aqui é a ficha viva da tarefa','Tudo que mudar durante a execução deve ficar nesta ficha: contexto, prazo, dependência, checklist, material, entrega e decisão.'],
-      ['section:#detailDescription','Comece pelo briefing','Leia o resultado esperado antes de executar. Se estiver incompleto, ajuste aqui em vez de criar contexto paralelo em mensagens.'],
-      ['section:#detailAddDependency','Entenda o que vem antes e depois','Dependências representam ordem real de execução. Quando a anterior termina, as próximas podem ser liberadas automaticamente.'],
-      ['section:#detailChecklist','Use o checklist durante a execução','Marque cada item conforme confere. Se a lista for obrigatória, a tarefa não poderá ser concluída com item pendente.'],
-      ['section:#attachmentInput','Anexos são insumos, não entrega final','Use esta área para arquivos e referências necessários para trabalhar. O resultado final deve ir em Entrega.'],
-      ['section:#addDeliveryBtn','Registre o resultado final','Cole o link ou descreva a entrega. Quando a entrega for obrigatória, concluir sem registrar o resultado fica bloqueado.'],
-      ['css:.tdetail-side','O contexto operacional fica ao lado','Status, responsável, prioridade, prazo, campanha e recorrência devem refletir a realidade da execução.'],
-      ['section:#v3CompleteTaskBtn','Concluir tem significado','Ao concluir, o AllianceOS valida dependências, checklist e entrega. Se houver próxima etapa, ela é liberada pelo fluxo.'],
-      ['section:#newCommentText','Decisões importantes ficam registradas','Use comentários para aprovações, mudanças e decisões que outra pessoa precisa entender depois.']
+      ['css:#taskDetailDrawer .r10-task-head, #taskDetailDrawer .tdetail-main','Esta é a ficha viva da tarefa','Título, objetivo, materiais, entrega e histórico ficam concentrados aqui. A tarefa deve carregar o contexto necessário para alguém executar sem depender de conversa paralela.'],
+      ['css:#taskDetailDrawer .r10-objective-card, #taskDetailDrawer .description-area','Comece pelo objetivo','Leia o resultado esperado antes de executar. Se estiver incompleto, ajuste aqui em vez de criar contexto paralelo em mensagens.'],
+      ['css:#taskDetailDrawer .r10-materials-card, #taskDetailDrawer .v3-attachment-drop','Materiais são insumos para trabalhar','Arquivos, referências e documentos que ajudam na execução ficam aqui. Eles não substituem a entrega final da tarefa.'],
+      ['css:#taskDetailDrawer .r10-delivery-card, #taskDetailDrawer .v5-delivery-section','Sua entrega é o resultado final','Registre aqui o que foi produzido: arquivo, link, texto ou outro resultado. Quando a entrega for obrigatória, a tarefa não conclui sem isso.'],
+      ['css:#taskDetailDrawer .r10-status-card, #taskDetailDrawer .tdetail-side','Status e informações mantêm a tarefa confiável','Responsável, status, prioridade e prazo devem refletir a realidade. É isso que alimenta as visões, alertas e acompanhamento do time.'],
+      ['css:#taskDetailDrawer .r10-context-card, #taskDetailDrawer .tdetail-side','Confira o contexto da tarefa','Lista, cliente e campanha mostram onde essa execução pertence. Evite mover uma tarefa de contexto sem entender o impacto no planejamento.'],
+      ['css:#taskDetailDrawer .r10-dependencies-card, #taskDetailDrawer #detailAddDependency','Dependências explicam a ordem do trabalho','Veja o que precisa acontecer antes e o que esta tarefa libera depois. Use dependência somente quando existir uma ordem real de execução.'],
+      ['css:#taskDetailDrawer .r10-completion-card, #taskDetailDrawer #v3CompleteTaskBtn','Concluir tem significado','Ao concluir, o AllianceOS valida dependências, conferências e entrega. Se houver próxima etapa, ela é liberada automaticamente pelo fluxo.'],
+      ['css:#taskDetailDrawer .r10-observations-card, #taskDetailDrawer #newCommentText','Decisões importantes ficam registradas','Use Observações para aprovações, mudanças e decisões que outra pessoa precisa entender depois. Isso evita perder contexto em mensagens externas.']
     ],
     'mind-map':[
       ['css:.ref-strategy-tabs','O mapa é o começo da estratégia','Use esta sequência: Mapa mental → Campanhas → Mês → Semana. Primeiro organize a ideia; depois transforme em execução.'],
@@ -269,9 +269,22 @@
       focusEl.style.height=Math.round(r.height+pad*2)+'px';
       placeCard({left:r.left-pad,top:r.top-pad,right:r.right+pad,bottom:r.bottom+pad,width:r.width+pad*2,height:r.height+pad*2});
     }else{
-      focusEl.hidden=true;
-      cardEl.classList.add('centered');
-      cardEl.style.left='50%';cardEl.style.top='50%';
+      const fallback=active==='task-detail'
+        ? ($('#taskDetailDrawer .r10-workspace')||$('#taskDetailDrawer .r10-main')||$('#taskDetailDrawer .tdetail-layout'))
+        : null;
+      if(fallback&&visible(fallback)){
+        const r=fallback.getBoundingClientRect(),pad=8;
+        focusEl.hidden=false;
+        focusEl.style.left=Math.round(r.left-pad)+'px';
+        focusEl.style.top=Math.round(r.top-pad)+'px';
+        focusEl.style.width=Math.round(r.width+pad*2)+'px';
+        focusEl.style.height=Math.round(r.height+pad*2)+'px';
+        placeCard({left:r.left-pad,top:r.top-pad,right:r.right+pad,bottom:r.bottom+pad,width:r.width+pad*2,height:r.height+pad*2});
+      }else{
+        focusEl.hidden=true;
+        cardEl.classList.add('centered');
+        cardEl.style.left='50%';cardEl.style.top='50%';
+      }
     }
   }
   function render(){
@@ -296,7 +309,7 @@
     const step=(guideSteps(active)||[])[index],el=target(step?.[0]);
     if(el&&visible(el)&&!el.closest('.ref2-nav'))el.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
     render();
-    setTimeout(paint,220);
+    setTimeout(paint,320);
   }
   function start(key,force=false){
     if(!guideSteps(key)||document.getElementById('allianceOnboardingRoot'))return;
