@@ -13,8 +13,8 @@ export default function handler(req,res){
     theme_color:'#121417',
     categories:['business','productivity'],
     icons:[
-      {src:'/api/brand-icon?format=svg&v=20260922-2',sizes:'any',type:'image/svg+xml',purpose:'any'},
-      {src:'/api/brand-icon?v=20260922-2',sizes:'512x512',type:'image/png',purpose:'any maskable'}
+      {src:'/api/brand-icon?format=svg&v=20260922-3',sizes:'any',type:'image/svg+xml',purpose:'any'},
+      {src:'/api/brand-icon?v=20260922-3',sizes:'512x512',type:'image/png',purpose:'any maskable'}
     ]
   };
   const body=JSON.stringify(manifest);
