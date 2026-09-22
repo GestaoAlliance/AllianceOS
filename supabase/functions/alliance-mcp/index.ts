@@ -1625,7 +1625,7 @@ const protectedHandler = withOAuthProtectedResource(
             headers:{
               'Content-Type':'application/json; charset=utf-8',
               'Cache-Control':'no-store',
-              'WWW-Authenticate':'Bearer'
+              'WWW-Authenticate':'Bearer error="invalid_token", error_description="Sessao OAuth expirada ou invalida; reconecte o AllianceOS."'
             }
           })
         }
