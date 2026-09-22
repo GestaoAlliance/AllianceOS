@@ -9,14 +9,14 @@ const TASKS_KEY = 'central.tasks.vitor-gutierrez'
 const CAMPAIGNS_KEY = 'central.campaigns.vitor-gutierrez'
 const DELIVERIES_KEY = 'central.deliveries.workspace.v1'
 const FULL_CHANNELS = ['E-mails base antiga','E-mails base captada','WhatsApp grupos antigos','WhatsApp grupos da campanha','WhatsApp API','Criativos em vídeo','Criativos em imagem','Instagram feed','Instagram stories','Alteração no site'] as const
-const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','Grupos antigos','API'] as const
+const DEFAULT_REVENUE_SOURCES = ['Tráfego','Influencer','Instagram Bio/stories','Atendimento','E-mail','Grupos antigos','API'] as const
 const APP_URL = 'https://alliance-os-sooty.vercel.app'
 const MCP_BRAND_VERSION = '20260922-3'
 const MCP_ICON_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\" role=\"img\" aria-label=\"AllianceOS\"><rect x=\"23\" y=\"23\" width=\"466\" height=\"466\" rx=\"103\" fill=\"#101418\"/><g stroke=\"#fff\" stroke-width=\"38\" stroke-linecap=\"round\"><path d=\"M256 169v174\"/><path d=\"M169 256h174\"/><path d=\"M194.5 194.5l123 123\"/><path d=\"M317.5 194.5l-123 123\"/></g></svg>"
 const MCP_ICON_DATA_URI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(MCP_ICON_SVG)
 const MCP_ICON_URL = APP_URL + '/api/brand-icon?v=' + MCP_BRAND_VERSION
 const MCP_ICON_SVG_URL = APP_URL + '/api/brand-icon?format=svg&v=' + MCP_BRAND_VERSION
-const TOOL_SCHEMA_VERSION = '2026-09-22.1'
+const TOOL_SCHEMA_VERSION = '2026-09-22.2'
 const MCP_EVENT_BUS = new InMemoryServerEventBus()
 
 type AnyRow = Record<string, any>
@@ -940,6 +940,24 @@ function fullLegacyTap(c:any){
   }
 }
 
+function fullSyncCampaignLegacyFieldsFromTap(c:any){
+  if(!c?.tapStructured||typeof c.tapStructured!=='object')return c
+  const t=fullLegacyTap(c),plans=Array.isArray(t.metas_por_fonte)?t.metas_por_fonte:[]
+  if(plans.length){
+    c.goal=plans.reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0)
+    c.budget=plans.reduce((n:number,x:any)=>n+Number(x.investimento||0),0)
+  }
+  const ev=t.sobre_evento||{},offer=t.oferta||{},cron=Array.isArray(t.cronograma)?t.cronograma:[]
+  if(String(ev.formato||'').trim())c.objective=String(ev.formato).trim()
+  const offerLabel=String(ev.cupom_automatico||'').trim()||(Number(offer.desconto_geral||0)>0?Number(offer.desconto_geral||0)+'% OFF':'')
+  if(offerLabel)c.offer=offerLabel
+  c.products=(Array.isArray(offer.produtos)?offer.produtos:[]).map((p:any)=>({sku:String(p.sku||''),name:String(p.nome||p.name||''),price:Number(p.preco??p.price??0),discount:Number(p.desconto??p.discount??0)}))
+  c.benefits=[offer.frete,offer.brinde,offer.bonus_universal,offer.bonus_influencer].map((x:any)=>String(x||'').trim()).filter(Boolean)
+  c.schedule=cron.map((r:any)=>[String(r.periodo||r.prazo||''),String(r.canal||''),String(r.conteudo||''),String(r.quem_faz||((r.responsaveis||[]).join(', '))||'')])
+  c.channels=[...new Set([...(Array.isArray(c.channels)?c.channels:[]),...cron.map((r:any)=>String(r.canal||'').trim()).filter(Boolean)])]
+  return c
+}
+
 function fullGoal(c:any){const t=fullLegacyTap(c),sum=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.meta_faturamento||0),0);return sum>0?sum:Number(c.goal||0)}
 function fullInvestment(c:any){const t=fullLegacyTap(c),sum=(t.metas_por_fonte||[]).reduce((n:number,x:any)=>n+Number(x.investimento||0),0);return sum>0?sum:Number(c.budget||0)}
 function fullPublicCampaign(c:any){let tipo=c.type||null,status=c.status||'planejamento';try{tipo=fullCampaignType(tipo)}catch{}try{status=fullCampaignStatus(status)}catch{}return{id:String(c.id),link:fullLinks('campanha',String(c.id)),nome:c.name||'',marca:c.brand||null,tipo,inicio:fullCampaignBoundary(c.startAt||c.start,'inicio'),fim:fullCampaignBoundary(c.endAt||c.end,'fim'),meta_faturamento:fullGoal(c),meta_manual:Number(c.goal||0),investimento_total:fullInvestment(c),status,mes_referencia:c.monthRef||String(c.startAt||c.start||'').slice(0,7)||null,mes_id:c.monthId||null,canais:Array.isArray(c.channels)?c.channels:[],cliente_id:c.clientId||null,tags:Array.isArray(c.tags)?c.tags:[],arquivada:!!c.archivedAt,arquivada_em:c.archivedAt||null,origem:c.origin||c.source||null}}
@@ -1167,6 +1185,7 @@ function registerFullSystemTools(server:any,supabase:any){
     tap.cronograma=(tap.cronograma||[]).map((x:any)=>({...x,canal:fullChannelCanon(x.canal)}))
     c.tapStructured=tap
     c.channels=[...new Set([...(c.channels||[]),...tap.cronograma.map((x:any)=>x.canal)])]
+    fullSyncCampaignLegacyFieldsFromTap(c)
     const tapChanges=[{campo:'tap',antes:beforeTap,depois:structuredClone(c.tapStructured)}];prependEntityChanges(c,who,tapChanges)
     await fullSaveCampaigns(supabase,rows);await fullSyncRevenueSources(supabase,c,who)
     await audit(supabase,who,'definir_tap','campanha',c.id,changeAuditDetails(tapChanges,{secao:'tap'}))
@@ -1193,6 +1212,7 @@ function registerFullSystemTools(server:any,supabase:any){
       if(section==='cronograma')for(const x of parsed)x.canal=fullChannelCanon(x.canal)
     }
     c.tapStructured={...base,[section]:parsed};delete c.tapStructured.metas_por_canal
+    fullSyncCampaignLegacyFieldsFromTap(c)
     const tapChanges=[{campo:'tap.'+section,antes:beforeSection,depois:structuredClone((c.tapStructured as any)[section])}];prependEntityChanges(c,who,tapChanges)
     await fullSaveCampaigns(supabase,rows);if(section==='metas_por_fonte')await fullSyncRevenueSources(supabase,c,who)
     await audit(supabase,who,'atualizar_secao_tap','campanha',c.id,changeAuditDetails(tapChanges,{secao:section}))
@@ -1200,21 +1220,31 @@ function registerFullSystemTools(server:any,supabase:any){
   })
   server.registerTool('gerar_tarefas_do_tap',{description:'Transforma cronograma do TAP em tarefas da campanha, preservando responsável e prazo ISO com fuso.',inputSchema:z.object({campanha_id:z.string(),lista:z.string().optional(),prioridade:z.string().default('normal'),status:z.string().default('a fazer')})},async(a:any)=>{const who=await actor(supabase),c=fullCampaign(await fullCampaigns(supabase),a.campanha_id),tap=fullLegacyTap(c),schedule=tap.cronograma||[];let l:any=null;if(a.lista)l=await resolveList(supabase,a.lista);else{const ls=(await buildLists(supabase,false)).filter((x:any)=>String(x.campanha_id||'')===String(c.id));l=ls[0];if(!l){const b=await fullBrand(supabase,c.brand),{data,error}=await supabase.from('task_lists').insert({nome:c.name,brand_id:b.id,campanha_id:String(c.id),criado_por:who.id,atualizado_por:who.id}).select('id,nome,brand_id,campanha_id').single();if(error)throw new Error(error.message);l={id:String(data.id),nome:data.nome,marca:b.nome,campanha_id:c.id}}}const tasks=await readState(supabase,TASKS_KEY),made=[],skip=[];for(const r of schedule){if(!r.prazo){skip.push({canal:r.canal,periodo:r.periodo,motivo:'sem prazo com hora/fuso'});continue}const text=String(r.conteudo||'').trim();if(!text)continue;let ass:any={names:[],ids:[]};if(r.responsaveis?.length)ass=await resolveAssignees(supabase,r.responsaveis);const id='mcp-'+Date.now()+'-'+crypto.randomUUID().slice(0,7),t:any={id,title:(r.canal+' — '+text).slice(0,300),description:'Campanha: '+c.name+'\nPeríodo: '+r.periodo+'\nGerada do TAP.',status:statusCanon(a.status)||'a fazer',blockedReason:null,assignees:ass.names,assigneeIds:ass.ids,due:String(r.prazo).slice(0,10),dueAt:r.prazo,start:null,brand:c.brand,project:l.nome,listId:l.id,campaignId:String(c.id),channel:fullChannelCanon(r.canal),priority:priorityCanon(a.prioridade)||'normal',checklist:[],conferenceRequired:false,subtasks:[],attachments:[],comments:[],history:[{at:nowIso(),by:who.nome,authorId:who.id,origin:'mcp',text:'Tarefa gerada do TAP.'}],recurrence:'none',recurrenceRule:{tipo:'nenhuma',dias_semana:[]},tags:[],source:'allianceos-mcp',dependencies:[],parentTaskId:null,deliveries:[],deliveryRequired:false,archivedAt:null};tasks.unshift(t);made.push(publicTask(t))}if(made.length)await writeTasks(supabase,tasks);await audit(supabase,who,'gerar_tarefas_do_tap','campanha',c.id,{quantidade:made.length});return toolText({campanha:{id:c.id,link:fullLinks('campanha',c.id)},lista:l,tarefas_criadas:made,ignoradas:skip})})
 
+  const mapNodeSchema=z.object({
+    id:z.union([z.string(),z.number()]).optional(),node_key:z.string().optional(),chave:z.string().optional(),
+    parent_key:z.union([z.string(),z.number()]).nullable().optional(),pai:z.union([z.string(),z.number()]).nullable().optional(),parent:z.union([z.string(),z.number()]).nullable().optional(),
+    texto:z.string().optional(),t:z.string().optional(),title:z.string().optional(),
+    x:z.number().optional(),y:z.number().optional(),cor:z.any().optional(),color:z.any().optional(),aberto:z.boolean().optional(),fech:z.boolean().optional(),
+    campanha_id:z.string().nullable().optional().describe('ID da campanha do AllianceOS. Campo canônico.'),
+    campaign_id:z.string().nullable().optional().describe('Alias legado de campanha_id.'),
+    campId:z.string().nullable().optional().describe('Alias legado de campanha_id.'),
+    campanha_nome:z.string().optional(),campaign_name:z.string().optional(),campanha:z.string().optional()
+  }).passthrough()
   server.registerTool('criar_mapa',{
-    description:'Cria mapa mental e importa JSON. Fluxo recomendado no Claude: primeiro use listar_meses para a marca/ano/mês; se não existir, use criar_mes; só então crie o mapa. campId legado é resolvido por mapa de correspondência ou nome; sem correspondência fica nulo com aviso.',
-    inputSchema:z.object({marca:z.string(),ano:z.number().int(),mes:z.number().int().min(1).max(12),nome:z.string().default('Planejamento'),layout:z.string().default('direita'),mapa_json:z.any().optional(),nos:z.array(z.any()).optional(),correspondencia_campanhas:z.record(z.string(),z.string()).default({})})
+    description:'Cria mapa mental e importa JSON. Fluxo recomendado no Claude: primeiro use listar_meses para a marca/ano/mês; se não existir, use criar_mes; só então crie o mapa. Para vincular um nó use campanha_id (canônico); campaign_id e campId são aliases legados. Referência de campanha não resolvida sempre retorna aviso.',
+    inputSchema:z.object({marca:z.string(),ano:z.number().int(),mes:z.number().int().min(1).max(12),nome:z.string().default('Planejamento'),layout:z.string().default('direita'),mapa_json:z.any().optional(),nos:z.array(mapNodeSchema).optional(),correspondencia_campanhas:z.record(z.string(),z.string()).default({})})
   },async(a:any)=>{
     const who=await actor(supabase),b=await fullBrand(supabase,a.marca),{data:m}=await supabase.from('planning_months').select('*').eq('brand_id',b.id).eq('ano',a.ano).eq('mes',a.mes).maybeSingle()
     if(!m)throw new Error('Crie primeiro o mês.')
     const campaigns=(await fullCampaigns(supabase)).filter((c:any)=>norm(c.brand)===norm(b.nome)),byName=new Map(campaigns.map((c:any)=>[norm(c.name),c])),mapping=a.correspondencia_campanhas||{}
     const{data:map,error}=await supabase.from('planning_maps').insert({brand_id:b.id,month_id:m.id,nome:a.nome,layout:a.layout,origem:'mcp',criado_por:who.id,atualizado_por:who.id}).select('*').single();if(error)throw new Error(error.message)
-    const raw=a.mapa_json??a.nos??[],input=Array.isArray(raw)?raw:(raw?.nos||[]),warnings:any[]=[]
+    const raw=a.mapa_json??a.nos??[],rawInput=Array.isArray(raw)?raw:(raw?.nos||[]),input=mapNodeSchema.array().parse(rawInput),warnings:any[]=[]
     const nodes=input.map((n:any,i:number)=>{
-      const legacy=n.campaign_id??n.campId??null;let campaignId:string|null=null
+      const legacy=n.campanha_id??n.campaign_id??n.campId??null;let campaignId:string|null=null
       if(legacy!=null&&String(legacy).trim()){
         const direct=campaigns.find((c:any)=>String(c.id)===String(legacy))
         const mapped=mapping[String(legacy)]?campaigns.find((c:any)=>String(c.id)===String(mapping[String(legacy)])):null
-        const named=byName.get(norm(n.campaign_name??n.campanha??n.texto??n.t??n.title??''))
+        const named=byName.get(norm(n.campanha_nome??n.campaign_name??n.campanha??n.texto??n.t??n.title??''))
         const chosen=direct||mapped||named
         if(chosen)campaignId=String(chosen.id)
         else warnings.push({no:String(n.node_key??n.chave??n.id??i+1),texto:String(n.texto??n.t??n.title??''),campanha_legada:String(legacy),aviso:'Sem correspondência; campanha_id ficou nulo.'})
@@ -1857,7 +1887,7 @@ const protectedHandler = withOAuthProtectedResource(
 
       
       server.registerTool('criar_tarefa',{
-        description:'Cria tarefa/subtarefa. Fluxo recomendado no Claude: primeiro use listar_listas; se a marca ainda não tiver lista, use criar_lista; depois envie de preferência o id da lista em lista. A subtarefa deve permanecer na lista/marca/campanha da mãe. Dependências entre marcas são recusadas. Prazo no passado gera aviso e não bloqueia a gravação.',
+        description:'Cria tarefa/subtarefa. Fluxo recomendado no Claude: primeiro use listar_listas; se a marca ainda não tiver lista, use criar_lista; depois envie de preferência o id da lista em lista. Quando o checklist representar critério verificável de execução (site, disparo, conferência, reversão), use checklist_obrigatoria=true; quando for só lembrete, mantenha false. Para arte/copy/arquivo que precisa ser entregue, use entrega_obrigatoria=true. A subtarefa deve permanecer na lista/marca/campanha da mãe. Dependências entre marcas são recusadas. Prazo no passado gera aviso e não bloqueia a gravação.',
         inputSchema:z.object({
           nome:z.string().min(1).max(150),descricao_markdown:z.string().max(50000).default(''),lista:z.string().min(1),campanha_id:z.string().nullable().optional(),
           responsaveis:z.array(z.string().min(1)).default([]),prazo:dt.optional(),confirmar_prazo_passado:z.boolean().default(false),prioridade:z.string().default('normal'),status:z.string().optional(),motivo_bloqueio:z.string().max(500).nullable().optional(),
