@@ -129,13 +129,15 @@
 
   async function readTasks(){
     if(!state.user)return [];
-    const {data,error}=await state.sb.from('operacional_estado').select('valor').eq('chave',TASKS_KEY).is('dono',null).maybeSingle();
+    const {data,error}=await state.sb.rpc('ler_tarefas_acessiveis');
     if(error)throw error;
-    return Array.isArray(data?.valor)?data.valor:[];
+    return Array.isArray(data)?data:[];
   }
   async function writeTasks(tasks){
-    const {data,error}=await state.sb.from('operacional_estado').update({valor:tasks,atualizado_em:new Date().toISOString()}).eq('chave',TASKS_KEY).is('dono',null).select('chave');
-    if(error)throw error;if(!data?.length)throw new Error('Sem permissão para alterar tarefas.');
+    if(!state.user)throw new Error('Faça login para alterar tarefas.');
+    const {data,error}=await state.sb.rpc('salvar_tarefas_acessiveis',{p_tasks:Array.isArray(tasks)?tasks:[]});
+    if(error)throw error;
+    return Array.isArray(data)?data:[];
   }
 
   async function loadDirectory(){
