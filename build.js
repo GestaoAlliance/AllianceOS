@@ -109,8 +109,12 @@ async function main() {
     const campaignEnd=String(c.end||c.endDate||c.data_fim||c.dataFim||'').slice(0,10);
     const todayIso=new Date().toISOString().slice(0,10);
     if(campaignEnd&&campaignEnd<todayIso&&/^(em execução|em execucao|execução|execucao|executando|ativa|ativo)$/i.test(c.status))c.status='encerrada';
-    c.goal=Number(c.goal??c.meta??c.meta_faturamento??0)||0;
-    c.budget=Number(c.budget??c.investment??c.investimento??c.investimento_total??0)||0;
+    const structured=c.tapStructured&&typeof c.tapStructured==='object'?c.tapStructured:null;
+    const plans=Array.isArray(structured?.metas_por_fonte)?structured.metas_por_fonte:(Array.isArray(structured?.metas_por_canal)?structured.metas_por_canal:[]);
+    const plannedGoal=plans.reduce((n,x)=>n+Number(x?.meta_faturamento||0),0);
+    const plannedBudget=plans.reduce((n,x)=>n+Number(x?.investimento||0),0);
+    c.goal=plans.length?plannedGoal:(Number(c.goal??c.meta??c.meta_faturamento??0)||0);
+    c.budget=plans.length?plannedBudget:(Number(c.budget??c.investment??c.investimento??c.investimento_total??0)||0);
     c.progress=Math.max(0,Math.min(100,Number(c.progress??c.progresso??0)||0));
     c.color=String(c.color||c.cor||'#121415');
     c.offer=String(c.offer||c.oferta||'');
@@ -119,6 +123,19 @@ async function main() {
     c.products=Array.isArray(c.products)?c.products:(Array.isArray(c.produtos)?c.produtos:[]);
     c.benefits=Array.isArray(c.benefits)?c.benefits:(Array.isArray(c.beneficios)?c.beneficios:[]);
     c.schedule=Array.isArray(c.schedule)?c.schedule:(Array.isArray(c.cronograma)?c.cronograma:[]);
+    if(structured){
+      if(String(structured?.sobre_evento?.formato||'').trim())c.objective=String(structured.sobre_evento.formato).trim();
+      const tapOffer=String(structured?.sobre_evento?.cupom_automatico||'').trim()||(Number(structured?.oferta?.desconto_geral||0)>0?Number(structured.oferta.desconto_geral)+'% OFF':'');
+      if(tapOffer)c.offer=tapOffer;
+      const tapProducts=Array.isArray(structured?.oferta?.produtos)?structured.oferta.produtos:[];
+      if(tapProducts.length)c.products=tapProducts.map(p=>({sku:String(p?.sku||''),name:String(p?.nome||p?.name||''),price:Number(p?.preco??p?.price??0),discount:Number(p?.desconto??p?.discount??0)}));
+      const tapBenefits=[structured?.oferta?.frete,structured?.oferta?.brinde,structured?.oferta?.bonus_universal,structured?.oferta?.bonus_influencer].map(x=>String(x||'').trim()).filter(Boolean);
+      if(tapBenefits.length)c.benefits=tapBenefits;
+      const tapSchedule=Array.isArray(structured?.cronograma)?structured.cronograma:[];
+      if(tapSchedule.length)c.schedule=tapSchedule.map(r=>[String(r?.periodo||r?.prazo||''),String(r?.canal||''),String(r?.conteudo||''),String(r?.quem_faz||((r?.responsaveis||[]).join(', '))||'')]);
+      const tapChannels=tapSchedule.map(r=>String(r?.canal||'').trim()).filter(Boolean);
+      if(tapChannels.length)c.channels=[...new Set([...c.channels,...tapChannels])];
+    }
     return c;
   }
   function filteredCampaigns(){const q=(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();const st=document.getElementById('campaignStatusFilter')?.value||'';const brand=getSelectedBrand();const allowed=new Set((window.AllianceOSDirectory?.brands||[]).map(b=>String(b?.nome||'')).filter(Boolean));return campaignData.map(normalizeCampaign).filter(c=>{if(allowed.size&&c.brand&&!allowed.has(String(c.brand)))return false;if(brand&&c.brand!==brand)return false;if(st&&c.status!==st)return false;if(q&&!\`\${c.name} \${c.type} \${c.owner} \${c.offer} \${c.channels.join(' ')}\`.toLowerCase().includes(q))return false;return true})}`;
@@ -139,6 +156,14 @@ async function main() {
           const newOpenCampaign = "  function openCampaignWorkspace(id){const raw=campaignData.find(x=>String(x.id)===String(id));if(!raw)return;const c=normalizeCampaign(raw);campaignState.selected=c.id;campaignState.workspaceTab='summary';document.getElementById('campaignOverviewList').classList.add('hidden');document.getElementById('campaignWorkspace').classList.add('active');renderWorkspace();location.hash='campaigns'}";
           if (!s.includes(oldOpenCampaign)) throw new Error('Não encontrei openCampaignWorkspace legado para corrigir');
           s = s.replace(oldOpenCampaign, newOpenCampaign);
+
+          // AllianceOS: tarefas de campanha são vinculadas por campaignId.
+          // Nome da lista fica apenas como fallback legado quando a tarefa não tem campaignId.
+          const oldCampaignTaskFilter = "filter(t=>normalizeProject(t.project)===normalizeProject(c.name))";
+          const newCampaignTaskFilter = "filter(t=>String(t.campaignId||'')===String(c.id)||(!t.campaignId&&normalizeProject(t.project)===normalizeProject(c.name)))";
+          const campaignTaskFilterCount = s.split(oldCampaignTaskFilter).length - 1;
+          if (campaignTaskFilterCount < 2) throw new Error('Não encontrei os filtros de tarefas da campanha para corrigir');
+          s = s.replaceAll(oldCampaignTaskFilter, newCampaignTaskFilter);
 
           // AllianceOS: entregas arquivadas continuam persistidas, mas saem das listagens padrão da interface.
           const oldFilteredDeliveries = "  function filteredDeliveries(){let data=[...deliveries];";
