@@ -24,6 +24,8 @@ const AUTH_GATE_JS = path.join(__dirname, 'auth-gate.js');
 const AUTH_GATE_CSS = path.join(__dirname, 'auth-gate.css');
 const ONBOARDING_JS = path.join(__dirname, 'onboarding.js');
 const ONBOARDING_CSS = path.join(__dirname, 'onboarding.css');
+const CONTEXT_GUIDE_JS = path.join(__dirname, 'context-guide.js');
+const CONTEXT_GUIDE_CSS = path.join(__dirname, 'context-guide.css');
 const SOCIAL_PREVIEW_IMAGE = path.join(__dirname, 'assets', 'allianceos-whatsapp-preview-v6.jpg');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
@@ -54,6 +56,8 @@ async function main() {
   const authGateCss = fs.readFileSync(AUTH_GATE_CSS, 'utf8');
   const onboardingJs = fs.readFileSync(ONBOARDING_JS, 'utf8');
   const onboardingCss = fs.readFileSync(ONBOARDING_CSS, 'utf8');
+  const contextGuideJs = fs.readFileSync(CONTEXT_GUIDE_JS, 'utf8');
+  const contextGuideCss = fs.readFileSync(CONTEXT_GUIDE_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -283,8 +287,8 @@ async function main() {
   const brandHead = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/api/brand-icon?format=svg&v=20260922-4\">\n<link rel=\"icon\" type=\"image/png\" sizes=\"512x512\" href=\"/api/brand-icon?v=20260922-4\">\n<link rel=\"shortcut icon\" href=\"/api/brand-icon?format=svg&v=20260922-4\">\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon-allianceos-180.png\">\n<link rel=\"apple-touch-icon-precomposed\" sizes=\"180x180\" href=\"/apple-touch-icon-allianceos-180.png\">\n<link rel=\"manifest\" href=\"/manifest.webmanifest?v=20260922-4\">\n<meta name=\"application-name\" content=\"AllianceOS\">\n<meta name=\"apple-mobile-web-app-title\" content=\"AllianceOS\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n<meta name=\"theme-color\" content=\"#121417\">\n<meta name=\"msapplication-TileColor\" content=\"#121417\">\n<meta name=\"msapplication-TileImage\" content=\"/api/brand-icon?v=20260922-4\">\n";
   html = html.replace(/<title>[^<]*<\/title>/i, '<title>AllianceOS — Operação em um só lugar</title>');
   html = html.replace('<head>', () => `<head>\n${socialHead}`);
-  html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
-  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n</body>`);
+  html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-context-guide-style">\n${contextGuideCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
