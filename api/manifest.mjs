@@ -13,9 +13,9 @@ export default function handler(req,res){
     theme_color:'#121417',
     categories:['business','productivity'],
     icons:[
-      {src:'/api/brand-icon?v=20260921-2',sizes:'512x512',type:'image/png',purpose:'any'},
-      {src:'/api/brand-icon?v=20260921-2',sizes:'512x512',type:'image/png',purpose:'monochrome'},
-      {src:'/api/brand-icon?variant=maskable&v=20260921-2',sizes:'512x512',type:'image/png',purpose:'maskable'}
+      {src:'/api/brand-icon?v=20260922-1',sizes:'512x512',type:'image/png',purpose:'any'},
+      {src:'/api/brand-icon?v=20260922-1',sizes:'512x512',type:'image/png',purpose:'monochrome'},
+      {src:'/api/brand-icon?variant=maskable&v=20260922-1',sizes:'512x512',type:'image/png',purpose:'maskable'}
     ]
   };
   const body=JSON.stringify(manifest);
