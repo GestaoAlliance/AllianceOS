@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const VERSION=1;
+  const VERSION=2;
   const STEPS=[
     ['Boas-vindas','Seu espaço no AllianceOS'],
     ['Seu perfil','Quem é você na operação'],
@@ -55,10 +55,12 @@
       const userKey='allianceos.onboarding.step.'+(profile.id||session?.user?.id||'user');
       let stored=0;
       try{stored=Number(sessionStorage.getItem(userKey)||0)||0}catch{}
+      const fallbackName=String(profile.nome||session?.user?.user_metadata?.full_name||session?.user?.user_metadata?.name||session?.user?.email?.split('@')[0]||'');
+      const fallbackCargo=String(profile.cargo||session?.user?.user_metadata?.cargo||'');
       const state={
         step:Math.max(0,Math.min(STEPS.length-1,stored)),
-        name:String(profile.nome||''),
-        cargo:String(profile.cargo||''),
+        name:fallbackName,
+        cargo:fallbackCargo,
         areaId:String(profile.area_id||''),
         brandIds:new Set(brands.filter(b=>b.selecionada!==false).map(b=>String(b.id))),
         busy:false,
@@ -76,16 +78,32 @@
       function message(){return state.error?'<div class="ob-error">'+esc(state.error)+'</div>':''}
 
       function welcome(){
+        const area=areas.find(a=>String(a.id)===state.areaId);
+        const selected=brands.filter(b=>state.brandIds.has(String(b.id)));
+        const displayName=state.name||session?.user?.email?.split('@')[0]||'você';
+        const firstName=String(displayName).trim().split(/\s+/)[0]||'você';
+        const avatar=profile.foto_url?'<img src="'+esc(profile.foto_url)+'" alt="">':esc(initials(displayName));
+        const brandPreview=selected.slice(0,4).map(b=>brandVisual(b)).join('');
         return '<section class="ob-step ob-welcome">'+
-          '<div class="ob-kicker">PRIMEIRO ACESSO</div>'+
-          '<h1>Bem-vindo ao AllianceOS.</h1>'+
-          '<p class="ob-lead">Antes de entrar, vamos deixar seu ambiente pronto. São poucos passos para mostrar <b>quem você é</b>, <b>quais marcas fazem parte da sua rotina</b> e <b>como a operação funciona</b>.</p>'+
-          '<div class="ob-welcome-grid">'+
-            '<article><span>01</span><b>Seu contexto</b><p>Área, cargo e marcas certas desde o primeiro dia.</p></article>'+
-            '<article><span>02</span><b>Menos ruído</b><p>Você vê o que realmente faz parte da sua operação.</p></article>'+
-            '<article><span>03</span><b>Mesmo processo</b><p>Todo mundo trabalha com a mesma lógica de execução.</p></article>'+
+          '<div class="ob-kicker">PRIMEIRO ACESSO · 2 MIN</div>'+
+          '<div class="ob-welcome-person">'+
+            '<div class="ob-welcome-avatar">'+avatar+'</div>'+
+            '<div class="ob-welcome-copy">'+
+              '<h1>Bem-vindo, '+esc(firstName)+'.</h1>'+
+              '<p class="ob-lead">Vamos ajustar seu contexto para você entrar no AllianceOS vendo só o que realmente faz parte da sua rotina.</p>'+
+              '<div class="ob-person-meta">'+
+                '<span><small>FUNÇÃO</small><b>'+esc(state.cargo||'Definir agora')+'</b></span>'+
+                '<span><small>ÁREA</small><b>'+esc(area?.nome||'Definir agora')+'</b></span>'+
+                '<span class="brands"><small>MARCAS</small><b>'+selected.length+' selecionada'+(selected.length===1?'':'s')+'</b><i>'+brandPreview+'</i></span>'+
+              '</div>'+
+            '</div>'+
           '</div>'+
-          '<div class="ob-note"><b>Leva cerca de 2 minutos.</b><span>Você pode alterar seu perfil depois nas configurações.</span></div>'+
+          '<div class="ob-welcome-grid">'+
+            '<article><span>01</span><div><b>Seu contexto</b><p>Perfil, área e marcas corretas.</p></div></article>'+
+            '<article><span>02</span><div><b>Menos ruído</b><p>Só o que é relevante para você.</p></div></article>'+
+            '<article><span>03</span><div><b>Mesmo processo</b><p>Uma lógica única de execução.</p></div></article>'+
+          '</div>'+
+          '<div class="ob-note"><b>Configuração rápida</b><span>Você pode alterar tudo depois nas configurações.</span></div>'+
         '</section>';
       }
 
@@ -207,8 +225,8 @@
       function draw(){
         root().innerHTML='<main class="ob-shell">'+
           '<aside class="ob-rail">'+
-            '<div class="ob-logo"><span><img src="/api/brand-icon?format=svg&v=20260922-2" alt=""></span><b>AllianceOS</b></div>'+
-            '<div class="ob-rail-copy"><small>ONBOARDING</small><h2>Comece com o contexto certo.</h2><p>Seu espaço, suas marcas e o nosso jeito de trabalhar.</p></div>'+
+            '<div class="ob-logo"><span><img src="/api/brand-icon?format=svg&v=20260922-3" alt=""></span><b>AllianceOS</b></div>'+
+            '<div class="ob-rail-copy"><small>CONFIGURAÇÃO RÁPIDA</small><h2>Seu contexto.</h2><p>6 etapas · cerca de 2 min</p></div>'+
             '<div class="ob-rail-steps">'+progress()+'</div>'+
             '<div class="ob-rail-help"><span>?</span><div><b>Ficou com dúvida?</b><small>Você pode rever essas orientações depois nas configurações.</small></div></div>'+
           '</aside>'+
