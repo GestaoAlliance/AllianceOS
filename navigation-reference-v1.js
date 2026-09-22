@@ -194,6 +194,15 @@
           openStrategyMap();
           return;
         }
+        if(key==='settings'){
+          const liveBrand=byId('brandSelect');
+          const opt=liveBrand?.selectedOptions?.[0];
+          const brandId=opt?.dataset?.brandId||'';
+          if(brandId&&window.AllianceOSAdmin?.openBrand)window.AllianceOSAdmin.openBrand(brandId);
+          else if(window.AllianceOSAdmin?.open)window.AllianceOSAdmin.open('brands');
+          else if(target)target.click();
+          return;
+        }
         if(target)target.click();
         else toast(label+' · módulo em preparação.');
       });
@@ -282,8 +291,30 @@
         }
         workspace.dataset.brand=String(value||'');
         workspace.setAttribute('aria-label','Marca atual: '+displayValue+'. '+memberCount+' membro'+(memberCount===1?'':'s')+'. Clique para trocar.');
+
+        const cfg=(info?.configuracoes&&typeof info.configuracoes==='object')?info.configuracoes:{};
+        const modules=(cfg.modules&&typeof cfg.modules==='object')?cfg.modules:{};
+        btns.forEach((button,key)=>{
+          const alwaysVisible=key==='settings';
+          button.hidden=!alwaysVisible&&modules[key]===false;
+        });
+        document.documentElement.dataset.brandCompact=cfg.compact_mode===true?'true':'false';
+        document.documentElement.style.setProperty('--alliance-brand-color',info?.cor||'#111519');
+        document.documentElement.dataset.brandId=info?.id||'';
+        document.documentElement.dataset.brandSlug=info?.slug||'';
       };
-      brand.addEventListener('change',syncWorkspace);syncWorkspace();
+      const openDefaultView=()=>{
+        const value=brand.value;
+        if(value==='Todas as marcas')return;
+        const info=(window.AllianceOSDirectory?.brands||[]).find(x=>String(x.nome||'')===String(value||''));
+        const cfg=(info?.configuracoes&&typeof info.configuracoes==='object')?info.configuracoes:{};
+        const view=String(cfg.default_view||'inicio');
+        const map={inicio:'home',tarefas:'tasks',campanhas:'campaigns',entregas:'deliveries'};
+        const key=map[view]||'home';
+        const button=btns.get(key);
+        if(button&&!button.hidden)button.click();
+      };
+      brand.addEventListener('change',()=>{syncWorkspace();openDefaultView();});syncWorkspace();
       window.addEventListener('allianceos:directory',()=>{
         const changed=ensureBrands(brand);
         syncWorkspace();
