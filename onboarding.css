@@ -33,3 +33,99 @@ html.alliance-auth-locked body>#allianceOnboardingRoot{
 #allianceOnboardingRoot{
   z-index:2147483646!important;
 }
+
+
+/* ============================================================
+   ONBOARDING — VIEWPORT FIT
+   Footer/actions stay visible; content never pushes controls below viewport.
+   ============================================================ */
+#allianceOnboardingRoot{
+  overflow:hidden!important;
+}
+.ob-shell{
+  height:calc(100dvh - 28px)!important;
+  min-height:0!important;
+  margin:14px auto!important;
+}
+.ob-rail{
+  min-height:0!important;
+  height:100%!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+.ob-main{
+  min-height:0!important;
+  height:100%!important;
+  overflow:hidden!important;
+}
+.ob-content{
+  min-height:0!important;
+  flex:1 1 auto!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain!important;
+  padding-top:clamp(28px,5.5vh,54px)!important;
+  padding-bottom:18px!important;
+  scrollbar-width:thin;
+}
+.ob-footer{
+  flex:0 0 auto!important;
+  position:relative!important;
+  z-index:3!important;
+  background:#fff!important;
+}
+@media (min-width:901px) and (max-height:820px){
+  .ob-rail{padding:24px 24px!important}
+  .ob-rail-copy{margin-top:30px!important}
+  .ob-rail-copy h2{font-size:24px!important;margin-top:9px!important;margin-bottom:8px!important}
+  .ob-rail-copy p{font-size:11px!important}
+  .ob-rail-steps{margin-top:24px!important;gap:3px!important}
+  .ob-rail-step{padding:7px 9px!important}
+  .ob-rail-step>span{width:26px!important;height:26px!important}
+  .ob-rail-help{padding-top:16px!important}
+  .ob-content{padding-top:30px!important;padding-bottom:12px!important}
+  .ob-step h1{font-size:34px!important}
+  .ob-lead{font-size:14px!important;line-height:1.5!important;margin-top:12px!important}
+  .ob-welcome-grid{margin-top:24px!important;gap:9px!important}
+  .ob-welcome-grid article{padding:16px!important}
+  .ob-welcome-grid b{margin-top:16px!important}
+  .ob-note{margin-top:14px!important;padding:12px 14px!important}
+  .ob-profile-card{margin-top:22px!important;padding:16px!important}
+  .ob-subtitle{margin-top:20px!important}
+  .ob-areas{gap:8px!important;margin-top:9px!important}
+  .ob-area{padding:10px!important}
+  .ob-security-note{margin-top:18px!important;padding:11px 13px!important}
+  .ob-brands{margin-top:12px!important;gap:8px!important}
+  .ob-brand{padding:10px!important}
+  .ob-modules{margin-top:20px!important;gap:8px!important}
+  .ob-modules article{padding:12px!important}
+  .ob-flow{margin-top:20px!important}
+  .ob-rules{margin-top:12px!important}
+  .ob-summary{margin-top:22px!important}
+  .ob-ready-mark{margin-bottom:18px!important}
+  .ob-footer{padding:12px 28px!important}
+}
+@media (min-width:901px) and (max-height:700px){
+  .ob-shell{height:calc(100dvh - 16px)!important;margin:8px auto!important}
+  .ob-rail{padding:18px 22px!important}
+  .ob-logo>span{width:32px!important;height:32px!important}
+  .ob-rail-copy{margin-top:20px!important}
+  .ob-rail-copy h2{font-size:21px!important}
+  .ob-rail-copy p{display:none!important}
+  .ob-rail-steps{margin-top:16px!important}
+  .ob-rail-step{padding:5px 8px!important}
+  .ob-rail-step small{display:none!important}
+  .ob-rail-help{display:none!important}
+  .ob-content{padding-top:20px!important;padding-bottom:8px!important}
+  .ob-step h1{font-size:31px!important}
+  .ob-welcome-grid{margin-top:16px!important}
+  .ob-welcome-grid article{padding:13px!important}
+  .ob-welcome-grid b{margin-top:10px!important}
+  .ob-note{margin-top:10px!important}
+  .ob-footer{padding:9px 24px!important}
+}
+@media(max-width:900px){
+  #allianceOnboardingRoot{overflow:hidden!important}
+  .ob-shell{height:100dvh!important;min-height:0!important;margin:0!important}
+  .ob-main{height:100dvh!important}
+  .ob-content{overflow-y:auto!important}
+}

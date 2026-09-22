@@ -233,6 +233,7 @@
     const {error}=await client.auth.signInWithPassword({email,password});
     setBusy(b,false);
     if(error){setMessage(error.message==='Invalid login credentials'?'E-mail ou senha incorretos.':error.message,'error');return}
+    try{sessionStorage.setItem('allianceos.explicit-login','1')}catch{}
     location.replace('/');
   }
 
@@ -270,11 +271,11 @@
       if(createError)throw createError;
       if(created?.error)throw new Error(created.error);
 
-      const {data:login,error:loginError}=await client.auth.signInWithPassword({email,password});
-      if(loginError)throw loginError;
-      if(!login?.session)throw new Error('Conta criada, mas não foi possível iniciar a sessão automaticamente.');
-
-      location.replace('/');
+      try{await client.auth.signOut({scope:'local'})}catch{}
+      try{sessionStorage.removeItem('allianceos.explicit-login')}catch{}
+      renderAuth('login',email);
+      setMessage('Conta criada. Entre com seu e-mail e senha para continuar.','success');
+      return;
     }catch(err){
       const msg=err?.context?.body?.error||err?.message||String(err);
       if(/já tem conta|already|registered|exists/i.test(msg)){
@@ -300,6 +301,7 @@
       });
       if(error)throw error;
       if(!data?.url)throw new Error('O Google não retornou uma URL de autenticação.');
+      try{sessionStorage.setItem('allianceos.explicit-login','1')}catch{}
       location.assign(data.url);
     }catch(err){
       setBusy(b,false);
@@ -422,6 +424,22 @@
     }
 
     if(onboarding?.precisa){
+      const params=new URLSearchParams(location.search);
+      const explicitLogin=(()=>{
+        try{return sessionStorage.getItem('allianceos.explicit-login')==='1'||params.get('auth')==='google'||params.get('auth')==='magic'}catch{return params.get('auth')==='google'||params.get('auth')==='magic'}
+      })();
+
+      if(!explicitLogin){
+        const loginEmail=profile?.email||session?.user?.email||'';
+        try{await client.auth.signOut({scope:'local'})}catch{}
+        session=null;
+        clearWorkspaceCache();
+        renderAuth('login',loginEmail);
+        setMessage('Entre para continuar seu primeiro acesso.','info');
+        finish({authenticated:false,onboardingLoginRequired:true,client,session:null,context:null});
+        return;
+      }
+
       if(!window.AllianceOSOnboarding?.run){
         showRoot();
         root().innerHTML='<div class="auth-fatal"><strong>Onboarding indisponível</strong><span>Atualize a página para continuar.</span><button onclick="location.reload()">Atualizar</button></div>';
@@ -431,7 +449,10 @@
       showRoot();
       await window.AllianceOSOnboarding.run({client,session,data:onboarding});
       document.documentElement.classList.remove('alliance-onboarding-open');
+      try{sessionStorage.removeItem('allianceos.explicit-login')}catch{}
       try{context=await loadContextWithRetry()}catch(err){console.warn('[AllianceOS auth context after onboarding]',err)}
+    }else{
+      try{sessionStorage.removeItem('allianceos.explicit-login')}catch{}
     }
 
     const freshProfile=context?.perfil||profile;
