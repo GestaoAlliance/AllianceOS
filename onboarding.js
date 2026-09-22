@@ -64,7 +64,6 @@
         busy:false,
         error:''
       };
-      if(!state.brandIds.size&&brands[0])state.brandIds.add(String(brands[0].id));
 
       function persistStep(){try{sessionStorage.setItem(userKey,String(state.step))}catch{}}
       function progress(){
@@ -122,7 +121,7 @@
           '<div class="ob-kicker">SUAS MARCAS</div>'+
           '<h1>Com quais marcas você trabalha?</h1>'+
           '<p class="ob-lead">Selecione as marcas que fazem parte da sua rotina. Essa escolha define os contextos que aparecem no seletor lateral e o que você acessa no dia a dia.</p>'+
-          '<div class="ob-security-note"><span>⌁</span><div><b>Acesso protegido</b><small>Aqui aparecem somente marcas já liberadas para sua conta pelo convite ou por um administrador.</small></div></div>'+
+          '<div class="ob-security-note"><span>⌁</span><div><b>Escolha seu contexto</b><small>Selecione as marcas que realmente fazem parte da sua rotina. Você poderá ajustar isso depois nas configurações.</small></div></div>'+
           '<div class="ob-brands">'+cards+'</div>'+
           '<div class="ob-selection-count">'+state.brandIds.size+' selecionada'+(state.brandIds.size===1?'':'s')+'</div>'+
           message()+
