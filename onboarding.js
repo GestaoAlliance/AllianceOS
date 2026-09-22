@@ -73,7 +73,10 @@
       }
       function top(){
         const pct=Math.round(((state.step+1)/STEPS.length)*100);
-        return '<div class="ob-mobile-progress"><span>Etapa '+(state.step+1)+' de '+STEPS.length+'</span><div><i style="width:'+pct+'%"></i></div></div>';
+        return '<div class="ob-top-progress">'+
+          '<div class="ob-top-progress-copy"><span>Etapa '+(state.step+1)+' de '+STEPS.length+'</span><b>'+pct+'%</b></div>'+
+          '<div class="ob-top-progress-track"><i style="width:'+pct+'%"></i></div>'+
+        '</div>';
       }
       function message(){return state.error?'<div class="ob-error">'+esc(state.error)+'</div>':''}
 
