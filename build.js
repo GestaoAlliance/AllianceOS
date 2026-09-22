@@ -21,7 +21,9 @@ const ALLIANCE_ADMIN_JS = path.join(__dirname, 'alliance-admin.js');
 const ALLIANCE_ADMIN_CSS = path.join(__dirname, 'alliance-admin.css');
 const FULL_SYSTEM_UI = path.join(__dirname, 'full-system-ui-v1.js');
 const AUTH_GATE_JS = path.join(__dirname, 'auth-gate.js');
-const AUTH_GATE_CSS = path.join(__dirname, 'auth-gate.css');\nconst ONBOARDING_JS = path.join(__dirname, 'onboarding.js');\nconst ONBOARDING_CSS = path.join(__dirname, 'onboarding.css');
+const AUTH_GATE_CSS = path.join(__dirname, 'auth-gate.css');
+const ONBOARDING_JS = path.join(__dirname, 'onboarding.js');
+const ONBOARDING_CSS = path.join(__dirname, 'onboarding.css');
 const SOCIAL_PREVIEW_IMAGE = path.join(__dirname, 'assets', 'allianceos-whatsapp-preview-v6.jpg');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
@@ -49,7 +51,9 @@ async function main() {
   const allianceAdminCss = fs.readFileSync(ALLIANCE_ADMIN_CSS, 'utf8');
   const fullSystemUi = fs.readFileSync(FULL_SYSTEM_UI, 'utf8');
   const authGateJs = fs.readFileSync(AUTH_GATE_JS, 'utf8');
-  const authGateCss = fs.readFileSync(AUTH_GATE_CSS, 'utf8');\n  const onboardingJs = fs.readFileSync(ONBOARDING_JS, 'utf8');\n  const onboardingCss = fs.readFileSync(ONBOARDING_CSS, 'utf8');
+  const authGateCss = fs.readFileSync(AUTH_GATE_CSS, 'utf8');
+  const onboardingJs = fs.readFileSync(ONBOARDING_JS, 'utf8');
+  const onboardingCss = fs.readFileSync(ONBOARDING_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
