@@ -191,11 +191,22 @@
     const byId=rows.find(function(c){return String(c&&c.id||'')===String(campaignId) && !c.archivedAt});
     if(byId)return byId;
     const targets=[task.project,linkedList?.nome].map(norm).filter(Boolean);
-    return rows.find(function(c){
+    const matched=rows.find(function(c){
       if(c.archivedAt||norm(c.brand)!==norm(task.brand))return false;
       const name=norm(c.name);
       return targets.some(function(target){return name===target||target.indexOf(name)>=0||name.indexOf(target)>=0});
     })||null;
+    if(matched)return matched;
+    if(linkedList?.nome){
+      return {
+        id:linkedList.campanha_id||('list:'+String(linkedList.id||'')),
+        name:linkedList.nome,
+        brand:task.brand||linkedList.marca||'',
+        type:linkedList.campanha_id?'campanha':'lista',
+        _fromList:true
+      };
+    }
+    return null;
   }
   function textFor(ctx){
     const task=ctx.task||{};
@@ -371,6 +382,156 @@
     if(!res.ok||data.erro)throw new Error(data.erro||('Drive respondeu '+res.status));
     if(data.ligado===false)throw new Error(data.erro||'O Drive desta marca ainda não está ligado.');
     return data;
+  }
+
+  function folderWords(value){
+    const stop=new Set(['a','o','as','os','de','da','do','das','dos','e','em','para','com','campanha','campanhas']);
+    return norm(value).replace(/[^a-z0-9]+/g,' ').split(/\s+/).filter(function(x){return x.length>1&&!stop.has(x)&&!/^\d+$/.test(x)});
+  }
+  function folderMatchScore(folderName,targetName){
+    const folder=norm(folderName),target=norm(targetName);
+    if(!folder||!target)return 0;
+    if(folder===target)return 100;
+    if(folder.indexOf(target)>=0||target.indexOf(folder)>=0)return 92;
+    const targetWords=folderWords(target),folderSet=new Set(folderWords(folder));
+    if(!targetWords.length)return 0;
+    const matched=targetWords.filter(function(w){return folderSet.has(w)}).length;
+    const ratio=matched/targetWords.length;
+    return ratio>=.75?80+Math.round(ratio*10):ratio>=.5?60:0;
+  }
+  function trailPath(brand,data,childName){
+    const names=(data&&Array.isArray(data.trilha)?data.trilha:[]).map(function(x){return String(x&&x.nome||'').trim()}).filter(Boolean);
+    if(!names.length||norm(names[0])!==norm(brand))names.unshift(brand);
+    if(childName&&norm(names[names.length-1])!==norm(childName))names.push(childName);
+    return names.join(' › ');
+  }
+  function bestFolderMatch(data,targetName){
+    const folders=(data&&Array.isArray(data.arquivos)?data.arquivos:[]).filter(function(x){return x&&x.pasta});
+    return folders.map(function(folder){return {folder:folder,score:folderMatchScore(folder.nome,targetName)}})
+      .sort(function(a,b){return b.score-a.score})[0]||null;
+  }
+  async function findCampaignBaseOnDrive(brand,campaign){
+    if(!brand||!campaign?.name)return null;
+    const known=FOLDERS[brand]||{};
+    const seeds=[];
+    const addSeed=function(folder){
+      if(folder&&folder.id&&!seeds.some(function(x){return String(x.id)===String(folder.id)}))seeds.push(folder);
+    };
+    if(/perpetuo|always|funil/i.test(String(campaign.type||'')))addSeed(known.alwaysOn);
+    addSeed(known.month);
+    addSeed(known.alwaysOn);
+    addSeed(known.marketing);
+    addSeed(known.launch);
+    for(const seed of seeds){
+      if(folderMatchScore(seed.path||'',campaign.name)>=90)return {id:seed.id,path:seed.path,name:campaign.name};
+      try{
+        const data=await driveList(brand,seed.id);
+        const best=bestFolderMatch(data,campaign.name);
+        if(best&&best.score>=60)return {id:best.folder.id,path:trailPath(brand,data,best.folder.nome),name:best.folder.nome};
+      }catch(e){console.warn('[Drive entregas] busca de campanha em '+String(seed.path||seed.id),e)}
+    }
+    const root=ROOTS[brand];
+    if(!root)return null;
+    try{
+      const rootData=await driveList(brand,root.id);
+      const marketing=(rootData.arquivos||[]).filter(function(x){return x&&x.pasta}).find(function(x){
+        const n=norm(x.nome);return n.indexOf('marketing')>=0&&n.indexOf('campanh')>=0;
+      });
+      if(!marketing)return null;
+      const marketingData=await driveList(brand,marketing.id);
+      const direct=bestFolderMatch(marketingData,campaign.name);
+      if(direct&&direct.score>=60)return {id:direct.folder.id,path:trailPath(brand,marketingData,direct.folder.nome),name:direct.folder.nome};
+      const containers=(marketingData.arquivos||[]).filter(function(x){
+        if(!x||!x.pasta)return false;
+        const n=norm(x.nome);
+        return /\b(set|out|nov|dez|jan|fev|mar|abr|mai|jun|jul|ago)\b/.test(n)||/always|funil|lancamento|2026|26/.test(n);
+      }).slice(0,12);
+      for(const container of containers){
+        try{
+          const data=await driveList(brand,container.id);
+          const best=bestFolderMatch(data,campaign.name);
+          if(best&&best.score>=60)return {id:best.folder.id,path:trailPath(brand,data,best.folder.nome),name:best.folder.nome};
+        }catch{}
+      }
+    }catch(e){console.warn('[Drive entregas] busca dinâmica da campanha falhou',e)}
+    return null;
+  }
+  function kindKeywords(kind){
+    if(kind==='briefing')return ['briefing','planejamento'];
+    if(/^copy_/.test(kind)||kind==='copies')return ['copies','copy'];
+    if(kind==='video'||kind==='image'||kind==='creatives')return ['criativos','creative'];
+    if(kind==='site')return ['site','oferta'];
+    if(kind==='traffic')return ['midia','trafego'];
+    if(kind==='results')return ['resultados','resultado'];
+    if(kind==='creators')return ['creators','parcerias','creator'];
+    if(kind==='capture')return ['captacao','comunidade'];
+    if(kind==='live')return ['live','abertura'];
+    return [];
+  }
+  function keywordFolder(data,keywords){
+    const folders=(data&&Array.isArray(data.arquivos)?data.arquivos:[]).filter(function(x){return x&&x.pasta});
+    let best=null,bestScore=0;
+    folders.forEach(function(folder){
+      const n=norm(folder.nome);
+      keywords.forEach(function(k,index){
+        const key=norm(k);
+        if(n===key||n.indexOf(key)>=0){
+          const score=(n===key?100:85)-index;
+          if(score>bestScore){best=folder;bestScore=score}
+        }
+      });
+    });
+    return best;
+  }
+  async function findKindFolderOnDrive(brand,base,kind){
+    if(!base||!base.id||kind==='general')return base;
+    let data;
+    try{data=await driveList(brand,base.id)}catch{return base}
+    const top=keywordFolder(data,kindKeywords(kind));
+    if(!top)return base;
+    let selected={id:top.id,path:trailPath(brand,data,top.nome),name:top.nome};
+    if(kind==='video'||kind==='image'){
+      try{
+        const nested=await driveList(brand,top.id);
+        const child=keywordFolder(nested,kind==='video'?['videos','video']:['imagens','imagem']);
+        if(child)selected={id:child.id,path:trailPath(brand,nested,child.nome),name:child.nome};
+      }catch{}
+    }else if(/^copy_/.test(kind)){
+      const map={
+        copy_ads:['anuncios','ads'],
+        copy_email:['e-mail','email'],
+        copy_api:['whatsapp api','api'],
+        copy_groups:['grupos whatsapp','grupos','grupo'],
+        copy_instagram:['instagram','stories'],
+        copy_live:['live']
+      };
+      try{
+        const nested=await driveList(brand,top.id);
+        const child=keywordFolder(nested,map[kind]||[]);
+        if(child)selected={id:child.id,path:trailPath(brand,nested,child.nome),name:child.nome};
+      }catch{}
+    }
+    return selected;
+  }
+  async function resolveCampaignDestination(ctx,initial){
+    const task=ctx.task||{};
+    const campaign=initial?.campaign||ctx.campaign||campaignForTask(task);
+    if(!campaign)return initial;
+    if(initial&&['Pasta usada anteriormente','Sugerido pela campanha'].includes(initial.source))return initial;
+    const brand=String(task.brand||ctx.brand||campaign.brand||'');
+    const base=await findCampaignBaseOnDrive(brand,campaign);
+    if(!base)return null;
+    const kind=initial?.kind||detectKind(Object.assign({},ctx,{campaign:campaign}));
+    const folder=await findKindFolderOnDrive(brand,base,kind);
+    return {
+      folderId:folder.id,
+      path:folder.path,
+      source:'Sugerido pela campanha',
+      kind:kind,
+      key:initial?.key||learnedKey(task,campaign,kind),
+      campaign:campaign,
+      dynamic:true
+    };
   }
   async function renderBrowser(modal,state,folderId){
     const list=modal.querySelector('[data-drive-list]');
