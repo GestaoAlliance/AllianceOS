@@ -4302,9 +4302,9 @@
   border-radius:1px!important;
   background:transparent!important;
 }
-#tasksCanvas .v4-tree-list .v4-tree-toggle.is-open .v4-tree-chevron{
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle.is-open > .v4-tree-chevron{
   transform:rotate(45deg)!important;
 }
-#tasksCanvas .v4-tree-list .v4-tree-toggle.is-collapsed .v4-tree-chevron{
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle.is-collapsed > .v4-tree-chevron{
   transform:rotate(-45deg)!important;
 }
