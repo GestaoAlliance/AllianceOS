@@ -928,8 +928,15 @@
       else if(campaignResolutionError)showModalError(modal,campaignResolutionError);
       modal.classList.add('open');
 
+      function restoreModalCopy(){
+        const title=modal.querySelector('#allianceDriveTitle');
+        const subtitle=modal.querySelector('header p');
+        if(title)title.textContent='Enviar entrega';
+        if(subtitle)subtitle.textContent='Confira quem vai receber e onde os arquivos serão salvos antes de concluir.';
+      }
       function done(result){
         modal.classList.remove('open','folder-picker-open');
+        restoreModalCopy();
         if(recipientMenu)recipientMenu.hidden=true;
         cleanup();
         resolve(result);
@@ -964,6 +971,10 @@
         const browser=modal.querySelector('[data-drive-browser]');
         browser.hidden=false;
         modal.classList.add('folder-picker-open');
+        const title=modal.querySelector('#allianceDriveTitle');
+        const subtitle=modal.querySelector('header p');
+        if(title)title.textContent='Escolher pasta no Drive';
+        if(subtitle)subtitle.textContent='Navegue pela estrutura, abra as subpastas e selecione o destino correto da entrega.';
         modal.querySelector('[data-drive-error]').hidden=true;
         if(folderSearch)folderSearch.value='';
         const start=(state.destination&&state.destination.folderId)||(ROOTS[brand]&&ROOTS[brand].id)||'';
@@ -980,6 +991,7 @@
         setDestination(modal,state,{folderId:state.currentFolder,path:path,source:'Escolhido por você',kind:kind,key:initialSuggestion&&initialSuggestion.key||learnedKey(task,campaign,kind),campaign:campaign});
         modal.querySelector('[data-drive-browser]').hidden=true;
         modal.classList.remove('folder-picker-open');
+        restoreModalCopy();
         modal.querySelector('[data-drive-error]').hidden=true;
       }
       async function onConfirm(){
