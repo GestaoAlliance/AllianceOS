@@ -113,3 +113,16 @@
   .aos-agent-thread{padding-left:15px;padding-right:15px}.aos-agent-empty{top:45%}.aos-agent-empty h2{font-size:21px}
   .aos-agent-compose-wrap{padding:8px 11px calc(11px + env(safe-area-inset-bottom))}
 }
+
+/* AllianceOS · Agent Sidekick · Shopify-style docked workspace */
+@media (min-width:1101px){
+  /* Keep the global toolbar full-width, like Shopify's top bar, and give the
+     working area its own rail whenever the agent is open. */
+  html body .content{
+    min-width:0!important;
+    transition:margin-right .22s cubic-bezier(.2,.7,.2,1)!important;
+  }
+  html:has(.aos-agent-panel.open:not(.expanded)) body .content{
+    margin-right:422px!important;
+  }
+}
