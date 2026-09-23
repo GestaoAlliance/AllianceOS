@@ -183,10 +183,19 @@
   function campaignForTask(task){
     if(!task)return null;
     const rows=campaignRows();
-    const byId=rows.find(function(c){return String(c && c.id || '')===String(task.campaignId||'') && !c.archivedAt});
+    const directoryLists=Array.isArray(window.AllianceOSDirectory?.lists)?window.AllianceOSDirectory.lists:[];
+    const linkedList=directoryLists.find(function(l){
+      return task.listId && String(l?.id||'')===String(task.listId);
+    })||null;
+    const campaignId=task.campaignId||linkedList?.campanha_id||'';
+    const byId=rows.find(function(c){return String(c&&c.id||'')===String(campaignId) && !c.archivedAt});
     if(byId)return byId;
-    const target=norm(task.project||'');
-    return rows.find(function(c){return !c.archivedAt && norm(c.brand)===norm(task.brand) && (norm(c.name)===target || target.indexOf(norm(c.name))>=0)})||null;
+    const targets=[task.project,linkedList?.nome].map(norm).filter(Boolean);
+    return rows.find(function(c){
+      if(c.archivedAt||norm(c.brand)!==norm(task.brand))return false;
+      const name=norm(c.name);
+      return targets.some(function(target){return name===target||target.indexOf(name)>=0||name.indexOf(target)>=0});
+    })||null;
   }
   function textFor(ctx){
     const task=ctx.task||{};
@@ -318,7 +327,14 @@
           '<div class="alliance-drive-files" data-drive-files></div>'+
           '<div class="alliance-drive-recipient" data-drive-recipient hidden>'+
             '<div class="alliance-drive-dest-head"><span>Quem recebe</span><em data-drive-recipient-source></em></div>'+
-            '<div class="alliance-drive-recipient-row"><span class="alliance-drive-recipient-icon">→</span><div><strong data-drive-recipient-name>Escolher destinatário</strong><small data-drive-recipient-task>A entrega será ligada à próxima tarefa.</small></div><select data-drive-recipient-select aria-label="Quem recebe a entrega"></select></div>'+
+            '<div class="alliance-drive-recipient-row">'+
+              '<span class="alliance-drive-recipient-avatar" data-drive-recipient-avatar>?</span>'+
+              '<div class="alliance-drive-recipient-copy"><strong data-drive-recipient-name>Escolher destinatário</strong><small data-drive-recipient-task>Selecione quem deve receber o contexto desta entrega.</small></div>'+
+              '<div class="alliance-drive-recipient-picker">'+
+                '<button type="button" class="alliance-drive-recipient-toggle" data-drive-recipient-toggle><span data-drive-recipient-toggle-label>Escolher pessoa</span><i>⌄</i></button>'+
+                '<div class="alliance-drive-recipient-menu" data-drive-recipient-menu hidden></div>'+
+              '</div>'+
+            '</div>'+
           '</div>'+
           '<div class="alliance-drive-destination">'+
             '<div class="alliance-drive-dest-head"><span>Destino no Drive</span><em data-drive-source></em></div>'+
