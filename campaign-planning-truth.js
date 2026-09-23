@@ -419,6 +419,26 @@ function summary(){
 function bindDelegates(){
   if(document.documentElement.dataset.allianceCampaignDelegates==='1')return;
   document.documentElement.dataset.allianceCampaignDelegates='1';
+
+  /* O botão "Campanhas" dentro do Planejamento pode ser recriado por
+     outras camadas da interface. Delegação em capture garante que ele
+     sempre abra a página canônica de Campanhas, sem depender do listener
+     original do componente. */
+  document.addEventListener('click',e=>{
+    const tab=e.target.closest?.('.plan-tab');
+    if(!tab)return;
+    const label=norm(tab.textContent||'');
+    if(tab.dataset.planTab==='campaigns'||label==='campanhas'){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if(typeof window.__centralShowCampaigns==='function'){
+        window.__centralShowCampaigns();
+      }else{
+        document.getElementById('campaignsNav')?.click();
+      }
+    }
+  },true);
+
   document.addEventListener('click',e=>{
     const item=e.target.closest?.('[data-live-campaign]');
     if(!item)return;
