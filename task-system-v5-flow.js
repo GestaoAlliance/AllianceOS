@@ -38,9 +38,33 @@
     const live=typeof v3TeamUsers==='function'?v3TeamUsers():[];
     return [...new Set([...preferred,...live].filter(Boolean))].filter(x=>v5Short(x)!==v5Short(v5Who()));
   }
+  function v5RecipientChoiceObjects(t){
+    const directory=(window.AllianceOSDirectory?.members||[]).filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false);
+    const out=[],seen=new Set();
+    const add=(name,targetTask=null,source='Equipe da marca')=>{
+      const value=String(name||'').trim();if(!value)return;
+      const member=directory.find(m=>String(m.nome||'')===value)||directory.find(m=>v5Short(m.nome||'')===v5Short(value));
+      const key=String(member?.id||value);
+      if(seen.has(key))return;
+      seen.add(key);
+      out.push({
+        id:member?.id||null,
+        name:member?.nome||value,
+        targetTaskId:targetTask?.id?String(targetTask.id):'',
+        targetTaskTitle:targetTask?.title||'',
+        source
+      });
+    };
+    v5Dependents(t).forEach(dep=>(dep.assignees||[]).forEach(name=>add(name,dep,'Sugerido pela próxima tarefa')));
+    v5RecipientCandidates(t).forEach(name=>add(name,null,'Equipe da marca'));
+    return out;
+  }
+  function v5SuggestedRecipientObject(t){
+    const rows=v5RecipientChoiceObjects(t);
+    return rows.find(x=>x.targetTaskId)||rows[0]||null;
+  }
   function v5SuggestedRecipient(t){
-    const dep=v5Dependents(t).find(x=>Array.isArray(x.assignees)&&x.assignees.length);
-    return dep?.assignees?.[0]||v5RecipientCandidates(t)[0]||'';
+    return v5SuggestedRecipientObject(t)?.name||'';
   }
   function v5OfficialId(d){return String(d?.deliveryId||d?.id||'')}
   const v5Deps = t => (t.dependencies||[]).map(v5Task).filter(Boolean);
@@ -90,12 +114,12 @@
     const embedded=Array.isArray(t.deliveries)?t.deliveries:[];
     return v5OfficialForTask(t).map(d=>{
       const copy=embedded.find(x=>v5OfficialId(x)===String(d.id))||{};
-      return {...copy,id:String(d.id),deliveryId:String(d.id),status:d.status||'enviado',author:d.from||copy.author||'Equipe',at:d.createdAt||copy.at||copy.sentAt||null,sentAt:d.createdAt||copy.sentAt||null,note:d.note??copy.note??copy.text??'',files:Array.isArray(d.files)?d.files:(copy.files||[]),links:Array.isArray(d.links)?d.links:(copy.links||[]),to:d.to||copy.to||null,targetTaskId:d.targetTaskId||copy.targetTaskId||''};
+      return {...copy,id:String(d.id),deliveryId:String(d.id),status:d.status||'enviado',author:d.from||copy.author||'Equipe',at:d.createdAt||copy.at||copy.sentAt||null,sentAt:d.createdAt||copy.sentAt||null,note:d.note??copy.note??copy.text??'',files:Array.isArray(d.files)?d.files:(copy.files||[]),links:Array.isArray(d.links)?d.links:(copy.links||[]),drive:d.drive||copy.drive||null,to:d.to||copy.to||null,toId:d.toId||copy.toId||null,targetTaskId:d.targetTaskId||copy.targetTaskId||''};
     });
   };
   const v5HasDelivery = t => v5OfficialForTask(t).length>0;
   const v5NeedsDelivery = t => !!v5Normalize(t).deliveryRequired;
-  const v5Incoming = t => v5Deps(t).flatMap(source=>v5SentDeliveries(source).map(d=>({...d,sourceTaskId:source.id,sourceTitle:source.title,sourceStatus:source.status})));
+  const v5Incoming = t => v5Deps(t).flatMap(source=>v5SentDeliveries(source).filter(d=>!d.targetTaskId||String(d.targetTaskId)===String(t.id)).map(d=>({...d,sourceTaskId:source.id,sourceTitle:source.title,sourceStatus:source.status})));
 
   function v5Persist(render=true){
     const actorId=v5ActorId(),actorName=v5Who();
@@ -295,9 +319,11 @@
       const name=esc(rawName);
       const key=esc(String(deliveryId)+':'+i);
       const kind=v5FileKind(f);
-      const download=f.dataUrl
-        ? '<a href="'+esc(f.dataUrl)+'" download="'+name+'" data-v5-delivery-download="'+key+'" title="Baixar arquivo">↓</a>'
-        : '<button type="button" data-v5-download-unavailable="'+key+'" title="Download indisponível para este arquivo antigo" aria-label="Download indisponível">↓</button>';
+      const download=f.driveLink
+        ? '<a href="'+esc(f.driveLink)+'" target="_blank" rel="noopener" data-v5-open-link="'+key+'" title="Abrir arquivo no Drive">↗</a>'
+        : f.dataUrl
+          ? '<a href="'+esc(f.dataUrl)+'" download="'+name+'" data-v5-delivery-download="'+key+'" title="Baixar arquivo">↓</a>'
+          : '<button type="button" data-v5-download-unavailable="'+key+'" title="Download indisponível para este arquivo antigo" aria-label="Download indisponível">↓</button>';
       const copy='<button type="button" data-v5-copy-value="'+esc(encodeURIComponent(rawName))+'" title="Copiar nome do arquivo">⧉</button>';
       const edit=editable?'<button type="button" data-v5-edit-file="'+key+'" title="Editar nome">✎</button>':'';
       const del=editable?'<button type="button" data-v5-delete-file="'+key+'" title="Excluir arquivo">×</button>':'';
@@ -326,7 +352,9 @@
     const deleteNote=editable?'<button type="button" data-v5-delete-note="'+id+'" title="Excluir texto">×</button>':'';
     const noteHtml=note?'<div class="v5-material" data-v5-kind="text"><span class="v5-material-icon">T</span><b title="'+esc(note)+'">'+esc(note)+'</b><small>Texto</small><div class="v5-material-actions">'+copyNote+editNote+deleteNote+'</div></div>':'';
     const statusLabel={enviado:'Enviado',aprovado:'Aprovado',ajustes:'Ajustes solicitados',recebido:'Recebido'}[String(d.status||'enviado')]||String(d.status||'Enviado');
-    return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(v5TimeLabel(d.at||d.sentAt))+'</span></div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">'+esc(statusLabel)+'</span></span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+'</div></article>';
+    const drive=d.drive&&d.drive.folderId?'<div class="v5-material" data-v5-kind="link"><span class="v5-material-icon">✓</span><b>Salvo no Drive</b><small>'+esc(d.drive.path||'Pasta da entrega')+'</small><div class="v5-material-actions"><a href="'+esc(d.drive.folderLink||('https://drive.google.com/drive/folders/'+d.drive.folderId))+'" target="_blank" rel="noopener" data-v5-open-link="'+id+':drive" title="Abrir pasta no Drive">↗</a></div></div>':'';
+    const recipient=d.to?'<span class="v5-delivery-recipient">Para '+esc(v5Short(d.to))+(d.targetTaskId?' · próxima etapa':'')+'</span>':'';
+    return '<article class="v5-delivery-card" data-v5-delivery-card="'+id+'"><div class="v5-delivery-card-head"><div><strong>'+ (sourceTitle?'Entrega de “'+esc(sourceTitle)+'”':'Entrega enviada') +'</strong><span>'+esc(d.author||'Equipe')+' · '+esc(v5TimeLabel(d.at||d.sentAt))+'</span>'+recipient+'</div><span class="v5-delivery-card-head-actions"><span class="v5-delivery-ok">'+esc(statusLabel)+'</span></span></div><div class="v5-materials">'+noteHtml+v5FilesHtml(d.files,id,editable)+v5LinksHtml(d.links,id,editable)+drive+'</div></article>';
   }
 
   function v5IncomingHtml(t){
@@ -457,34 +485,64 @@
 
   async function v5SendDelivery(t,completeAfter=false){
     v5Normalize(t);
-    const to=document.getElementById('v5DeliveryTo')?.value.trim()||'';
     const note=document.getElementById('v5DeliveryNote')?.value.trim()||'';
     const url=document.getElementById('v5DeliveryLink')?.value.trim()||'';
     const label=document.getElementById('v5DeliveryLinkLabel')?.value.trim()||'';
     const input=document.getElementById('v5DeliveryFiles');
     const rawFiles=[...(input?.files||[])];
-    if(!to){showToast('Escolha o destinatário da entrega.');return false;}
     if(url){try{const parsed=new URL(url);if(!/^https?:$/.test(parsed.protocol))throw new Error();}catch{showToast('Use um link válido começando por https://');return false;}}
-    const total=rawFiles.reduce((n,f)=>n+f.size,0);
-    if(total>1200000){showToast('Os arquivos somam mais de 1,2 MB. Para arquivos maiores, envie um link do Drive/Figma.');return false;}
     if(!rawFiles.length&&!url&&!note){showToast('Adicione um arquivo, escreva a entrega ou informe um link.');return false;}
-    let files=[];
-    try{files=await Promise.all(rawFiles.map(v5ReadFile));}catch{showToast('Não foi possível preparar um dos arquivos.');return false;}
-    const ts=v5NowIso(),id=v5Id('del'),dependents=v5Dependents(t),target=dependents.find(x=>(x.assignees||[]).some(a=>String(a)===String(to)))||(dependents.length===1?dependents[0]:null);
+    const recipientOptions=v5RecipientChoiceObjects(t),suggestedRecipient=v5SuggestedRecipientObject(t);
+    if(!recipientOptions.length){showToast('Defina um responsável na próxima tarefa para receber esta entrega.');return false;}
+    const ts=v5NowIso(),id=v5Id('del');
     const links=url?[{id:v5Id('link'),label:label||'Material da entrega',url}]:[];
+    let files=[],driveResult=null,recipient=suggestedRecipient;
+    try{
+      if(window.AllianceOSDeliveryDrive?.confirmAndUpload){
+        driveResult=await window.AllianceOSDeliveryDrive.confirmAndUpload({
+          deliveryId:id,
+          task:t,
+          title:'Entrega · '+t.title,
+          note,
+          files:rawFiles,
+          links,
+          recipientOptions,
+          suggestedRecipient,
+          requireRecipient:true,
+          confirmLabel:completeAfter?'Enviar e concluir':'Enviar entrega'
+        });
+        if(!driveResult||driveResult.cancelled)return false;
+        recipient=driveResult.recipient||suggestedRecipient;
+        files=Array.isArray(driveResult.files)?driveResult.files:[];
+      }else{
+        if(!recipient){showToast('Não foi possível identificar quem recebe esta entrega.');return false;}
+        const total=rawFiles.reduce((n,f)=>n+f.size,0);
+        if(total>1200000){showToast('O envio ao Drive não carregou. Atualize a página antes de enviar arquivos maiores.');return false;}
+        files=await Promise.all(rawFiles.map(v5ReadFile));
+      }
+    }catch(e){
+      console.error('[AllianceOS entrega] falha ao confirmar/enviar',e);
+      showToast(e?.message||'Não foi possível enviar a entrega.');
+      return false;
+    }
+    if(!recipient?.name){showToast('Escolha quem vai receber a entrega.');return false;}
+    const to=recipient.name;
+    const dependents=v5Dependents(t);
+    const target=recipient.targetTaskId?v5Task(recipient.targetTaskId):(dependents.find(x=>(x.assignees||[]).some(a=>String(a)===String(to)))||(dependents.length===1?dependents[0]:null));
     const officialRows=v5OfficialDeliveries(),version=officialRows.filter(d=>String(d.sourceTaskId)===String(t.id)&&String(d.to)===String(to)).length+1;
-    const official={id,sourceTaskId:String(t.id),targetTaskId:String(target?.id||''),campaignId:t.campaignId||null,campaignSource:'task',title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:v5Who(),to,note,status:'enviado',createdAt:ts,updatedAt:ts,version,completeTask:!!completeAfter,files:structuredClone(files),links:structuredClone(links),events:[{at:ts,by:v5Who(),authorId:v5ActorId(),origin:'interface',text:'Entrega enviada para '+to+'.'}],origin:'interface',archivedAt:null,archivedBy:null};
+    const drive=driveResult?.destination||null;
+    const official={id,sourceTaskId:String(t.id),targetTaskId:String(target?.id||recipient.targetTaskId||''),campaignId:t.campaignId||null,campaignSource:'task',title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:v5Who(),fromId:v5ActorId(),to,toId:recipient.id||null,note,status:'enviado',createdAt:ts,updatedAt:ts,version,completeTask:!!completeAfter,drive,files:structuredClone(files),links:structuredClone(links),events:[{at:ts,by:v5Who(),authorId:v5ActorId(),origin:'interface',text:'Entrega enviada para '+to+(target?.title?' na próxima tarefa “'+target.title+'”':'')+(drive?.path?' e salva no Drive em '+drive.path:'')+'.'}],origin:'interface',archivedAt:null,archivedBy:null};
     officialRows.unshift(official);
     v5SaveOfficialDeliveries(officialRows);
-    const delivery={id,deliveryId:id,status:'enviado',author:v5Who(),at:ts,sentAt:ts,note,files,links,to,targetTaskId:official.targetTaskId,campaignId:official.campaignId,source:'interface',version};
+    const delivery={id,deliveryId:id,status:'enviado',author:v5Who(),authorId:v5ActorId(),at:ts,sentAt:ts,note,files,links,drive,to,toId:official.toId,targetTaskId:official.targetTaskId,campaignId:official.campaignId,source:'interface',version};
     t.deliveries.push(v5SlimEmbeddedDelivery(delivery));
-    v5HistoryOnce(t,'delivery-sent:'+id,`${v5Who()} enviou a entrega desta etapa${files.length?` com ${files.length} arquivo(s)`:''}${links.length?' e link':''} para ${to}.`);
+    v5HistoryOnce(t,'delivery-sent:'+id,`${v5Who()} enviou a entrega desta etapa${files.length?` com ${files.length} arquivo(s)`:''}${links.length?' e link':''} para ${to}${target?.title?` na próxima tarefa “${target.title}”`:''}${drive?.path?` · Drive: ${drive.path}`:''}.`);
     v5Persist(false);
     if(completeAfter){
       if(v5Complete(t,true)){closeTaskDetail();return true;}
     }
     renderTaskDetailBody(t);
-    showToast('Entrega enviada');
+    showToast(drive?.folderId?'Entrega enviada e salva no Drive':'Entrega enviada');
     return true;
   }
 

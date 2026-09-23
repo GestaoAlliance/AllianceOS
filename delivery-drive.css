@@ -19,6 +19,15 @@
 .alliance-drive-files>span{min-width:0;max-width:190px;padding:9px 11px;border:1px solid #e6eaec;border-radius:10px;background:#fafbfb}
 .alliance-drive-files b,.alliance-drive-files small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .alliance-drive-files b{color:#2a3034;font-size:9.5px}.alliance-drive-files small{margin-top:3px;color:#9aa2a8;font-size:8px}
+.alliance-drive-recipient{margin-bottom:12px;padding:16px;border:1px solid #dfe4e7;border-radius:14px;background:#fbfcfc}
+.alliance-drive-recipient-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(170px,230px);gap:10px;align-items:center}
+.alliance-drive-recipient-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:#eef1f2;color:#343b40;font-size:13px;font-weight:700}
+.alliance-drive-recipient-row>div{min-width:0}
+.alliance-drive-recipient-row strong,.alliance-drive-recipient-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alliance-drive-recipient-row strong{color:#20262a;font-size:11px;line-height:1.35}
+.alliance-drive-recipient-row small{margin-top:3px;color:#8a949a;font-size:8.2px}
+.alliance-drive-recipient-row select{width:100%;height:36px;padding:0 30px 0 10px;border:1px solid #dce2e5;border-radius:9px;background:#fff;color:#283036;font:600 9px/1 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:none}
+.alliance-drive-recipient-row select:focus{border-color:#aeb8bf;box-shadow:0 0 0 3px rgba(84,103,116,.08)}
 .alliance-drive-destination{padding:16px;border:1px solid #dfe4e7;border-radius:14px;background:#fbfcfc}
 .alliance-drive-dest-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .alliance-drive-dest-head span{color:#68727a;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
@@ -64,4 +73,5 @@
   .alliance-drive-modal{padding:10px;align-items:flex-end}.alliance-drive-dialog{width:100%;max-height:90vh;border-radius:20px 20px 14px 14px}
   .alliance-drive-dialog>header,.alliance-drive-body,.alliance-drive-dialog>footer{padding-left:17px;padding-right:17px}
   .alliance-drive-dest-head{align-items:flex-start;flex-direction:column}.alliance-drive-original-grid{grid-template-columns:1fr}
+  .alliance-drive-recipient-row{grid-template-columns:28px minmax(0,1fr)}.alliance-drive-recipient-row select{grid-column:1/-1}
 }
