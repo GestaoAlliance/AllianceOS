@@ -23,6 +23,9 @@
       ugcVideos:{id:'1C-oIbjD69d3XCumIhzSAgtbxBO2DYCbK',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos'},
       ugcDeliveries:{id:'1FOKNwlX2J-KJLev6zaTFEPiSH7lQMrqd',path:"Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos › UGC's entregas"},
       crm:{id:'1ihjx_LSjMKAIfaDZncLC5Mbl-VjKHXn5',path:'Botanika › 6. CRM & Automação'},
+      postPurchase:{id:'1ecJPJI8ZmpjZ6wh3prVhTI67KuRSnNK0',path:'Botanika › 6. CRM & Automação › Pesquisa pós-compra'},
+      tracking:{id:'1rLhSV_ezyV5kWQrRyb4JT8UjzHLTnkW2',path:'Botanika › 6. CRM & Automação › Status do pedido & Rastreio'},
+      trackingApi:{id:'1N1KqDbLx-UKLiYrDyieC_P7dyXTcx2rQ',path:'Botanika › 6. CRM & Automação › Status do pedido & Rastreio › WhatsApp API - Pedido a caminho'},
       email:{id:'1ogGieUYwBarz80LFxZlKfnbPWcWnRr2B',path:'Botanika › 6. CRM & Automação › E-mail educacional diário'},
       vip:{id:'1JG25MEpxVcK0sEeqpk9g3D98JFtKKArQ',path:'Botanika › 6. CRM & Automação › Grupo VIP'},
       api:{id:'1soa_FvM50JkQjblT1kayOBKIPsN52H0R',path:'Botanika › 6. CRM & Automação › Atendimento automatizado'},
@@ -183,10 +186,30 @@
   function campaignForTask(task){
     if(!task)return null;
     const rows=campaignRows();
-    const byId=rows.find(function(c){return String(c && c.id || '')===String(task.campaignId||'') && !c.archivedAt});
+    const directoryLists=Array.isArray(window.AllianceOSDirectory?.lists)?window.AllianceOSDirectory.lists:[];
+    const linkedList=directoryLists.find(function(l){
+      return task.listId && String(l?.id||'')===String(task.listId);
+    })||null;
+    const campaignId=task.campaignId||linkedList?.campanha_id||'';
+    const byId=rows.find(function(c){return String(c&&c.id||'')===String(campaignId) && !c.archivedAt});
     if(byId)return byId;
-    const target=norm(task.project||'');
-    return rows.find(function(c){return !c.archivedAt && norm(c.brand)===norm(task.brand) && (norm(c.name)===target || target.indexOf(norm(c.name))>=0)})||null;
+    const targets=[task.project,linkedList?.nome].map(norm).filter(Boolean);
+    const matched=rows.find(function(c){
+      if(c.archivedAt||norm(c.brand)!==norm(task.brand))return false;
+      const name=norm(c.name);
+      return targets.some(function(target){return name===target||target.indexOf(name)>=0||name.indexOf(target)>=0});
+    })||null;
+    if(matched)return matched;
+    if(linkedList?.nome){
+      return {
+        id:linkedList.campanha_id||('list:'+String(linkedList.id||'')),
+        name:linkedList.nome,
+        brand:task.brand||linkedList.marca||'',
+        type:linkedList.campanha_id?'campanha':'lista',
+        _fromList:true
+      };
+    }
+    return null;
   }
   function textFor(ctx){
     const task=ctx.task||{};
@@ -318,7 +341,14 @@
           '<div class="alliance-drive-files" data-drive-files></div>'+
           '<div class="alliance-drive-recipient" data-drive-recipient hidden>'+
             '<div class="alliance-drive-dest-head"><span>Quem recebe</span><em data-drive-recipient-source></em></div>'+
-            '<div class="alliance-drive-recipient-row"><span class="alliance-drive-recipient-icon">→</span><div><strong data-drive-recipient-name>Escolher destinatário</strong><small data-drive-recipient-task>A entrega será ligada à próxima tarefa.</small></div><select data-drive-recipient-select aria-label="Quem recebe a entrega"></select></div>'+
+            '<div class="alliance-drive-recipient-row">'+
+              '<span class="alliance-drive-recipient-avatar" data-drive-recipient-avatar>?</span>'+
+              '<div class="alliance-drive-recipient-copy"><strong data-drive-recipient-name>Escolher destinatário</strong><small data-drive-recipient-task>Selecione quem deve receber o contexto desta entrega.</small></div>'+
+              '<div class="alliance-drive-recipient-picker">'+
+                '<button type="button" class="alliance-drive-recipient-toggle" data-drive-recipient-toggle><span data-drive-recipient-toggle-label>Escolher pessoa</span><i>⌄</i></button>'+
+                '<div class="alliance-drive-recipient-menu" data-drive-recipient-menu hidden></div>'+
+              '</div>'+
+            '</div>'+
           '</div>'+
           '<div class="alliance-drive-destination">'+
             '<div class="alliance-drive-dest-head"><span>Destino no Drive</span><em data-drive-source></em></div>'+
@@ -356,6 +386,176 @@
     if(data.ligado===false)throw new Error(data.erro||'O Drive desta marca ainda não está ligado.');
     return data;
   }
+
+  function folderWords(value){
+    const stop=new Set(['a','o','as','os','de','da','do','das','dos','e','em','para','com','campanha','campanhas','setembro','outubro','novembro','dezembro','janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','botanika','vermefree','revita','derma']);
+    return norm(value).replace(/[^a-z0-9]+/g,' ').split(/\s+/).filter(function(x){return x.length>1&&!stop.has(x)&&!/^\d+$/.test(x)});
+  }
+  function folderMatchScore(folderName,targetName){
+    const folder=norm(folderName),target=norm(targetName);
+    if(!folder||!target)return 0;
+    if(folder===target)return 100;
+    if(folder.indexOf(target)>=0||target.indexOf(folder)>=0)return 92;
+    const targetWords=folderWords(target),folderSet=new Set(folderWords(folder));
+    if(!targetWords.length)return 0;
+    const matched=targetWords.filter(function(w){return folderSet.has(w)}).length;
+    const ratio=matched/targetWords.length;
+    return ratio>=.75?80+Math.round(ratio*10):ratio>=.5?60:0;
+  }
+  function trailPath(brand,data,childName){
+    const names=(data&&Array.isArray(data.trilha)?data.trilha:[]).map(function(x){return String(x&&x.nome||'').trim()}).filter(Boolean);
+    if(!names.length||norm(names[0])!==norm(brand))names.unshift(brand);
+    if(childName&&norm(names[names.length-1])!==norm(childName))names.push(childName);
+    return names.join(' › ');
+  }
+  function bestFolderMatch(data,targetName){
+    const folders=(data&&Array.isArray(data.arquivos)?data.arquivos:[]).filter(function(x){return x&&x.pasta});
+    return folders.map(function(folder){return {folder:folder,score:folderMatchScore(folder.nome,targetName)}})
+      .sort(function(a,b){return b.score-a.score})[0]||null;
+  }
+  async function findCampaignBaseOnDrive(brand,campaign){
+    if(!brand||!campaign?.name)return null;
+    const known=FOLDERS[brand]||{};
+    const seeds=[];
+    const addSeed=function(folder){
+      if(folder&&folder.id&&!seeds.some(function(x){return String(x.id)===String(folder.id)}))seeds.push(folder);
+    };
+    if(campaign._fromList)addSeed(known.crm);
+    if(/perpetuo|always|funil/i.test(String(campaign.type||'')))addSeed(known.alwaysOn);
+    addSeed(known.month);
+    addSeed(known.alwaysOn);
+    addSeed(known.marketing);
+    addSeed(known.launch);
+    for(const seed of seeds){
+      if(folderMatchScore(seed.path||'',campaign.name)>=90)return {id:seed.id,path:seed.path,name:campaign.name};
+      try{
+        const data=await driveList(brand,seed.id);
+        const best=bestFolderMatch(data,campaign.name);
+        if(best&&best.score>=60)return {id:best.folder.id,path:trailPath(brand,data,best.folder.nome),name:best.folder.nome};
+      }catch(e){console.warn('[Drive entregas] busca de campanha em '+String(seed.path||seed.id),e)}
+    }
+    const root=ROOTS[brand];
+    if(!root)return null;
+    try{
+      const rootData=await driveList(brand,root.id);
+      const marketing=(rootData.arquivos||[]).filter(function(x){return x&&x.pasta}).find(function(x){
+        const n=norm(x.nome);return n.indexOf('marketing')>=0&&n.indexOf('campanh')>=0;
+      });
+      if(!marketing)return null;
+      const marketingData=await driveList(brand,marketing.id);
+      const direct=bestFolderMatch(marketingData,campaign.name);
+      if(direct&&direct.score>=60)return {id:direct.folder.id,path:trailPath(brand,marketingData,direct.folder.nome),name:direct.folder.nome};
+      const containers=(marketingData.arquivos||[]).filter(function(x){
+        if(!x||!x.pasta)return false;
+        const n=norm(x.nome);
+        return /\b(set|out|nov|dez|jan|fev|mar|abr|mai|jun|jul|ago)\b/.test(n)||/always|funil|lancamento|2026|26/.test(n);
+      }).slice(0,12);
+      for(const container of containers){
+        try{
+          const data=await driveList(brand,container.id);
+          const best=bestFolderMatch(data,campaign.name);
+          if(best&&best.score>=60)return {id:best.folder.id,path:trailPath(brand,data,best.folder.nome),name:best.folder.nome};
+        }catch{}
+      }
+    }catch(e){console.warn('[Drive entregas] busca dinâmica da campanha falhou',e)}
+    return null;
+  }
+  function kindKeywords(kind){
+    if(kind==='briefing')return ['briefing','planejamento'];
+    if(/^copy_/.test(kind)||kind==='copies')return ['copies','copy'];
+    if(kind==='video'||kind==='image'||kind==='creatives')return ['criativos','creative'];
+    if(kind==='site')return ['site','oferta'];
+    if(kind==='traffic')return ['midia','trafego'];
+    if(kind==='results')return ['resultados','resultado'];
+    if(kind==='creators')return ['creators','parcerias','creator'];
+    if(kind==='capture')return ['captacao','comunidade'];
+    if(kind==='live')return ['live','abertura'];
+    return [];
+  }
+  function keywordFolder(data,keywords){
+    const folders=(data&&Array.isArray(data.arquivos)?data.arquivos:[]).filter(function(x){return x&&x.pasta});
+    let best=null,bestScore=0;
+    folders.forEach(function(folder){
+      const n=norm(folder.nome);
+      keywords.forEach(function(k,index){
+        const key=norm(k);
+        if(n===key||n.indexOf(key)>=0){
+          const score=(n===key?100:85)-index;
+          if(score>bestScore){best=folder;bestScore=score}
+        }
+      });
+    });
+    return best;
+  }
+  async function findKindFolderOnDrive(brand,base,kind){
+    if(!base||!base.id||kind==='general')return base;
+    let data;
+    try{data=await driveList(brand,base.id)}catch{return base}
+    const top=keywordFolder(data,kindKeywords(kind));
+    if(!top)return base;
+    let selected={id:top.id,path:trailPath(brand,data,top.nome),name:top.nome};
+    if(kind==='video'||kind==='image'){
+      try{
+        const nested=await driveList(brand,top.id);
+        const child=keywordFolder(nested,kind==='video'?['videos','video']:['imagens','imagem']);
+        if(child)selected={id:child.id,path:trailPath(brand,nested,child.nome),name:child.nome};
+      }catch{}
+    }else if(/^copy_/.test(kind)){
+      const map={
+        copy_ads:['anuncios','ads'],
+        copy_email:['e-mail','email'],
+        copy_api:['whatsapp api','api'],
+        copy_groups:['grupos whatsapp','grupos','grupo'],
+        copy_instagram:['instagram','stories'],
+        copy_live:['live']
+      };
+      try{
+        const nested=await driveList(brand,top.id);
+        const child=keywordFolder(nested,map[kind]||[]);
+        if(child)selected={id:child.id,path:trailPath(brand,nested,child.nome),name:child.nome};
+      }catch{}
+    }
+    return selected;
+  }
+  function operationalListDestination(ctx,campaign,kind){
+    if(!campaign?._fromList)return null;
+    const task=ctx.task||{};
+    const brand=String(task.brand||ctx.brand||campaign.brand||'');
+    const folders=FOLDERS[brand]||{};
+    const listText=norm(campaign.name||'');
+    const taskText=norm([task.title,task.description,ctx.note].filter(Boolean).join(' '));
+    if(brand==='Botanika'&&(/pos compra|rastreio/.test(listText))){
+      if(/rastreio|status|pedido|notific|tracking|caminho/.test(taskText) && folders.tracking){
+        return {folderId:folders.tracking.id,path:folders.tracking.path,source:'Sugerido pela lista',kind:kind,key:learnedKey(task,campaign,kind),campaign:campaign,dynamic:true};
+      }
+      if(/pesquisa|feedback|nps|avaliacao|questionario/.test(taskText) && folders.postPurchase){
+        return {folderId:folders.postPurchase.id,path:folders.postPurchase.path,source:'Sugerido pela lista',kind:kind,key:learnedKey(task,campaign,kind),campaign:campaign,dynamic:true};
+      }
+    }
+    return null;
+  }
+  async function resolveCampaignDestination(ctx,initial){
+    const task=ctx.task||{};
+    const campaign=initial?.campaign||ctx.campaign||campaignForTask(task);
+    if(!campaign)return initial;
+    if(initial&&['Pasta usada anteriormente','Sugerido pela campanha','Sugerido pela lista'].includes(initial.source))return initial;
+    const kind=initial?.kind||detectKind(Object.assign({},ctx,{campaign:campaign}));
+    const operational=operationalListDestination(ctx,campaign,kind);
+    if(operational)return operational;
+    const brand=String(task.brand||ctx.brand||campaign.brand||'');
+    const base=await findCampaignBaseOnDrive(brand,campaign);
+    if(!base)return null;
+    const folder=await findKindFolderOnDrive(brand,base,kind);
+    return {
+      folderId:folder.id,
+      path:folder.path,
+      source:campaign._fromList?'Sugerido pela lista':'Sugerido pela campanha',
+      kind:kind,
+      key:initial?.key||learnedKey(task,campaign,kind),
+      campaign:campaign,
+      dynamic:true
+    };
+  }
   async function renderBrowser(modal,state,folderId){
     const list=modal.querySelector('[data-drive-list]');
     const crumbs=modal.querySelector('[data-drive-crumbs]');
@@ -376,9 +576,18 @@
     box.hidden=false;
     box.textContent=String(message||'Não foi possível acessar o Drive.');
   }
+  function recipientInitials(name){
+    const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+    return (((parts[0]||'')[0]||'')+((parts[1]||'')[0]||'')).toUpperCase()||'?';
+  }
+  function recipientAvatarInner(recipient){
+    const url=String(recipient&&recipient.photoUrl||'').trim();
+    if(url)return '<img src="'+esc(url)+'" alt="" referrerpolicy="no-referrer">';
+    return '<span>'+esc(recipientInitials(recipient&&recipient.name))+'</span>';
+  }
   function recipientList(ctx){
     const seen=new Set();
-    return (Array.isArray(ctx&&ctx.recipientOptions)?ctx.recipientOptions:[]).map(function(raw,index){
+    return (Array.isArray(ctx&&ctx.recipientOptions)?ctx.recipientOptions:[]).map(function(raw){
       const r=typeof raw==='string'?{name:raw}:Object.assign({},raw||{});
       const name=String(r.name||r.nome||r.email||'').trim();
       const id=String(r.id||r.userId||'').trim();
@@ -390,11 +599,26 @@
         key:key,
         id:id||null,
         name:name,
+        photoUrl:String(r.photoUrl||r.foto_url||r.avatar||''),
+        email:String(r.email||''),
         targetTaskId:r.targetTaskId?String(r.targetTaskId):'',
         targetTaskTitle:String(r.targetTaskTitle||''),
         source:String(r.source||'')
       };
     }).filter(Boolean);
+  }
+  function renderRecipientMenu(modal,state){
+    const menu=modal.querySelector('[data-drive-recipient-menu]');
+    if(!menu)return;
+    menu.innerHTML=state.recipients.length?state.recipients.map(function(r,index){
+      const meta=r.targetTaskTitle?'Próxima tarefa · '+r.targetTaskTitle:(r.email||r.source||'Equipe Alliance');
+      const selected=state.recipient&&state.recipient.key===r.key;
+      return '<button type="button" class="alliance-drive-recipient-option '+(selected?'selected':'')+'" data-drive-recipient-index="'+index+'">'+
+        '<span class="alliance-drive-option-avatar">'+recipientAvatarInner(r)+'</span>'+
+        '<span class="alliance-drive-option-copy"><b>'+esc(r.name)+'</b><small>'+esc(meta)+'</small></span>'+
+        '<i>'+ (selected?'✓':'') +'</i>'+
+      '</button>';
+    }).join(''):'<div class="alliance-drive-recipient-empty">Nenhuma pessoa disponível.</div>';
   }
   function updateConfirmState(modal,state){
     const folderOk=!!(state.destination&&state.destination.folderId);
@@ -403,27 +627,46 @@
   }
   function setRecipient(modal,state,recipient){
     state.recipient=recipient||null;
-    const select=modal.querySelector('[data-drive-recipient-select]');
+    const avatar=modal.querySelector('[data-drive-recipient-avatar]');
     const name=modal.querySelector('[data-drive-recipient-name]');
     const task=modal.querySelector('[data-drive-recipient-task]');
     const source=modal.querySelector('[data-drive-recipient-source]');
-    if(select)select.value=recipient&&recipient.key||'';
+    const toggleLabel=modal.querySelector('[data-drive-recipient-toggle-label]');
+    if(avatar){
+      avatar.innerHTML=recipient?recipientAvatarInner(recipient):'<span>?</span>';
+      avatar.classList.toggle('has-photo',!!recipient?.photoUrl);
+    }
     if(name)name.textContent=recipient&&recipient.name||'Escolher destinatário';
     if(task)task.textContent=recipient&&recipient.targetTaskTitle?'Próxima tarefa: '+recipient.targetTaskTitle:'Selecione quem deve receber o contexto desta entrega.';
     if(source)source.textContent=recipient&&recipient.source||'';
+    if(toggleLabel)toggleLabel.textContent=recipient?'Alterar pessoa':'Escolher pessoa';
+    renderRecipientMenu(modal,state);
     updateConfirmState(modal,state);
   }
   function setDestination(modal,state,destination){
     state.destination=destination;
-    modal.querySelector('[data-drive-path]').textContent=destination && destination.path || 'Escolher pasta';
-    modal.querySelector('[data-drive-source]').textContent=destination && destination.source || '';
+    modal.querySelector('[data-drive-path]').textContent=destination&&destination.path||'Escolher pasta';
+    modal.querySelector('[data-drive-source]').textContent=destination&&destination.source||'';
     updateConfirmState(modal,state);
   }
-  function confirm(ctx){
+  async function confirm(ctx){
+    const task=ctx.task||{};
+    const brand=String(task.brand||ctx.brand||'');
+    const initialSuggestion=suggest(ctx);
+    const campaign=initialSuggestion?.campaign||ctx.campaign||campaignForTask(task);
+    let suggestion=initialSuggestion;
+    let campaignResolutionError='';
+    if(campaign&&initialSuggestion&&!['Pasta usada anteriormente','Sugerido pela campanha'].includes(initialSuggestion.source)){
+      try{
+        suggestion=await resolveCampaignDestination(ctx,initialSuggestion);
+        if(!suggestion)campaignResolutionError='Não encontrei com segurança a pasta da campanha “'+String(campaign.name||'Campanha')+'” no Drive. Escolha a pasta correta em “Alterar pasta”.';
+      }catch(e){
+        suggestion=null;
+        campaignResolutionError='Não foi possível localizar automaticamente a pasta da campanha. Escolha o destino em “Alterar pasta”.';
+        console.warn('[Drive entregas] resolução da campanha',e);
+      }
+    }
     return new Promise(function(resolve){
-      const task=ctx.task||{};
-      const brand=String(task.brand||ctx.brand||'');
-      const suggestion=suggest(ctx);
       const modal=ensureModal();
       const recipients=recipientList(ctx);
       const suggestedRaw=ctx.suggestedRecipient||null;
@@ -431,23 +674,24 @@
       const suggestedRecipient=recipients.find(function(r){return r.key===suggestedKey||r.id===suggestedKey||r.name===suggestedKey})||recipients.find(function(r){return !!r.targetTaskId})||null;
       const state={brand:brand,ctx:ctx,destination:suggestion,currentFolder:null,currentTrail:[],recipients:recipients,recipient:suggestedRecipient,requireRecipient:ctx.requireRecipient===true};
       const recipientWrap=modal.querySelector('[data-drive-recipient]');
-      const recipientSelect=modal.querySelector('[data-drive-recipient-select]');
+      const recipientToggle=modal.querySelector('[data-drive-recipient-toggle]');
+      const recipientMenu=modal.querySelector('[data-drive-recipient-menu]');
       modal.querySelector('[data-drive-files]').innerHTML=fileSummary(ctx.files||[],ctx.links||[]);
       modal.querySelector('[data-drive-browser]').hidden=true;
       modal.querySelector('[data-drive-error]').hidden=true;
       modal.querySelector('[data-drive-remember]').checked=true;
       modal.querySelector('[data-drive-confirm]').textContent=ctx.confirmLabel||'Confirmar destino';
       if(recipientWrap)recipientWrap.hidden=!(state.requireRecipient||recipients.length);
-      if(recipientSelect){
-        recipientSelect.innerHTML=(state.requireRecipient?'<option value="">Escolher pessoa…</option>':'')+recipients.map(function(r){return '<option value="'+esc(r.key)+'">'+esc(r.name)+(r.targetTaskTitle?' · '+esc(r.targetTaskTitle):'')+'</option>'}).join('');
-      }
+      if(recipientMenu)recipientMenu.hidden=true;
       setRecipient(modal,state,suggestedRecipient);
       setDestination(modal,state,suggestion);
-      if(state.requireRecipient&&!recipients.length)showModalError(modal,'Nenhum usuário disponível para receber esta entrega. Cadastre ou ative um usuário da equipe para continuar.');
+      if(state.requireRecipient&&!recipients.length)showModalError(modal,'Nenhum usuário ativo disponível para receber esta entrega.');
+      else if(campaignResolutionError)showModalError(modal,campaignResolutionError);
       modal.classList.add('open');
 
       function done(result){
         modal.classList.remove('open');
+        if(recipientMenu)recipientMenu.hidden=true;
         cleanup();
         resolve(result);
       }
@@ -456,24 +700,36 @@
         modal.querySelector('[data-drive-change]').removeEventListener('click',onChange);
         modal.querySelector('[data-drive-select-current]').removeEventListener('click',onSelectCurrent);
         modal.querySelector('[data-drive-confirm]').removeEventListener('click',onConfirm);
-        recipientSelect&&recipientSelect.removeEventListener('change',onRecipientChange);
+        recipientToggle&&recipientToggle.removeEventListener('click',onRecipientToggle);
+        recipientMenu&&recipientMenu.removeEventListener('click',onRecipientPick);
       }
       function onCancel(){done({cancelled:true})}
-      function onRecipientChange(){
-        const picked=recipients.find(function(r){return r.key===recipientSelect.value})||null;
-        setRecipient(modal,state,picked?Object.assign({},picked,{source:'Escolhido por você'}):null);
+      function onRecipientToggle(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(recipientMenu)recipientMenu.hidden=!recipientMenu.hidden;
+      }
+      function onRecipientPick(e){
+        const option=e.target.closest&&e.target.closest('[data-drive-recipient-index]');
+        if(!option)return;
+        e.preventDefault();
+        const picked=recipients[Number(option.dataset.driveRecipientIndex)]||null;
+        setRecipient(modal,state,picked?Object.assign({},picked,{source:picked.targetTaskId?'Sugerido pela próxima tarefa':'Escolhido por você'}):null);
+        if(recipientMenu)recipientMenu.hidden=true;
       }
       function onChange(){
         const browser=modal.querySelector('[data-drive-browser]');
         browser.hidden=false;
-        const start=(state.destination&&state.destination.folderId) || (ROOTS[brand]&&ROOTS[brand].id) || '';
+        const start=(state.destination&&state.destination.folderId)||(ROOTS[brand]&&ROOTS[brand].id)||'';
         renderBrowser(modal,state,start).catch(function(e){showModalError(modal,e.message)});
       }
       function onSelectCurrent(){
         if(!state.currentFolder)return;
         const path=state.currentTrail.map(function(x){return x.nome}).join(' › ');
-        setDestination(modal,state,{folderId:state.currentFolder,path:path,source:'Escolhido por você',kind:suggestion&&suggestion.kind||detectKind(ctx),key:suggestion&&suggestion.key||learnedKey(task,campaignForTask(task),detectKind(ctx))});
+        const kind=initialSuggestion&&initialSuggestion.kind||detectKind(ctx);
+        setDestination(modal,state,{folderId:state.currentFolder,path:path,source:'Escolhido por você',kind:kind,key:initialSuggestion&&initialSuggestion.key||learnedKey(task,campaign,kind),campaign:campaign});
         modal.querySelector('[data-drive-browser]').hidden=true;
+        modal.querySelector('[data-drive-error]').hidden=true;
       }
       async function onConfirm(){
         const dest=state.destination;
@@ -481,20 +737,22 @@
         if(state.requireRecipient&&!state.recipient)return;
         const remember=modal.querySelector('[data-drive-remember]').checked;
         if(remember){
-          const key=dest.key || suggestion && suggestion.key || learnedKey(task,campaignForTask(task),dest.kind||detectKind(ctx));
-          await saveLearned({key:key,brand:brand,campaignId:task.campaignId||null,kind:dest.kind||suggestion&&suggestion.kind||detectKind(ctx),folderId:dest.folderId,path:dest.path,updatedAt:new Date().toISOString(),source:'manual'});
+          const kind=dest.kind||initialSuggestion&&initialSuggestion.kind||detectKind(ctx);
+          const key=dest.key||initialSuggestion&&initialSuggestion.key||learnedKey(task,campaign,kind);
+          await saveLearned({key:key,brand:brand,campaignId:campaign&&campaign.id||task.campaignId||null,kind:kind,folderId:dest.folderId,path:dest.path,updatedAt:new Date().toISOString(),source:'manual'});
         }
-        const recipient=state.recipient?{id:state.recipient.id||null,name:state.recipient.name,targetTaskId:state.recipient.targetTaskId||'',targetTaskTitle:state.recipient.targetTaskTitle||'',source:state.recipient.source||''}:null;
-        done({cancelled:false,recipient:recipient,destination:{folderId:dest.folderId,path:dest.path,source:dest.source||'Confirmado',kind:dest.kind||suggestion&&suggestion.kind||detectKind(ctx),folderLink:'https://drive.google.com/drive/folders/'+dest.folderId}});
+        const recipient=state.recipient?{id:state.recipient.id||null,name:state.recipient.name,photoUrl:state.recipient.photoUrl||'',targetTaskId:state.recipient.targetTaskId||'',targetTaskTitle:state.recipient.targetTaskTitle||'',source:state.recipient.source||''}:null;
+        const kind=dest.kind||initialSuggestion&&initialSuggestion.kind||detectKind(ctx);
+        done({cancelled:false,recipient:recipient,destination:{folderId:dest.folderId,path:dest.path,source:dest.source||'Confirmado',kind:kind,folderLink:'https://drive.google.com/drive/folders/'+dest.folderId}});
       }
       modal.querySelectorAll('[data-drive-cancel]').forEach(function(x){x.addEventListener('click',onCancel)});
       modal.querySelector('[data-drive-change]').addEventListener('click',onChange);
       modal.querySelector('[data-drive-select-current]').addEventListener('click',onSelectCurrent);
       modal.querySelector('[data-drive-confirm]').addEventListener('click',onConfirm);
-      recipientSelect&&recipientSelect.addEventListener('change',onRecipientChange);
+      recipientToggle&&recipientToggle.addEventListener('click',onRecipientToggle);
+      recipientMenu&&recipientMenu.addEventListener('click',onRecipientPick);
     });
   }
-
   async function sbConfig(){
     if(cfgCache)return cfgCache;
     const r=await fetch(SB_CONFIG_URL,{cache:'no-store'});

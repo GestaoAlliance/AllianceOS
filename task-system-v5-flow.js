@@ -50,6 +50,8 @@
       out.push({
         id:member?.id||null,
         name:member?.nome||value,
+        photoUrl:member?.foto_url||member?.photoUrl||'',
+        email:member?.email||'',
         targetTaskId:targetTask?.id?String(targetTask.id):'',
         targetTaskTitle:targetTask?.title||'',
         source
