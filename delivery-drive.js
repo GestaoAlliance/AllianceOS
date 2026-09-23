@@ -516,12 +516,12 @@
           '</div>'+
           '<div class="alliance-drive-destination">'+
             '<div class="alliance-drive-dest-head"><span>Destino no Drive</span><em data-drive-source></em></div>'+
-            '<div class="alliance-drive-path"><span class="alliance-drive-folder-icon">▰</span><strong data-drive-path>Escolher pasta</strong></div>'+
+            '<div class="alliance-drive-path"><span class="alliance-drive-folder-icon">'+driveTreeSvg('folder')+'</span><strong data-drive-path>Escolher pasta</strong></div>'+
             '<button type="button" class="alliance-drive-change" data-drive-change>Alterar pasta</button>'+
           '</div>'+
           '<div class="alliance-drive-browser" data-drive-browser hidden>'+
             '<div class="alliance-drive-browser-head"><div data-drive-crumbs></div><button type="button" data-drive-select-current>Usar pasta selecionada</button></div>'+
-            '<div class="alliance-drive-browser-search" data-drive-browser-search hidden><span>⌕</span><input type="search" data-drive-folder-search placeholder="Buscar pasta…" autocomplete="off"></div>'+
+            '<div class="alliance-drive-browser-search" data-drive-browser-search hidden><span class="alliance-drive-search-icon">'+driveTreeSvg('search')+'</span><input type="search" data-drive-folder-search placeholder="Buscar pasta…" autocomplete="off"></div>'+
             '<div class="alliance-drive-browser-list" data-drive-list></div>'+
             '<div class="alliance-drive-browser-note" data-drive-browser-note hidden></div>'+
           '</div>'+
