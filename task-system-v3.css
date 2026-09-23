@@ -4238,3 +4238,73 @@
   background:#eef1f2!important;
   color:#20282d!important;
 }
+
+
+/* ===== Task List Tree V9 · chevron desenhado / iconografia AllianceOS ===== */
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle{
+  width:22px!important;
+  height:22px!important;
+  min-width:22px!important;
+  max-width:22px!important;
+  min-height:22px!important;
+  max-height:22px!important;
+  flex:0 0 22px!important;
+  margin:0 4px 0 0!important;
+  padding:0!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  border:0!important;
+  border-radius:6px!important;
+  background:transparent!important;
+  color:#667178!important;
+  font-size:0!important;
+  line-height:1!important;
+  cursor:pointer!important;
+  transition:background .14s ease,color .14s ease!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:hover{
+  background:#eef1f2!important;
+  color:#20282d!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:focus-visible{
+  outline:2px solid #d2d8dc!important;
+  outline-offset:1px!important;
+}
+
+#tasksCanvas .v4-tree-list .v4-tree-toggle .v4-tree-chevron{
+  position:relative!important;
+  display:block!important;
+  width:8px!important;
+  height:8px!important;
+  min-width:8px!important;
+  min-height:8px!important;
+  max-width:8px!important;
+  max-height:8px!important;
+  margin:0!important;
+  padding:0!important;
+  background:transparent!important;
+  color:inherit!important;
+  opacity:1!important;
+  visibility:visible!important;
+  transform:rotate(-45deg)!important;
+  transition:transform .15s ease!important;
+}
+#tasksCanvas .v4-tree-list .v4-tree-toggle .v4-tree-chevron::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  display:block!important;
+  box-sizing:border-box!important;
+  width:8px!important;
+  height:8px!important;
+  border-right:1.6px solid currentColor!important;
+  border-bottom:1.6px solid currentColor!important;
+  border-radius:1px!important;
+  background:transparent!important;
+}
+#tasksCanvas .v4-tree-list .v4-tree-toggle.is-open .v4-tree-chevron{
+  transform:rotate(45deg)!important;
+}
+#tasksCanvas .v4-tree-list .v4-tree-toggle.is-collapsed .v4-tree-chevron{
+  transform:rotate(-45deg)!important;
+}

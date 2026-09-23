@@ -650,7 +650,7 @@
     const descendantCount=hasChildren?v4DescendantCount(t):0;
 
     const treeControl=hasChildren
-      ? `<span class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" role="button" tabindex="0" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}">${collapsed?'▸':'▾'}</span>`
+      ? `<span class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" role="button" tabindex="0" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><span class="v4-tree-chevron" aria-hidden="true"></span></span>`
       : '<span class="v4-tree-spacer" aria-hidden="true"></span>';
 
     const parentCount=hasChildren
