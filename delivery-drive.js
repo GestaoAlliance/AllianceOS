@@ -765,10 +765,20 @@
       const suggestedRaw=ctx.suggestedRecipient||null;
       const suggestedKey=typeof suggestedRaw==='string'?suggestedRaw:String(suggestedRaw&&suggestedRaw.id||suggestedRaw&&suggestedRaw.key||suggestedRaw&&suggestedRaw.name||'');
       const suggestedRecipient=recipients.find(function(r){return r.key===suggestedKey||r.id===suggestedKey||r.name===suggestedKey})||recipients.find(function(r){return !!r.targetTaskId})||null;
-      const state={brand:brand,ctx:ctx,destination:suggestion,currentFolder:null,currentTrail:[],recipients:recipients,recipient:suggestedRecipient,requireRecipient:ctx.requireRecipient===true};
+      const state={
+        brand:brand,
+        ctx:ctx,
+        destination:suggestion,
+        currentFolder:suggestion&&suggestion.folderId||null,
+        currentTrail:String(suggestion&&suggestion.path||'').split('›').map(function(nome){return {nome:nome.trim()}}).filter(function(x){return x.nome}),
+        recipients:recipients,
+        recipient:suggestedRecipient,
+        requireRecipient:ctx.requireRecipient===true
+      };
       const recipientWrap=modal.querySelector('[data-drive-recipient]');
       const recipientToggle=modal.querySelector('[data-drive-recipient-toggle]');
       const recipientMenu=modal.querySelector('[data-drive-recipient-menu]');
+      const folderSearch=modal.querySelector('[data-drive-folder-search]');
       modal.querySelector('[data-drive-files]').innerHTML=fileSummary(ctx.files||[],ctx.links||[]);
       modal.querySelector('[data-drive-browser]').hidden=true;
       modal.querySelector('[data-drive-error]').hidden=true;
@@ -795,6 +805,7 @@
         modal.querySelector('[data-drive-confirm]').removeEventListener('click',onConfirm);
         recipientToggle&&recipientToggle.removeEventListener('click',onRecipientToggle);
         recipientMenu&&recipientMenu.removeEventListener('click',onRecipientPick);
+        folderSearch&&folderSearch.removeEventListener('input',onFolderSearch);
       }
       function onCancel(){done({cancelled:true})}
       function onRecipientToggle(e){
@@ -810,9 +821,14 @@
         setRecipient(modal,state,picked?Object.assign({},picked,{source:picked.targetTaskId?'Sugerido pela próxima tarefa':'Escolhido por você'}):null);
         if(recipientMenu)recipientMenu.hidden=true;
       }
+      function onFolderSearch(){
+        if(state.browserFallback)renderKnownBrowser(modal,state,folderSearch&&folderSearch.value||'');
+      }
       function onChange(){
         const browser=modal.querySelector('[data-drive-browser]');
         browser.hidden=false;
+        modal.querySelector('[data-drive-error]').hidden=true;
+        if(folderSearch)folderSearch.value='';
         const start=(state.destination&&state.destination.folderId)||(ROOTS[brand]&&ROOTS[brand].id)||'';
         renderBrowser(modal,state,start).catch(function(e){showModalError(modal,e.message)});
       }
@@ -844,6 +860,7 @@
       modal.querySelector('[data-drive-confirm]').addEventListener('click',onConfirm);
       recipientToggle&&recipientToggle.addEventListener('click',onRecipientToggle);
       recipientMenu&&recipientMenu.addEventListener('click',onRecipientPick);
+      folderSearch&&folderSearch.addEventListener('input',onFolderSearch);
     });
   }
   async function sbConfig(){
