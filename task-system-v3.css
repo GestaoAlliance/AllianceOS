@@ -4207,3 +4207,34 @@
   min-height:38px!important;
   height:38px!important;
 }
+
+
+/* ===== Task List Tree V8 · chevron médio / padrão AllianceOS ===== */
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle{
+  width:20px!important;
+  height:22px!important;
+  min-width:20px!important;
+  max-width:20px!important;
+  min-height:22px!important;
+  max-height:22px!important;
+  flex:0 0 20px!important;
+  margin:0 4px 0 0!important;
+  padding:0!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  color:#5b666d!important;
+  font-family:Arial,"Helvetica Neue",sans-serif!important;
+  font-size:14px!important;
+  font-weight:700!important;
+  line-height:22px!important;
+  text-align:center!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:hover{
+  background:#eef1f2!important;
+  color:#20282d!important;
+}
