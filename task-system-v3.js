@@ -616,22 +616,30 @@
     const collapsed=!!opts.collapsed;
     const contextOnly=!!opts.contextOnly;
     const descendantCount=Number(opts.descendantCount||0);
+
     const treeControl=hasChildren
-      ? `<button class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" type="button" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>`
+      ? `<button class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" type="button" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 5 5 5-5 5"/></svg></button>`
       : '<span class="v4-tree-spacer" aria-hidden="true"></span>';
-    const hierarchyMeta=depth>0
-      ? `<div class="v4-subtask-context"><span>Subtarefa</span><b>${esc(t.status||'a fazer')}</b></div>`
-      : hasChildren
-        ? `<div class="v4-parent-context"><span>${descendantCount} ${descendantCount===1?'subtarefa':'subtarefas'}</span><b>${collapsed?'Recolhida':'Expandida'}</b></div>`
-        : '';
+
+    const parentCount=hasChildren
+      ? `<span class="v4-child-count" title="${descendantCount} ${descendantCount===1?'subtarefa':'subtarefas'}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 4v8a3 3 0 0 0 3 3h7"/><path d="m12 12 3 3-3 3"/></svg>${descendantCount}</span>`
+      : '';
+
+    const childLabel=depth>0
+      ? '<span class="v4-child-label">Subtarefa</span>'
+      : '';
+
     return `<div class="cu-row v4-work-row ${depth>0?'v4-is-subtask ':''}${hasChildren?'v4-has-children ':''}${contextOnly?'v4-context-parent ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}" data-tree-depth="${depth}" style="--tree-depth:${depth}">
       <div class="cu-row-title">
         <span class="v4-tree-indent" aria-hidden="true"></span>
         ${treeControl}
         <button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button>
         <div class="cu-titletext">
-          ${hierarchyMeta}
-          <div class="task-title-line"><b>${esc(t.title)}</b></div>
+          <div class="task-title-line">
+            ${childLabel}
+            <b>${esc(t.title)}</b>
+            ${parentCount}
+          </div>
           <small>${esc(description||'Sem descrição adicionada')}</small>
         </div>
       </div>

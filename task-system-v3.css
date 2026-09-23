@@ -3320,3 +3320,233 @@
     width:22px!important;height:22px!important;min-width:22px!important;flex-basis:22px!important;
   }
 }
+
+
+/* ===== Task List Tree V2 · compacta e inspirada no ClickUp ===== */
+#tasksCanvas .v4-tree-list .v4-work-row{
+  min-height:60px!important;
+  padding:8px 14px!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-is-subtask{
+  min-height:56px!important;
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+}
+#tasksCanvas .v4-tree-list .cu-row-title{
+  gap:7px!important;
+  align-items:center!important;
+  padding-left:calc(var(--tree-depth,0) * 28px)!important;
+}
+#tasksCanvas .v4-tree-list .cu-titletext{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
+#tasksCanvas .v4-tree-list .task-title-line{
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  min-width:0!important;
+  flex-wrap:nowrap!important;
+}
+#tasksCanvas .v4-tree-list .task-title-line>b{
+  display:block!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  white-space:nowrap!important;
+  text-overflow:ellipsis!important;
+  -webkit-line-clamp:unset!important;
+  font-size:12.4px!important;
+  line-height:1.2!important;
+  font-weight:640!important;
+}
+#tasksCanvas .v4-tree-list .v4-has-children .task-title-line>b{
+  font-size:12.7px!important;
+  font-weight:675!important;
+}
+#tasksCanvas .v4-tree-list .cu-titletext>small{
+  display:block!important;
+  max-width:680px!important;
+  margin-top:3px!important;
+  overflow:hidden!important;
+  white-space:nowrap!important;
+  text-overflow:ellipsis!important;
+  -webkit-line-clamp:unset!important;
+  color:#929ba2!important;
+  font-size:9px!important;
+  line-height:1.25!important;
+}
+
+#tasksCanvas .v4-tree-toggle,
+#tasksCanvas .v4-tree-spacer{
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  flex:0 0 20px!important;
+  margin:0!important;
+}
+#tasksCanvas .v4-tree-toggle{
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  color:#7d878d!important;
+  cursor:pointer!important;
+}
+#tasksCanvas .v4-tree-toggle:hover{
+  background:#eef1f2!important;
+  color:#30383e!important;
+}
+#tasksCanvas .v4-tree-toggle svg{
+  width:15px!important;
+  height:15px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:2.25!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+  transition:transform .14s ease!important;
+}
+#tasksCanvas .v4-tree-toggle.is-open svg{
+  transform:rotate(90deg)!important;
+}
+#tasksCanvas .v4-tree-toggle.is-collapsed svg{
+  transform:rotate(0deg)!important;
+}
+#tasksCanvas .v4-tree-spacer{
+  display:block!important;
+}
+
+#tasksCanvas .v4-tree-list .cu-complete{
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  margin:0!important;
+  border-radius:6px!important;
+}
+
+#tasksCanvas .v4-child-count{
+  flex:0 0 auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:3px!important;
+  height:18px!important;
+  padding:0 5px!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:#f0f2f3!important;
+  color:#7a858c!important;
+  font-size:8.5px!important;
+  font-weight:650!important;
+}
+#tasksCanvas .v4-child-count svg{
+  width:11px!important;
+  height:11px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.7!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+
+#tasksCanvas .v4-child-label{
+  flex:0 0 auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  height:17px!important;
+  padding:0 5px!important;
+  border-radius:5px!important;
+  background:#eef4f7!important;
+  color:#6d8493!important;
+  font-size:7.5px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+}
+
+#tasksCanvas .v4-work-row.v4-is-subtask{
+  background:#fcfdfd!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask::before{
+  left:calc(20px + (var(--tree-depth,1) - 1) * 28px)!important;
+  top:-1px!important;
+  bottom:-1px!important;
+  background:#dfe5e8!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .cu-row-title::before{
+  left:calc(var(--tree-depth,1) * 28px - 18px)!important;
+  top:50%!important;
+  width:15px!important;
+  height:1px!important;
+  border:0!important;
+  border-top:1px solid #dfe5e8!important;
+  border-radius:0!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .task-title-line>b{
+  color:#374149!important;
+  font-size:12px!important;
+  font-weight:600!important;
+}
+
+#tasksCanvas .v4-owner .mini-av{
+  width:24px!important;
+  height:24px!important;
+  font-size:8px!important;
+}
+#tasksCanvas .v4-owner .assignee-name,
+#tasksCanvas .v4-owner .no-assignee{
+  font-size:9.5px!important;
+}
+#tasksCanvas .v6-priority{
+  gap:5px!important;
+  font-size:9.5px!important;
+}
+#tasksCanvas .v6-due{
+  gap:5px!important;
+}
+#tasksCanvas .v6-due-copy strong{
+  font-size:9.5px!important;
+}
+#tasksCanvas .v6-due-copy small{
+  display:none!important;
+}
+#tasksCanvas .v6-campaign-chip{
+  min-height:34px!important;
+  height:34px!important;
+  border-radius:9px!important;
+  padding:0 9px!important;
+}
+#tasksCanvas .v6-campaign-chip b{
+  font-size:9px!important;
+}
+
+#tasksCanvas .v4-list-header{
+  min-height:30px!important;
+  height:30px!important;
+  margin-bottom:5px!important;
+  padding:0 14px!important;
+  font-size:8px!important;
+}
+#tasksCanvas .v4-status-group .cu-group-head{
+  min-height:38px!important;
+  height:38px!important;
+  padding:0 13px!important;
+}
+#tasksCanvas .v4-status-group .cu-group-head strong{
+  font-size:10.5px!important;
+}
+#tasksCanvas .v4-group-count{
+  font-size:8.5px!important;
+}
+
+@media(max-width:1320px){
+  #tasksCanvas .v4-tree-list .cu-row-title{
+    padding-left:calc(var(--tree-depth,0) * 24px)!important;
+  }
+  #tasksCanvas .v4-tree-list .v4-work-row{
+    padding-left:11px!important;
+    padding-right:11px!important;
+  }
+}
