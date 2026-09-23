@@ -8,6 +8,7 @@
     items:[],
     query:'',
     category:'all',
+    tab:'access',
     selected:null,
     revealed:new Map(),
     brandId:null,
@@ -138,12 +139,23 @@
     }
   }
 
+  function tabOf(i){
+    if(i.status==='cancelled'||i.source_sheet==='Ferramentas Canceladas')return 'cancelled';
+    if(i.kind==='technical'||i.source_sheet==='Credenciais N8N')return 'technical';
+    if(i.kind==='pixel'||i.source_sheet==='Pixels, códigos')return 'pixels';
+    return 'access';
+  }
+
+  function tabRows(tab=state.tab){
+    return state.items.filter(i=>tabOf(i)===tab);
+  }
+
   function filtered(){
     const q=state.query.trim().toLowerCase();
-    return state.items.filter(i=>{
+    return tabRows().filter(i=>{
       if(state.category!=='all'&&i.category!==state.category)return false;
       if(!q)return true;
-      return [i.name,i.description,i.category,i.owner,i.username,i.brand_name,i.recurrence].filter(Boolean).join(' ').toLowerCase().includes(q);
+      return [i.name,i.description,i.category,i.owner,i.username,i.brand_name,i.recurrence,i.payment_method,i.notes].filter(Boolean).join(' ').toLowerCase().includes(q);
     });
   }
 
@@ -199,62 +211,70 @@
   }
 
   function rowHtml(i){
-    const s=secretState(i);
+    const sec=secretState(i);
     const renew=nextRenewal(i);
     const cost=i.cost_amount!=null?fmtMoney(i.cost_amount):(i.cost_label||'—');
     const login=safeUrl(i.login_url);
     return '<button type="button" class="ac-row" data-ac-open="'+esc(i.id)+'">'+
       '<span class="ac-row-icon">'+icon(catIcon(i.category))+'</span>'+
-      '<span class="ac-row-main"><b>'+esc(i.name)+'</b><small>'+esc(i.description||i.username||'Sem descrição')+'</small></span>'+
+      '<span class="ac-row-main"><b>'+esc(i.name)+'</b><small>'+esc(i.description||i.category||'Sem descrição')+'</small></span>'+
       '<span class="ac-row-cell ac-user"><small>Usuário</small><b>'+esc(i.username||'—')+'</b></span>'+
-      '<span class="ac-row-cell"><small>Responsável</small><b>'+esc(i.owner||'—')+'</b></span>'+
-      '<span class="ac-row-cell"><small>'+(renew?'Renovação':'Custo')+'</small><b>'+(renew?esc(fmtDate(renew.toISOString())):esc(cost))+'</b></span>'+
-      '<span class="ac-secret-state '+s.cls+'"><i></i>'+esc(s.label)+'</span>'+
-      (login?'<span class="ac-row-external" title="Possui link de acesso">'+icon('external')+'</span>':'<span class="ac-row-external"></span>')+
-      '<span class="ac-row-arrow">'+icon('chevron')+'</span>'+
+      '<span class="ac-row-cell ac-owner"><small>Dono</small><b>'+esc(i.owner||'—')+'</b></span>'+
+      '<span class="ac-row-cell ac-cost"><small>Custo</small><b>'+esc(cost)+'</b><em>'+esc(i.recurrence||'')+'</em></span>'+
+      '<span class="ac-row-cell ac-renew"><small>Renovação</small><b class="'+(renewalSoon(i)?'soon':'')+'">'+esc(renew?fmtDate(renew.toISOString()):'—')+'</b></span>'+
+      '<span class="ac-secret-state '+sec.cls+'"><i></i>'+esc(sec.label)+'</span>'+
+      '<span class="ac-row-actions">'+(login?'<span class="ac-row-external" title="Possui link de acesso">'+icon('external')+'</span>':'')+'<span class="ac-row-arrow">'+icon('chevron')+'</span></span>'+
     '</button>';
   }
 
   function render(){
     const root=mount(); if(!root)return;
     const all=state.items;
+    const main=tabRows('access');
     const items=filtered();
-    const cats=[...new Set(all.map(x=>x.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    const active=all.filter(x=>x.status==='active').length;
-    const soon=all.filter(x=>renewalSoon(x)).length;
-    const protectedCount=all.filter(x=>(x.secrets||[]).length).length;
-    const pendingCount=all.filter(x=>(x.pending_secret_labels||[]).length).length;
+    const cats=[...new Set(tabRows().map(x=>x.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const active=main.filter(x=>x.status==='active').length;
+    const soon=main.filter(x=>renewalSoon(x)).length;
+    const secretCount=all.reduce((n,x)=>n+(x.secrets||[]).length,0);
+    const pendingCount=all.reduce((n,x)=>n+(x.pending_secret_labels||[]).length,0);
     const canCreate=roleCanManage()&&!!state.brandId;
     const groups=cats.map(cat=>({cat,items:items.filter(x=>x.category===cat)})).filter(g=>g.items.length);
+    const tabs=[
+      ['access','Acessos',tabRows('access').length],
+      ['technical','Credenciais técnicas',tabRows('technical').length],
+      ['pixels','Pixels & códigos',tabRows('pixels').length],
+      ['cancelled','Cancelados',tabRows('cancelled').length]
+    ];
 
     root.innerHTML=
       '<div class="ac-shell">'+
         '<header class="ac-head">'+
-          '<div class="ac-head-copy"><span class="ac-kicker">SEGURANÇA & OPERAÇÃO</span><h1>Central de Acessos</h1><p>Contas, ferramentas, renovações e credenciais de <strong>'+esc(state.brandName)+'</strong> em um só lugar.</p></div>'+
-          '<div class="ac-head-actions">'+
-            '<span class="ac-security-pill">'+icon('shield')+'Segredos protegidos no Vault</span>'+
-            (canCreate?'<button type="button" class="ac-primary" data-ac-new>'+icon('plus')+'Novo acesso</button>':'')+
-          '</div>'+
+          '<div class="ac-head-copy"><span class="ac-kicker">SEGURANÇA & OPERAÇÃO</span><h1>Central de Acessos</h1><p>Contas, credenciais e renovações de <strong>'+esc(state.brandName)+'</strong>, organizadas como na planilha operacional.</p><span class="ac-source-pill">▦ Central de Acessos: Botanika.xlsx</span></div>'+
+          '<div class="ac-head-actions"><span class="ac-security-pill">'+icon('shield')+'Vault ativo</span>'+(canCreate?'<button type="button" class="ac-primary" data-ac-new>'+icon('plus')+'Novo acesso</button>':'')+'</div>'+
         '</header>'+
-        '<section class="ac-kpis">'+
-          '<article><span>'+icon('key')+'</span><div><small>Acessos ativos</small><b>'+active+'</b><em>'+all.length+' cadastrados</em></div></article>'+
-          '<article><span>'+icon('calendar')+'</span><div><small>Renovam em 30 dias</small><b>'+soon+'</b><em>com data definida</em></div></article>'+
-          '<article><span>'+icon('card')+'</span><div><small>Custo mensal estimado</small><b>'+fmtMoney(monthlyCost(all))+'</b><em>itens com recorrência</em></div></article>'+
-          '<article class="'+(pendingCount?'warn':'')+'"><span>'+icon('lock')+'</span><div><small>Credenciais</small><b>'+protectedCount+'</b><em>'+(pendingCount?pendingCount+' pendentes de migração':'todas protegidas')+'</em></div></article>'+
+        '<section class="ac-summary">'+
+          '<div><b>'+active+'</b><span>Acessos da planilha principal</span></div>'+
+          '<div><b>'+secretCount+'</b><span>Segredos protegidos no Vault</span></div>'+
+          '<div><b>'+esc(fmtMoney(monthlyCost(main)))+'</b><span>Custo mensal estimado</span></div>'+
+          '<div class="'+(soon?'warn':'')+'"><b>'+soon+'</b><span>Renovam nos próximos 30 dias</span></div>'+
         '</section>'+
-        (pendingCount?'<div class="ac-migration-note">'+icon('shield')+'<div><b>Credenciais identificadas no arquivo</b><span>'+pendingCount+' acessos têm senha/token no arquivo original. Por segurança, os valores não foram copiados automaticamente entre sistemas; um administrador pode cadastrá-los no Vault por esta página.</span></div></div>':'')+
-        '<div class="ac-toolbar">'+
-          '<label class="ac-search">'+icon('search')+'<input type="search" data-ac-search value="'+esc(state.query)+'" placeholder="Buscar conta, usuário, categoria ou responsável…"></label>'+
-          '<select data-ac-category><option value="all">Todas as categorias</option>'+cats.map(c=>'<option value="'+esc(c)+'" '+(state.category===c?'selected':'')+'>'+esc(c)+'</option>').join('')+'</select>'+
-          '<span class="ac-result-count">'+items.length+' '+(items.length===1?'item':'itens')+'</span>'+
-        '</div>'+
-        '<div class="ac-groups">'+
-          (groups.length?groups.map(g=>
-            '<section class="ac-group">'+
-              '<header><span class="ac-group-icon">'+icon(catIcon(g.cat))+'</span><div><b>'+esc(g.cat)+'</b><small>'+g.items.length+' '+(g.items.length===1?'acesso':'acessos')+'</small></div></header>'+
-              '<div class="ac-group-list">'+g.items.map(rowHtml).join('')+'</div>'+
-            '</section>'
-          ).join(''):'<div class="ac-empty"><span>'+icon('search')+'</span><b>Nenhum acesso encontrado</b><p>Ajuste a busca ou escolha outra categoria.</p></div>')+
+        '<nav class="ac-tabs">'+tabs.map(t=>'<button type="button" data-ac-tab="'+t[0]+'" class="'+(state.tab===t[0]?'active':'')+'"><span>'+esc(t[1])+'</span><b>'+t[2]+'</b></button>').join('')+'</nav>'+
+        (pendingCount?'<div class="ac-migration-note">'+icon('alert')+'<div><b>'+pendingCount+' credencial'+(pendingCount===1?'':'is')+' ainda sem valor</b><span>Os campos continuam visíveis para cadastro seguro sem expor segredos no navegador.</span></div></div>':'')+
+        '<div class="ac-panel">'+
+          '<div class="ac-toolbar">'+
+            '<label class="ac-search">'+icon('search')+'<input type="search" data-ac-search value="'+esc(state.query)+'" placeholder="Buscar conta, usuário, dono ou ferramenta…"></label>'+
+            (state.tab==='access'?'<select data-ac-category><option value="all">Todas as seções</option>'+cats.map(c=>'<option value="'+esc(c)+'" '+(state.category===c?'selected':'')+'>'+esc(c)+'</option>').join('')+'</select>':'')+
+            '<span class="ac-result-count">'+items.length+' '+(items.length===1?'item':'itens')+'</span>'+
+          '</div>'+
+          '<div class="ac-column-head"><span>Conta / ferramenta</span><span>Usuário</span><span>Dono</span><span>Custo</span><span>Renovação</span><span>Segurança</span><span></span></div>'+
+          '<div class="ac-groups">'+
+            (groups.length?groups.map(g=>
+              '<section class="ac-group">'+
+                '<header><span class="ac-group-icon">'+icon(catIcon(g.cat))+'</span><div><b>'+esc(g.cat)+'</b><small>'+g.items.length+' '+(g.items.length===1?'item':'itens')+'</small></div></header>'+
+                '<div class="ac-group-list">'+g.items.map(rowHtml).join('')+'</div>'+
+              '</section>'
+            ).join(''):'<div class="ac-empty"><span>'+icon('search')+'</span><b>Nenhum item nesta aba</b><p>Ajuste a busca ou cadastre um novo acesso.</p></div>')+
+          '</div>'+
         '</div>'+
       '</div>';
   }
@@ -436,10 +456,11 @@
   }
 
   function onClick(e){
-    const t=e.target.closest?.('[data-ac-retry],[data-ac-new],[data-ac-open],[data-ac-drawer-close],[data-ac-modal-close],[data-ac-edit],[data-ac-archive],[data-ac-reveal],[data-ac-copy-secret],[data-ac-copy-text],[data-ac-secret-new],[data-ac-secret-edit]');
+    const t=e.target.closest?.('[data-ac-retry],[data-ac-new],[data-ac-tab],[data-ac-open],[data-ac-drawer-close],[data-ac-modal-close],[data-ac-edit],[data-ac-archive],[data-ac-reveal],[data-ac-copy-secret],[data-ac-copy-text],[data-ac-secret-new],[data-ac-secret-edit]');
     if(!t)return;
     if(t.matches('[data-ac-retry]'))load();
     else if(t.matches('[data-ac-new]'))openEntryForm();
+    else if(t.matches('[data-ac-tab]')){state.tab=t.dataset.acTab;state.category='all';render();}
     else if(t.matches('[data-ac-open]'))openDetail(t.dataset.acOpen);
     else if(t.matches('[data-ac-drawer-close]'))closeDrawer();
     else if(t.matches('[data-ac-modal-close]'))closeModal();
