@@ -132,6 +132,54 @@ const duration=c=>{
   return s&&e?Math.max(1,Math.round((e-s)/DAY)+1):0;
 };
 
+const sameCollection=(a,b)=>{
+  if(!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length)return false;
+  for(let i=0;i<a.length;i++){
+    if(String(a[i]?.id||'')!==String(b[i]?.id||''))return false;
+    if(String(a[i]?.updatedAt||a[i]?.updated_at||'')!==String(b[i]?.updatedAt||b[i]?.updated_at||''))return false;
+  }
+  return true;
+};
+
+function syncLegacyMemory(){
+  const canonicalCampaigns=read(CAMP_KEY);
+  const liveCampaigns=window.__centralGetCampaigns?.();
+  if(Array.isArray(liveCampaigns)&&!sameCollection(liveCampaigns,canonicalCampaigns)){
+    liveCampaigns.length=0;
+    liveCampaigns.push(...canonicalCampaigns);
+  }
+
+  const canonicalTasks=read(TASK_KEY);
+  const liveTasks=window.__centralGetTasks?.();
+  if(Array.isArray(liveTasks)&&!sameCollection(liveTasks,canonicalTasks)){
+    liveTasks.length=0;
+    liveTasks.push(...canonicalTasks);
+  }
+}
+
+function correctLegacyGoalWarning(channelGoal){
+  const walker=document.createTreeWalker(document.body||document.documentElement,NodeFilter.SHOW_TEXT);
+  let node;
+  while((node=walker.nextNode())){
+    const text=String(node.nodeValue||'');
+    if(!/campanhas\s+somam/i.test(text)||!/meta\s+ativa/i.test(text))continue;
+    const holder=node.parentElement;
+    if(!holder)continue;
+    const targetMatch=text.match(/meta ativa da marca no mês\s*\(R\$\s*([\d.]+(?:,\d+)?)\)/i);
+    if(!targetMatch){
+      holder.remove();
+      continue;
+    }
+    const target=Number(targetMatch[1].replace(/\./g,'').replace(',','.'))||0;
+    if(!target||Math.abs(channelGoal-target)<1){
+      holder.remove();
+      continue;
+    }
+    holder.textContent='⚠ As metas dos canais perpétuos somam '+money(channelGoal)+' e não batem com a meta ativa da marca no mês ('+money(target)+').';
+    holder.dataset.allianceGoalTruth='1';
+  }
+}
+
 function renderRow(c,tasks){
   const pct=progressFor(c,tasks);
   const owner=String(c.owner||c.responsavel||'Sem responsável');
@@ -163,15 +211,7 @@ function campaignList(){
   const channelBudget=perpetual.reduce((s,c)=>s+campaignBudget(c),0);
   const active=data.filter(c=>statusNorm(c.status).includes('exec')).length;
   const avg=data.length?Math.round(data.reduce((s,c)=>s+progressFor(c,tasks),0)/data.length):0;
-  const sig=JSON.stringify([
-    brand(),document.getElementById('campaignSearch')?.value||'',document.getElementById('campaignStatusFilter')?.value||'',
-    data.map(c=>[c.id,c.status,c.goal,c.budget,c.updatedAt,c.name]),tasks.length
-  ]);
-  if(sig===listSignature)return;
-  listSignature=sig;
-
-  const kpis=document.getElementById('campaignKpis');
-  if(kpis)kpis.innerHTML=
+  const kpiHtml=
     '<div class="camp-kpi"><small>Campanhas no mês</small><b>'+data.length+'</b><span>'+
       perpetual.length+' perpétua'+(perpetual.length===1?'':'s')+' · '+punctual.length+' pontual'+(punctual.length===1?'':'is')+'</span></div>'+
     '<div class="camp-kpi"><small>Meta dos canais</small><b>'+money(channelGoal)+'</b><span>somente perpétuas · sem duplicar ações pontuais</span></div>'+
@@ -179,11 +219,16 @@ function campaignList(){
       (channelBudget&&channelGoal?'ROAS alvo '+(channelGoal/channelBudget).toFixed(1).replace('.',','):'sem verba atribuída')+'</span></div>'+
     '<div class="camp-kpi"><small>Execução operacional</small><b>'+avg+'%</b><span>'+active+' campanha'+(active===1?'':'s')+' em execução</span></div>';
 
+  const kpis=document.getElementById('campaignKpis');
+  if(kpis&&kpis.innerHTML!==kpiHtml)kpis.innerHTML=kpiHtml;
+
   const summary=document.getElementById('campaignSummary');
-  if(summary)summary.textContent=data.length+' campanhas · '+perpetual.length+' perpétuas · '+punctual.length+' pontuais';
+  const summaryText=data.length+' campanhas · '+perpetual.length+' perpétuas · '+punctual.length+' pontuais';
+  if(summary&&summary.textContent!==summaryText)summary.textContent=summaryText;
 
   const sub=document.getElementById('campaignListSub');
-  if(sub)sub.textContent=monthName(today())+' · '+(brand()||'todas as marcas');
+  const subText=monthName(today())+' · '+(brand()||'todas as marcas');
+  if(sub&&sub.textContent!==subText)sub.textContent=subText;
 
   const head='<div class="camp-list-head"><span>Campanha</span><span>Status</span><span>Período</span><span>Responsável</span><span>Meta</span><span>Verba</span><span>Execução</span><span></span></div>';
   const group=(title,desc,items,kind)=>
@@ -191,9 +236,12 @@ function campaignList(){
     '</strong><span>'+desc+'</span></div><em>'+items.length+'</em></div>'+
     (items.length?items.map(c=>renderRow(c,tasks)).join(''):'<div class="camp-empty">Nenhuma campanha neste grupo.</div>')+'</section>';
 
-  root.innerHTML=head+
+  const desired=head+
     group('Perpétuas','Canais e frentes que carregam a meta mensal.',perpetual,'perpetual')+
     group('Pontuais','Ações com começo e fim: Dia D, semana temática, lançamento e similares.',punctual,'punctual');
+
+  if(root.innerHTML!==desired)root.innerHTML=desired;
+  listSignature=JSON.stringify([data.length,perpetual.length,punctual.length,channelGoal,channelBudget]);
 }
 
 function mondayOf(d){
@@ -220,14 +268,15 @@ function planContext(){
   const pct=tasks.length?Math.round(done/tasks.length*100):0;
   const w=weekInfo();
   const sig=[brand(),data.length,tasks.length,goal,open,pct,iso(w.monday),iso(w.sunday)].join('|');
-  if(sig===planSignature)return;
-  planSignature=sig;
-  root.innerHTML=
+  const desired=
     '<div class="plan-kpi"><small>Campanhas no mês</small><b>'+data.length+'</b><span>'+perpetual.length+' perpétuas · '+punctual.length+' pontuais</span></div>'+
     '<div class="plan-kpi"><small>Meta dos canais</small><b>'+(goal?money(goal):'—')+'</b><span>somente as frentes perpétuas</span></div>'+
     '<div class="plan-kpi"><small>Tarefas abertas</small><b>'+open+'</b><span>'+pct+'% concluídas</span></div>'+
     '<div class="plan-kpi"><small>Semana atual</small><b>'+String(w.monday.getDate()).padStart(2,'0')+' — '+String(w.sunday.getDate()).padStart(2,'0')+
     '</b><span>'+monthName(w.sunday).toLowerCase()+' de '+w.sunday.getFullYear()+'</span></div>';
+  if(root.innerHTML!==desired)root.innerHTML=desired;
+  planSignature=sig;
+  correctLegacyGoalWarning(goal);
 }
 
 function planningWeek(){
@@ -235,8 +284,6 @@ function planningWeek(){
   if(!root)return;
   const data=currentCampaigns(),tasks=currentTasks(),w=weekInfo();
   const sig=[iso(w.monday),data.map(c=>[c.id,c.status,c.start,c.end]),tasks.map(t=>[t.id,t.due,t.status])].join('|');
-  if(sig===root.dataset.allianceWeekSig)return;
-  root.dataset.allianceWeekSig=sig;
   const names=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const html=[];
   for(let i=0;i<7;i++){
@@ -257,7 +304,9 @@ function planningWeek(){
       (due.length?due.slice(0,12).map(t=>'<div class="week-task-row"><span>✓</span><b>'+esc(t.title||'Tarefa')+'</b></div>').join('')
         :'<div class="week-empty">Sem tarefas com prazo</div>')+'</div></div></section>');
   }
-  root.innerHTML=html.join('');
+  const desired=html.join('');
+  if(root.innerHTML!==desired)root.innerHTML=desired;
+  root.dataset.allianceWeekSig=sig;
 }
 
 function campaignCalendar(){
@@ -267,8 +316,6 @@ function campaignCalendar(){
   if(section&&getComputedStyle(section).display==='none')return;
   const data=currentCampaigns(),w=weekInfo();
   const sig=[iso(w.monday),data.map(c=>[c.id,c.start,c.end,c.status])].join('|');
-  if(sig===calendarSignature)return;
-  calendarSignature=sig;
   const names=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const html=[];
   for(let i=0;i<7;i++){
@@ -283,7 +330,9 @@ function campaignCalendar(){
         esc(c.color||'#121415')+'"><b>'+esc(c.name)+'</b><span>'+esc(typeLabel(c))+' · '+esc(statusLabel(c.status))+'</span></article>').join('')
         :'<div class="alliance-calendar-empty">Sem campanha ativa</div>')+'</section>');
   }
-  root.innerHTML=html.join('');
+  const desired=html.join('');
+  if(root.innerHTML!==desired)root.innerHTML=desired;
+  calendarSignature=sig;
 }
 
 function summary(){
@@ -312,7 +361,8 @@ function summary(){
     ...(Array.isArray(c.benefits)?c.benefits:[])
   ].filter(Boolean);
   const sig=JSON.stringify([c.id,c.updatedAt,c.status,c.goal,c.budget,tasks.map(t=>[t.id,t.status]),goals,phases]);
-  if(sig===summarySignature&&pane.dataset.allianceSummary==='1')return;
+  const alreadyTruth=pane.dataset.allianceSummary==='1'&&pane.querySelector('.alliance-summary-grid');
+  if(sig===summarySignature&&alreadyTruth)return;
   summarySignature=sig;
   pane.dataset.allianceSummary='1';
 
@@ -379,6 +429,7 @@ function bindDelegates(){
 }
 
 function apply(){
+  syncLegacyMemory();
   bindDelegates();
   campaignList();
   campaignCalendar();
