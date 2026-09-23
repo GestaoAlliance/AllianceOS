@@ -1,4 +1,307 @@
 (()=>{
+  // AllianceOS MOBILE RUNTIME RESET V2
+  if(!window.matchMedia||!window.matchMedia('(max-width:639px)').matches)return;
+
+  document.documentElement.classList.add('alliance-mobile-runtime');
+
+  const css=`
+  html.alliance-mobile-runtime,
+  html.alliance-mobile-runtime body{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
+  html.alliance-mobile-runtime body{
+    margin:0!important;
+    padding:0 0 calc(88px + env(safe-area-inset-bottom))!important;
+    background:#f6f7f8!important;
+  }
+  html.alliance-mobile-runtime body .app{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:100dvh!important;
+    overflow-x:hidden!important;
+    background:#f6f7f8!important;
+  }
+  html.alliance-mobile-runtime body .main{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow-x:hidden!important;
+    background:#f6f7f8!important;
+    box-shadow:none!important;
+  }
+
+  html.alliance-mobile-runtime .auth-showcase,
+  html.alliance-mobile-runtime .showcase-device,
+  html.alliance-mobile-runtime .showcase-copy,
+  html.alliance-mobile-runtime .showcase-person,
+  html.alliance-mobile-runtime .showcase-avatar,
+  html.alliance-mobile-runtime .showcase-grid,
+  html.alliance-mobile-runtime .showcase-shape,
+  html.alliance-mobile-runtime #allianceContextGuide,
+  html.alliance-mobile-runtime #allianceContextGuideLauncher{
+    display:none!important;
+    visibility:hidden!important;
+    opacity:0!important;
+    pointer-events:none!important;
+  }
+
+  html.alliance-mobile-runtime body .sidebar{
+    position:fixed!important;
+    z-index:2147483000!important;
+    left:10px!important;
+    right:10px!important;
+    bottom:calc(8px + env(safe-area-inset-bottom))!important;
+    top:auto!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:64px!important;
+    min-height:64px!important;
+    max-height:64px!important;
+    margin:0!important;
+    padding:6px!important;
+    display:block!important;
+    overflow:hidden!important;
+    transform:none!important;
+    border:1px solid rgba(214,220,225,.95)!important;
+    border-radius:18px!important;
+    background:rgba(255,255,255,.96)!important;
+    box-shadow:0 12px 34px rgba(18,25,30,.14)!important;
+    backdrop-filter:blur(18px)!important;
+    -webkit-backdrop-filter:blur(18px)!important;
+  }
+  html.alliance-mobile-runtime body .sidebar>.brandbox,
+  html.alliance-mobile-runtime body .sidebar>.nav,
+  html.alliance-mobile-runtime body .sidebar>.profile,
+  html.alliance-mobile-runtime body .sidebar>.ref2-sidebar-head,
+  html.alliance-mobile-runtime body .sidebar>.ref2-sidebar-space,
+  html.alliance-mobile-runtime body .sidebar>.ref2-workspace{
+    display:none!important;
+  }
+  html.alliance-mobile-runtime body .sidebar>.ref2-nav{
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:3px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scrollbar-width:none!important;
+  }
+  html.alliance-mobile-runtime .ref2-nav-btn{
+    position:relative!important;
+    flex:1 0 46px!important;
+    width:46px!important;
+    min-width:46px!important;
+    max-width:52px!important;
+    height:50px!important;
+    min-height:50px!important;
+    max-height:50px!important;
+    margin:0!important;
+    padding:0!important;
+    display:grid!important;
+    place-items:center!important;
+    border:0!important;
+    border-radius:13px!important;
+    background:transparent!important;
+    color:#657078!important;
+    box-shadow:none!important;
+  }
+  html.alliance-mobile-runtime .ref2-nav-btn.active{
+    background:#12171a!important;
+    color:#fff!important;
+  }
+  html.alliance-mobile-runtime .ref2-nav-label{display:none!important}
+  html.alliance-mobile-runtime .ref2-nav-icon{
+    width:36px!important;height:36px!important;min-width:36px!important;max-width:36px!important;
+    display:grid!important;place-items:center!important;background:transparent!important;border:0!important;
+  }
+  html.alliance-mobile-runtime .ref2-nav-icon svg{width:19px!important;height:19px!important;max-width:19px!important;max-height:19px!important}
+
+  html.alliance-mobile-runtime body .global-toolbar{
+    position:sticky!important;
+    z-index:2000!important;
+    top:0!important;
+    left:auto!important;
+    right:auto!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    height:calc(60px + env(safe-area-inset-top))!important;
+    min-height:calc(60px + env(safe-area-inset-top))!important;
+    margin:0!important;
+    padding:calc(env(safe-area-inset-top) + 8px) 10px 8px!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:7px!important;
+    overflow:hidden!important;
+    border:0!important;
+    border-bottom:1px solid #e5e9ec!important;
+    border-radius:0!important;
+    background:rgba(255,255,255,.97)!important;
+    box-shadow:none!important;
+    transform:none!important;
+  }
+  html.alliance-mobile-runtime .ref2-top-logo,
+  html.alliance-mobile-runtime .ref2-team,
+  html.alliance-mobile-runtime .ref2-brand-display{display:none!important}
+  html.alliance-mobile-runtime body .global-toolbar>.ref2-search{
+    position:relative!important;
+    inset:auto!important;
+    transform:none!important;
+    flex:1 1 auto!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:42px!important;
+    margin:0!important;
+    padding:0 11px!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    border:1px solid #dfe4e7!important;
+    border-radius:12px!important;
+    background:#f7f8f9!important;
+    box-shadow:none!important;
+  }
+  html.alliance-mobile-runtime .ref2-search svg{width:18px!important;height:18px!important;min-width:18px!important;max-width:18px!important}
+  html.alliance-mobile-runtime #globalSearch.ref2-search-input{
+    width:100%!important;height:100%!important;min-width:0!important;margin:0!important;padding:0!important;
+    border:0!important;outline:0!important;background:transparent!important;font-size:16px!important;
+  }
+  html.alliance-mobile-runtime #globalSearch.ref2-search-input::placeholder{font-size:11px!important;color:#9aa2a8!important}
+  html.alliance-mobile-runtime .ref2-command{display:none!important}
+  html.alliance-mobile-runtime body .global-toolbar>.ref2-top-actions{
+    position:static!important;
+    inset:auto!important;
+    transform:none!important;
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:42px!important;
+    margin:0!important;
+    padding:0!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:6px!important;
+  }
+  html.alliance-mobile-runtime .ref2-top-bell,
+  html.alliance-mobile-runtime .ref2-profile{
+    width:42px!important;
+    min-width:42px!important;
+    max-width:42px!important;
+    height:42px!important;
+    min-height:42px!important;
+    max-height:42px!important;
+    margin:0!important;
+    padding:4px!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:hidden!important;
+    border:1px solid #dfe4e7!important;
+    border-radius:12px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+  }
+  html.alliance-mobile-runtime .ref2-top-bell svg{width:18px!important;height:18px!important;max-width:18px!important;max-height:18px!important}
+  html.alliance-mobile-runtime .ref2-avatar{
+    width:32px!important;min-width:32px!important;max-width:32px!important;
+    height:32px!important;min-height:32px!important;max-height:32px!important;
+    overflow:hidden!important;border-radius:9px!important;font-size:9px!important;
+  }
+  html.alliance-mobile-runtime .ref2-avatar img{
+    width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;
+    max-width:32px!important;max-height:32px!important;object-fit:cover!important;border-radius:9px!important;
+  }
+  html.alliance-mobile-runtime .ref2-chevron{display:none!important}
+
+  html.alliance-mobile-runtime body .content,
+  html.alliance-mobile-runtime body .tasks-canvas,
+  html.alliance-mobile-runtime body .deliveries-canvas,
+  html.alliance-mobile-runtime body .plan-canvas,
+  html.alliance-mobile-runtime body .camp-canvas,
+  html.alliance-mobile-runtime body .taskspage-head,
+  html.alliance-mobile-runtime body .deliveries-head,
+  html.alliance-mobile-runtime body .plan-head,
+  html.alliance-mobile-runtime body .camp-page-head{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding-left:12px!important;
+    padding-right:12px!important;
+    box-sizing:border-box!important;
+    overflow-x:hidden!important;
+  }
+  html.alliance-mobile-runtime body .content{padding-top:14px!important;padding-bottom:24px!important}
+  html.alliance-mobile-runtime body .hero{
+    width:100%!important;max-width:100%!important;min-width:0!important;
+    margin:0 0 14px!important;display:flex!important;flex-direction:column!important;
+    align-items:stretch!important;gap:8px!important;
+  }
+  html.alliance-mobile-runtime body .hero-copy h1{
+    max-width:100%!important;margin:0 0 6px!important;font-size:27px!important;line-height:1.04!important;
+    letter-spacing:-.045em!important;overflow-wrap:anywhere!important;
+  }
+  html.alliance-mobile-runtime body .hero-copy p{max-width:100%!important;font-size:11.5px!important;line-height:1.45!important}
+  html.alliance-mobile-runtime body .hero-actions{
+    width:100%!important;min-width:0!important;margin:0!important;display:flex!important;justify-content:flex-start!important;
+    gap:7px!important;overflow-x:auto!important;
+  }
+  html.alliance-mobile-runtime body .dashboard{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important}
+  html.alliance-mobile-runtime body .module,
+  html.alliance-mobile-runtime body .hm-bloco{
+    width:100%!important;max-width:100%!important;min-width:0!important;grid-column:1/-1!important;box-sizing:border-box!important;
+  }
+
+  /* Never allow profile/showcase media to become page-sized on phones. */
+  html.alliance-mobile-runtime img[src*="/profile-avatars/"]{
+    max-width:44px!important;
+    max-height:44px!important;
+  }
+  html.alliance-mobile-runtime .ob-welcome-avatar img,
+  html.alliance-mobile-runtime .ob-profile-avatar img{
+    width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;
+  }
+  `;
+
+  const style=document.createElement('style');
+  style.id='alliance-mobile-runtime-v2';
+  style.textContent=css;
+  document.head.appendChild(style);
+
+  const clean=()=>{
+    document.getElementById('allianceContextGuide')?.remove();
+    document.getElementById('allianceContextGuideLauncher')?.remove();
+    document.querySelectorAll('.auth-showcase,.showcase-device,.showcase-copy,.showcase-person,.showcase-grid,.showcase-shape').forEach(el=>el.remove());
+    document.querySelectorAll('img[src*="/profile-avatars/"]').forEach(img=>{
+      if(img.closest('.ob-welcome-avatar,.ob-profile-avatar,.ref2-avatar,.v4-person-avatar,.v4-avatar-stack,.avatar-stack,.assignee'))return;
+      img.style.setProperty('display','none','important');
+    });
+  };
+  clean();
+  requestAnimationFrame(clean);
+  setTimeout(clean,250);
+  setTimeout(clean,1000);
+})();
+
+
+(()=>{
   'use strict';
   const VERSION=1;
   const AREA_LABELS={

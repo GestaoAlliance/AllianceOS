@@ -5,7 +5,7 @@ export default function handler(req,res){
     name:'AllianceOS',
     short_name:'AllianceOS',
     description:'Sistema operacional interno da Alliance.',
-    start_url:'/',
+    start_url:'/?app=20260922-2300',
     scope:'/',
     display:'standalone',
     orientation:'any',
@@ -19,7 +19,7 @@ export default function handler(req,res){
   };
   const body=JSON.stringify(manifest);
   res.setHeader('Content-Type','application/manifest+json; charset=utf-8');
-  res.setHeader('Cache-Control','public, max-age=3600');
+  res.setHeader('Cache-Control','no-store, max-age=0');
   if(req.method==='HEAD')return res.status(200).end();
   return res.status(200).send(body);
 }
