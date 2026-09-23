@@ -356,8 +356,10 @@
             '<button type="button" class="alliance-drive-change" data-drive-change>Alterar pasta</button>'+
           '</div>'+
           '<div class="alliance-drive-browser" data-drive-browser hidden>'+
-            '<div class="alliance-drive-browser-head"><div data-drive-crumbs></div><button type="button" data-drive-select-current>Selecionar esta pasta</button></div>'+
+            '<div class="alliance-drive-browser-head"><div data-drive-crumbs></div><button type="button" data-drive-select-current>Usar pasta selecionada</button></div>'+
+            '<div class="alliance-drive-browser-search" data-drive-browser-search hidden><span>⌕</span><input type="search" data-drive-folder-search placeholder="Buscar pasta…" autocomplete="off"></div>'+
             '<div class="alliance-drive-browser-list" data-drive-list></div>'+
+            '<div class="alliance-drive-browser-note" data-drive-browser-note hidden></div>'+
           '</div>'+
           '<label class="alliance-drive-remember"><input type="checkbox" data-drive-remember checked><span><b>Usar esta pasta nas próximas entregas semelhantes</b><small>O AllianceOS lembra por campanha e tipo de material. Você pode mudar novamente quando quiser.</small></span></label>'+
           '<div class="alliance-drive-error" data-drive-error hidden></div>'+
@@ -367,12 +369,21 @@
     document.body.appendChild(modal);
     return modal;
   }
+  function prettySize(size){
+    const n=Number(size||0);
+    if(n>=1024*1024)return (n/1024/1024).toFixed(n>=10*1024*1024?0:1).replace('.',',')+' MB';
+    return Math.max(1,Math.round(n/1024))+' KB';
+  }
   function fileSummary(files,links){
     const rows=[];
-    (files||[]).slice(0,4).forEach(function(f){rows.push('<span><b>'+esc(f.name)+'</b><small>'+Math.max(1,Math.round((Number(f.size)||0)/1024))+' KB</small></span>')});
-    (links||[]).slice(0,2).forEach(function(l){rows.push('<span><b>'+esc(l.label||'Link')+'</b><small>link</small></span>')});
-    if((files||[]).length+(links||[]).length>6)rows.push('<span><b>+'+(((files||[]).length+(links||[]).length)-6)+' itens</b><small>na mesma entrega</small></span>');
-    return rows.join('')||'<span><b>Entrega sem arquivo</b><small>O destino ainda ficará registrado.</small></span>';
+    (files||[]).slice(0,4).forEach(function(f){
+      rows.push('<article class="alliance-drive-file-summary"><span class="alliance-drive-file-summary-icon">▤</span><div><b>'+esc(f.name)+'</b><small>'+prettySize(f.size)+' · arquivo pronto para enviar</small></div></article>');
+    });
+    (links||[]).slice(0,2).forEach(function(l){
+      rows.push('<article class="alliance-drive-file-summary"><span class="alliance-drive-file-summary-icon">↗</span><div><b>'+esc(l.label||'Link da entrega')+'</b><small>Link incluído na entrega</small></div></article>');
+    });
+    if((files||[]).length+(links||[]).length>6)rows.push('<article class="alliance-drive-file-summary compact"><div><b>+'+(((files||[]).length+(links||[]).length)-6)+' itens</b><small>na mesma entrega</small></div></article>');
+    return rows.join('')||'<article class="alliance-drive-file-summary empty"><div><b>Entrega sem arquivo</b><small>O destino continuará registrado no histórico.</small></div></article>';
   }
   async function driveList(brand,folderId){
     const token=authToken();
@@ -382,8 +393,24 @@
     if(folderId)u.searchParams.set('pasta',folderId);
     const res=await fetch(u.toString(),{cache:'no-store',headers:{Authorization:'Bearer '+token}});
     const data=await res.json().catch(function(){return{}});
-    if(!res.ok||data.erro)throw new Error(data.erro||('Drive respondeu '+res.status));
-    if(data.ligado===false)throw new Error(data.erro||'O Drive desta marca ainda não está ligado.');
+    if(!res.ok){
+      const e=new Error(data.erro||('Drive respondeu '+res.status));
+      e.status=res.status;
+      throw e;
+    }
+    if(data.ligado===false){
+      const e=new Error(data.erro||'O Drive desta marca ainda não está ligado.');
+      e.semChave=!!data.semChave;
+      e.semAcesso=!!data.semAcesso;
+      e.driveUnavailable=true;
+      throw e;
+    }
+    if(data.erro){
+      const e=new Error(data.erro);
+      e.semChave=!!data.semChave;
+      e.semAcesso=!!data.semAcesso;
+      throw e;
+    }
     return data;
   }
 
@@ -556,18 +583,84 @@
       dynamic:true
     };
   }
+  function knownFoldersForBrand(brand,state){
+    const map=new Map();
+    const add=function(folder){
+      if(!folder||!folder.id)return;
+      const path=String(folder.path||folder.label||'').trim();
+      if(!path||norm(path).indexOf(norm(brand))!==0)return;
+      map.set(String(folder.id),{id:String(folder.id),path:path});
+    };
+    if(ROOTS[brand])add({id:ROOTS[brand].id,path:ROOTS[brand].label});
+    Object.values(FOLDERS[brand]||{}).forEach(add);
+    Object.values(CAMPAIGNS||{}).forEach(function(group){Object.values(group||{}).forEach(add)});
+    readRoutes().learned.filter(function(x){return norm(x&&x.brand)===norm(brand)}).forEach(function(x){add({id:x.folderId,path:x.path||x.folderName})});
+    if(state&&state.destination)add({id:state.destination.folderId,path:state.destination.path});
+    return Array.from(map.values()).sort(function(a,b){
+      const da=a.path.split('›').length,db=b.path.split('›').length;
+      return da-db||a.path.localeCompare(b.path,'pt-BR');
+    });
+  }
+  function renderKnownBrowser(modal,state,query){
+    state.browserFallback=true;
+    const list=modal.querySelector('[data-drive-list]');
+    const crumbs=modal.querySelector('[data-drive-crumbs]');
+    const searchWrap=modal.querySelector('[data-drive-browser-search]');
+    const input=modal.querySelector('[data-drive-folder-search]');
+    const note=modal.querySelector('[data-drive-browser-note]');
+    if(searchWrap)searchWrap.hidden=false;
+    if(note){
+      note.hidden=false;
+      note.textContent='Exibindo as pastas já mapeadas pelo AllianceOS. A navegação direta do Google Drive será usada automaticamente quando a credencial de integração estiver ativa.';
+    }
+    crumbs.innerHTML='<span class="alliance-drive-browser-title">Pastas da '+esc(state.brand)+'</span>';
+    const all=knownFoldersForBrand(state.brand,state);
+    const q=norm(query||'');
+    const folders=all.filter(function(x){return !q||norm(x.path).indexOf(q)>=0});
+    const current=String(state.currentFolder||state.destination&&state.destination.folderId||'');
+    list.innerHTML=folders.length?folders.map(function(x){
+      const relative=x.path.split('›').map(function(v){return v.trim()}).filter(Boolean);
+      const name=relative.pop()||x.path;
+      const parent=relative.join(' › ');
+      const selected=String(x.id)===current;
+      return '<button type="button" class="alliance-drive-folder-row alliance-drive-known-row '+(selected?'selected':'')+'" data-drive-known-folder="'+esc(x.id)+'" data-drive-known-path="'+esc(x.path)+'">'+
+        '<span>▰</span><span class="alliance-drive-folder-copy"><b>'+esc(name)+'</b><small>'+esc(parent||state.brand)+'</small></span><i>'+(selected?'✓':'')+'</i></button>';
+    }).join(''):'<div class="alliance-drive-empty">Nenhuma pasta mapeada corresponde à busca.</div>';
+    list.querySelectorAll('[data-drive-known-folder]').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        state.currentFolder=btn.dataset.driveKnownFolder;
+        state.currentTrail=String(btn.dataset.driveKnownPath||'').split('›').map(function(nome){return {nome:nome.trim()}}).filter(function(x){return x.nome});
+        renderKnownBrowser(modal,state,input&&input.value||'');
+      });
+    });
+  }
   async function renderBrowser(modal,state,folderId){
     const list=modal.querySelector('[data-drive-list]');
     const crumbs=modal.querySelector('[data-drive-crumbs]');
+    const searchWrap=modal.querySelector('[data-drive-browser-search]');
+    const note=modal.querySelector('[data-drive-browser-note]');
+    if(searchWrap)searchWrap.hidden=true;
+    if(note)note.hidden=true;
+    state.browserFallback=false;
     list.innerHTML='<div class="alliance-drive-loading"><span></span>Carregando pastas…</div>';
-    const data=await driveList(state.brand,folderId);
+    let data;
+    try{
+      data=await driveList(state.brand,folderId);
+    }catch(e){
+      if(e&&e.semChave){
+        state.driveWriteUnavailable=true;
+        renderKnownBrowser(modal,state,'');
+        return;
+      }
+      throw e;
+    }
     state.currentFolder=data.pasta;
     state.currentTrail=[{id:data.raiz,nome:state.brand}].concat((data.trilha||[]).filter(function(x){return x.id!==data.raiz}));
     crumbs.innerHTML=state.currentTrail.map(function(x,i){return '<button type="button" data-drive-crumb="'+esc(x.id)+'">'+esc(x.nome)+(i<state.currentTrail.length-1?' ›':'')+'</button>'}).join('');
     crumbs.querySelectorAll('[data-drive-crumb]').forEach(function(btn){btn.addEventListener('click',function(){renderBrowser(modal,state,btn.dataset.driveCrumb).catch(function(e){showModalError(modal,e.message)})})});
     const folders=(data.arquivos||[]).filter(function(x){return x.pasta});
     list.innerHTML=folders.length?folders.map(function(x){
-      return '<button type="button" class="alliance-drive-folder-row" data-drive-open-folder="'+esc(x.id)+'"><span>▰</span><b>'+esc(x.nome)+'</b><i>›</i></button>';
+      return '<button type="button" class="alliance-drive-folder-row" data-drive-open-folder="'+esc(x.id)+'"><span>▰</span><span class="alliance-drive-folder-copy"><b>'+esc(x.nome)+'</b><small>Google Drive</small></span><i>›</i></button>';
     }).join(''):'<div class="alliance-drive-empty">Nenhuma subpasta aqui. Você pode selecionar esta pasta.</div>';
     list.querySelectorAll('[data-drive-open-folder]').forEach(function(btn){btn.addEventListener('click',function(){renderBrowser(modal,state,btn.dataset.driveOpenFolder).catch(function(e){showModalError(modal,e.message)})})});
   }
