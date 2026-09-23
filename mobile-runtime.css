@@ -1,4 +1,5 @@
 
+/* AllianceOS PHONE UI V4 — single canonical mobile layer */
 html.alliance-phone,
 html.alliance-phone body{
   width:100%!important;
@@ -9,8 +10,11 @@ html.alliance-phone body{
 
 html.alliance-phone body{
   margin:0!important;
-  padding:0 0 calc(86px + env(safe-area-inset-bottom))!important;
-  background:#f6f7f8!important;
+  padding:0 0 calc(106px + env(safe-area-inset-bottom))!important;
+  background:#f5f6f7!important;
+  color:#171b1e!important;
+  font-size:16px!important;
+  line-height:1.4!important;
   -webkit-text-size-adjust:100%!important;
 }
 
@@ -24,7 +28,7 @@ html.alliance-phone body .main{
   border:0!important;
   border-radius:0!important;
   overflow-x:hidden!important;
-  background:#f6f7f8!important;
+  background:#f5f6f7!important;
   box-shadow:none!important;
 }
 
@@ -36,7 +40,6 @@ html.alliance-phone #allianceContextGuideLauncher{
   pointer-events:none!important;
 }
 
-/* Nothing from the login showcase is allowed inside the app. */
 html.alliance-phone.alliance-authenticated .auth-showcase,
 html.alliance-phone.alliance-authenticated .showcase-device,
 html.alliance-phone.alliance-authenticated .showcase-copy,
@@ -47,31 +50,33 @@ html.alliance-phone.alliance-authenticated .showcase-shape{
   display:none!important;
 }
 
-/* Phone navigation = a compact bottom dock. */
+/* ---------- iOS-like bottom tab bar ---------- */
 html.alliance-phone body .sidebar{
   position:fixed!important;
   z-index:2147483000!important;
-  left:10px!important;
-  right:10px!important;
+  left:12px!important;
+  right:12px!important;
   bottom:calc(8px + env(safe-area-inset-bottom))!important;
   top:auto!important;
   width:auto!important;
   min-width:0!important;
   max-width:none!important;
-  height:64px!important;
-  min-height:64px!important;
-  max-height:64px!important;
+  height:82px!important;
+  min-height:82px!important;
+  max-height:82px!important;
   margin:0!important;
-  padding:6px!important;
+  padding:6px 8px 7px!important;
   display:block!important;
   overflow:hidden!important;
   transform:none!important;
-  border:1px solid rgba(214,220,225,.96)!important;
-  border-radius:18px!important;
-  background:rgba(255,255,255,.96)!important;
-  box-shadow:0 12px 34px rgba(18,25,30,.14)!important;
-  backdrop-filter:blur(18px)!important;
-  -webkit-backdrop-filter:blur(18px)!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  border-radius:25px!important;
+  background:rgba(247,248,249,.88)!important;
+  box-shadow:
+    0 14px 40px rgba(15,21,25,.16),
+    inset 0 1px 0 rgba(255,255,255,.92)!important;
+  backdrop-filter:blur(28px) saturate(1.45)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(1.45)!important;
 }
 
 html.alliance-phone body .sidebar>.brandbox,
@@ -89,66 +94,216 @@ html.alliance-phone body .sidebar>.ref2-nav{
   min-width:0!important;
   margin:0!important;
   padding:0!important;
-  display:flex!important;
-  align-items:center!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  align-items:stretch!important;
   gap:3px!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  scrollbar-width:none!important;
-}
-
-html.alliance-phone body .sidebar>.ref2-nav::-webkit-scrollbar{
-  display:none!important;
+  overflow:visible!important;
 }
 
 html.alliance-phone .ref2-nav-btn{
+  appearance:none!important;
+  -webkit-appearance:none!important;
   position:relative!important;
-  flex:1 0 46px!important;
-  width:46px!important;
-  min-width:46px!important;
-  max-width:52px!important;
-  height:50px!important;
-  min-height:50px!important;
-  max-height:50px!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  height:68px!important;
+  min-height:68px!important;
+  max-height:68px!important;
   margin:0!important;
-  padding:0!important;
-  display:grid!important;
-  place-items:center!important;
+  padding:6px 2px 5px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
   border:0!important;
-  border-radius:13px!important;
+  border-radius:18px!important;
   background:transparent!important;
-  color:#657078!important;
+  color:#70777d!important;
   box-shadow:none!important;
+  font-family:inherit!important;
+  -webkit-tap-highlight-color:transparent!important;
 }
 
 html.alliance-phone .ref2-nav-btn.active{
-  background:#12171a!important;
-  color:#fff!important;
-}
-
-html.alliance-phone .ref2-nav-label{
-  display:none!important;
+  background:rgba(20,25,28,.075)!important;
+  color:#121619!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.44)!important;
 }
 
 html.alliance-phone .ref2-nav-icon{
-  width:36px!important;
-  height:36px!important;
-  min-width:36px!important;
-  max-width:36px!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  min-height:34px!important;
+  max-width:34px!important;
+  max-height:34px!important;
   display:grid!important;
   place-items:center!important;
-  background:transparent!important;
+  flex:0 0 34px!important;
   border:0!important;
+  border-radius:12px!important;
+  background:transparent!important;
+  color:inherit!important;
 }
 
 html.alliance-phone .ref2-nav-icon svg{
-  width:19px!important;
-  height:19px!important;
-  max-width:19px!important;
-  max-height:19px!important;
+  width:26px!important;
+  height:26px!important;
+  min-width:26px!important;
+  min-height:26px!important;
+  max-width:26px!important;
+  max-height:26px!important;
+  stroke-width:1.75!important;
 }
 
-/* Clean phone top bar. */
+html.alliance-phone .ref2-nav-label{
+  display:block!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  color:inherit!important;
+  font-size:10.5px!important;
+  line-height:1!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+  text-align:center!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
+html.alliance-phone .ref2-nav-badge{
+  top:2px!important;
+  right:6px!important;
+  min-width:18px!important;
+  height:18px!important;
+  padding:0 5px!important;
+  display:grid!important;
+  place-items:center!important;
+  border:2px solid rgba(247,248,249,.96)!important;
+  border-radius:999px!important;
+  background:#ff3b30!important;
+  color:#fff!important;
+  font-size:8px!important;
+  font-weight:750!important;
+}
+
+html.alliance-phone .alliance-mobile-overflow-tab{
+  display:none!important;
+}
+
+/* ---------- "Mais" sheet ---------- */
+.alliance-mobile-more-layer{
+  position:fixed!important;
+  z-index:2147483600!important;
+  inset:0!important;
+  opacity:0!important;
+  transition:opacity .18s ease!important;
+}
+
+.alliance-mobile-more-layer.is-open{
+  opacity:1!important;
+}
+
+.alliance-mobile-more-backdrop{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  border:0!important;
+  background:rgba(17,22,25,.22)!important;
+  backdrop-filter:blur(4px)!important;
+  -webkit-backdrop-filter:blur(4px)!important;
+}
+
+.alliance-mobile-more-sheet{
+  position:absolute!important;
+  left:12px!important;
+  right:12px!important;
+  bottom:calc(100px + env(safe-area-inset-bottom))!important;
+  padding:8px 14px 16px!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  border-radius:26px!important;
+  background:rgba(248,249,250,.94)!important;
+  box-shadow:
+    0 24px 64px rgba(15,21,25,.2),
+    inset 0 1px 0 rgba(255,255,255,.9)!important;
+  backdrop-filter:blur(28px) saturate(1.35)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(1.35)!important;
+}
+
+.alliance-mobile-sheet-handle{
+  width:38px!important;
+  height:5px!important;
+  margin:0 auto 9px!important;
+  border-radius:999px!important;
+  background:#c7ccd0!important;
+}
+
+.alliance-mobile-sheet-title{
+  margin:0 2px 12px!important;
+  color:#181c1f!important;
+  font-size:20px!important;
+  line-height:1.1!important;
+  font-weight:720!important;
+  letter-spacing:-.035em!important;
+}
+
+.alliance-mobile-more-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:9px!important;
+}
+
+.alliance-mobile-more-item{
+  min-width:0!important;
+  min-height:86px!important;
+  padding:10px 6px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  border:1px solid #e4e8eb!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,.86)!important;
+  color:#272c30!important;
+  font-size:12px!important;
+  font-weight:620!important;
+  box-shadow:0 4px 14px rgba(20,26,30,.045)!important;
+}
+
+.alliance-mobile-more-icon{
+  position:relative!important;
+  width:36px!important;
+  height:36px!important;
+  display:grid!important;
+  place-items:center!important;
+}
+
+.alliance-mobile-more-icon svg{
+  width:27px!important;
+  height:27px!important;
+}
+
+.alliance-mobile-more-badge{
+  position:absolute!important;
+  top:-7px!important;
+  right:-10px!important;
+  min-width:18px!important;
+  height:18px!important;
+  padding:0 4px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:999px!important;
+  background:#ff3b30!important;
+  color:#fff!important;
+  font-size:8px!important;
+  font-style:normal!important;
+}
+
+/* ---------- larger phone topbar ---------- */
 html.alliance-phone body .global-toolbar{
   position:sticky!important;
   z-index:2000!important;
@@ -156,20 +311,22 @@ html.alliance-phone body .global-toolbar{
   width:100%!important;
   max-width:100%!important;
   min-width:0!important;
-  height:calc(60px + env(safe-area-inset-top))!important;
-  min-height:calc(60px + env(safe-area-inset-top))!important;
+  height:calc(70px + env(safe-area-inset-top))!important;
+  min-height:calc(70px + env(safe-area-inset-top))!important;
   margin:0!important;
-  padding:calc(env(safe-area-inset-top) + 8px) 10px 8px!important;
+  padding:calc(env(safe-area-inset-top) + 10px) 14px 10px!important;
   box-sizing:border-box!important;
   display:flex!important;
   align-items:center!important;
-  gap:7px!important;
+  gap:9px!important;
   overflow:hidden!important;
   border:0!important;
-  border-bottom:1px solid #e5e9ec!important;
+  border-bottom:1px solid rgba(221,226,229,.88)!important;
   border-radius:0!important;
-  background:rgba(255,255,255,.97)!important;
-  box-shadow:none!important;
+  background:rgba(255,255,255,.94)!important;
+  box-shadow:0 5px 18px rgba(25,32,37,.04)!important;
+  backdrop-filter:blur(22px) saturate(1.25)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(1.25)!important;
   transform:none!important;
 }
 
@@ -187,23 +344,24 @@ html.alliance-phone body .global-toolbar>.ref2-search{
   width:auto!important;
   min-width:0!important;
   max-width:none!important;
-  height:42px!important;
+  height:50px!important;
   margin:0!important;
-  padding:0 11px!important;
+  padding:0 14px!important;
   display:flex!important;
   align-items:center!important;
-  gap:8px!important;
+  gap:10px!important;
   border:1px solid #dfe4e7!important;
-  border-radius:12px!important;
-  background:#f7f8f9!important;
-  box-shadow:none!important;
+  border-radius:15px!important;
+  background:#f6f7f8!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9)!important;
 }
 
 html.alliance-phone .ref2-search svg{
-  width:18px!important;
-  height:18px!important;
-  min-width:18px!important;
-  max-width:18px!important;
+  width:21px!important;
+  height:21px!important;
+  min-width:21px!important;
+  max-width:21px!important;
+  color:#69727a!important;
 }
 
 html.alliance-phone #globalSearch.ref2-search-input{
@@ -215,12 +373,14 @@ html.alliance-phone #globalSearch.ref2-search-input{
   border:0!important;
   outline:0!important;
   background:transparent!important;
+  color:#202529!important;
   font-size:16px!important;
+  font-weight:450!important;
 }
 
 html.alliance-phone #globalSearch.ref2-search-input::placeholder{
-  color:#9aa2a8!important;
-  font-size:11px!important;
+  color:#929ba2!important;
+  font-size:14px!important;
 }
 
 html.alliance-phone .ref2-command{
@@ -235,42 +395,43 @@ html.alliance-phone body .global-toolbar>.ref2-top-actions{
   width:auto!important;
   min-width:0!important;
   max-width:none!important;
-  height:42px!important;
+  height:50px!important;
   margin:0!important;
   padding:0!important;
   display:flex!important;
   align-items:center!important;
-  gap:6px!important;
+  gap:7px!important;
 }
 
 html.alliance-phone .ref2-top-bell{
-  width:42px!important;
-  min-width:42px!important;
-  max-width:42px!important;
-  height:42px!important;
-  min-height:42px!important;
-  max-height:42px!important;
+  width:50px!important;
+  min-width:50px!important;
+  max-width:50px!important;
+  height:50px!important;
+  min-height:50px!important;
+  max-height:50px!important;
   padding:0!important;
   display:grid!important;
   place-items:center!important;
   border:1px solid #dfe4e7!important;
-  border-radius:12px!important;
+  border-radius:15px!important;
   background:#fff!important;
+  color:#202529!important;
+  box-shadow:0 2px 8px rgba(20,26,30,.035)!important;
 }
 
-/* Hide profile in the phone topbar until the dedicated mobile profile sheet exists. */
+html.alliance-phone .ref2-top-bell svg{
+  width:22px!important;
+  height:22px!important;
+  max-width:22px!important;
+  max-height:22px!important;
+}
+
 html.alliance-phone .ref2-profile{
   display:none!important;
 }
 
-html.alliance-phone .ref2-top-bell svg{
-  width:18px!important;
-  height:18px!important;
-  max-width:18px!important;
-  max-height:18px!important;
-}
-
-/* Main content never keeps desktop geometry on phone. */
+/* ---------- real phone scale for content ---------- */
 html.alliance-phone body .content,
 html.alliance-phone body .tasks-canvas,
 html.alliance-phone body .deliveries-canvas,
@@ -284,26 +445,26 @@ html.alliance-phone body .camp-page-head{
   max-width:100%!important;
   min-width:0!important;
   margin:0!important;
-  padding-left:12px!important;
-  padding-right:12px!important;
+  padding-left:16px!important;
+  padding-right:16px!important;
   box-sizing:border-box!important;
   overflow-x:hidden!important;
 }
 
 html.alliance-phone body .content{
-  padding-top:14px!important;
-  padding-bottom:24px!important;
+  padding-top:20px!important;
+  padding-bottom:28px!important;
 }
 
 html.alliance-phone body .hero{
   width:100%!important;
   max-width:100%!important;
   min-width:0!important;
-  margin:0 0 14px!important;
+  margin:0 0 20px!important;
   display:flex!important;
   flex-direction:column!important;
   align-items:stretch!important;
-  gap:8px!important;
+  gap:12px!important;
 }
 
 html.alliance-phone body .hero-copy,
@@ -315,26 +476,44 @@ html.alliance-phone body .hero-copy p{
 }
 
 html.alliance-phone body .hero-copy h1{
-  margin:0 0 6px!important;
-  font-size:27px!important;
-  line-height:1.04!important;
-  letter-spacing:-.045em!important;
+  margin:0 0 8px!important;
+  color:#181c1f!important;
+  font-size:34px!important;
+  line-height:1.02!important;
+  letter-spacing:-.05em!important;
   overflow-wrap:anywhere!important;
 }
 
 html.alliance-phone body .hero-copy p{
-  font-size:11.5px!important;
-  line-height:1.45!important;
+  font-size:15px!important;
+  line-height:1.5!important;
+  color:#6c747b!important;
 }
 
 html.alliance-phone body .hero-actions{
   width:100%!important;
   min-width:0!important;
   margin:0!important;
+  padding-bottom:2px!important;
   display:flex!important;
   justify-content:flex-start!important;
-  gap:7px!important;
+  gap:9px!important;
   overflow-x:auto!important;
+  scrollbar-width:none!important;
+}
+
+html.alliance-phone body .hero-actions::-webkit-scrollbar{
+  display:none!important;
+}
+
+html.alliance-phone body .hero-actions button,
+html.alliance-phone body .hero-actions .btn{
+  min-height:44px!important;
+  padding:0 14px!important;
+  border-radius:12px!important;
+  font-size:14px!important;
+  font-weight:620!important;
+  white-space:nowrap!important;
 }
 
 html.alliance-phone body .dashboard,
@@ -353,12 +532,92 @@ html.alliance-phone body .hm-bloco{
   width:100%!important;
   max-width:100%!important;
   min-width:0!important;
+  margin-bottom:14px!important;
+  padding:16px!important;
   grid-column:1/-1!important;
   box-sizing:border-box!important;
+  border-radius:16px!important;
 }
 
-/* Emergency guard against any old profile/showcase image becoming page-sized. */
+html.alliance-phone body .module h2,
+html.alliance-phone body .module h3,
+html.alliance-phone body .hm-bloco h2,
+html.alliance-phone body .hm-bloco h3{
+  font-size:18px!important;
+  line-height:1.2!important;
+}
+
+html.alliance-phone body .module p,
+html.alliance-phone body .hm-bloco p,
+html.alliance-phone body .module small,
+html.alliance-phone body .hm-bloco small{
+  font-size:13px!important;
+  line-height:1.45!important;
+}
+
+/* Common phone touch targets and readable form controls. */
+html.alliance-phone body button,
+html.alliance-phone body input,
+html.alliance-phone body select,
+html.alliance-phone body textarea{
+  font-size:16px!important;
+}
+
+html.alliance-phone body input:not([type=checkbox]):not([type=radio]),
+html.alliance-phone body select{
+  min-height:44px!important;
+}
+
+/* Tasks: readable without reverting to desktop density. */
+html.alliance-phone #tasksCanvas .v4-work-row{
+  min-height:58px!important;
+}
+
+html.alliance-phone #tasksCanvas .v4-task-title,
+html.alliance-phone #tasksCanvas .v4-title{
+  font-size:14px!important;
+  line-height:1.28!important;
+}
+
+html.alliance-phone #tasksCanvas .v4-tree-toggle{
+  width:34px!important;
+  min-width:34px!important;
+  height:34px!important;
+}
+
+html.alliance-phone #tasksCanvas .v4-tree-chevron{
+  width:12px!important;
+  height:12px!important;
+}
+
+/* Last-resort media guard. */
 html.alliance-phone img[src*="/profile-avatars/"]:not(.v4-person-avatar img):not(.assignee img){
-  max-width:44px!important;
-  max-height:44px!important;
+  max-width:48px!important;
+  max-height:48px!important;
+}
+
+@media (max-width:380px){
+  html.alliance-phone body .sidebar{
+    left:8px!important;
+    right:8px!important;
+  }
+
+  html.alliance-phone .ref2-nav-label{
+    font-size:9.5px!important;
+  }
+
+  html.alliance-phone .ref2-nav-icon svg{
+    width:24px!important;
+    height:24px!important;
+    min-width:24px!important;
+    min-height:24px!important;
+  }
+
+  html.alliance-phone body .hero-copy h1{
+    font-size:31px!important;
+  }
+
+  .alliance-mobile-more-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
 }
