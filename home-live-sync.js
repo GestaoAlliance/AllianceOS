@@ -12,7 +12,7 @@ const installHomeLineFix=()=>{
   if(document.getElementById('alliance-home-line-fix'))return;
   const style=document.createElement('style');
   style.id='alliance-home-line-fix';
-  style.textContent='[data-module="attention"] .cardhead{border-bottom:0!important}[data-module="attention"] #homeAtencao:not(:empty){border-top:1px solid var(--line)!important}';
+  style.textContent='[data-module="attention"] .cardhead{border-bottom:1px solid var(--line)!important}[data-module="attention"] #homeAtencao{border-top:0!important}';
   document.head.appendChild(style);
 };
 
