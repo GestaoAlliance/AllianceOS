@@ -3177,3 +3177,146 @@
   .v3-new-actions-copy{display:none!important}
   .new-actions.v3-new-actions{padding:12px 14px!important;justify-content:flex-end!important}
 }
+
+
+/* ===== Task List Tree V1 · tarefa mãe + subtarefas recolhíveis ===== */
+#tasksCanvas .v4-tree-list .v4-work-row{
+  position:relative!important;
+}
+#tasksCanvas .v4-tree-list .cu-row-title{
+  position:relative!important;
+  padding-left:calc(var(--tree-depth,0) * 24px)!important;
+}
+#tasksCanvas .v4-tree-indent{
+  display:none!important;
+}
+#tasksCanvas .v4-tree-toggle,
+#tasksCanvas .v4-tree-spacer{
+  width:24px!important;
+  height:24px!important;
+  min-width:24px!important;
+  flex:0 0 24px!important;
+  margin-top:1px!important;
+}
+#tasksCanvas .v4-tree-toggle{
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  border:1px solid #dce2e5!important;
+  border-radius:7px!important;
+  background:#f7f9f9!important;
+  color:#647079!important;
+  cursor:pointer!important;
+  transition:background .15s ease,border-color .15s ease,color .15s ease!important;
+}
+#tasksCanvas .v4-tree-toggle:hover{
+  background:#eef2f3!important;
+  border-color:#ced6da!important;
+  color:#2f383e!important;
+}
+#tasksCanvas .v4-tree-toggle svg{
+  width:14px!important;
+  height:14px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:2!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+  transition:transform .16s ease!important;
+}
+#tasksCanvas .v4-tree-toggle.is-open svg{transform:rotate(90deg)!important}
+#tasksCanvas .v4-tree-spacer{display:block!important}
+
+#tasksCanvas .v4-work-row.v4-has-children{
+  background:#fff!important;
+}
+#tasksCanvas .v4-work-row.v4-has-children .task-title-line>b{
+  color:#222a30!important;
+  font-weight:710!important;
+}
+#tasksCanvas .v4-parent-context{
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  min-height:18px!important;
+  margin:0 0 4px!important;
+}
+#tasksCanvas .v4-parent-context>span{
+  padding:2px 6px!important;
+  border:1px solid #dde4e7!important;
+  border-radius:6px!important;
+  background:#f4f6f7!important;
+  color:#65727b!important;
+  font-size:8px!important;
+  font-weight:690!important;
+  letter-spacing:.02em!important;
+}
+#tasksCanvas .v4-parent-context>b{
+  color:#98a1a7!important;
+  font-size:8px!important;
+  font-weight:560!important;
+}
+
+#tasksCanvas .v4-work-row.v4-is-subtask{
+  background:#fbfcfd!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask::before{
+  content:""!important;
+  position:absolute!important;
+  left:calc(31px + (var(--tree-depth,1) - 1) * 24px)!important;
+  top:-1px!important;
+  bottom:-1px!important;
+  width:1px!important;
+  background:#e3e8eb!important;
+  pointer-events:none!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .cu-row-title::before{
+  content:""!important;
+  position:absolute!important;
+  left:calc(var(--tree-depth,1) * 24px - 14px)!important;
+  top:13px!important;
+  width:12px!important;
+  height:12px!important;
+  border-left:1px solid #dce3e6!important;
+  border-bottom:1px solid #dce3e6!important;
+  border-radius:0 0 0 6px!important;
+  pointer-events:none!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .v4-subtask-context{
+  margin-bottom:3px!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .v4-subtask-context>b{
+  max-width:none!important;
+  padding:2px 5px!important;
+  border-radius:5px!important;
+  background:#f1f4f5!important;
+  color:#7c878e!important;
+  font-size:7.8px!important;
+  font-weight:620!important;
+  text-transform:capitalize!important;
+}
+#tasksCanvas .v4-work-row.v4-context-parent{
+  background:linear-gradient(90deg,#fafbfb 0%,#fff 34%)!important;
+}
+#tasksCanvas .v4-work-row.v4-context-parent .task-title-line>b{
+  color:#566169!important;
+}
+#tasksCanvas .v4-work-row.v4-context-parent .cu-titletext>small{
+  color:#9aa3a8!important;
+}
+#tasksCanvas .v4-work-row.v4-context-parent .v4-parent-context::after{
+  content:"Contexto do resultado filtrado"!important;
+  color:#9aa3a8!important;
+  font-size:8px!important;
+  font-weight:520!important;
+}
+
+@media(max-width:1320px){
+  #tasksCanvas .v4-tree-list .cu-row-title{
+    padding-left:calc(var(--tree-depth,0) * 20px)!important;
+  }
+  #tasksCanvas .v4-tree-toggle,
+  #tasksCanvas .v4-tree-spacer{
+    width:22px!important;height:22px!important;min-width:22px!important;flex-basis:22px!important;
+  }
+}

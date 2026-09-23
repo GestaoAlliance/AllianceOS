@@ -575,17 +575,64 @@
     return (at>Math.floor(max*.72)?cut.slice(0,at):clean.slice(0,max)).trim()+'…';
   }
 
-  renderListRow = function(t){
+  const v4TreeStateKey=taskStorageKey+'.list-tree-collapsed';
+  let v4CollapsedTaskIds=(()=>{
+    try{
+      const raw=JSON.parse(localStorage.getItem(v4TreeStateKey)||'[]');
+      return new Set(Array.isArray(raw)?raw.map(String):[]);
+    }catch{return new Set()}
+  })();
+  const v4SaveTreeState=()=>{
+    try{localStorage.setItem(v4TreeStateKey,JSON.stringify([...v4CollapsedTaskIds]))}catch{}
+  };
+  const v4DirectChildren=t=>taskData.filter(x=>String(x.parentTaskId||'')===String(t.id));
+  const v4RootTask=t=>{
+    let cur=t,seen=new Set();
+    while(cur?.parentTaskId&&!seen.has(String(cur.id))){
+      seen.add(String(cur.id));
+      const p=v3Task(cur.parentTaskId);
+      if(!p)break;
+      cur=p;
+    }
+    return cur||t;
+  };
+  const v4DescendantCount=t=>{
+    let count=0,queue=[String(t.id)],seen=new Set(queue);
+    while(queue.length){
+      const id=queue.shift();
+      for(const child of taskData.filter(x=>String(x.parentTaskId||'')===id)){
+        const key=String(child.id);
+        if(seen.has(key))continue;
+        seen.add(key);count++;queue.push(key);
+      }
+    }
+    return count;
+  };
+
+  renderListRow = function(t,opts={}){
     const blockers=v3Blockers(t),due=v4Due(t),description=v4TaskPreview(t),parent=v3Parent(t);
-    return `<div class="cu-row v4-work-row ${parent?'v4-is-subtask ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}">
+    const depth=Math.max(0,Number(opts.depth||0));
+    const hasChildren=!!opts.hasChildren;
+    const collapsed=!!opts.collapsed;
+    const contextOnly=!!opts.contextOnly;
+    const descendantCount=Number(opts.descendantCount||0);
+    const treeControl=hasChildren
+      ? `<button class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" type="button" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>`
+      : '<span class="v4-tree-spacer" aria-hidden="true"></span>';
+    const hierarchyMeta=depth>0
+      ? `<div class="v4-subtask-context"><span>Subtarefa</span><b>${esc(t.status||'a fazer')}</b></div>`
+      : hasChildren
+        ? `<div class="v4-parent-context"><span>${descendantCount} ${descendantCount===1?'subtarefa':'subtarefas'}</span><b>${collapsed?'Recolhida':'Expandida'}</b></div>`
+        : '';
+    return `<div class="cu-row v4-work-row ${depth>0?'v4-is-subtask ':''}${hasChildren?'v4-has-children ':''}${contextOnly?'v4-context-parent ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}" data-tree-depth="${depth}" style="--tree-depth:${depth}">
       <div class="cu-row-title">
-        <!--v5-tree-->
+        <span class="v4-tree-indent" aria-hidden="true"></span>
+        ${treeControl}
         <button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button>
         <div class="cu-titletext">
-          ${parent?`<div class="v4-subtask-context"><span>Subtarefa</span><b>de ${esc(parent.title)}</b></div>`:''}
+          ${hierarchyMeta}
           <div class="task-title-line"><b>${esc(t.title)}</b></div>
           <small>${esc(description||'Sem descrição adicionada')}</small>
-          <!-- indicadores operacionais ficam apenas dentro da tarefa -->
         </div>
       </div>
       <div class="v4-owner">${avatarStack(t.assignees,t.assigneeIds||[])}</div>
@@ -596,23 +643,87 @@
   };
 
   renderList = function(canvas,data){
+    const matchedIds=new Set(data.map(t=>String(t.id)));
+    const branchMemo=new Map();
+    const branchMatches=t=>{
+      const key=String(t.id);
+      if(branchMemo.has(key))return branchMemo.get(key);
+      const seen=new Set();
+      const walk=node=>{
+        const id=String(node.id);
+        if(seen.has(id))return false;
+        seen.add(id);
+        if(matchedIds.has(id))return true;
+        return v4DirectChildren(node).some(walk);
+      };
+      const value=walk(t);branchMemo.set(key,value);return value;
+    };
+
+    const rootMap=new Map();
+    data.forEach(t=>{
+      const root=v4RootTask(t);
+      if(root&&!root.archivedAt)rootMap.set(String(root.id),root);
+    });
+    const explicitStatus=document.getElementById('statusFilter')?.value||'';
+
+    const renderBranch=(t,depth=0)=>{
+      const children=v4DirectChildren(t).filter(c=>!c.archivedAt&&branchMatches(c));
+      const hasChildren=children.length>0;
+      const collapsed=hasChildren&&v4CollapsedTaskIds.has(String(t.id));
+      const row=renderListRow(t,{
+        depth,
+        hasChildren,
+        collapsed,
+        contextOnly:!matchedIds.has(String(t.id)),
+        descendantCount:v4DescendantCount(t)
+      });
+      if(!hasChildren||collapsed)return row;
+      return row+children.map(child=>renderBranch(child,depth+1)).join('');
+    };
+
+    const roots=[...rootMap.values()];
     const groups=TASK_STATUSES.map(status=>{
-      const rows=data.filter(t=>t.status===status);
-      return `<section class="cu-list-group v4-status-group ${rows.length?'':'is-empty'}" style="--group-color:${STATUS_COLORS[status]}">
+      const statusRoots=roots.filter(root=>{
+        if(explicitStatus)return status===explicitStatus;
+        return root.status===status;
+      });
+      const visibleCount=statusRoots.reduce((sum,root)=>{
+        let count=0,queue=[root],seen=new Set();
+        while(queue.length){
+          const node=queue.shift(),key=String(node.id);
+          if(seen.has(key))continue;
+          seen.add(key);
+          if(branchMatches(node))count++;
+          v4DirectChildren(node).filter(c=>!c.archivedAt&&branchMatches(c)).forEach(c=>queue.push(c));
+        }
+        return sum+count;
+      },0);
+      return `<section class="cu-list-group v4-status-group ${statusRoots.length?'':'is-empty'}" style="--group-color:${STATUS_COLORS[status]}">
         <div class="cu-group-head">
           <span class="v4-group-dot" aria-hidden="true"></span>
           <strong>${status}</strong>
-          <span class="v4-group-count">${rows.length} ${rows.length===1?'tarefa':'tarefas'}</span>
+          <span class="v4-group-count">${visibleCount} ${visibleCount===1?'tarefa':'tarefas'}</span>
           <button class="cu-add-inline" type="button" data-inline-new="${status}">＋ Nova tarefa</button>
         </div>
-        ${rows.length?rows.map(renderListRow).join(''):'<div class="v4-empty-group">Nenhuma tarefa neste status.</div>'}
+        ${statusRoots.length?statusRoots.map(root=>renderBranch(root,0)).join(''):'<div class="v4-empty-group">Nenhuma tarefa neste status.</div>'}
       </section>`;
     }).join('');
-    canvas.innerHTML=`<div class="v4-list-shell">
+
+    canvas.innerHTML=`<div class="v4-list-shell v4-tree-list">
       <div class="v4-list-header"><span>Tarefa</span><span>Responsável</span><span>Prioridade</span><span>Prazo</span><span>Campanha</span></div>
       <div class="v4-list-groups">${groups}</div>
     </div>`;
     bindTaskElements();
+
+    canvas.querySelectorAll('[data-tree-toggle]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const id=String(btn.dataset.treeToggle||'');
+      if(!id)return;
+      if(v4CollapsedTaskIds.has(id))v4CollapsedTaskIds.delete(id);
+      else v4CollapsedTaskIds.add(id);
+      v4SaveTreeState();
+      renderTasks();
+    }));
   };
 
   function v11Priority(t,showLabel=true){
