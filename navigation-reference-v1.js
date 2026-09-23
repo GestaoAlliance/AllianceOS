@@ -121,6 +121,7 @@
     campaigns:svg('<path d="m4 13 14-7v12L4 13Z"/><path d="M8 15.5 9.8 20h3.4l-1.5-5.8"/><path d="M18 9.5h2M18 14.5h2"/>'),
     deliveries:svg('<rect x="4" y="7" width="16" height="13" rx="2"/><path d="m7 7 2-3h6l2 3M9 12h6"/>'),
     clients:svg('<path d="M7.5 19v-1.2A4.8 4.8 0 0 1 12.3 13h.4a4.8 4.8 0 0 1 4.8 4.8V19"/><circle cx="12.5" cy="8.5" r="3"/><path d="M5 17.5a3.8 3.8 0 0 1 3-3.7M20 17.5a3.8 3.8 0 0 0-3-3.7"/>'),
+    accesses:svg('<circle cx="8" cy="15.5" r="4.5"/><path d="m11.2 12.3 8-8M16 7.5l2.5 2.5M13.5 10l2.5 2.5"/>'),
     automations:svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>'),
     notifications:svg('<path d="M18 9a6 6 0 0 0-12 0c0 5.8-2.5 7-2.5 7h17S18 14.8 18 9Z"/><path d="M10 20h4"/>'),
     reports:svg('<path d="M5 20V11M10 20V7M15 20v-5M20 20V4"/><path d="M3 20h19"/>'),
@@ -185,6 +186,7 @@
       ['campaigns','Campanhas','campaigns',targets.campaigns],
       ['deliveries','Entregas','deliveries',targets.deliveries],
       ['clients','Clientes','clients',null],
+      ['accesses','Central de Acessos','accesses',null],
       ['automations','Automações','automations',null],
       ['notifications','Notificações','notifications',targets.notifications],
       ['reports','Relatórios','reports',targets.reports],
@@ -198,6 +200,12 @@
         (key==='notifications'?'<span class="ref2-nav-badge">37</span>':'');
       b.addEventListener('click',()=>{
         setActive(key);
+        if(key!=='accesses')window.AllianceOSAccessCenter?.close?.();
+        if(key==='accesses'){
+          if(window.AllianceOSAccessCenter?.open)window.AllianceOSAccessCenter.open();
+          else toast('Central de Acessos ainda carregando…');
+          return;
+        }
         if(key==='campaigns'){
           openStrategyMap();
           return;
