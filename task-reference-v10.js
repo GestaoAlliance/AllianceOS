@@ -612,18 +612,22 @@
 
     if(delivery){
       delivery.classList.add('r10-delivery-card');
-      const sentDeliveries=Array.isArray(t.deliveries)?t.deliveries:[];
-      const sentItemCount=sentDeliveries.reduce((sum,d)=>sum+(String(d?.note||d?.text||'').trim()?1:0)+(Array.isArray(d?.files)?d.files.length:0)+(Array.isArray(d?.links)?d.links.length:0),0);
+      const sentMaterials=[...delivery.querySelectorAll('.v5-delivery-list .v5-material')];
+      const sentItemCount=sentMaterials.filter(item=>String(item.querySelector('b')?.textContent||'').trim()!=='Salvo no Drive').length;
+      const sentFileCount=sentMaterials.filter(item=>{
+        const kind=String(item.dataset.v5Kind||'file');
+        const label=String(item.querySelector('b')?.textContent||'').trim();
+        return label!=='Salvo no Drive'&&kind!=='text'&&kind!=='link';
+      }).length;
       const head=delivery.querySelector('.tsection-head');
       if(head)head.innerHTML='<span class="r10-materials-heading r10-delivery-heading"><span class="r10-section-icon r10-materials-icon r10-delivery-head-icon">'+r10Icon('folderSolid')+'</span><strong>Sua entrega</strong></span><span class="r10-material-count">'+sentItemCount+' '+(sentItemCount===1?'item':'itens')+'</span>';
+      const headCount=head?.querySelector('.r10-material-count');
 
       const compose=delivery.querySelector('.v5-delivery-compose');
       const fileInput=delivery.querySelector('#v5DeliveryFiles');
       const sendBtn=delivery.querySelector('#v5SendDelivery');
       const sendCompleteBtn=delivery.querySelector('#v5SendAndComplete');
       const legacyGrid=delivery.querySelector('.v5-compose-grid');
-      const sentFiles=(Array.isArray(t.deliveries)?t.deliveries:[]).flatMap(d=>Array.isArray(d?.files)?d.files:[]);
-      const sentCount=sentFiles.length;
 
       delivery.querySelectorAll('.v5-delivery-list .v5-material').forEach(item=>{
         item.classList.add('r10-delivery-sent-item');
@@ -689,28 +693,33 @@
         const drop=document.createElement('label');
         drop.className='r10-delivery-dropzone';
         drop.setAttribute('for','v5DeliveryFiles');
-        drop.innerHTML='<span class="r10-delivery-drop-icon">'+r10Icon('folderSolid')+'</span><span class="r10-delivery-drop-copy"><strong>Arraste e solte os arquivos aqui</strong><span>ou clique para anexar</span><small>Imagens, PDFs, ZIP, até 1,2 MB</small></span>';
+        drop.innerHTML='<span class="r10-delivery-drop-icon">'+r10Icon('folderSolid')+'</span><span class="r10-delivery-drop-copy"><strong>Arraste e solte os arquivos aqui</strong><span>ou clique para anexar</span><small>Imagens, PDFs, ZIP · até 250 MB por arquivo</small></span>';
         drop.appendChild(fileInput);
 
         const switcher=document.createElement('div');
         switcher.className='r10-delivery-mode-switch';
         switcher.innerHTML='<button type="button" class="r10-delivery-mode-btn is-active" data-r10-delivery-mode="file">'+r10Icon('folderSolid')+'<span>Enviar arquivo</span></button><button type="button" class="r10-delivery-mode-btn" data-r10-delivery-mode="alt">'+r10Icon('link')+'<span>Texto ou link</span></button>';
 
+        const pendingList=document.createElement('div');
+        pendingList.className='r10-delivery-pending-list';
+        pendingList.hidden=true;
+
         const bar=document.createElement('div');
         bar.className='r10-delivery-files-bar';
-        bar.innerHTML='<strong class="r10-delivery-files-count">Arquivos anexados ('+sentCount+')</strong><span class="r10-delivery-files-status">'+(sentCount?sentCount+' '+(sentCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.')+'</span><span class="r10-delivery-actions"></span>';
+        bar.innerHTML='<strong class="r10-delivery-files-count">Arquivos anexados ('+sentFileCount+')</strong><span class="r10-delivery-files-status">'+(sentFileCount?sentFileCount+' '+(sentFileCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.')+'</span><span class="r10-delivery-actions"></span>';
         const actions=bar.querySelector('.r10-delivery-actions');
         if(sendBtn)actions.appendChild(sendBtn);
         if(sendCompleteBtn)actions.appendChild(sendCompleteBtn);
 
         if(legacyGrid)legacyGrid.remove();
         alternatives.hidden=true;
-        compose.prepend(switcher,drop,alternatives,bar);
+        compose.prepend(switcher,drop,alternatives,pendingList,bar);
 
         const setDeliveryMode=mode=>{
           const altMode=mode==='alt';
           drop.hidden=altMode;
           alternatives.hidden=!altMode;
+          pendingList.hidden=altMode||!pendingFiles.length;
           switcher.querySelectorAll('[data-r10-delivery-mode]').forEach(btn=>{
             const active=btn.dataset.r10DeliveryMode===mode;
             btn.classList.toggle('is-active',active);
@@ -722,26 +731,88 @@
           e.stopPropagation();
           setDeliveryMode(btn.dataset.r10DeliveryMode);
         }));
-        setDeliveryMode('file');
+
+        let pendingFiles=[...(fileInput.files||[])];
+        const fileKey=file=>[file?.name,file?.size,file?.lastModified].join('::');
+        const syncInputFiles=()=>{
+          if(typeof DataTransfer==='undefined')return;
+          const dt=new DataTransfer();
+          pendingFiles.forEach(file=>dt.items.add(file));
+          fileInput.files=dt.files;
+        };
+        const mergePendingFiles=files=>{
+          const map=new Map(pendingFiles.map(file=>[fileKey(file),file]));
+          [...files].forEach(file=>map.set(fileKey(file),file));
+          pendingFiles=[...map.values()];
+          syncInputFiles();
+        };
+        const pendingSize=file=>{
+          const size=Number(file?.size||0);
+          if(size>=1024*1024)return (size/1024/1024).toFixed(size>=10*1024*1024?0:1)+' MB';
+          return Math.max(1,Math.round(size/1024))+' KB';
+        };
+        const renderPendingFiles=()=>{
+          pendingList.hidden=!pendingFiles.length||alternatives.hidden===false;
+          pendingList.innerHTML=pendingFiles.map((file,index)=>
+            '<div class="r10-delivery-pending-item" data-r10-pending-index="'+index+'">'+
+              '<span class="r10-delivery-pending-icon">'+r10Icon('fileText')+'</span>'+
+              '<div class="r10-delivery-pending-copy"><strong title="'+r10Esc(file.name)+'">'+r10Esc(file.name)+'</strong><small>'+r10Esc(pendingSize(file))+' · pronto para enviar</small></div>'+
+              '<div class="r10-delivery-pending-actions">'+
+                '<button type="button" data-r10-pending-rename="'+index+'" title="Renomear arquivo" aria-label="Renomear arquivo">'+r10Icon('pencil')+'</button>'+
+                '<button type="button" class="is-delete" data-r10-pending-remove="'+index+'" title="Remover arquivo" aria-label="Remover arquivo">'+r10Icon('trash')+'</button>'+
+              '</div>'+
+            '</div>'
+          ).join('');
+          pendingList.querySelectorAll('[data-r10-pending-rename]').forEach(btn=>btn.addEventListener('click',e=>{
+            e.preventDefault();e.stopPropagation();
+            const index=Number(btn.dataset.r10PendingRename),file=pendingFiles[index];
+            if(!file)return;
+            const next=prompt('Renomear arquivo',file.name);
+            if(next===null)return;
+            const clean=String(next).trim();
+            if(!clean){showToast('O nome do arquivo não pode ficar vazio.');return;}
+            try{
+              pendingFiles[index]=new File([file],clean,{type:file.type||'application/octet-stream',lastModified:file.lastModified||Date.now()});
+              syncInputFiles();
+              syncDeliveryState();
+            }catch{
+              showToast('Não foi possível renomear este arquivo.');
+            }
+          }));
+          pendingList.querySelectorAll('[data-r10-pending-remove]').forEach(btn=>btn.addEventListener('click',e=>{
+            e.preventDefault();e.stopPropagation();
+            const index=Number(btn.dataset.r10PendingRemove);
+            if(!pendingFiles[index])return;
+            pendingFiles.splice(index,1);
+            syncInputFiles();
+            syncDeliveryState();
+          }));
+        };
 
         const syncDeliveryState=()=>{
-          const selected=[...(fileInput.files||[])];
-          const total=sentCount+selected.length;
           const hasText=!!String(noteInput?.value||'').trim();
           const hasLink=!!String(linkInput?.value||'').trim();
-          const hasContent=selected.length>0||hasText||hasLink;
-          delivery.classList.toggle('has-selection',selected.length>0);
+          const hasContent=pendingFiles.length>0||hasText||hasLink;
+          const totalFiles=sentFileCount+pendingFiles.length;
+          const totalItems=sentItemCount+pendingFiles.length+(hasText?1:0)+(hasLink?1:0);
+          delivery.classList.toggle('has-selection',pendingFiles.length>0);
           delivery.classList.toggle('has-content',hasContent);
           const countEl=bar.querySelector('.r10-delivery-files-count');
           const statusEl=bar.querySelector('.r10-delivery-files-status');
-          if(countEl)countEl.textContent='Arquivos anexados ('+total+')';
+          if(headCount)headCount.textContent=totalItems+' '+(totalItems===1?'item':'itens');
+          if(countEl)countEl.textContent='Arquivos anexados ('+totalFiles+')';
           if(statusEl){
-            if(selected.length)statusEl.textContent=selected.length+' '+(selected.length===1?'arquivo selecionado':'arquivos selecionados')+' para envio.';
+            if(pendingFiles.length)statusEl.textContent=pendingFiles.length+' '+(pendingFiles.length===1?'arquivo selecionado':'arquivos selecionados')+' para envio.';
             else if(hasText||hasLink)statusEl.textContent='Entrega pronta para enviar.';
-            else statusEl.textContent=sentCount?sentCount+' '+(sentCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.';
+            else statusEl.textContent=sentFileCount?sentFileCount+' '+(sentFileCount===1?'arquivo anexado':'arquivos anexados')+'.':'Nenhum arquivo anexado ainda.';
           }
+          renderPendingFiles();
         };
-        fileInput.addEventListener('change',syncDeliveryState);
+
+        fileInput.addEventListener('change',()=>{
+          mergePendingFiles(fileInput.files||[]);
+          syncDeliveryState();
+        });
         noteInput?.addEventListener('input',syncDeliveryState);
         linkInput?.addEventListener('input',syncDeliveryState);
         linkLabelInput?.addEventListener('input',syncDeliveryState);
@@ -751,10 +822,11 @@
           e.preventDefault();
           drop.classList.remove('is-dragging');
           if(e.dataTransfer?.files?.length){
-            try{fileInput.files=e.dataTransfer.files}catch{}
-            fileInput.dispatchEvent(new Event('change',{bubbles:true}));
+            mergePendingFiles(e.dataTransfer.files);
+            syncDeliveryState();
           }
         });
+        setDeliveryMode('file');
         syncDeliveryState();
       }
     }
