@@ -298,6 +298,75 @@
 }
 
 
+/* AllianceOS campaign workspace action buttons */
+#campaignWorkspace .cw-top .cw-status{
+  margin-left:auto!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+
+#campaignWorkspace .cw-top .cw-status .camp-chip{
+  flex:0 0 auto!important;
+}
+
+#campaignWorkspace .cw-top .alliance-cw-action,
+#campaignWorkspace .cw-top #cwEdit,
+#campaignWorkspace .cw-top #cwDelete{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  height:36px!important;
+  min-height:36px!important;
+  padding:0 14px!important;
+  margin:0!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex:0 0 auto!important;
+  border-radius:10px!important;
+  box-shadow:none!important;
+  font:650 11px/1 Inter,system-ui,sans-serif!important;
+  letter-spacing:0!important;
+  white-space:nowrap!important;
+  cursor:pointer!important;
+}
+
+#campaignWorkspace .cw-top #cwEdit{
+  border:1px solid #dfe3e5!important;
+  background:#fff!important;
+  color:#202427!important;
+}
+
+#campaignWorkspace .cw-top #cwEdit:hover{
+  background:#f7f8f8!important;
+  border-color:#cfd4d7!important;
+}
+
+#campaignWorkspace .cw-top #cwDelete{
+  border:1px solid #ead5d5!important;
+  background:#fff!important;
+  color:#a13d3d!important;
+}
+
+#campaignWorkspace .cw-top #cwDelete:hover{
+  background:#fff5f5!important;
+  border-color:#dfbcbc!important;
+  color:#8d2525!important;
+}
+
+@media(max-width:760px){
+  #campaignWorkspace .cw-top .cw-status{
+    width:100%!important;
+    margin-left:0!important;
+    justify-content:flex-start!important;
+  }
+}
+
 /* AllianceOS campaign workspace V3 */
 .cw-delete-btn{
   height:34px;

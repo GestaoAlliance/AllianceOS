@@ -456,9 +456,28 @@ function bindDelegates(){
   },true);
 }
 
+function normalizeWorkspaceActions(){
+  const top=document.querySelector('#campaignWorkspace.active .cw-top');
+  if(!top)return;
+  const status=top.querySelector('.cw-status');
+  if(!status)return;
+
+  /* Algumas camadas antigas ainda injetam um segundo botão "Excluir".
+     O workspace canônico é dono de #cwDelete; qualquer duplicata visual
+     deve desaparecer para não deixar duas ações destrutivas lado a lado. */
+  const deleteButtons=[...top.querySelectorAll('button')].filter(b=>norm(b.textContent)==='excluir');
+  const canonical=top.querySelector('#cwDelete')||deleteButtons[0]||null;
+  deleteButtons.forEach(b=>{if(b!==canonical)b.remove()});
+
+  const edit=top.querySelector('#cwEdit');
+  if(edit)edit.classList.add('alliance-cw-action','alliance-cw-edit');
+  if(canonical)canonical.classList.add('alliance-cw-action','alliance-cw-delete');
+}
+
 function apply(){
   syncLegacyMemory();
   bindDelegates();
+  normalizeWorkspaceActions();
   campaignList();
   campaignCalendar();
   planContext();
