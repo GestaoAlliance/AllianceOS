@@ -32,10 +32,20 @@
     document.documentElement.classList.add('alliance-auth-locked');
     document.documentElement.classList.remove('alliance-authenticated');
   }
+  // AllianceOS auth cleanup V1
+  function cleanupAuthArtifacts(){
+    document.getElementById('allianceAuthRoot')?.remove();
+    document.querySelectorAll(
+      'body > .auth-stage, body > .auth-frame, body > .auth-showcase, body > .showcase-device, body > .showcase-copy, body > .showcase-person, body > .showcase-shape, body > .showcase-grid'
+    ).forEach(el=>el.remove());
+  }
   function showApp(){
     document.documentElement.classList.remove('alliance-auth-pending','alliance-auth-locked');
     document.documentElement.classList.add('alliance-authenticated');
-    document.getElementById('allianceAuthRoot')?.remove();
+    cleanupAuthArtifacts();
+    requestAnimationFrame(cleanupAuthArtifacts);
+    setTimeout(cleanupAuthArtifacts,120);
+    setTimeout(cleanupAuthArtifacts,700);
   }
   function setMessage(text,type='info'){
     const el=document.getElementById('authMessage');if(!el)return;

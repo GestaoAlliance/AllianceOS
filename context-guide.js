@@ -172,6 +172,7 @@
   const target=(token)=>{
     if(!token)return null;
     if(token.startsWith('nav:'))return $('.ref2-nav-btn[data-key="'+token.slice(4)+'"]');
+    if(mobileGuide()&&token==='workspace')return null;
     if(token.startsWith('css:'))return $(token.slice(4));
     if(token.startsWith('field:')){
       const el=$(token.slice(6));
@@ -210,6 +211,8 @@
   const markDone=key=>{try{localStorage.setItem(doneKey(key),'1')}catch{}};
 
   let currentArea='home',active=null,index=0,raf=0;
+  // AllianceOS mobile guide policy V1
+  const mobileGuide=()=>window.matchMedia?.('(max-width:639px)')?.matches===true;
   let rootEl,focusEl,cardEl,blockerEl,launcherEl;
 
   function ensureUi(){
@@ -341,6 +344,7 @@
   function scanActions(){
     clearTimeout(actionScanTimer);
     actionScanTimer=setTimeout(()=>{
+      if(mobileGuide())return;
       if(active||document.getElementById('allianceOnboardingRoot'))return;
       const key=detectAction();
       if(key&&!isDone(key))start(key,false);
@@ -349,6 +353,7 @@
 
   function maybe(area){
     currentArea=area;
+    if(mobileGuide())return;
     if(!TOURS[area]||isDone(area)||document.getElementById('allianceOnboardingRoot'))return;
     setTimeout(()=>start(area,false),650);
   }

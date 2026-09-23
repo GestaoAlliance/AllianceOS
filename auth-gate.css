@@ -1889,3 +1889,29 @@ linear-gradient(145deg,#12171d 0%,#090d10 58%,#151c22 100%);background-size:52px
     content:none!important;
   }
 }
+
+
+/* ===== AllianceOS AUTH CLEANUP V1 ===== */
+/*
+ * Auth visuals must never survive into the authenticated application.
+ * This is deliberately stronger than the normal root removal because
+ * iOS/PWA paints can briefly retain detached descendants during transitions.
+ */
+html.alliance-authenticated #allianceAuthRoot,
+html.alliance-authenticated .auth-stage,
+html.alliance-authenticated .auth-frame,
+html.alliance-authenticated .auth-showcase,
+html.alliance-authenticated .showcase-device,
+html.alliance-authenticated .showcase-grid,
+html.alliance-authenticated .showcase-shape,
+html.alliance-authenticated .showcase-copy,
+html.alliance-authenticated .showcase-person{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+
+html.alliance-authenticated body{
+  overflow-x:hidden!important;
+}
