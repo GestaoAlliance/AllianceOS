@@ -3740,3 +3740,156 @@
 #tasksCanvas .v4-work-row.v4-is-subtask:hover{
   background:#f8fafb!important;
 }
+
+
+/* ===== Task List Tree V4 · chevron fixo + avatar circular + densidade final ===== */
+#tasksCanvas .v4-tree-list .v4-work-row{
+  min-height:40px!important;
+  height:40px!important;
+  padding:2px 11px!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-is-subtask{
+  min-height:38px!important;
+  height:38px!important;
+  padding-top:1px!important;
+  padding-bottom:1px!important;
+}
+
+/* A mãe reserva a faixa do chevron; o botão fica absoluto e não pode ser comprimido. */
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .cu-row-title{
+  position:relative!important;
+  padding-left:25px!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle{
+  position:absolute!important;
+  left:0!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  z-index:5!important;
+  width:22px!important;
+  height:22px!important;
+  min-width:22px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  color:#414b52!important;
+  opacity:1!important;
+  visibility:visible!important;
+  overflow:visible!important;
+  font-size:0!important;
+  line-height:1!important;
+  cursor:pointer!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle>span{
+  display:none!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle::before{
+  display:block!important;
+  color:#414b52!important;
+  font:800 16px/1 Arial,sans-serif!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle.is-open::before{
+  content:"▾"!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle.is-collapsed::before{
+  content:"▸"!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:hover{
+  background:#edf1f2!important;
+  color:#151b1f!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:hover::before{
+  color:#151b1f!important;
+}
+
+/* Filhas continuam recuadas sem perder espaço com um chevron inexistente. */
+#tasksCanvas .v4-tree-list .v4-work-row.v4-is-subtask .v4-tree-spacer{
+  width:12px!important;
+  height:18px!important;
+  min-width:12px!important;
+  flex:0 0 12px!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-is-subtask .cu-row-title{
+  padding-left:calc(var(--tree-depth,1) * 24px)!important;
+}
+
+/* Tipografia continua legível mesmo com linha mais fina. */
+#tasksCanvas .v4-tree-list .task-title-line>b{
+  font-size:12.4px!important;
+  line-height:1.12!important;
+  font-weight:625!important;
+}
+#tasksCanvas .v4-tree-list .v4-has-children .task-title-line>b{
+  font-size:12.6px!important;
+  font-weight:680!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-is-subtask .task-title-line>b{
+  font-size:12.1px!important;
+  font-weight:585!important;
+}
+#tasksCanvas .v4-owner .assignee-name,
+#tasksCanvas .v4-owner .no-assignee{
+  font-size:10px!important;
+}
+#tasksCanvas .v6-priority,
+#tasksCanvas .v6-due-copy strong{
+  font-size:9.7px!important;
+}
+#tasksCanvas .v6-campaign-chip b{
+  font-size:9.1px!important;
+}
+
+/* Avatar nunca pode ser espremido em elipse. */
+#tasksCanvas .v4-owner .avatar-stack{
+  display:flex!important;
+  align-items:center!important;
+  min-width:0!important;
+}
+#tasksCanvas .v4-owner .mini-av{
+  box-sizing:border-box!important;
+  width:22px!important;
+  height:22px!important;
+  min-width:22px!important;
+  max-width:22px!important;
+  min-height:22px!important;
+  max-height:22px!important;
+  flex:0 0 22px!important;
+  aspect-ratio:1 / 1!important;
+  padding:0!important;
+  margin-left:-3px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+}
+#tasksCanvas .v4-owner .mini-av:first-child{
+  margin-left:0!important;
+}
+#tasksCanvas .v4-owner .mini-av img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:100%!important;
+  min-height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  aspect-ratio:1 / 1!important;
+  border-radius:50%!important;
+  object-fit:cover!important;
+  object-position:center!important;
+}
+
+/* Conexão visual mais curta e limpa com a nova densidade. */
+#tasksCanvas .v4-work-row.v4-is-subtask::before{
+  left:calc(16px + (var(--tree-depth,1) - 1) * 24px)!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .cu-row-title::before{
+  left:calc(var(--tree-depth,1) * 24px - 16px)!important;
+  width:12px!important;
+}
