@@ -47,3 +47,104 @@ html.alliance-onboarding-open #allianceContextGuideLauncher{display:none!importa
   .cg-card{width:calc(100vw - 28px)!important;left:14px!important;bottom:14px;top:auto!important}
   .cg-card.centered{transform:none}
 }
+
+/* ===== AllianceOS CONTEXT GUIDE MOBILE V2 ===== */
+@media (max-width:639px){
+  #allianceContextGuideLauncher{
+    right:12px!important;
+    bottom:calc(84px + env(safe-area-inset-bottom))!important;
+    height:34px!important;
+    padding:0 11px!important;
+    border-radius:10px!important;
+    font-size:10.5px!important;
+  }
+
+  #allianceContextGuide{
+    width:100vw!important;
+    height:100dvh!important;
+    overflow:hidden!important;
+  }
+
+  .cg-focus{
+    border-width:2px!important;
+    border-radius:12px!important;
+    box-shadow:
+      0 0 0 9999px rgba(15,19,22,.42),
+      0 8px 24px rgba(0,0,0,.14)!important;
+  }
+
+  .cg-card,
+  .cg-card.centered{
+    position:fixed!important;
+    left:50%!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:calc(84px + env(safe-area-inset-bottom))!important;
+    transform:translateX(-50%)!important;
+    width:min(342px,calc(100vw - 24px))!important;
+    max-width:342px!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:15px 16px 14px!important;
+    box-sizing:border-box!important;
+    border:1px solid #dfe4e7!important;
+    border-radius:17px!important;
+    box-shadow:0 18px 48px rgba(12,18,22,.19)!important;
+    background:rgba(255,255,255,.98)!important;
+    backdrop-filter:blur(14px)!important;
+    -webkit-backdrop-filter:blur(14px)!important;
+  }
+
+  .cg-kicker{
+    font-size:9px!important;
+    line-height:1.2!important;
+    letter-spacing:.11em!important;
+  }
+
+  .cg-card h3{
+    margin-top:6px!important;
+    font-size:18px!important;
+    line-height:1.14!important;
+    letter-spacing:-.035em!important;
+  }
+
+  .cg-card p{
+    margin-top:7px!important;
+    font-size:11.5px!important;
+    line-height:1.43!important;
+  }
+
+  .cg-progress{
+    gap:4px!important;
+    margin-top:12px!important;
+  }
+
+  .cg-progress i{
+    height:3px!important;
+  }
+
+  .cg-actions{
+    gap:8px!important;
+    margin-top:12px!important;
+  }
+
+  .cg-actions>div{
+    gap:6px!important;
+  }
+
+  .cg-actions button{
+    height:34px!important;
+    min-height:34px!important;
+    padding:0 11px!important;
+    border-radius:10px!important;
+    font-size:10.5px!important;
+  }
+
+  .cg-skip{
+    padding-left:0!important;
+  }
+
+  .cg-next{
+    min-width:82px!important;
+  }
+}

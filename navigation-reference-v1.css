@@ -1051,3 +1051,481 @@
   max-width:none!important;max-height:none!important;object-fit:cover!important;display:block!important;
   border-radius:inherit!important;transform-origin:center!important;
 }
+
+
+/* ===== AllianceOS MOBILE SHELL V1 · canonical phone layout ===== */
+@media (max-width:639px){
+  :root{
+    --alliance-mobile-edge:10px;
+    --alliance-mobile-dock:66px;
+    --alliance-mobile-topbar:60px;
+  }
+
+  html,
+  body{
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:hidden!important;
+  }
+
+  html body{
+    padding-bottom:calc(var(--alliance-mobile-dock) + env(safe-area-inset-bottom) + 16px)!important;
+    background:#f5f7f9!important;
+  }
+
+  html body .app{
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    min-height:100dvh!important;
+    overflow-x:hidden!important;
+    background:#f5f7f9!important;
+  }
+
+  html body .main{
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    min-height:100dvh!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow-x:hidden!important;
+    background:#f5f7f9!important;
+    box-shadow:none!important;
+  }
+
+  /* The injected AllianceOS sidebar becomes the actual bottom dock. */
+  html body .sidebar{
+    position:fixed!important;
+    z-index:2147481000!important;
+    left:var(--alliance-mobile-edge)!important;
+    right:var(--alliance-mobile-edge)!important;
+    bottom:calc(env(safe-area-inset-bottom) + 8px)!important;
+    top:auto!important;
+    width:auto!important;
+    height:var(--alliance-mobile-dock)!important;
+    min-height:var(--alliance-mobile-dock)!important;
+    max-height:var(--alliance-mobile-dock)!important;
+    margin:0!important;
+    padding:6px!important;
+    box-sizing:border-box!important;
+    display:block!important;
+    overflow:hidden!important;
+    transform:none!important;
+    border:1px solid rgba(215,222,227,.92)!important;
+    border-radius:19px!important;
+    background:rgba(255,255,255,.94)!important;
+    box-shadow:0 13px 38px rgba(22,29,34,.14)!important;
+    backdrop-filter:blur(18px) saturate(1.15)!important;
+    -webkit-backdrop-filter:blur(18px) saturate(1.15)!important;
+  }
+
+  html body .sidebar>.brandbox,
+  html body .sidebar>.nav,
+  html body .sidebar>.profile,
+  html body .sidebar>.ref2-sidebar-head,
+  html body .sidebar>.ref2-sidebar-space,
+  html body .sidebar>.ref2-workspace{
+    display:none!important;
+  }
+
+  html body .sidebar>.ref2-nav{
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:4px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scrollbar-width:none!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+
+  html body .sidebar>.ref2-nav::-webkit-scrollbar{
+    display:none!important;
+  }
+
+  .ref2-nav-btn{
+    appearance:none!important;
+    -webkit-appearance:none!important;
+    position:relative!important;
+    flex:1 0 47px!important;
+    width:47px!important;
+    min-width:47px!important;
+    max-width:54px!important;
+    height:52px!important;
+    min-height:52px!important;
+    margin:0!important;
+    padding:0!important;
+    display:grid!important;
+    place-items:center!important;
+    border:0!important;
+    border-radius:14px!important;
+    background:transparent!important;
+    color:#67727a!important;
+    box-shadow:none!important;
+    font:500 10px/1 var(--ref-font)!important;
+  }
+
+  .ref2-nav-btn.active{
+    background:#12171a!important;
+    color:#fff!important;
+    box-shadow:0 7px 18px rgba(17,23,26,.15)!important;
+  }
+
+  .ref2-nav-label{
+    display:none!important;
+  }
+
+  .ref2-nav-icon{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+    max-width:38px!important;
+    flex:0 0 38px!important;
+    display:grid!important;
+    place-items:center!important;
+    border:0!important;
+    border-radius:11px!important;
+    background:transparent!important;
+    color:inherit!important;
+    box-shadow:none!important;
+  }
+
+  .ref2-nav-btn.active .ref2-nav-icon{
+    background:transparent!important;
+    border-color:transparent!important;
+    color:#fff!important;
+  }
+
+  .ref2-nav-icon svg{
+    width:20px!important;
+    height:20px!important;
+    max-width:20px!important;
+    max-height:20px!important;
+    stroke-width:1.8!important;
+  }
+
+  .ref2-nav-badge{
+    top:1px!important;
+    right:1px!important;
+    min-width:17px!important;
+    height:17px!important;
+    padding:0 4px!important;
+    border:1.5px solid #fff!important;
+    font-size:7px!important;
+  }
+
+  /* Canonical compact mobile topbar. */
+  html body .global-toolbar{
+    position:sticky!important;
+    z-index:120!important;
+    top:0!important;
+    left:auto!important;
+    right:auto!important;
+    width:100%!important;
+    height:calc(var(--alliance-mobile-topbar) + env(safe-area-inset-top))!important;
+    min-height:calc(var(--alliance-mobile-topbar) + env(safe-area-inset-top))!important;
+    margin:0!important;
+    padding:
+      calc(env(safe-area-inset-top) + 8px)
+      10px
+      8px!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    overflow:hidden!important;
+    border:0!important;
+    border-bottom:1px solid #e5e9ec!important;
+    border-radius:0!important;
+    background:rgba(255,255,255,.96)!important;
+    box-shadow:0 5px 18px rgba(25,32,37,.045)!important;
+    backdrop-filter:blur(16px)!important;
+    -webkit-backdrop-filter:blur(16px)!important;
+  }
+
+  .ref2-top-logo,
+  .ref2-team,
+  .ref2-brand-display{
+    display:none!important;
+  }
+
+  html body .global-toolbar>.ref2-search{
+    position:relative!important;
+    inset:auto!important;
+    transform:none!important;
+    flex:1 1 auto!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:42px!important;
+    margin:0!important;
+    padding:0 12px!important;
+    box-sizing:border-box!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:9px!important;
+    border:1px solid #dfe5e9!important;
+    border-radius:12px!important;
+    background:#f8f9fa!important;
+    box-shadow:none!important;
+  }
+
+  .ref2-search svg{
+    width:18px!important;
+    height:18px!important;
+    min-width:18px!important;
+    max-width:18px!important;
+    color:#747f87!important;
+    stroke:#747f87!important;
+  }
+
+  #globalSearch.ref2-search-input{
+    width:100%!important;
+    min-width:0!important;
+    height:100%!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    outline:0!important;
+    background:transparent!important;
+    color:#242a2f!important;
+    font:450 16px/1 var(--ref-font)!important;
+  }
+
+  #globalSearch.ref2-search-input::placeholder{
+    color:#9aa3aa!important;
+    font-size:11px!important;
+  }
+
+  .ref2-command{
+    display:none!important;
+  }
+
+  html body .global-toolbar>.ref2-top-actions{
+    position:static!important;
+    inset:auto!important;
+    transform:none!important;
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:42px!important;
+    margin:0!important;
+    padding:0!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:6px!important;
+  }
+
+  .ref2-top-bell{
+    position:relative!important;
+    width:42px!important;
+    min-width:42px!important;
+    max-width:42px!important;
+    height:42px!important;
+    min-height:42px!important;
+    padding:0!important;
+    display:grid!important;
+    place-items:center!important;
+    border:1px solid #dfe5e9!important;
+    border-radius:12px!important;
+    background:#fff!important;
+    color:#20262b!important;
+    box-shadow:none!important;
+  }
+
+  .ref2-top-bell svg{
+    width:19px!important;
+    height:19px!important;
+    max-width:19px!important;
+    max-height:19px!important;
+  }
+
+  .ref2-top-badge{
+    top:-4px!important;
+    right:-4px!important;
+    min-width:18px!important;
+    height:18px!important;
+    padding:0 4px!important;
+    border-width:1.5px!important;
+    font-size:7px!important;
+  }
+
+  .ref2-profile{
+    width:42px!important;
+    min-width:42px!important;
+    max-width:42px!important;
+    height:42px!important;
+    min-height:42px!important;
+    margin:0!important;
+    padding:4px!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:hidden!important;
+    border:1px solid #dfe5e9!important;
+    border-radius:12px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+  }
+
+  .ref2-avatar{
+    width:32px!important;
+    min-width:32px!important;
+    max-width:32px!important;
+    height:32px!important;
+    min-height:32px!important;
+    max-height:32px!important;
+    border-radius:9px!important;
+    overflow:hidden!important;
+  }
+
+  .ref2-avatar>img{
+    width:100%!important;
+    height:100%!important;
+    min-width:100%!important;
+    min-height:100%!important;
+    max-width:100%!important;
+    max-height:100%!important;
+    object-fit:cover!important;
+    object-position:center!important;
+    border-radius:inherit!important;
+  }
+
+  .ref2-chevron{
+    display:none!important;
+  }
+
+  /* Home and main content: no desktop-scale blocks on phones. */
+  html body .content,
+  html body .tasks-canvas,
+  html body .deliveries-canvas,
+  html body .plan-canvas,
+  html body .camp-canvas,
+  html body .taskspage-head,
+  html body .deliveries-head,
+  html body .plan-head,
+  html body .camp-page-head{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-left:0!important;
+    margin-right:0!important;
+    padding-left:12px!important;
+    padding-right:12px!important;
+    box-sizing:border-box!important;
+    overflow-x:hidden!important;
+  }
+
+  html body .content{
+    padding-top:16px!important;
+    padding-bottom:22px!important;
+  }
+
+  html body .hero{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin:0 0 14px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    gap:9px!important;
+  }
+
+  html body .hero-copy{
+    min-width:0!important;
+    width:100%!important;
+  }
+
+  html body .hero-copy h1{
+    max-width:100%!important;
+    margin-bottom:7px!important;
+    font-size:28px!important;
+    line-height:1.03!important;
+    letter-spacing:-.045em!important;
+    overflow-wrap:anywhere!important;
+  }
+
+  html body .hero-copy p{
+    max-width:100%!important;
+    font-size:11.5px!important;
+    line-height:1.45!important;
+  }
+
+  html body .hero-actions{
+    width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding-bottom:2px!important;
+    display:flex!important;
+    justify-content:flex-start!important;
+    gap:7px!important;
+    overflow-x:auto!important;
+    scrollbar-width:none!important;
+  }
+
+  html body .hero-actions::-webkit-scrollbar{
+    display:none!important;
+  }
+
+  html body .dashboard,
+  html body .hm-grade{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+
+  html body .dashboard{
+    display:block!important;
+  }
+
+  html body .module,
+  html body .hm-bloco{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-bottom:11px!important;
+    grid-column:1/-1!important;
+    box-sizing:border-box!important;
+  }
+
+  html body img{
+    max-width:100%;
+  }
+
+  /* Avoid any legacy profile/avatar rule from expanding images again. */
+  html body .avatar,
+  html body .bigav,
+  html body .mini-av,
+  html body .cav{
+    max-width:44px!important;
+    max-height:44px!important;
+  }
+}
+
+@media (max-width:380px){
+  .ref2-profile{
+    display:none!important;
+  }
+
+  html body .global-toolbar>.ref2-search{
+    padding-left:10px!important;
+    padding-right:10px!important;
+  }
+
+  .ref2-nav-btn{
+    flex-basis:44px!important;
+    min-width:44px!important;
+    width:44px!important;
+  }
+}
