@@ -575,16 +575,9 @@
     return (at>Math.floor(max*.72)?cut.slice(0,at):clean.slice(0,max)).trim()+'…';
   }
 
-  const v4TreeStateKey=taskStorageKey+'.list-tree-collapsed';
-  let v4CollapsedTaskIds=(()=>{
-    try{
-      const raw=JSON.parse(localStorage.getItem(v4TreeStateKey)||'[]');
-      return new Set(Array.isArray(raw)?raw.map(String):[]);
-    }catch{return new Set()}
-  })();
-  const v4SaveTreeState=()=>{
-    try{localStorage.setItem(v4TreeStateKey,JSON.stringify([...v4CollapsedTaskIds]))}catch{}
-  };
+  // A lista sempre abre com as tarefas-mãe recolhidas.
+  // Expansões ficam apenas durante a sessão atual.
+  let v4ExpandedTaskIds=new Set();
   const v4DirectChildren=t=>taskData.filter(x=>String(x.parentTaskId||'')===String(t.id));
   const v4RootTask=t=>{
     let cur=t,seen=new Set();
@@ -609,17 +602,55 @@
     return count;
   };
 
+  const v4Descendants=t=>{
+    const out=[],queue=[String(t.id)],seen=new Set(queue);
+    while(queue.length){
+      const id=queue.shift();
+      for(const child of taskData.filter(x=>String(x.parentTaskId||'')===id&&!x.archivedAt)){
+        const key=String(child.id);
+        if(seen.has(key))continue;
+        seen.add(key);out.push(child);queue.push(key);
+      }
+    }
+    return out;
+  };
+
+  const v4BranchAssignees=t=>{
+    const people=[],seen=new Set();
+    for(const child of v4Descendants(t)){
+      const names=Array.isArray(child.assignees)?child.assignees:[];
+      const ids=Array.isArray(child.assigneeIds)?child.assigneeIds:[];
+      names.forEach((name,i)=>{
+        const key=String(ids[i]||name||'').trim().toLowerCase();
+        if(!key||seen.has(key))return;
+        seen.add(key);
+        people.push({name,id:ids[i]||''});
+      });
+    }
+    return people;
+  };
+
+  const v4ChildAssigneeStack=t=>{
+    const people=v4BranchAssignees(t);
+    if(!people.length)return '';
+    const shown=people.slice(0,5),more=people.length-shown.length;
+    return '<span class="v4-child-assignees" title="Pessoas nas subtarefas">'
+      +shown.map(p=>'<span class="v4-child-avatar" title="'+esc(v3Short(p.name))+'">'+v3AvatarInner(p.name,p.id)+'</span>').join('')
+      +(more>0?'<span class="v4-child-avatar v4-child-avatar-more">+'+more+'</span>':'')
+      +'</span>';
+  };
+
   renderListRow = function(t,opts={}){
     const blockers=v3Blockers(t),due=v4Due(t),description=v4TaskPreview(t),parent=v3Parent(t);
     const depth=Math.max(0,Number(opts.depth||0));
     const actualChildren=v3Children(t).filter(x=>!x.archivedAt);
     const hasChildren=actualChildren.length>0;
-    const collapsed=hasChildren&&v4CollapsedTaskIds.has(String(t.id));
+    const collapsed=hasChildren&&!v4ExpandedTaskIds.has(String(t.id));
     const contextOnly=!!opts.contextOnly;
     const descendantCount=hasChildren?v4DescendantCount(t):0;
 
     const treeControl=hasChildren
-      ? `<span class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" role="button" tabindex="0" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}">${collapsed?'▶':'▼'}</span>`
+      ? `<span class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" role="button" tabindex="0" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}">${collapsed?'▸':'▾'}</span>`
       : '<span class="v4-tree-spacer" aria-hidden="true"></span>';
 
     const parentCount=hasChildren
@@ -644,7 +675,10 @@
           <small>${esc(description||'Sem descrição adicionada')}</small>
         </div>
       </div>
-      <div class="v4-owner">${avatarStack(t.assignees,t.assigneeIds||[])}</div>
+      <div class="v4-owner">
+        ${avatarStack(t.assignees,t.assigneeIds||[])}
+        ${hasChildren&&collapsed?v4ChildAssigneeStack(t):''}
+      </div>
       <div class="v4-priority"><span class="v6-priority tone-${v3PriorityTone(t.priority)}">${v6PriorityBars(t.priority)}<span>${v3PriorityLabel(t.priority)}</span></span></div>
       <div class="v4-due"><span class="v6-due ${isOverdue(t)?'over':''} ${due.empty?'empty':''}"><span class="v6-due-icon">${v6Icon('calendar')}</span><span class="v6-due-copy"><strong>${esc(due.main)}</strong>${due.sub?`<small>${esc(due.sub)}</small>`:''}</span></span></div>
       <div class="v4-campaign"><span class="v6-campaign-chip" title="${esc(t.project||'Operação')}"><span class="v6-campaign-icon">${v6Icon('folder')}</span><b>${esc(t.project||'Operação')}</b></span></div>
@@ -678,7 +712,9 @@
     const renderBranch=(t,depth=0)=>{
       const children=v4DirectChildren(t).filter(c=>!c.archivedAt&&branchMatches(c));
       const hasChildren=children.length>0;
-      const collapsed=hasChildren&&v4CollapsedTaskIds.has(String(t.id));
+      const hasMatchedDescendant=children.some(c=>branchMatches(c));
+      const contextParent=!matchedIds.has(String(t.id))&&hasMatchedDescendant;
+      const collapsed=hasChildren&&!v4ExpandedTaskIds.has(String(t.id))&&!contextParent;
       const row=renderListRow(t,{
         depth,
         hasChildren,
@@ -729,9 +765,8 @@
         e.preventDefault();e.stopPropagation();
         const id=String(control.dataset.treeToggle||'');
         if(!id)return;
-        if(v4CollapsedTaskIds.has(id))v4CollapsedTaskIds.delete(id);
-        else v4CollapsedTaskIds.add(id);
-        v4SaveTreeState();
+        if(v4ExpandedTaskIds.has(id))v4ExpandedTaskIds.delete(id);
+        else v4ExpandedTaskIds.add(id);
         renderTasks();
       };
       control.addEventListener('click',toggle);
