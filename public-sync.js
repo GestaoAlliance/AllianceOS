@@ -85,14 +85,9 @@
   }
 
   function showUpdateNotice() {
-    if (!document.body || document.getElementById('allianceos-sync-notice')) return;
-    const el = document.createElement('div');
-    el.id = 'allianceos-sync-notice';
-    el.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:99999;display:flex;align-items:center;gap:10px;background:#121415;color:#fff;padding:10px 12px 10px 15px;border-radius:999px;font:500 12px/1.2 Inter,system-ui,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.25)';
-    el.innerHTML = '<span>Há atualizações feitas por outra pessoa.</span><button type="button" style="border:0;border-radius:999px;padding:7px 12px;background:#fff;color:#121415;font:700 12px Inter,system-ui,sans-serif;cursor:pointer">Atualizar</button><button type="button" aria-label="Fechar" style="border:0;background:transparent;color:#aaa;font-size:16px;cursor:pointer">×</button>';
-    el.children[1].addEventListener('click', () => location.reload());
-    el.children[2].addEventListener('click', () => el.remove());
-    document.body.appendChild(el);
+    // A sincronização já aplica o valor remoto no localStorage em tempo real.
+    // Não interromper a operação com um pedido redundante de recarregar a página.
+    document.getElementById('allianceos-sync-notice')?.remove();
   }
 
   function applyRemoteRow(row,{notice=false}={}){
