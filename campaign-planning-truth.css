@@ -374,6 +374,19 @@
   color:#8d2525!important;
 }
 
+/* campaign workspace duplicate action hard stop
+   O cabeçalho canônico tem exatamente: status + editar + excluir.
+   Alguns runtimes legados recriam uma quarta ação depois do render;
+   ela fica invisível mesmo antes do MutationObserver conseguir removê-la. */
+#campaignWorkspace .cw-top .cw-status > :nth-child(n+4){
+  display:none!important;
+}
+#campaignWorkspace .cw-top .cw-status > #cwDelete ~ button,
+#campaignWorkspace .cw-top .cw-status > #cwDelete ~ input,
+#campaignWorkspace .cw-top .cw-status > #cwDelete ~ [role="button"]{
+  display:none!important;
+}
+
 @media(max-width:760px){
   #campaignWorkspace .cw-top .cw-status{
     width:100%!important;
