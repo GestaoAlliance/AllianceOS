@@ -667,3 +667,68 @@
   .alliance-drive-tree-row{padding-left:calc(var(--tree-depth,0) * 16px)}
   .alliance-drive-tree-copy b{font-size:11px}
 }
+
+
+/* Delivery folder tree V5 — force visible list rows */
+.alliance-drive-browser-list{
+  min-height:190px;
+  max-height:430px;
+  display:block;
+  overflow:auto;
+  padding:8px 10px 12px;
+  background:#fff;
+}
+.alliance-drive-tree-list{
+  width:100%;
+  min-height:170px;
+  display:block;
+}
+.alliance-drive-tree-line{
+  position:relative;
+  min-height:50px;
+  display:grid;
+  grid-template-columns:30px minmax(0,1fr);
+  align-items:center;
+  padding-left:calc(var(--tree-depth,0) * 22px);
+}
+.alliance-drive-tree-line + .alliance-drive-tree-line{
+  border-top:1px solid #f0f2f4;
+}
+.alliance-drive-tree-guides{
+  position:absolute;
+  left:calc((var(--tree-depth,0) * 22px) + 14px);
+  top:0;
+  bottom:0;
+  width:1px;
+  background:#e4e8eb;
+  opacity:.9;
+  pointer-events:none;
+}
+.alliance-drive-tree-line[style*="--tree-depth:0"] .alliance-drive-tree-guides{
+  display:none;
+}
+.alliance-drive-tree-line .alliance-drive-tree-toggle,
+.alliance-drive-tree-line .alliance-drive-tree-spacer{
+  position:relative;
+  z-index:1;
+}
+.alliance-drive-tree-line .alliance-drive-tree-main{
+  min-height:46px;
+}
+.alliance-drive-tree-line.selected .alliance-drive-tree-main{
+  border-color:#d4dce1;
+  background:#eef2f4;
+}
+.alliance-drive-tree-line.selectable .alliance-drive-tree-main:hover{
+  background:#f5f7f8;
+}
+.alliance-drive-tree-line .alliance-drive-tree-copy b{
+  font-size:12px;
+}
+.alliance-drive-tree-line .alliance-drive-tree-copy small{
+  font-size:9.5px;
+}
+@media(max-width:760px){
+  .alliance-drive-browser-list{min-height:170px}
+  .alliance-drive-tree-line{padding-left:calc(var(--tree-depth,0) * 16px)}
+}

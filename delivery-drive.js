@@ -674,54 +674,78 @@
     const input=modal.querySelector('[data-drive-folder-search]');
     const note=modal.querySelector('[data-drive-browser-note]');
     const selectCurrent=modal.querySelector('[data-drive-select-current]');
+    if(!list||!crumbs)return;
+    list.hidden=false;
+    list.style.display='block';
     if(searchWrap)searchWrap.hidden=false;
     if(note){
       note.hidden=false;
-      note.textContent='Clique nas setas ou nas pastas para abrir a estrutura. Selecione o destino e depois confirme em “Usar pasta selecionada”.';
+      note.textContent='Abra as setas para navegar pelas subpastas. Clique em uma pasta para selecioná-la e depois confirme em “Usar pasta selecionada”.';
     }
-    crumbs.innerHTML='<span class="alliance-drive-browser-title">Pastas da '+esc(state.brand)+'</span><span class="alliance-drive-browser-subtitle">Navegue pela estrutura de pastas</span>';
-    const tree=buildKnownTree(state.brand,state);
+    crumbs.innerHTML='<span class="alliance-drive-browser-title">Pastas da '+esc(state.brand)+'</span><span class="alliance-drive-browser-subtitle">Estrutura completa de pastas</span>';
+
+    let tree=null;
+    let all=[];
+    try{
+      all=knownFoldersForBrand(state.brand,state);
+      tree=buildKnownTree(state.brand,state);
+    }catch(e){
+      console.error('[Drive entregas] falha ao montar árvore',e);
+    }
+
     const q=norm(query||'');
     const current=String(state.currentFolder||state.destination&&state.destination.folderId||'');
     const currentPath=(state.currentTrail||[]).map(function(x){return x.nome}).join(' › ')||(state.destination&&state.destination.path)||state.brand;
     treeAncestors(currentPath).forEach(function(key){state.treeExpanded.add(key)});
     state.treeExpanded.add(norm(state.brand));
-    if(q){
-      const expandMatches=function(node){
-        if(treeHasMatch(node,q)){
-          state.treeExpanded.add(norm(node.path));
-          node.children.forEach(expandMatches);
-        }
-      };
-      expandMatches(tree);
+
+    let visible=[];
+    const walk=function(node){
+      if(!node)return;
+      if(q&&!treeHasMatch(node,q))return;
+      visible.push(node);
+      const expanded=q||state.treeExpanded.has(norm(node.path));
+      if(expanded)(node.children||[]).forEach(walk);
+    };
+    if(tree)walk(tree);
+
+    if(!visible.length&&all.length){
+      visible=all.map(function(folder){
+        const parts=String(folder.path||'').split('›').map(function(v){return v.trim()}).filter(Boolean);
+        return {
+          name:parts[parts.length-1]||folder.path||'Pasta',
+          path:folder.path,
+          id:folder.id,
+          children:[],
+          depth:Math.max(0,parts.length-1)
+        };
+      }).filter(function(node){return !q||norm(node.path).indexOf(q)>=0});
     }
-    const renderNode=function(node){
-      if(q&&!treeHasMatch(node,q))return '';
-      const key=norm(node.path);
-      const hasChildren=node.children.length>0;
-      const expanded=state.treeExpanded.has(key);
+
+    list.innerHTML=visible.length?'<div class="alliance-drive-tree-list">'+visible.map(function(node){
+      const hasChildren=Array.isArray(node.children)&&node.children.length>0;
+      const expanded=q||state.treeExpanded.has(norm(node.path));
       const selected=!!node.id&&String(node.id)===current;
       const selectable=!!node.id;
-      const childrenHtml=hasChildren&&expanded?'<div class="alliance-drive-tree-children">'+node.children.map(renderNode).join('')+'</div>':'';
-      const branchMeta=hasChildren?(node.children.length+' '+(node.children.length===1?'subpasta':'subpastas')):(selectable?'Pasta disponível':'Estrutura');
-      return '<div class="alliance-drive-tree-node '+(selected?'selected ':'')+(selectable?'selectable ':'')+'" data-drive-tree-node style="--tree-depth:'+node.depth+'">'+
-        '<div class="alliance-drive-tree-row">'+
-          (hasChildren?'<button type="button" class="alliance-drive-tree-toggle '+(expanded?'open':'')+'" data-drive-tree-toggle="'+esc(node.path)+'" aria-label="'+(expanded?'Recolher':'Abrir')+' '+esc(node.name)+'"><span>›</span></button>':'<span class="alliance-drive-tree-spacer"></span>')+
-          '<button type="button" class="alliance-drive-tree-main" data-drive-tree-path="'+esc(node.path)+'" data-drive-tree-folder="'+esc(node.id||'')+'" data-drive-tree-has-children="'+(hasChildren?'1':'0')+'">'+
-            '<span class="alliance-drive-tree-folder">▰</span>'+
-            '<span class="alliance-drive-tree-copy"><b>'+esc(node.name)+'</b><small>'+esc(branchMeta)+'</small></span>'+
-            (selected?'<span class="alliance-drive-tree-check">✓</span>':'')+
-          '</button>'+
-        '</div>'+
-        childrenHtml+
+      const depth=Math.max(0,Number(node.depth||0));
+      const meta=hasChildren?(node.children.length+' '+(node.children.length===1?'subpasta':'subpastas')):(selectable?'Pasta disponível':'Grupo de pastas');
+      return '<div class="alliance-drive-tree-line '+(selected?'selected ':'')+(selectable?'selectable ':'')+'" style="--tree-depth:'+depth+'">'+
+        '<span class="alliance-drive-tree-guides" aria-hidden="true"></span>'+
+        (hasChildren?'<button type="button" class="alliance-drive-tree-toggle '+(expanded?'open':'')+'" data-drive-tree-toggle="'+esc(node.path)+'" aria-label="'+(expanded?'Recolher':'Abrir')+' '+esc(node.name)+'"><span>›</span></button>':'<span class="alliance-drive-tree-spacer"></span>')+
+        '<button type="button" class="alliance-drive-tree-main" data-drive-tree-path="'+esc(node.path)+'" data-drive-tree-folder="'+esc(node.id||'')+'" data-drive-tree-has-children="'+(hasChildren?'1':'0')+'">'+
+          '<span class="alliance-drive-tree-folder">▰</span>'+
+          '<span class="alliance-drive-tree-copy"><b>'+esc(node.name)+'</b><small>'+esc(meta)+'</small></span>'+
+          (selected?'<span class="alliance-drive-tree-check">✓</span>':'')+
+        '</button>'+
       '</div>';
-    };
-    list.innerHTML=treeHasMatch(tree,q)?'<div class="alliance-drive-tree">'+renderNode(tree)+'</div>':'<div class="alliance-drive-empty">Nenhuma pasta corresponde à busca.</div>';
+    }).join('')+'</div>':'<div class="alliance-drive-empty">Nenhuma pasta corresponde à busca.</div>';
+
     if(selectCurrent)selectCurrent.disabled=!state.currentFolder;
 
     list.querySelectorAll('[data-drive-tree-toggle]').forEach(function(btn){
       btn.addEventListener('click',function(e){
-        e.preventDefault();e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
         const key=norm(btn.dataset.driveTreeToggle||'');
         if(state.treeExpanded.has(key))state.treeExpanded.delete(key);else state.treeExpanded.add(key);
         renderKnownBrowser(modal,state,input&&input.value||'');
@@ -733,12 +757,14 @@
         const id=String(btn.dataset.driveTreeFolder||'');
         const hasChildren=btn.dataset.driveTreeHasChildren==='1';
         const key=norm(path);
-        if(hasChildren){
-          if(state.treeExpanded.has(key))state.treeExpanded.delete(key);else state.treeExpanded.add(key);
-        }
         if(id){
           state.currentFolder=id;
           state.currentTrail=path.split('›').map(function(nome){return {nome:nome.trim()}}).filter(function(x){return x.nome});
+        }
+        if(hasChildren&&!id){
+          if(state.treeExpanded.has(key))state.treeExpanded.delete(key);else state.treeExpanded.add(key);
+        }else if(hasChildren&&!state.treeExpanded.has(key)){
+          state.treeExpanded.add(key);
         }
         renderKnownBrowser(modal,state,input&&input.value||'');
       });
