@@ -3550,3 +3550,193 @@
     padding-right:11px!important;
   }
 }
+
+
+/* ===== Task List Tree V3 · ultra compacta / chevron sempre visível ===== */
+#tasksCanvas .v4-tree-list .v4-work-row{
+  min-height:44px!important;
+  height:44px!important;
+  padding:3px 12px!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-is-subtask{
+  min-height:40px!important;
+  height:40px!important;
+  padding-top:2px!important;
+  padding-bottom:2px!important;
+}
+#tasksCanvas .v4-tree-list .cu-row-title{
+  height:100%!important;
+  gap:6px!important;
+  align-items:center!important;
+}
+#tasksCanvas .v4-tree-list .cu-titletext{
+  min-width:0!important;
+  height:100%!important;
+  display:flex!important;
+  justify-content:center!important;
+}
+#tasksCanvas .v4-tree-list .task-title-line{
+  min-height:20px!important;
+}
+#tasksCanvas .v4-tree-list .task-title-line>b{
+  flex:0 1 auto!important;
+  max-width:calc(100% - 44px)!important;
+  font-size:11.7px!important;
+  line-height:1.15!important;
+  font-weight:625!important;
+}
+#tasksCanvas .v4-tree-list .v4-has-children .task-title-line>b{
+  font-size:11.9px!important;
+  font-weight:675!important;
+}
+#tasksCanvas .v4-tree-list .cu-titletext>small{
+  display:none!important;
+}
+
+#tasksCanvas .v4-tree-toggle{
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  flex:0 0 20px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:#5f6970!important;
+  font:700 16px/1 Arial,sans-serif!important;
+  cursor:pointer!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+#tasksCanvas .v4-tree-toggle>span{
+  display:block!important;
+  width:20px!important;
+  height:20px!important;
+  line-height:18px!important;
+  text-align:center!important;
+  color:#5f6970!important;
+  opacity:1!important;
+}
+#tasksCanvas .v4-tree-toggle:hover{
+  background:#eef1f2!important;
+  color:#1f272c!important;
+}
+#tasksCanvas .v4-tree-toggle:hover>span{
+  color:#1f272c!important;
+}
+#tasksCanvas .v4-tree-toggle svg{
+  display:none!important;
+}
+
+#tasksCanvas .v4-tree-list .cu-complete{
+  width:18px!important;
+  height:18px!important;
+  min-width:18px!important;
+  border-radius:5px!important;
+}
+#tasksCanvas .v4-tree-spacer{
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  flex:0 0 20px!important;
+}
+
+#tasksCanvas .v4-child-count{
+  height:16px!important;
+  padding:0 4px!important;
+  gap:2px!important;
+  font-size:7.8px!important;
+  border-radius:4px!important;
+}
+#tasksCanvas .v4-child-count svg{
+  width:9px!important;
+  height:9px!important;
+}
+#tasksCanvas .v4-child-label{
+  height:15px!important;
+  padding:0 4px!important;
+  font-size:6.9px!important;
+  border-radius:4px!important;
+}
+
+#tasksCanvas .v4-work-row.v4-is-subtask::before{
+  left:calc(18px + (var(--tree-depth,1) - 1) * 28px)!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .cu-row-title::before{
+  left:calc(var(--tree-depth,1) * 28px - 20px)!important;
+  width:15px!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask .task-title-line>b{
+  font-size:11.4px!important;
+  font-weight:580!important;
+}
+
+#tasksCanvas .v4-owner .mini-av{
+  width:22px!important;
+  height:22px!important;
+  font-size:7px!important;
+}
+#tasksCanvas .v4-owner .assignee-name,
+#tasksCanvas .v4-owner .no-assignee{
+  font-size:8.8px!important;
+}
+#tasksCanvas .v6-priority{
+  font-size:8.8px!important;
+}
+#tasksCanvas .v6-priority svg,
+#tasksCanvas .v6-priority .v6-bars{
+  transform:scale(.88)!important;
+  transform-origin:left center!important;
+}
+#tasksCanvas .v6-due-copy strong{
+  font-size:8.8px!important;
+}
+#tasksCanvas .v6-due-icon{
+  transform:scale(.86)!important;
+}
+#tasksCanvas .v6-campaign-chip{
+  min-height:28px!important;
+  height:28px!important;
+  padding:0 8px!important;
+  border-radius:8px!important;
+}
+#tasksCanvas .v6-campaign-chip b{
+  font-size:8.3px!important;
+}
+#tasksCanvas .v6-campaign-icon{
+  transform:scale(.86)!important;
+}
+
+#tasksCanvas .v4-list-header{
+  min-height:26px!important;
+  height:26px!important;
+  margin-bottom:4px!important;
+  font-size:7.6px!important;
+}
+#tasksCanvas .v4-status-group .cu-group-head{
+  min-height:34px!important;
+  height:34px!important;
+  padding:0 11px!important;
+}
+#tasksCanvas .v4-status-group .cu-group-head strong{
+  font-size:9.8px!important;
+}
+#tasksCanvas .v4-status-group .cu-add-inline{
+  font-size:8.8px!important;
+}
+#tasksCanvas .v4-group-count{
+  font-size:8px!important;
+}
+
+/* Linha mãe como grupo visual; filhas ficam visualmente conectadas e mais leves. */
+#tasksCanvas .v4-work-row.v4-has-children{
+  border-bottom:1px solid #e7ebed!important;
+  background:#fff!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask{
+  background:#fdfefe!important;
+}
+#tasksCanvas .v4-work-row.v4-is-subtask:hover{
+  background:#f8fafb!important;
+}
