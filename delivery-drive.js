@@ -747,6 +747,12 @@
       dynamic:true
     };
   }
+  function driveTreeSvg(type){
+    if(type==='chevron')return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 5.5 12 10l-4.5 4.5"/></svg>';
+    if(type==='check')return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10.5 3.1 3.1L15 6.8"/></svg>';
+    if(type==='search')return '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.4"/><path d="m13.2 13.2 3.3 3.3"/></svg>';
+    return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.8 6.1h5l1.5 1.8h7.9v7.2a1.6 1.6 0 0 1-1.6 1.6H4.4a1.6 1.6 0 0 1-1.6-1.6V6.1Z"/><path d="M2.8 6.1V4.9a1.6 1.6 0 0 1 1.6-1.6h3.1l1.6 1.8h6.5a1.6 1.6 0 0 1 1.6 1.6v1.2"/></svg>';
+  }
   function knownFoldersForBrand(brand,state){
     const map=new Map();
     const add=function(folder){
@@ -757,6 +763,7 @@
     };
     if(ROOTS[brand])add({id:ROOTS[brand].id,path:ROOTS[brand].label});
     Object.values(FOLDERS[brand]||{}).forEach(add);
+    (DRIVE_FOLDER_SNAPSHOT[brand]||[]).forEach(add);
     Object.values(CAMPAIGNS||{}).forEach(function(group){Object.values(group||{}).forEach(add)});
     readRoutes().learned.filter(function(x){return norm(x&&x.brand)===norm(brand)}).forEach(function(x){add({id:x.folderId,path:x.path||x.folderName})});
     if(state&&state.destination)add({id:state.destination.folderId,path:state.destination.path});
@@ -870,13 +877,13 @@
       const selectable=!!node.id;
       const depth=Math.max(0,Number(node.depth||0));
       const meta=hasChildren?(node.children.length+' '+(node.children.length===1?'subpasta':'subpastas')):(selectable?'Pasta disponível':'Grupo de pastas');
-      return '<div class="alliance-drive-tree-line '+(selected?'selected ':'')+(selectable?'selectable ':'')+'" style="--tree-depth:'+depth+'">'+
+      return '<div class="alliance-drive-tree-line '+(depth===0?'root ':'')+(selected?'selected ':'')+(selectable?'selectable ':'')+'" style="--tree-depth:'+depth+'">'+
         '<span class="alliance-drive-tree-guides" aria-hidden="true"></span>'+
-        (hasChildren?'<button type="button" class="alliance-drive-tree-toggle '+(expanded?'open':'')+'" data-drive-tree-toggle="'+esc(node.path)+'" aria-label="'+(expanded?'Recolher':'Abrir')+' '+esc(node.name)+'"><span>›</span></button>':'<span class="alliance-drive-tree-spacer"></span>')+
+        (hasChildren?'<button type="button" class="alliance-drive-tree-toggle '+(expanded?'open':'')+'" data-drive-tree-toggle="'+esc(node.path)+'" aria-label="'+(expanded?'Recolher':'Abrir')+' '+esc(node.name)+'">'+driveTreeSvg('chevron')+'</button>':'<span class="alliance-drive-tree-spacer"></span>')+
         '<button type="button" class="alliance-drive-tree-main" data-drive-tree-path="'+esc(node.path)+'" data-drive-tree-folder="'+esc(node.id||'')+'" data-drive-tree-has-children="'+(hasChildren?'1':'0')+'">'+
-          '<span class="alliance-drive-tree-folder">▰</span>'+
+          '<span class="alliance-drive-tree-folder">'+driveTreeSvg('folder')+'</span>'+
           '<span class="alliance-drive-tree-copy"><b>'+esc(node.name)+'</b><small>'+esc(meta)+'</small></span>'+
-          (selected?'<span class="alliance-drive-tree-check">✓</span>':'')+
+          (selected?'<span class="alliance-drive-tree-check">'+driveTreeSvg('check')+'</span>':'')+
         '</button>'+
       '</div>';
     }).join('')+'</div>':'<div class="alliance-drive-empty">Nenhuma pasta corresponde à busca.</div>';
