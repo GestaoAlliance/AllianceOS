@@ -119,7 +119,7 @@
   };
   const v5HasDelivery = t => v5OfficialForTask(t).length>0;
   const v5NeedsDelivery = t => !!v5Normalize(t).deliveryRequired;
-  const v5Incoming = t => v5Deps(t).flatMap(source=>v5SentDeliveries(source).map(d=>({...d,sourceTaskId:source.id,sourceTitle:source.title,sourceStatus:source.status})));
+  const v5Incoming = t => v5Deps(t).flatMap(source=>v5SentDeliveries(source).filter(d=>!d.targetTaskId||String(d.targetTaskId)===String(t.id)).map(d=>({...d,sourceTaskId:source.id,sourceTitle:source.title,sourceStatus:source.status})));
 
   function v5Persist(render=true){
     const actorId=v5ActorId(),actorName=v5Who();
