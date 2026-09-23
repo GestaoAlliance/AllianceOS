@@ -14,6 +14,13 @@
 
   const FOLDERS={
     Botanika:{
+      management:{id:'1CocM3uc_Nap-nDLv_-y_JyojMMw85fQa',path:'Botanika › 0. Gestão & Operação'},
+      marketing:{id:'1DckM0534ncvPja57bUnWjnauw1JJ6mbk',path:'Botanika › 1. Marketing & Campanhas'},
+      products:{id:'1HKfoYYPMvZI4xZjaQ-Hg6-m870Dkli0M',path:'Botanika › 2. Produtos'},
+      cx:{id:'1KTbMsPl3X7h9b33T85a87EW4be1-Fzsj',path:'Botanika › 3. Atendimento & CX'},
+      technology:{id:'1yOAFxwZf2op5xM9sLdIJ8jYOhUZJ7Zaz',path:'Botanika › 8. Tecnologia'},
+      brandAssets:{id:'1jm6Z6GB39ztYbmGr_uflqktvADYLv9Jh',path:'Botanika › 9. Marca & Assets'},
+      archive:{id:'1R1U0KnZrXrfNBzOtIg469WnGWZZ6Ttb7',path:'Botanika › 99. Arquivo & Legado'},
       month:{id:'1luPBVzilJPbVp9Tv0NwzfO_KqA2qGGkQ',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26'},
       social:{id:'1bqwMjPuBa7M9UKVb7iWFo7O-UH6Fwv_7',path:'Botanika › 4. Social Media'},
       socialVideo:{id:'1ctZnWb28Qw9wJvlbHskZXxFdvVb7CXeD',path:'Botanika › 4. Social Media › Vídeos pra edição'},
@@ -32,6 +39,13 @@
       alwaysOn:{id:'17A2DTdYIaCl6NTIkHy-N61NNl8J3MXp-',path:'Botanika › 1. Marketing & Campanhas › Funis always-on'}
     },
     VermeFree:{
+      management:{id:'1TBShD_IaBYDvl55LQs5mqShKxEY27hIX',path:'VermeFree › 0. Gestão & Operação'},
+      products:{id:'1i8yXwhU62ux6mqEINnbHyNxtXLkZspSL',path:'VermeFree › 2. Produtos'},
+      cx:{id:'1Z6AIHVhhpwO4V41-BWFCkqyMcUYPzIjP',path:'VermeFree › 3. Atendimento & CX'},
+      references:{id:'1EdMiwhKmX9iij05VzDlK3s66vxd-INBz',path:'VermeFree › 7. Referências & Inspirações'},
+      brandAssets:{id:'1WGgBkGh8rQX4u6WfgGdlknu1eg9mm0vp',path:'VermeFree › 9. Marca & Assets'},
+      archive:{id:'1rxlpJKPHoL9ZOo5YhHb1PRV8rCk7wKuu',path:'VermeFree › 99. Arquivo & Legado'},
+      vsl:{id:'1hrCOyLTtqeujN4T_ecWZkdRj5iUPDk9J',path:'VermeFree › VSL'},
       month:{id:'1itHkwtC2__tmccE-yXXLPbgjCzKn2r7Y',path:'VermeFree › 1. Marketing & Campanhas › 06. SET/26'},
       marketing:{id:'1ViZKC9ywfpnjpm1nPV8MFrK1PkCK3fmk',path:'VermeFree › 1. Marketing & Campanhas'},
       social:{id:'1tcc2BZdfy21ip2I1bhSgxKvvLh1dcg0Z',path:'VermeFree › 4. Social Media'},
@@ -45,6 +59,15 @@
       automation:{id:'1cWsYjA7XQn5KEASBpf74SQPeI7pskNwS',path:'VermeFree › 6. CRM & Automação › Automações'}
     },
     Revita:{
+      management:{id:'15kTaOw8aJtDxOtiV-Shk1NrKliGbCPXL',path:'Revita › 0. Gestão & Operação'},
+      marketing:{id:'1uw_gOsed3DrWdh-LjrupeR9AB05TFk32',path:'Revita › 1. Marketing & Campanhas'},
+      products:{id:'1RNFCuPdopkGPHvS8DeiJrlWyHjSBNszz',path:'Revita › 2. Produtos'},
+      cx:{id:'1COG8uDyS_aU_as5grVxQAI8ylTAyxNIr',path:'Revita › 3. Atendimento & CX'},
+      crm:{id:'14DqVVBbd_6Ju-X3Dmn2k6_1kOuXstVPp',path:'Revita › 6. CRM & Automação'},
+      references:{id:'1vKqmjgc7YKXZgBG0HPTatjhvf8o5XnSI',path:'Revita › 7. Referências & Inspirações'},
+      technology:{id:'1qAdGbuKRh_S2nH1tUxP6PFom-gI7PBts',path:'Revita › 8. Tecnologia'},
+      brandAssets:{id:'1RtqhIxDGQEXuYkk2duvXY9fWrPfhGgsm',path:'Revita › 9. Marca & Assets'},
+      archive:{id:'1LAk_Hf5szOVEgDTUlqr3Ifcg0ZAY7AUo',path:'Revita › 99. Arquivo & Legado'},
       launch:{id:'1fA9R32vdHvaHe1gVi0dyKjvFMMucibhG',path:'Revita › 1. Marketing & Campanhas › 00. Lançamento Revita Derma'},
       briefing:{id:'1OyH4ppJIdQ_QJl5Qg7JZcqYywdN-taRc',path:'Revita › Lançamento › 00. Briefing & Planejamento'},
       copies:{id:'1GI5qwnwO6ZP_WKyPhASLUbToP6b2v1on',path:'Revita › Lançamento › 01. Copies'},
