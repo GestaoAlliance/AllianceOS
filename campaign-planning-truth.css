@@ -417,3 +417,37 @@
   .alliance-offer-grid{grid-template-columns:1fr}
   .alliance-cron-row{grid-template-columns:1fr 1fr}
 }
+
+
+/* AllianceOS rich campaign offer V4 */
+.offer-overview-grid{display:flex;flex-direction:column;gap:14px}
+.offer-hero-card .cw-card-body{padding:16px}
+.offer-mechanics-grid{display:grid;grid-template-columns:1.6fr repeat(3,minmax(130px,.7fr));gap:10px}
+.offer-mechanic{min-width:0;padding:14px;border-radius:13px;background:#f5f6f7}
+.offer-mechanic.primary{background:#171b1e;color:#fff}
+.offer-mechanic small{display:block;margin-bottom:7px;color:#8d959b;font-size:8px}
+.offer-mechanic.primary small{color:#aeb5ba}
+.offer-mechanic b{display:block;color:#20262a;font-size:13px;line-height:1.35}
+.offer-mechanic.primary b{color:#fff}
+.offer-mechanic span{display:block;margin-top:5px;color:#91999f;font-size:8px;line-height:1.35}
+.offer-mechanic.primary span{color:#aeb5ba}
+.offer-benefit-stack{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.offer-benefit-stack>div{padding:12px 14px;border:1px solid #e7eaec;border-radius:12px;background:#fff}
+.offer-benefit-stack small{display:block;margin-bottom:5px;color:#90989e;font-size:8px}
+.offer-benefit-stack b{color:#343a3e;font-size:9.5px;line-height:1.45}
+.offer-table-wrap{overflow:auto}
+.offer-table-rich{min-width:720px}
+.offer-table-rich th{padding-top:11px!important;padding-bottom:11px!important}
+.offer-table-rich td{padding-top:12px!important;padding-bottom:12px!important}
+.offer-product-main strong{display:block;color:#30363a;font-size:9.5px;line-height:1.35}
+.offer-product-main small{display:block;margin-top:3px;color:#9aa1a6;font-size:7.5px}
+.offer-benefits-rich{display:flex;flex-wrap:wrap;gap:7px}
+.offer-benefits-rich>span{padding:8px 10px;border:1px solid #e5e9eb;border-radius:9px;background:#f7f8f8;color:#5d656b;font-size:8.5px;line-height:1.35}
+.offer-observation{margin-top:13px;padding:13px 14px;border-radius:11px;background:#f5f6f7}
+.offer-observation small{display:block;margin-bottom:5px;color:#899197;font-size:8px}
+.offer-observation p{margin:0;color:#596167;font-size:9px;line-height:1.55;white-space:pre-line}
+@media(max-width:1100px){
+  .offer-mechanics-grid{grid-template-columns:1fr 1fr}
+  .offer-benefit-stack{grid-template-columns:1fr}
+}
+@media(max-width:700px){.offer-mechanics-grid{grid-template-columns:1fr}}
