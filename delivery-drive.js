@@ -147,7 +147,15 @@
     }catch{return ''}
   }
   function currentUserId(){
-    return String((window.AllianceOSSession && window.AllianceOSSession.user && window.AllianceOSSession.user.id) || (window.user && window.user.id) || 'user');
+    const direct=(window.AllianceOSSession&&window.AllianceOSSession.user&&window.AllianceOSSession.user.id)||(window.user&&window.user.id);
+    if(direct)return String(direct);
+    try{
+      const token=authToken(),part=token.split('.')[1]||'',normalized=part.replace(/-/g,'+').replace(/_/g,'/');
+      const padded=normalized+'='.repeat((4-normalized.length%4)%4);
+      const payload=JSON.parse(atob(padded));
+      if(payload?.sub)return String(payload.sub);
+    }catch{}
+    return 'user';
   }
   function readRoutes(){
     try{
@@ -553,6 +561,7 @@
     try{
       for(let i=0;i<files.length;i++){
         const f=files[i];
+        if(Number(f.size||0)>250*1024*1024)throw new Error('"'+f.name+'" ultrapassa o limite de 250 MB por arquivo desta integração.');
         progress('Salvando no Google Drive…','Enviando '+f.name+' ('+(i+1)+' de '+files.length+')',i/files.length);
         const staged=await tusUpload(f,ctx.deliveryId||('delivery-'+Date.now()),i,function(r){
           progress('Salvando no Google Drive…','Enviando '+f.name+' · '+Math.round(r*100)+'%',(i+r)/files.length);
