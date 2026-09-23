@@ -65,3 +65,99 @@
   .alliance-team-row{grid-template-columns:1fr;gap:3px}
   .alliance-meta-head,.alliance-meta-row,.alliance-meta-total{grid-template-columns:minmax(0,1fr) 72px 68px}
 }
+
+/* AllianceOS campaign split columns */
+#campaignList{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:14px;
+  align-items:start;
+  padding:14px;
+  background:#f7f8f9;
+}
+#campaignList>.camp-list-head{display:none!important}
+#campaignList>.alliance-campaign-group{
+  min-width:0;
+  border:1px solid #e4e8ea;
+  border-radius:15px;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 1px 2px rgba(20,25,29,.025);
+}
+#campaignList .alliance-campaign-group-head{
+  min-height:62px;
+  padding:0 16px;
+  background:#fff;
+}
+#campaignList .alliance-campaign-group-head>div{
+  min-width:0;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:3px;
+}
+#campaignList .alliance-campaign-group-head strong{
+  font-size:13px;
+  letter-spacing:-.015em;
+}
+#campaignList .alliance-campaign-group-head span{
+  max-width:100%;
+  font-size:9px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#campaignList .alliance-campaign-group .camp-row{
+  min-height:96px;
+  padding:12px 14px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto auto;
+  grid-template-areas:
+    "name name status more"
+    "period owner meta budget"
+    "progress progress progress progress";
+  gap:8px 12px;
+  align-items:center;
+}
+#campaignList .alliance-campaign-group .camp-name{grid-area:name;min-width:0}
+#campaignList .alliance-campaign-group .camp-chip{grid-area:status;justify-self:end}
+#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(2){grid-area:period}
+#campaignList .alliance-campaign-group .camp-owner{grid-area:owner}
+#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(4){grid-area:meta}
+#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(5){grid-area:budget}
+#campaignList .alliance-campaign-group .camp-progress{
+  grid-area:progress;
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+}
+#campaignList .alliance-campaign-group .camp-progress-line{width:100%}
+#campaignList .alliance-campaign-group .camp-more{
+  grid-area:more;
+  justify-self:end;
+}
+#campaignList .alliance-campaign-group .camp-name-text b{font-size:10.5px}
+#campaignList .alliance-campaign-group .camp-name-text small{font-size:7.5px}
+#campaignList .alliance-campaign-group .camp-color{height:38px}
+#campaignList .alliance-campaign-group .camp-meta-val{font-size:8.5px}
+#campaignList .alliance-campaign-group .camp-meta-sub{font-size:6.8px}
+#campaignList .alliance-campaign-group .camp-owner{font-size:7.5px}
+#campaignList .alliance-campaign-group .camp-owner .miniav{width:20px;height:20px}
+
+@media(max-width:1180px){
+  #campaignList{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  #campaignList{padding:10px;gap:10px}
+  #campaignList .alliance-campaign-group .camp-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:
+      "name more"
+      "status status"
+      "period meta"
+      "owner budget"
+      "progress progress";
+    gap:8px 10px;
+  }
+  #campaignList .alliance-campaign-group .camp-chip{justify-self:start}
+}

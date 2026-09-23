@@ -238,7 +238,7 @@ function campaignList(){
 
   const desired=head+
     group('Perpétuas','Canais e frentes que carregam a meta mensal.',perpetual,'perpetual')+
-    group('Pontuais','Ações com começo e fim: Dia D, semana temática, lançamento e similares.',punctual,'punctual');
+    group('Campanhas','Ações pontuais com começo e fim: Dia D, semana temática, lançamento e similares.',punctual,'punctual');
 
   if(root.innerHTML!==desired)root.innerHTML=desired;
   listSignature=JSON.stringify([data.length,perpetual.length,punctual.length,channelGoal,channelBudget]);
