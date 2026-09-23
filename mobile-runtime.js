@@ -52,14 +52,24 @@
     const nav=document.querySelector('.sidebar>.ref2-nav');
     if(!nav)return;
 
+    /* Important: this function is called from a subtree MutationObserver.
+       Never rewrite the nav after it has been initialized, otherwise
+       innerHTML/class mutations retrigger the observer forever on iOS. */
+    if(nav.dataset.mobileIosReady==='1')return;
+
     const primaryKeys=new Set(['home','tasks','campaigns','deliveries']);
     const buttons=[...nav.querySelectorAll('.ref2-nav-btn[data-key]')].filter(b=>b.dataset.key!=='more');
     if(!buttons.length)return;
 
+    nav.dataset.mobileIosReady='1';
+
     buttons.forEach(btn=>{
       const key=btn.dataset.key||'';
       const icon=btn.querySelector('.ref2-nav-icon');
-      if(icon&&PHONE_ICONS[key])icon.innerHTML=PHONE_ICONS[key];
+      if(icon&&PHONE_ICONS[key]&&icon.dataset.mobileIconReady!=='1'){
+        icon.innerHTML=PHONE_ICONS[key];
+        icon.dataset.mobileIconReady='1';
+      }
       btn.classList.toggle('alliance-mobile-primary-tab',primaryKeys.has(key));
       btn.classList.toggle('alliance-mobile-overflow-tab',!primaryKeys.has(key));
     });
@@ -74,9 +84,6 @@
       more.innerHTML='<span class="ref2-nav-icon" aria-hidden="true">'+PHONE_ICONS.more+'</span><span class="ref2-nav-label">Mais</span>';
       nav.appendChild(more);
     }
-
-    if(nav.dataset.mobileIosReady==='1')return;
-    nav.dataset.mobileIosReady='1';
 
     const hidden=buttons.filter(btn=>!primaryKeys.has(btn.dataset.key||''));
     const syncMore=()=>more.classList.toggle('active',hidden.some(btn=>btn.classList.contains('active')));
