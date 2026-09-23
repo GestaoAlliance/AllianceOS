@@ -457,17 +457,40 @@ function bindDelegates(){
 }
 
 function normalizeWorkspaceActions(){
-  const top=document.querySelector('#campaignWorkspace.active .cw-top');
-  if(!top)return;
+  const ws=document.querySelector('#campaignWorkspace.active');
+  const top=ws?.querySelector('.cw-top');
+  if(!ws||!top)return;
   const status=top.querySelector('.cw-status');
   if(!status)return;
 
-  /* Algumas camadas antigas ainda injetam um segundo botão "Excluir".
-     O workspace canônico é dono de #cwDelete; qualquer duplicata visual
-     deve desaparecer para não deixar duas ações destrutivas lado a lado. */
-  const deleteButtons=[...top.querySelectorAll('button')].filter(b=>norm(b.textContent)==='excluir');
-  const canonical=top.querySelector('#cwDelete')||deleteButtons[0]||null;
-  deleteButtons.forEach(b=>{if(b!==canonical)b.remove()});
+  /* Há runtimes legados que podem recolocar uma segunda ação "Excluir"
+     depois do render do workspace. Sanitizamos qualquer controle destrutivo
+     duplicado do cabeçalho, independentemente de ser button/input/role=button. */
+  const actionNodes=[...top.querySelectorAll('button,input[type="button"],input[type="submit"],[role="button"]')];
+  const labelOf=el=>norm(el.tagName==='INPUT'?(el.value||''):(el.textContent||el.getAttribute('aria-label')||''));
+  const deleteActions=actionNodes.filter(el=>labelOf(el)==='excluir');
+  let canonical=top.querySelector('#cwDelete');
+  if(!canonical&&deleteActions[0]){
+    canonical=deleteActions[0];
+    canonical.id='cwDelete';
+  }
+  deleteActions.forEach(el=>{if(el!==canonical)el.remove()});
+
+  /* Se a cópia legada vier fora de .cw-top, mas ainda no topo visual do
+     workspace, removemos apenas controles "Excluir" anteriores às abas. */
+  const tabs=ws.querySelector('.cw-tabs');
+  [...ws.children].forEach(child=>{
+    if(child===top||child===tabs)return;
+    if(tabs&&child.compareDocumentPosition(tabs)&Node.DOCUMENT_POSITION_PRECEDING)return;
+    const nodes=[...child.querySelectorAll?.('button,input[type="button"],input[type="submit"],[role="button"]')||[]];
+    nodes.filter(el=>labelOf(el)==='excluir').forEach(el=>el.remove());
+  });
+
+  const chip=status.querySelector('.camp-chip');
+  if(chip){
+    chip.textContent=statusLabel(chip.textContent||'Em execução');
+    chip.classList.add('alliance-cw-status-chip');
+  }
 
   const edit=top.querySelector('#cwEdit');
   if(edit)edit.classList.add('alliance-cw-action','alliance-cw-edit');

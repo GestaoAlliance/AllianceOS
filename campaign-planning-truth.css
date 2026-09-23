@@ -312,6 +312,21 @@
   flex:0 0 auto!important;
 }
 
+#campaignWorkspace .cw-top .cw-status .alliance-cw-status-chip,
+#campaignWorkspace .cw-top .cw-status>.camp-chip{
+  height:36px!important;
+  min-height:36px!important;
+  padding:0 13px!important;
+  margin:0!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:999px!important;
+  font:650 11px/1 Inter,system-ui,sans-serif!important;
+  white-space:nowrap!important;
+  vertical-align:middle!important;
+}
+
 #campaignWorkspace .cw-top .alliance-cw-action,
 #campaignWorkspace .cw-top #cwEdit,
 #campaignWorkspace .cw-top #cwDelete{
