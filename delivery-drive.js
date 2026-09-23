@@ -94,6 +94,147 @@
     }
   };
 
+
+  const DRIVE_FOLDER_SNAPSHOT={
+    Botanika:[
+      {id:'1fU79PlSieuxH3wNYFxbOPf0V0HSe_3xc',path:'Botanika › 1. Marketing & Campanhas › 01. JUN/26'},
+      {id:'1YaUmjEZCG6QFtXimnLwDfLnBvX93vEyN',path:'Botanika › 1. Marketing & Campanhas › 02. JUL/26'},
+      {id:'1FufT9Cl29EJeLEGRJyFjhUh-3cA1sQaA',path:'Botanika › 1. Marketing & Campanhas › 03. AGO/26'},
+      {id:'1zkZ3XyIul13KlunlHY_mb6FcZMPFg_vD',path:'Botanika › 1. Marketing & Campanhas › Materiais & Bônus'},
+      {id:'1HFrZtpq-VIj3Egg4YSMCG2Im2HZ6u_Jv',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 00. Criativos UGC'},
+      {id:'12yznzWBYhKGxo6ifIu_FzTSb4rg9eHDK',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 00. Criativos UGC › 02. Testados'},
+      {id:'1_4_EReCyeVROxZ1YRrAOhGlxzvmIY8Za',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 00. Criativos UGC › 01. Não testados'},
+      {id:'1E3PiHVo-VF9cK-r6apEMyv6ugolo-l26',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 01-09 a 07-09 — Semana 01-07'},
+      {id:'1OJrizewKf1Ae0jNs13kzcstBQStblWsv',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 01-09 a 07-09 — Semana 01-07 › Copies'},
+      {id:'1VJJ9jFYk-Wc657sLkZbSvu-jE3tPzQXo',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 09-09 — Dia D'},
+      {id:'1ELBDX6gZIAgNWOu1Vh9ruAhUOdnihiOt',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 09-09 — Dia D › 00. Briefing & Planejamento'},
+      {id:'1xae-astDHxQfjwG_hdmgP7loxLKommwQ',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 09-09 — Dia D › 01. Copies'},
+      {id:'1xnw0pI-FFzYcwF-ZOJ8_BZ0b4FMBzoC_',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 09-09 — Dia D › 02. Criativos'},
+      {id:'1loe5mJOFadOqezZMSxiUTVSpfySmLyJ_',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 09-09 — Dia D › 03. Site & Oferta'},
+      {id:'1FA3H9MaOSsHFCvgdgOGyDKVaIowsIwy_',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 09-09 — Dia D › 04. Mídia & Tráfego'},
+      {id:'1tXUMH6SY8l8dgiMTnZL94QkaJzT4bJWz',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 09-09 — Dia D › 05. Resultados'},
+      {id:'1eNfpyPqXgonhKSfnB9KVBzYDqYxOvWZA',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 14-09 a 19-09 — Semana do Cliente'},
+      {id:'1OPieTawhyAPj4Uk6qvo31T5nqhfiOxAG',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 14-09 a 19-09 — Semana do Cliente › 00. Briefing & Planejamento'},
+      {id:'1taSFWXoK5pptnzIauZ5DQL7VP3sqA_mt',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 14-09 a 19-09 — Semana do Cliente › 01. Copies'},
+      {id:'1cbiT_9fM7cSYmg5RHpAkj1qg3pazM_7V',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 14-09 a 19-09 — Semana do Cliente › 02. Criativos'},
+      {id:'16dA1EIMCCjRU3MsJyn2wAdtgPFcaNg88',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 14-09 a 19-09 — Semana do Cliente › 03. Site & Oferta'},
+      {id:'1nnhNrJcqb3W1dA6PzVh2niNoAVLXeZDY',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 14-09 a 19-09 — Semana do Cliente › 04. Mídia & Tráfego'},
+      {id:'1AFHeOlbBcAjbLibt93SqJBREAue4L3kK',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 14-09 a 19-09 — Semana do Cliente › 05. Resultados'},
+      {id:'1h1h5YjVWZn-73MTSvXp01y3mZEmkaQPF',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 26-09 a 27-09 — Ações de Gap'},
+      {id:'11Y7XXwRGcjtt43CgCVjnGBdgogOPx5r1',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 26-09 a 27-09 — Ações de Gap › 00. Briefing & Planejamento'},
+      {id:'1BuumaknpEMW68pEAh9tVT45OuzmsikLT',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 26-09 a 27-09 — Ações de Gap › 01. Copies'},
+      {id:'1JFbDbNhsMaSmMd1tdIQd_4hoD1nT6cgb',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 26-09 a 27-09 — Ações de Gap › 02. Criativos'},
+      {id:'1QttJ7HO4oMO10xIKuf1CqGuQlmTyUl3c',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 26-09 a 27-09 — Ações de Gap › 03. Site & Oferta'},
+      {id:'10cbZYkQbVFMd_pz-AWsTpi2cKekgu0El',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 26-09 a 27-09 — Ações de Gap › 04. Mídia & Tráfego'},
+      {id:'1ViPrxOYVbI9FVC1univ_HSMbbi4Eq_Aw',path:'Botanika › 1. Marketing & Campanhas › 04. SET/26 › 26-09 a 27-09 — Ações de Gap › 05. Resultados'},
+      {id:'1BYciN94FaqzVR2xJ_X6RWbALNSSW9tid',path:'Botanika › 1. Marketing & Campanhas › Funis always-on › Tráfego Direto'},
+      {id:'1nGk7g2lquC8eEsHwR1FmVT6p_rw7G6bM',path:'Botanika › 1. Marketing & Campanhas › Funis always-on › Tráfego Direto › Copies'},
+      {id:'1f-jMWcIwQMDTA941z1XcBiHdpt0M9T7b',path:'Botanika › 1. Marketing & Campanhas › Funis always-on › Tráfego Direto › Criativos'},
+      {id:'1znkzhYl5V53nAVvG2qedvm7ohdwUQZCW',path:'Botanika › 1. Marketing & Campanhas › Funis always-on › Tráfego Direto › Criativos › Brutos'},
+      {id:'1KuEMtUqlgqdhJ7N_Nl6LroAn5MIeYHzF',path:'Botanika › 1. Marketing & Campanhas › Funis always-on › Tráfego Direto › Criativos › Editados'},
+      {id:'1iHaBXDj7OtBqvIbWIeXbghClhiKHpkH_',path:'Botanika › 1. Marketing & Campanhas › Funis always-on › Tráfego Direto › Criativos › 01. Não testados'},
+      {id:'1QF4f2BBrJ_xVMo-SMmuIO5jXN5pp_a3G',path:'Botanika › 1. Marketing & Campanhas › Funis always-on › Tráfego Direto › Criativos › 02. Testados'},
+      {id:'1VUhovh6NQgxa6xw1oAej6BCdSke24-VD',path:'Botanika › 2. Produtos › Base de conhecimento'},
+      {id:'1ZTB3Aowi55bvN2pA4Frf0YwASf-QwS3i',path:'Botanika › 2. Produtos › Kits'},
+      {id:'1-PvW05Kja50EtpaAQloa9jiAY0FGZn57',path:'Botanika › 2. Produtos › Sleep Inositol'},
+      {id:'18kNItQn7hEKG7hNKAGBcDbygW1rrjyjL',path:'Botanika › 2. Produtos › Sleep Inositol › Rótulo e caixa'},
+      {id:'1V23OYDXvURn6spMVfo6EuzRbKsrofCDF',path:'Botanika › 2. Produtos › Sleep Inositol › Mockups'},
+      {id:'1ru7wtn62FOaTZyCd3aPbhJtROTbiw32E',path:'Botanika › 2. Produtos › Whey Balance'},
+      {id:'14Xze_xpLHa4WAeWA3MUFAlk01wDks6c6',path:'Botanika › 2. Produtos › Whey Balance › Rótulo e caixa'},
+      {id:'1PqrQZ8iGLcWccU6gUKl0iqZZz-L0Si6A',path:'Botanika › 2. Produtos › Whey Balance › Mockups'},
+      {id:'1Zva6YelRKT7GTLpDAiVde4sfjD3dZZHy',path:'Botanika › 2. Produtos › Super Vitamina C'},
+      {id:'1lKYSbymmtB9jFA81BiNCGapf4muEmPiT',path:'Botanika › 2. Produtos › Super Vitamina C › Rótulo e caixa'},
+      {id:'130sqF5BcL_5VvyIwZ2Fp_YQATSmm1tvP',path:'Botanika › 2. Produtos › Super Vitamina C › Mockups'},
+      {id:'1reEcEMu1qz_TCJsvM_1BK2Yl7Fhlm4cB',path:'Botanika › 2. Produtos › Super Ômega 3'},
+      {id:'1vSQn-jFvnC7OfBDBLb6UaOoz1G1kr41K',path:'Botanika › 2. Produtos › Super Ômega 3 › Rótulo e caixa'},
+      {id:'1wfTOOIHhEeKGA7b1H3vJtVU4MXulY54J',path:'Botanika › 2. Produtos › Super Ômega 3 › Mockups'},
+      {id:'1BSfPF-zf65m7wxdAX7euIjD5dCvLWNm-',path:'Botanika › 2. Produtos › TetraVit D'},
+      {id:'15T3nnlLkH_naMuPcSYyvkS8xOFfDI1Ri',path:'Botanika › 2. Produtos › TetraVit D › Rótulo e caixa'},
+      {id:'1AYa2hnHUIMwUvpbfUCfa0ofK-Dr6_5wD',path:'Botanika › 2. Produtos › TetraVit D › Mockups'},
+      {id:'1r83j6s_wdX3PhTEgdapJRhDad8gNHD9m',path:'Botanika › 2. Produtos › Tri Magnésio Complex'},
+      {id:'1dV9T6k7kigXbcFHaZHZBCZqRK6XS8tVl',path:'Botanika › 2. Produtos › Tri Magnésio Complex › Rótulo e caixa'},
+      {id:'1RlUIsHniN4nuP3oIYoA3mhh5DqCxCpRZ',path:'Botanika › 2. Produtos › Tri Magnésio Complex › Mockups'},
+      {id:'1S36L_OLnbuXRzUk947YJV7-vtUtma2yr',path:'Botanika › 2. Produtos › Creatina'},
+      {id:'1EiS5UYp_5cxGfoaqJq2dsTAs37oJT0x2',path:'Botanika › 2. Produtos › Creatina › Rótulo e caixa'},
+      {id:'1C6yLSi1mOYE6pkhN696e9L6u9tKrSHl1',path:'Botanika › 2. Produtos › Creatina › Mockups'},
+      {id:'1OLfSQsRY0LpteA0iI9baLwkOUHFrBU0n',path:'Botanika › 2. Produtos › Hair Botanika'},
+      {id:'1vABgf2unuJ65OAR2QOnhQn7advHa1wmp',path:'Botanika › 2. Produtos › Hair Botanika › Rótulo e caixa'},
+      {id:'1Weh6AGeT0qi0GSpRDeVAFaCrBV4m3vDk',path:'Botanika › 2. Produtos › Hair Botanika › Mockups'},
+      {id:'1O32xHNFZMgx1IkhL-u9d1aacz7kVTCm9',path:'Botanika › 4. Social Media › Postagens'},
+      {id:'1n2WQtmmyxqKwkOOX61sSJP9W_PPDHWca',path:'Botanika › 4. Social Media › Postagens › Setembro'},
+      {id:'1JXdSAh3plVvwJP9hCD087uOuG1oCe005',path:'Botanika › 4. Social Media › Postagens › Setembro › 2026-09-02'},
+      {id:'1PmvZrIOAhehwazFCYFPqrFSPbUOHViZ3',path:'Botanika › 4. Social Media › Postagens › Setembro › 2026-09-01'},
+      {id:'1bkIyKJFyD4Cgb9CnlCikbW1u08WJwXvV',path:'Botanika › 4. Social Media › Postagens › Agosto'},
+      {id:'114ElZQx63VADzkNQhTWiN1VxwlIXZSDF',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-19'},
+      {id:'1ZwAAER-OGqaQNilEIKN59edL9MVUwmO5',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-18'},
+      {id:'1kP4MewYUtMa0rOtKw6yL_tYv1dHCGpqG',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-17'},
+      {id:'1mNNGfhlvttl7vRAoyVMpK3YnTv6Hzhhz',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-14'},
+      {id:'1ce5PL3XvEmGUBgfUQSRrFEZ7T1kghw-J',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-13'},
+      {id:'1cuFrmwcOH5w0R2APYWizPMDAjZ5BgTqH',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-12'},
+      {id:'1EiNQFpqBc-WhMTLZ3bK25MeQjydsGCf6',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-11'},
+      {id:'1IObF4iJfM726ofQsq7_zcN4K9BDy_WVT',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-10'},
+      {id:'10o3t0_pL9PcTro6D8SiBxNu5jTv3eCsv',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-07'},
+      {id:'1YH5cIwk4hnUa1WqIlVfUC7NWwqmPVAzl',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-06'},
+      {id:'134vOnhRho7wzKoDdIX9VUZuOL3WCCLoQ',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-05'},
+      {id:'1c--MCZ-XMqQsGIWDn7n--GIxhoORwzwG',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-04'},
+      {id:'1aBj5rx1DFTfbzPXKQImsdgZSpr-x4yL7',path:'Botanika › 4. Social Media › Postagens › Agosto › 2026-08-03'},
+      {id:'1Iob-oBiQr5WeVlT0po9SDDspIVy2B9pn',path:'Botanika › 4. Social Media › Depoimentos + Reposts de compras'},
+      {id:'1QkpeB0cNOArWW1nR8zETWQDUIdRIbABc',path:'Botanika › 4. Social Media › Vídeos/Reposts/Depoimentos retirados do perfil do Dr. William'},
+      {id:'1mxQpkS4Q4pJ0bR6Pmavb0gm0m3D1tdwT',path:'Botanika › 5. Creators & Parcerias › 0. Gestão de Creators'},
+      {id:'1lN6TfHeNAYamx_BFRczFQmu4ery9Mqlw',path:'Botanika › 5. Creators & Parcerias › 1. Influencers › 1. Formulários'},
+      {id:'1636aBPh9psEGqlw-2gj8v3pPWwQl_CZM',path:'Botanika › 5. Creators & Parcerias › 1. Influencers › 2. Contratos influencers'},
+      {id:'1do0MuR1bT7iUww3LXsKSMPBR0ya3ytMT',path:'Botanika › 5. Creators & Parcerias › 2. UGC › EGC'},
+      {id:'1XY26WO2tJJyU7Rf4klwRdN79KKAnZelX',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Forms antigos'},
+      {id:'1eoDDSO53PKGgdRRwzyMifZO9MBykQfHg',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Contratos'},
+      {id:'1uimmspvCzxO2dQLAlMp_3t561t9WVc53',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos › Hair Botanika'},
+      {id:'1n3XAY554QTjA7djOGgSuc1dsdJX0SHEB',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos › Creatina'},
+      {id:'1WCkYxnv66ImwIrq3lqj-LxDhtw0XTbz8',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos › Whey'},
+      {id:'1zsxfucFRZR0KAjR2Vymg1hlZ5ZrrjVAI',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos › Tri magnésio'},
+      {id:'1jSW8Pv1wnO8H8mcNm_ce8L1uHu5gB1bX',path:'Botanika › 5. Creators & Parcerias › 3. Prescritores'},
+      {id:'1Wfo8j_3HiGonIw9-heqxOoWYEeEzlokX',path:'Botanika › 5. Creators & Parcerias › 4. Notas fiscais'},
+      {id:'15fKNI-rGMYTfrCuqOpNPee8r0oq8JJQe',path:'Botanika › 5. Creators & Parcerias › 4. Notas fiscais › Agosto'},
+      {id:'1rWWjF9dQB0zKlQGfeDmqM9JT6zYDqjl_',path:'Botanika › 5. Creators & Parcerias › 4. Notas fiscais › Setembro'},
+      {id:'18TJeGNJ01tnzKFYWhjBRLUVO1wbcdgLt',path:'Botanika › 6. CRM & Automação › Carrinho abandonado'},
+      {id:'10MB2ksLhmXa0c8he9y7Q7H9FETlgJMjp',path:'Botanika › 6. CRM & Automação › Carrinho abandonado › ATUAL'},
+      {id:'12iPm7Q46aXVx1drQ6yk87slnZgUAGZkN',path:'Botanika › 6. CRM & Automação › Carrinho abandonado › Versões anteriores'},
+      {id:'1MDAOcTrYq8Ql0ogs6_aie598Uw78944Y',path:'Botanika › 6. CRM & Automação › Recuperação de vendas'},
+      {id:'1QGME7Qu5rSuVFQo31CYLYQQYDDH2yDhj',path:'Botanika › 6. CRM & Automação › Recuperação de vendas › ATUAL'},
+      {id:'1GobUWeQmJ09JX4rNeCMagAi9IwtRCxmT',path:'Botanika › 6. CRM & Automação › Recuperação de vendas › Versões anteriores'},
+      {id:'1rpU_305xulSWfHMS7KLwuv0rD6eeMCck',path:'Botanika › 6. CRM & Automação › Recuperação de vendas › Compra recusada'},
+      {id:'1HR9uS3c2zD1TcmBaJ8aGmTccG1ZagdQ0',path:'Botanika › 6. CRM & Automação › Recuperação de vendas › Pix não pago'},
+      {id:'1mwDo1yzc2_TlbVBAHnifuB3hLr7rOsG7',path:'Botanika › 6. CRM & Automação › Recompra'},
+      {id:'10NX0c8DW6c3Hmry_u0otkyODcy2SW97w',path:'Botanika › 6. CRM & Automação › Recompra › ATUAL'},
+      {id:'1OA4aZGtUmrB_ZoFTkwnYl8umE5V6dg-Z',path:'Botanika › 6. CRM & Automação › Recompra › Versões anteriores'},
+      {id:'1XLKlo6VthzgCm3kLeHJKXe30CS_eyeIl',path:'Botanika › 6. CRM & Automação › Recompra › WhatsApp API - Recompra'},
+      {id:'1fALMp9HtXsVDtEy_1QdOq4LJW7Q-YAze',path:'Botanika › 6. CRM & Automação › Review pós-entrega'},
+      {id:'1utcQlfc6qNEsnw6gtJL5GbKs_s22kk60',path:'Botanika › 6. CRM & Automação › Review pós-entrega › ATUAL'},
+      {id:'1x8XHBUBf7ojd5Ar2-RGSts9vTdJOCRAZ',path:'Botanika › 6. CRM & Automação › Review pós-entrega › Versões anteriores'},
+      {id:'1UlY8gkWCm21m5MJKHr9AtTzwvRRWBCUR',path:'Botanika › 6. CRM & Automação › Recorrência'},
+      {id:'1F9lSSxI_xty09jUOStpcu0HRf1WtWKT2',path:'Botanika › 6. CRM & Automação › Recorrência › ATUAL'},
+      {id:'1DHW3jtDryXSAksHSWiMValagkIiWdKG1',path:'Botanika › 6. CRM & Automação › Recorrência › Versões anteriores'},
+      {id:'1vvf7pJjL3ooIPpWSESG7ADQMjJQHypaB',path:'Botanika › 6. CRM & Automação › Atendimento automatizado › ATUAL'},
+      {id:'1vGwRNCPo2IONo8AMwTwTpOmoH-9BwYkL',path:'Botanika › 6. CRM & Automação › Atendimento automatizado › Versões anteriores'},
+      {id:'1lNcvGMtV0tTAC3sOgadcSqIg4HYO9Kwv',path:'Botanika › 6. CRM & Automação › Grupo VIP › ATUAL'},
+      {id:'1NI3YTEPRp5X8RnnkVQO8Toyp3jul3-h_',path:'Botanika › 6. CRM & Automação › Grupo VIP › Versões anteriores'},
+      {id:'1Mk0jUTaGo8SOwkLVurf06JD5FgdfPUVe',path:'Botanika › 6. CRM & Automação › Grupo VIP › Migração de grupos para Grupo VIP'},
+      {id:'1cbR9NJYNYOOQRzDWB89ofNGVvB0TCcnI',path:'Botanika › 6. CRM & Automação › E-mail educacional diário › ATUAL'},
+      {id:'15mIf8CYHjJBFz3oRbEpXRdBoHyMshDyO',path:'Botanika › 6. CRM & Automação › E-mail educacional diário › Versões anteriores'},
+      {id:'1fxgRrYorknLyY6EG-Oy9v5LTHKU7-5Lu',path:'Botanika › 8. Tecnologia › Dados & IA'},
+      {id:'1kVvRL7CsF972DtaALiSsU8PD6avq4uXd',path:'Botanika › 8. Tecnologia › Sites & Landing Pages'},
+      {id:'1uIdhNeu4bNdQAY6GSsbpJgk1dfYyKyni',path:'Botanika › 8. Tecnologia › Sites & Landing Pages › LP-KIT'},
+      {id:'1m6rUN7Ls2-XiycXcQQZGtdSsoJ9Mx5jC',path:'Botanika › 9. Marca & Assets › Logo'},
+      {id:'18N9V_5jh0z_DxA9MSqwkju25kknf3A_z',path:'Botanika › 9. Marca & Assets › Banco de imagens'},
+      {id:'1jgOohhnI7fxLyapK0kkn5Kbx8D0tG55x',path:'Botanika › 9. Marca & Assets › Banco de imagens › Dr. William'},
+      {id:'1qj1s7-ukicCYEMazbz3alSfkR1k3v5hT',path:'Botanika › 9. Marca & Assets › Banco de imagens › Prescritores'},
+      {id:'1U3gEw4M-jseR80xQkOPKDNHBgEvbFRSF',path:'Botanika › 9. Marca & Assets › Manual da marca'},
+      {id:'1GH8pr9hu28Q4Ef7Z0PAsrlhMiDFkDbXc',path:'Botanika › 0. Gestão & Operação › Acessos'},
+      {id:'1NSVbbOlb8hkKqPijOwCUeYnkQcJrRfvy',path:'Botanika › 0. Gestão & Operação › Equipe'},
+      {id:'1HHU6OETe-12bF5pdGSjIoP3DPaHVMPqp',path:'Botanika › 0. Gestão & Operação › Processos'},
+      {id:'1zMjatH-2RUQcBJsu6IZAysuYi1CLywPM',path:'Botanika › 0. Gestão & Operação › Estratégia'},
+      {id:'1RYGl4rjYX5qyIBmhKIldDEwL3A5o3yyU',path:'Botanika › 0. Gestão & Operação › Ferramentas'}
+    ]
+  };
+
   const CAMPAIGNS={
     'camp-1790117072369-7f1ac371':{
       base:{id:'1VJJ9jFYk-Wc657sLkZbSvu-jE3tPzQXo',path:'Botanika › SET/26 › 09-09 — Dia D'},
@@ -375,12 +516,12 @@
           '</div>'+
           '<div class="alliance-drive-destination">'+
             '<div class="alliance-drive-dest-head"><span>Destino no Drive</span><em data-drive-source></em></div>'+
-            '<div class="alliance-drive-path"><span class="alliance-drive-folder-icon">▰</span><strong data-drive-path>Escolher pasta</strong></div>'+
+            '<div class="alliance-drive-path"><span class="alliance-drive-folder-icon">'+driveTreeSvg('folder')+'</span><strong data-drive-path>Escolher pasta</strong></div>'+
             '<button type="button" class="alliance-drive-change" data-drive-change>Alterar pasta</button>'+
           '</div>'+
           '<div class="alliance-drive-browser" data-drive-browser hidden>'+
             '<div class="alliance-drive-browser-head"><div data-drive-crumbs></div><button type="button" data-drive-select-current>Usar pasta selecionada</button></div>'+
-            '<div class="alliance-drive-browser-search" data-drive-browser-search hidden><span>⌕</span><input type="search" data-drive-folder-search placeholder="Buscar pasta…" autocomplete="off"></div>'+
+            '<div class="alliance-drive-browser-search" data-drive-browser-search hidden><span class="alliance-drive-search-icon">'+driveTreeSvg('search')+'</span><input type="search" data-drive-folder-search placeholder="Buscar pasta…" autocomplete="off"></div>'+
             '<div class="alliance-drive-browser-list" data-drive-list></div>'+
             '<div class="alliance-drive-browser-note" data-drive-browser-note hidden></div>'+
           '</div>'+
@@ -606,6 +747,12 @@
       dynamic:true
     };
   }
+  function driveTreeSvg(type){
+    if(type==='chevron')return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 5.5 12 10l-4.5 4.5"/></svg>';
+    if(type==='check')return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10.5 3.1 3.1L15 6.8"/></svg>';
+    if(type==='search')return '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.4"/><path d="m13.2 13.2 3.3 3.3"/></svg>';
+    return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.8 6.1h5l1.5 1.8h7.9v7.2a1.6 1.6 0 0 1-1.6 1.6H4.4a1.6 1.6 0 0 1-1.6-1.6V6.1Z"/><path d="M2.8 6.1V4.9a1.6 1.6 0 0 1 1.6-1.6h3.1l1.6 1.8h6.5a1.6 1.6 0 0 1 1.6 1.6v1.2"/></svg>';
+  }
   function knownFoldersForBrand(brand,state){
     const map=new Map();
     const add=function(folder){
@@ -616,6 +763,7 @@
     };
     if(ROOTS[brand])add({id:ROOTS[brand].id,path:ROOTS[brand].label});
     Object.values(FOLDERS[brand]||{}).forEach(add);
+    (DRIVE_FOLDER_SNAPSHOT[brand]||[]).forEach(add);
     Object.values(CAMPAIGNS||{}).forEach(function(group){Object.values(group||{}).forEach(add)});
     readRoutes().learned.filter(function(x){return norm(x&&x.brand)===norm(brand)}).forEach(function(x){add({id:x.folderId,path:x.path||x.folderName})});
     if(state&&state.destination)add({id:state.destination.folderId,path:state.destination.path});
@@ -729,13 +877,13 @@
       const selectable=!!node.id;
       const depth=Math.max(0,Number(node.depth||0));
       const meta=hasChildren?(node.children.length+' '+(node.children.length===1?'subpasta':'subpastas')):(selectable?'Pasta disponível':'Grupo de pastas');
-      return '<div class="alliance-drive-tree-line '+(selected?'selected ':'')+(selectable?'selectable ':'')+'" style="--tree-depth:'+depth+'">'+
+      return '<div class="alliance-drive-tree-line '+(depth===0?'root ':'')+(selected?'selected ':'')+(selectable?'selectable ':'')+'" style="--tree-depth:'+depth+'">'+
         '<span class="alliance-drive-tree-guides" aria-hidden="true"></span>'+
-        (hasChildren?'<button type="button" class="alliance-drive-tree-toggle '+(expanded?'open':'')+'" data-drive-tree-toggle="'+esc(node.path)+'" aria-label="'+(expanded?'Recolher':'Abrir')+' '+esc(node.name)+'"><span>›</span></button>':'<span class="alliance-drive-tree-spacer"></span>')+
+        (hasChildren?'<button type="button" class="alliance-drive-tree-toggle '+(expanded?'open':'')+'" data-drive-tree-toggle="'+esc(node.path)+'" aria-label="'+(expanded?'Recolher':'Abrir')+' '+esc(node.name)+'">'+driveTreeSvg('chevron')+'</button>':'<span class="alliance-drive-tree-spacer"></span>')+
         '<button type="button" class="alliance-drive-tree-main" data-drive-tree-path="'+esc(node.path)+'" data-drive-tree-folder="'+esc(node.id||'')+'" data-drive-tree-has-children="'+(hasChildren?'1':'0')+'">'+
-          '<span class="alliance-drive-tree-folder">▰</span>'+
+          '<span class="alliance-drive-tree-folder">'+driveTreeSvg('folder')+'</span>'+
           '<span class="alliance-drive-tree-copy"><b>'+esc(node.name)+'</b><small>'+esc(meta)+'</small></span>'+
-          (selected?'<span class="alliance-drive-tree-check">✓</span>':'')+
+          (selected?'<span class="alliance-drive-tree-check">'+driveTreeSvg('check')+'</span>':'')+
         '</button>'+
       '</div>';
     }).join('')+'</div>':'<div class="alliance-drive-empty">Nenhuma pasta corresponde à busca.</div>';
