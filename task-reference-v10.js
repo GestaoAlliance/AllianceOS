@@ -2612,6 +2612,15 @@
     font-weight:450!important;
     line-height:1.2!important;
   }
+  #taskDetailDrawer .r10-delivery-pending-list{
+    box-sizing:border-box!important;
+    width:auto!important;
+    margin:10px 18px 0!important;
+    border:1px solid #e2e7ea!important;
+    border-radius:13px 13px 0 0!important;
+    overflow:hidden!important;
+    background:#fff!important;
+  }
   #taskDetailDrawer .r10-delivery-files-bar{
     box-sizing:border-box!important;
     min-height:58px!important;
@@ -2623,6 +2632,10 @@
     border:1px solid #e2e7ea!important;
     border-radius:13px!important;
     background:#fff!important;
+  }
+  #taskDetailDrawer .r10-delivery-pending-list:not([hidden]) + .r10-delivery-files-bar{
+    border-top:0!important;
+    border-radius:0 0 13px 13px!important;
   }
   #taskDetailDrawer .r10-delivery-files-count{
     margin:0!important;
