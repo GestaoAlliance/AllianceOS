@@ -286,3 +286,163 @@
   .alliance-drive-recipient-picker{grid-column:1/-1}
   .alliance-drive-recipient-menu{left:0;right:auto;width:100%}
 }
+
+
+/* Delivery confirmation V3 — compact file summary + reliable folder picker */
+.alliance-drive-dialog{
+  width:min(620px,calc(100vw - 28px));
+  max-height:min(720px,calc(100vh - 28px));
+}
+.alliance-drive-dialog>header{padding:18px 20px 14px}
+.alliance-drive-body{gap:10px;padding:14px 20px 16px}
+.alliance-drive-dialog>footer{padding:12px 20px 16px}
+.alliance-drive-files{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.alliance-drive-file-summary{
+  width:100%;
+  min-width:0;
+  min-height:54px;
+  display:grid;
+  grid-template-columns:36px minmax(0,1fr);
+  align-items:center;
+  gap:10px;
+  padding:8px 10px;
+  border:1px solid #e1e6e9;
+  border-radius:11px;
+  background:#fbfcfc;
+}
+.alliance-drive-file-summary-icon{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  background:#eef2f4;
+  color:#657079;
+  font-size:14px;
+}
+.alliance-drive-file-summary>div{min-width:0}
+.alliance-drive-file-summary b,
+.alliance-drive-file-summary small{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.alliance-drive-file-summary b{font-size:9.5px;color:#272e33;font-weight:680}
+.alliance-drive-file-summary small{margin-top:3px;font-size:7.8px;color:#8b959c}
+.alliance-drive-file-summary.compact,
+.alliance-drive-file-summary.empty{grid-template-columns:1fr}
+.alliance-drive-recipient,
+.alliance-drive-destination{padding:13px}
+.alliance-drive-recipient-row{grid-template-columns:36px minmax(0,1fr) 164px}
+.alliance-drive-recipient-avatar{width:36px;height:36px}
+.alliance-drive-path{grid-template-columns:32px minmax(0,1fr);min-height:36px}
+.alliance-drive-folder-icon{width:32px;height:32px;flex-basis:32px}
+.alliance-drive-change{margin-left:42px}
+.alliance-drive-browser{
+  margin-top:0;
+  border-radius:12px;
+}
+.alliance-drive-browser-head{
+  min-height:44px;
+  padding:7px 9px 7px 12px;
+}
+.alliance-drive-browser-title{
+  color:#5e6971;
+  font-size:8.5px;
+  font-weight:700;
+}
+.alliance-drive-browser-search{
+  position:relative;
+  padding:8px 9px 0;
+}
+.alliance-drive-browser-search[hidden]{display:none!important}
+.alliance-drive-browser-search span{
+  position:absolute;
+  left:19px;
+  top:17px;
+  color:#9aa3a8;
+  font-size:11px;
+  pointer-events:none;
+}
+.alliance-drive-browser-search input{
+  width:100%;
+  height:34px;
+  padding:0 10px 0 28px;
+  border:1px solid #e0e5e8;
+  border-radius:9px;
+  background:#fafbfb;
+  color:#2f373c;
+  font:600 8.5px/1 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  outline:none;
+}
+.alliance-drive-browser-search input:focus{
+  border-color:#bcc5ca;
+  background:#fff;
+  box-shadow:0 0 0 3px rgba(70,87,98,.06);
+}
+.alliance-drive-browser-list{
+  max-height:280px;
+  padding:6px 7px 7px;
+}
+.alliance-drive-folder-row{
+  min-height:46px;
+  grid-template-columns:28px minmax(0,1fr) 22px;
+  gap:8px;
+  padding:5px 9px;
+}
+.alliance-drive-folder-row>span:first-child{
+  width:28px;
+  height:28px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:#f0f3f4;
+}
+.alliance-drive-folder-copy{min-width:0}
+.alliance-drive-folder-copy b,
+.alliance-drive-folder-copy small{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.alliance-drive-folder-copy b{font-size:8.8px;color:#293136}
+.alliance-drive-folder-copy small{margin-top:2px;font-size:7.2px;color:#929ba1;font-weight:500}
+.alliance-drive-known-row.selected{background:#eef2f4}
+.alliance-drive-known-row.selected>i{color:#1e2529;font-weight:800}
+.alliance-drive-browser-note{
+  margin:0 8px 8px;
+  padding:8px 9px;
+  border-radius:8px;
+  background:#f5f7f8;
+  color:#858f96;
+  font-size:7.3px;
+  line-height:1.45;
+}
+.alliance-drive-browser-note[hidden]{display:none!important}
+.alliance-drive-error{
+  margin-top:0;
+  padding:9px 11px;
+  border-radius:9px;
+  font-size:8px;
+}
+.alliance-drive-remember{
+  min-height:52px;
+  padding:9px 11px;
+}
+.alliance-drive-remember b{font-size:8.5px}
+.alliance-drive-remember small{font-size:7.4px}
+.alliance-drive-secondary,.alliance-drive-primary{
+  min-width:108px;
+  height:36px;
+}
+@media(max-width:760px){
+  .alliance-drive-dialog{width:100%;max-height:92vh}
+  .alliance-drive-file-summary{grid-template-columns:34px minmax(0,1fr)}
+  .alliance-drive-recipient-row{grid-template-columns:34px minmax(0,1fr)}
+}
