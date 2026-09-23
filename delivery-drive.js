@@ -699,7 +699,7 @@
     treeAncestors(currentPath).forEach(function(key){state.treeExpanded.add(key)});
     state.treeExpanded.add(norm(state.brand));
 
-    const visible=[];
+    let visible=[];
     const walk=function(node){
       if(!node)return;
       if(q&&!treeHasMatch(node,q))return;
