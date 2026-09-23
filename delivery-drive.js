@@ -95,7 +95,7 @@
   };
 
 
-  const DRIVE_FOLDER_SNAPSHOT={
+  // Snapshot sincronizado com a estrutura real do Drive em 2026-09-23.\n  const DRIVE_FOLDER_SNAPSHOT={
     Botanika:[
       {id:'1fU79PlSieuxH3wNYFxbOPf0V0HSe_3xc',path:'Botanika › 1. Marketing & Campanhas › 01. JUN/26'},
       {id:'1YaUmjEZCG6QFtXimnLwDfLnBvX93vEyN',path:'Botanika › 1. Marketing & Campanhas › 02. JUL/26'},
