@@ -358,6 +358,50 @@ async function main() {
     html = html.replace("  function renderWeek(){const days=[['2026-09-07','Seg','07'],['2026-09-08','Ter','08'],['2026-09-09','Qua','09'],['2026-09-10','Qui','10'],['2026-09-11','Sex','11'],['2026-09-12','Sáb','12'],['2026-09-13','Dom','13']];const cs=filteredCampaigns(),ts=filteredTasks();document.getElementById('planWeekGrid').innerHTML=days.map(([iso,name,num])=>{const active=cs.filter(c=>c.start<=iso&&c.end>=iso),due=ts.filter(t=>t.due===iso);return `<section class=\"plan-day ${iso==='2026-09-07'?'today':''}\"><div class=\"plan-day-head\"><span>${name}</span><b>${num}</b></div><div class=\"plan-day-body\"><div class=\"day-section\"><div class=\"day-section-title\">Campanhas</div>${active.length?active.map(c=>`<article class=\"week-campaign-card\" data-plan-campaign=\"${esc(c.name)}\" style=\"--pc:${c.color||'#121415'}\"><b>${esc(c.name)}</b><span>${esc(c.status)} · ${esc(c.owner?.split(' ')[0]||'')}</span></article>`).join(''):'<div class=\"week-empty\">Nenhuma campanha ativa</div>'}</div><div class=\"day-section\"><div class=\"day-section-title\">Tarefas com prazo</div>${due.length?due.slice(0,12).map(t=>`<div class=\"week-task-row\" data-plan-task=\"${esc(t.id)}\"><b>${esc(t.title)}</b><span>${esc(t.assignees?.[0]||'Sem responsável')} · ${esc(t.status)}</span></div>`).join(''):'<div class=\"week-empty\">Sem vencimentos</div>'}</div></div></section>`}).join('');document.querySelectorAll('#planWeekGrid [data-plan-campaign]').forEach(b=>b.addEventListener('click',()=>window.openCampaignWorkspaceByName?.(b.dataset.planCampaign)));document.querySelectorAll('#planWeekGrid [data-plan-task]').forEach(r=>r.addEventListener('click',()=>{window.__centralShowTasks?.();setTimeout(()=>{document.querySelector(`[data-task-id=\"${CSS.escape(r.dataset.planTask)}\"]`)?.click()},50)}))}", "  function renderWeek(){\n    const now=new Date();now.setHours(0,0,0,0);\n    const monday=new Date(now),wd=now.getDay();monday.setDate(now.getDate()+(wd===0?-6:1-wd));\n    const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);\n    const toolbar=document.querySelector('[data-plan-pane=\"week\"] .month-toolbar strong');\n    if(toolbar)toolbar.textContent='Semana · '+String(monday.getDate()).padStart(2,'0')+' — '+String(sunday.getDate()).padStart(2,'0')+' de '+sunday.toLocaleDateString('pt-BR',{month:'long'});\n    const names=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],cs=filteredCampaigns(),ts=filteredTasks();\n    document.getElementById('planWeekGrid').innerHTML=Array.from({length:7},(_,i)=>{\n      const d=new Date(monday);d.setDate(monday.getDate()+i);\n      const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');\n      const active=cs.filter(c=>c.start<=iso&&c.end>=iso),due=ts.filter(t=>t.due===iso);\n      return '<section class=\"plan-day '+(d.getTime()===now.getTime()?'today':'')+'\"><div class=\"plan-day-head\"><span>'+names[i]+'</span><b>'+String(d.getDate()).padStart(2,'0')+'</b></div><div class=\"plan-day-body\">'+\n        '<div class=\"day-section\"><div class=\"day-section-title\">Campanhas</div>'+(active.length?active.map(c=>'<article class=\"week-campaign-card\" data-plan-campaign=\"'+esc(c.name)+'\" style=\"--pc:'+(c.color||'#121415')+'\"><b>'+esc(c.name)+'</b><span>'+esc(c.type)+' · '+esc(c.status)+'</span></article>').join(''):'<div class=\"week-empty\">Nenhuma campanha ativa</div>')+'</div>'+\n        '<div class=\"day-section\"><div class=\"day-section-title\">Tarefas com prazo</div>'+(due.length?due.slice(0,12).map(t=>'<div class=\"week-task-row\"><span>✓</span><b>'+esc(t.title)+'</b></div>').join(''):'<div class=\"week-empty\">Sem tarefas com prazo</div>')+'</div></div></section>';\n    }).join('');\n    document.querySelectorAll('[data-plan-campaign]').forEach(b=>b.addEventListener('click',()=>window.openCampaignWorkspaceByName?.(b.dataset.planCampaign)));\n  }");
     console.log("[AllianceOS build] patched planning week");
   } else console.warn("[AllianceOS build] renderer not found: planning week");
+  // AllianceOS: corrige a fonte canônica e remove datas congeladas do calendário legado.
+  // Esse runtime antigo redesenha Mês/Semana/Campanhas via MutationObserver, então
+  // precisa ler a mesma coleção canônica usada pelo restante do AllianceOS.
+  {
+    const legacyCampaignKey = "  const chaveCamp = () => `central.campaigns.${(window.user && window.user.id) || 'vitor-gutierrez'}`;";
+    const legacyTaskKey = "  const chaveTar  = () => `central.tasks.${(window.user && window.user.id) || 'vitor-gutierrez'}`;";
+    if (!html.includes(legacyCampaignKey) || !html.includes(legacyTaskKey)) throw new Error('Não encontrei as chaves legadas do calendário');
+    html = html.replace(legacyCampaignKey, "  const chaveCamp = () => 'central.campaigns.vitor-gutierrez';");
+    html = html.replace(legacyTaskKey, "  const chaveTar  = () => 'central.tasks.vitor-gutierrez';");
+
+    const oldCampaignFilter = "    return ler(chaveCamp()).filter((c) => {\n      if (marca && c.brand !== marca) return false;";
+    const newCampaignFilter = "    return ler(chaveCamp()).filter((c) => {\n      if (c?.archivedAt) return false;\n      if (marca && c.brand !== marca) return false;";
+    if (!html.includes(oldCampaignFilter)) throw new Error('Não encontrei o filtro legado de campanhas do calendário');
+    html = html.replace(oldCampaignFilter, newCampaignFilter);
+
+    const oldTaskFilter = "    return ler(chaveTar()).filter((t) => !marca || t.brand === marca);";
+    const newTaskFilter = "    return ler(chaveTar()).filter((t) => !t?.archivedAt && (!marca || t.brand === marca));";
+    if (!html.includes(oldTaskFilter)) throw new Error('Não encontrei o filtro legado de tarefas do calendário');
+    html = html.replace(oldTaskFilter, newTaskFilter);
+
+    const oldContinuous = "    if (['Perpétuo', 'Recompra'].includes(c.type)) return true;";
+    const newContinuous = "    const tipo = String(c?.type || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n    if (tipo.includes('perpet') || tipo.includes('recompra')) return true;";
+    if (!html.includes(oldContinuous)) throw new Error('Não encontrei a regra legada de campanhas contínuas');
+    html = html.replace(oldContinuous, newContinuous);
+
+    const oldTypeFilter = "    return c.type === f;\n  }\n\n  /* ---------- a faixa das contínuas, com os filtros ---------- */";
+    const newTypeFilter = "    const tipo = String(c?.type || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n    const nome = String(c?.name || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n    const texto = tipo + ' ' + nome;\n    if (f === 'Dia D') return tipo === 'diad' || texto.includes('dia d');\n    if (f === 'Semana temática') return texto.includes('semana');\n    if (f === 'Ação de GAP') return texto.includes('gap');\n    if (f === 'Recompra') return texto.includes('recompra');\n    return false;\n  }\n\n  /* ---------- a faixa das contínuas, com os filtros ---------- */";
+    if (!html.includes(oldTypeFilter)) throw new Error('Não encontrei os filtros legados por tipo');
+    html = html.replace(oldTypeFilter, newTypeFilter);
+
+    const weekAnchor = "  const colDe = (d) => (d.getDay() + 6) % 7;";
+    if (!html.includes(weekAnchor)) throw new Error('Não encontrei o cálculo de coluna do calendário');
+    html = html.replace(weekAnchor, weekAnchor + "\n  function semanaAtual() {\n    const hoje = soData(new Date());\n    const a = new Date(hoje); a.setDate(hoje.getDate() - colDe(hoje));\n    const b = new Date(a); b.setDate(a.getDate() + 6);\n    return { a, b };\n  }");
+
+    const frozenWeek = "    const s = { a: new Date(2026, 8, 7), b: new Date(2026, 8, 13) };";
+    const frozenWeekCount = html.split(frozenWeek).length - 1;
+    if (frozenWeekCount < 2) throw new Error('Não encontrei as semanas congeladas de Planejamento/Home');
+    html = html.replaceAll(frozenWeek, "    const s = semanaAtual();");
+
+    const frozenToday = "    const hoje = new Date(2026, 8, 7);   // o app inteiro trabalha nesta data";
+    if (!html.includes(frozenToday)) throw new Error('Não encontrei a data congelada do calendário');
+    html = html.replace(frozenToday, "    const hoje = soData(new Date());");
+    html = html.replace("dia === '2026-09-07' ? 'cal-hoje' : ''", "dia === isoDe(soData(new Date())) ? 'cal-hoje' : ''");
+  }
   html = html.replace('Semana · 07 — 13 de setembro','Semana atual');
 
   html = html.replace('<html lang="pt-BR">','<html lang="pt-BR" class="alliance-auth-pending">');

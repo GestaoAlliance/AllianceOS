@@ -21,7 +21,7 @@
     return sb;
   }
   const uid=()=>window.user?.id||'vitor-gutierrez';
-  const campaignRows=()=>{try{const v=JSON.parse(localStorage.getItem('central.campaigns.'+uid())||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
+  const campaignRows=()=>{try{const v=JSON.parse(localStorage.getItem('central.campaigns.vitor-gutierrez')||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
   const activeBrand=()=>{const v=document.getElementById('brandSelect')?.value||'';return !v||/todas/i.test(v)?'':v};
   const monthRef=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
   const campaignRef=c=>c.monthRef||String(c.startAt||c.start||'').slice(0,7);
