@@ -3459,3 +3459,41 @@ body.r10-task-modal-open{
     padding-right:20px!important;
   }
 }
+
+
+/* Delivery pending files — editable before send */
+#taskDetailDrawer .r10-delivery-pending-list{
+  display:flex;flex-direction:column;gap:7px;margin:10px 0 0;padding:0;
+}
+#taskDetailDrawer .r10-delivery-pending-list[hidden]{display:none!important}
+#taskDetailDrawer .r10-delivery-pending-item{
+  min-height:48px;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;
+  padding:7px 9px;border:1px solid #e1e6e9;border-radius:10px;background:#fff;
+}
+#taskDetailDrawer .r10-delivery-pending-icon{
+  width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#f0f3f5;color:#5f6a72;
+}
+#taskDetailDrawer .r10-delivery-pending-icon svg{width:16px;height:16px;stroke-width:1.7}
+#taskDetailDrawer .r10-delivery-pending-copy{min-width:0}
+#taskDetailDrawer .r10-delivery-pending-copy strong,
+#taskDetailDrawer .r10-delivery-pending-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#taskDetailDrawer .r10-delivery-pending-copy strong{font-size:9.5px;font-weight:650;color:#283036}
+#taskDetailDrawer .r10-delivery-pending-copy small{margin-top:3px;font-size:8px;font-weight:500;color:#8d979e}
+#taskDetailDrawer .r10-delivery-pending-actions,
+#taskDetailDrawer .r10-delivery-sent-actions{display:flex!important;align-items:center;gap:4px;opacity:1!important;visibility:visible!important}
+#taskDetailDrawer .r10-delivery-pending-actions button,
+#taskDetailDrawer .r10-delivery-sent-actions a,
+#taskDetailDrawer .r10-delivery-sent-actions button{
+  width:28px;height:28px;display:grid;place-items:center;border:1px solid #e1e6e9;border-radius:8px;background:#fff;color:#69747c;padding:0;
+}
+#taskDetailDrawer .r10-delivery-pending-actions button:hover,
+#taskDetailDrawer .r10-delivery-sent-actions a:hover,
+#taskDetailDrawer .r10-delivery-sent-actions button:hover{background:#f5f7f8;color:#2f373c}
+#taskDetailDrawer .r10-delivery-pending-actions button.is-delete,
+#taskDetailDrawer .r10-delivery-sent-actions .is-delete{color:#b14b4b}
+#taskDetailDrawer .r10-delivery-pending-actions svg,
+#taskDetailDrawer .r10-delivery-sent-actions svg{width:13px;height:13px;stroke-width:1.8}
+@media(max-width:760px){
+  #taskDetailDrawer .r10-delivery-pending-item{grid-template-columns:30px minmax(0,1fr) auto}
+  #taskDetailDrawer .r10-delivery-pending-icon{width:30px;height:30px}
+}

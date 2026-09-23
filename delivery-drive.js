@@ -428,7 +428,7 @@
       const recipients=recipientList(ctx);
       const suggestedRaw=ctx.suggestedRecipient||null;
       const suggestedKey=typeof suggestedRaw==='string'?suggestedRaw:String(suggestedRaw&&suggestedRaw.id||suggestedRaw&&suggestedRaw.key||suggestedRaw&&suggestedRaw.name||'');
-      const suggestedRecipient=recipients.find(function(r){return r.key===suggestedKey||r.id===suggestedKey||r.name===suggestedKey})||recipients.find(function(r){return !!r.targetTaskId})||recipients[0]||null;
+      const suggestedRecipient=recipients.find(function(r){return r.key===suggestedKey||r.id===suggestedKey||r.name===suggestedKey})||recipients.find(function(r){return !!r.targetTaskId})||null;
       const state={brand:brand,ctx:ctx,destination:suggestion,currentFolder:null,currentTrail:[],recipients:recipients,recipient:suggestedRecipient,requireRecipient:ctx.requireRecipient===true};
       const recipientWrap=modal.querySelector('[data-drive-recipient]');
       const recipientSelect=modal.querySelector('[data-drive-recipient-select]');
@@ -443,7 +443,7 @@
       }
       setRecipient(modal,state,suggestedRecipient);
       setDestination(modal,state,suggestion);
-      if(state.requireRecipient&&!recipients.length)showModalError(modal,'Nenhum usuário disponível para receber esta entrega. Defina um responsável na próxima tarefa.');
+      if(state.requireRecipient&&!recipients.length)showModalError(modal,'Nenhum usuário disponível para receber esta entrega. Cadastre ou ative um usuário da equipe para continuar.');
       modal.classList.add('open');
 
       function done(result){
