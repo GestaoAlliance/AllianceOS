@@ -23,6 +23,9 @@
       ugcVideos:{id:'1C-oIbjD69d3XCumIhzSAgtbxBO2DYCbK',path:'Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos'},
       ugcDeliveries:{id:'1FOKNwlX2J-KJLev6zaTFEPiSH7lQMrqd',path:"Botanika › 5. Creators & Parcerias › 2. UGC › Vídeos › UGC's entregas"},
       crm:{id:'1ihjx_LSjMKAIfaDZncLC5Mbl-VjKHXn5',path:'Botanika › 6. CRM & Automação'},
+      postPurchase:{id:'1ecJPJI8ZmpjZ6wh3prVhTI67KuRSnNK0',path:'Botanika › 6. CRM & Automação › Pesquisa pós-compra'},
+      tracking:{id:'1rLhSV_ezyV5kWQrRyb4JT8UjzHLTnkW2',path:'Botanika › 6. CRM & Automação › Status do pedido & Rastreio'},
+      trackingApi:{id:'1N1KqDbLx-UKLiYrDyieC_P7dyXTcx2rQ',path:'Botanika › 6. CRM & Automação › Status do pedido & Rastreio › WhatsApp API - Pedido a caminho'},
       email:{id:'1ogGieUYwBarz80LFxZlKfnbPWcWnRr2B',path:'Botanika › 6. CRM & Automação › E-mail educacional diário'},
       vip:{id:'1JG25MEpxVcK0sEeqpk9g3D98JFtKKArQ',path:'Botanika › 6. CRM & Automação › Grupo VIP'},
       api:{id:'1soa_FvM50JkQjblT1kayOBKIPsN52H0R',path:'Botanika › 6. CRM & Automação › Atendimento automatizado'},
@@ -385,7 +388,7 @@
   }
 
   function folderWords(value){
-    const stop=new Set(['a','o','as','os','de','da','do','das','dos','e','em','para','com','campanha','campanhas']);
+    const stop=new Set(['a','o','as','os','de','da','do','das','dos','e','em','para','com','campanha','campanhas','setembro','outubro','novembro','dezembro','janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','botanika','vermefree','revita','derma']);
     return norm(value).replace(/[^a-z0-9]+/g,' ').split(/\s+/).filter(function(x){return x.length>1&&!stop.has(x)&&!/^\d+$/.test(x)});
   }
   function folderMatchScore(folderName,targetName){
@@ -417,6 +420,7 @@
     const addSeed=function(folder){
       if(folder&&folder.id&&!seeds.some(function(x){return String(x.id)===String(folder.id)}))seeds.push(folder);
     };
+    if(campaign._fromList)addSeed(known.crm);
     if(/perpetuo|always|funil/i.test(String(campaign.type||'')))addSeed(known.alwaysOn);
     addSeed(known.month);
     addSeed(known.alwaysOn);
@@ -513,20 +517,39 @@
     }
     return selected;
   }
+  function operationalListDestination(ctx,campaign,kind){
+    if(!campaign?._fromList)return null;
+    const task=ctx.task||{};
+    const brand=String(task.brand||ctx.brand||campaign.brand||'');
+    const folders=FOLDERS[brand]||{};
+    const listText=norm(campaign.name||'');
+    const taskText=norm([task.title,task.description,ctx.note].filter(Boolean).join(' '));
+    if(brand==='Botanika'&&(/pos compra|rastreio/.test(listText))){
+      if(/rastreio|status|pedido|notific|tracking|caminho/.test(taskText) && folders.tracking){
+        return {folderId:folders.tracking.id,path:folders.tracking.path,source:'Sugerido pela lista',kind:kind,key:learnedKey(task,campaign,kind),campaign:campaign,dynamic:true};
+      }
+      if(/pesquisa|feedback|nps|avaliacao|questionario/.test(taskText) && folders.postPurchase){
+        return {folderId:folders.postPurchase.id,path:folders.postPurchase.path,source:'Sugerido pela lista',kind:kind,key:learnedKey(task,campaign,kind),campaign:campaign,dynamic:true};
+      }
+    }
+    return null;
+  }
   async function resolveCampaignDestination(ctx,initial){
     const task=ctx.task||{};
     const campaign=initial?.campaign||ctx.campaign||campaignForTask(task);
     if(!campaign)return initial;
-    if(initial&&['Pasta usada anteriormente','Sugerido pela campanha'].includes(initial.source))return initial;
+    if(initial&&['Pasta usada anteriormente','Sugerido pela campanha','Sugerido pela lista'].includes(initial.source))return initial;
+    const kind=initial?.kind||detectKind(Object.assign({},ctx,{campaign:campaign}));
+    const operational=operationalListDestination(ctx,campaign,kind);
+    if(operational)return operational;
     const brand=String(task.brand||ctx.brand||campaign.brand||'');
     const base=await findCampaignBaseOnDrive(brand,campaign);
     if(!base)return null;
-    const kind=initial?.kind||detectKind(Object.assign({},ctx,{campaign:campaign}));
     const folder=await findKindFolderOnDrive(brand,base,kind);
     return {
       folderId:folder.id,
       path:folder.path,
-      source:'Sugerido pela campanha',
+      source:campaign._fromList?'Sugerido pela lista':'Sugerido pela campanha',
       kind:kind,
       key:initial?.key||learnedKey(task,campaign,kind),
       campaign:campaign,
