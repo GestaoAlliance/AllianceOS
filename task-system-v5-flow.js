@@ -39,7 +39,7 @@
     return [...new Set([...preferred,...live].filter(Boolean))].filter(x=>v5Short(x)!==v5Short(v5Who()));
   }
   function v5RecipientChoiceObjects(t){
-    const directory=(window.AllianceOSDirectory?.members||[]).filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false);
+    const directory=(window.AllianceOSDirectory?.members||[]).filter(x=>x?.tipo==='usuario'&&x?.atribuivel!==false&&x?.ativo!==false);
     const out=[],seen=new Set();
     const add=(name,targetTask=null,source='Equipe da marca')=>{
       const value=String(name||'').trim();if(!value)return;
