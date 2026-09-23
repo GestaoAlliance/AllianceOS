@@ -28,6 +28,7 @@ const CONTEXT_GUIDE_JS = path.join(__dirname, 'context-guide.js');
 const CONTEXT_GUIDE_CSS = path.join(__dirname, 'context-guide.css');
 const MOBILE_RUNTIME_JS = path.join(__dirname, 'mobile-runtime.js');
 const MOBILE_RUNTIME_CSS = path.join(__dirname, 'mobile-runtime.css');
+const HOME_LIVE_SYNC = path.join(__dirname, 'home-live-sync.js');
 const SOCIAL_PREVIEW_IMAGE = path.join(__dirname, 'assets', 'allianceos-whatsapp-preview-v6.jpg');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
@@ -62,6 +63,7 @@ async function main() {
   const contextGuideCss = fs.readFileSync(CONTEXT_GUIDE_CSS, 'utf8');
   const mobileRuntimeJs = fs.readFileSync(MOBILE_RUNTIME_JS, 'utf8');
   const mobileRuntimeCss = fs.readFileSync(MOBILE_RUNTIME_CSS, 'utf8');
+  const homeLiveSync = fs.readFileSync(HOME_LIVE_SYNC, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -299,7 +301,7 @@ async function main() {
   html = html.replace(/<title>[^<]*<\/title>/i, '<title>AllianceOS — Operação em um só lugar</title>');
   html = html.replace('<head>', () => `<head>\n${socialHead}<script id="alliance-mobile-runtime-js">\n${mobileRuntimeJs}\n</script>\n`);
   html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-context-guide-style">\n${contextGuideCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<style id="alliance-mobile-runtime-css">\n${mobileRuntimeCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
-  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n</body>`);
+  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n<script id="alliance-home-live-sync">\n${homeLiveSync}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
