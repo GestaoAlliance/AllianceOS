@@ -14,6 +14,7 @@
     VERSIONS_KEY
   ]);
   const RLS_KEYS = new Set(['central.tasks.vitor-gutierrez','allianceos.tasks.vitor-gutierrez']);
+  const FORCE_REMOTE_KEYS = new Set(['central.tasks.vitor-gutierrez','central.campaigns.vitor-gutierrez']);
 
   function authToken(){
     try{
@@ -191,7 +192,7 @@
         const localRaw=localStorage.getItem(key);
         const currentVersion=versions[key]||'';
         const remoteVersion=String(meta?.atualizado_em||'');
-        if(localRaw!=null&&currentVersion&&currentVersion===remoteVersion){
+        if(localRaw!=null&&currentVersion&&currentVersion===remoteVersion&&!FORCE_REMOTE_KEYS.has(key)){
           base.set(key,parseValue(localRaw));
           continue;
         }
