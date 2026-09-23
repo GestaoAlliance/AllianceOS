@@ -618,7 +618,7 @@
     const descendantCount=Number(opts.descendantCount||0);
 
     const treeControl=hasChildren
-      ? `<button class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" type="button" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><span aria-hidden="true">${collapsed?'▸':'▾'}</span></button>`
+      ? `<button class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" type="button" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><span class="v4-tree-glyph" aria-hidden="true">${collapsed?'▶':'▼'}</span></button>`
       : '<span class="v4-tree-spacer" aria-hidden="true"></span>';
 
     const parentCount=hasChildren
