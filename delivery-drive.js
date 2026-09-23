@@ -553,9 +553,18 @@
     box.hidden=false;
     box.textContent=String(message||'Não foi possível acessar o Drive.');
   }
+  function recipientInitials(name){
+    const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+    return (((parts[0]||'')[0]||'')+((parts[1]||'')[0]||'')).toUpperCase()||'?';
+  }
+  function recipientAvatarInner(recipient){
+    const url=String(recipient&&recipient.photoUrl||'').trim();
+    if(url)return '<img src="'+esc(url)+'" alt="" referrerpolicy="no-referrer">';
+    return '<span>'+esc(recipientInitials(recipient&&recipient.name))+'</span>';
+  }
   function recipientList(ctx){
     const seen=new Set();
-    return (Array.isArray(ctx&&ctx.recipientOptions)?ctx.recipientOptions:[]).map(function(raw,index){
+    return (Array.isArray(ctx&&ctx.recipientOptions)?ctx.recipientOptions:[]).map(function(raw){
       const r=typeof raw==='string'?{name:raw}:Object.assign({},raw||{});
       const name=String(r.name||r.nome||r.email||'').trim();
       const id=String(r.id||r.userId||'').trim();
@@ -567,11 +576,26 @@
         key:key,
         id:id||null,
         name:name,
+        photoUrl:String(r.photoUrl||r.foto_url||r.avatar||''),
+        email:String(r.email||''),
         targetTaskId:r.targetTaskId?String(r.targetTaskId):'',
         targetTaskTitle:String(r.targetTaskTitle||''),
         source:String(r.source||'')
       };
     }).filter(Boolean);
+  }
+  function renderRecipientMenu(modal,state){
+    const menu=modal.querySelector('[data-drive-recipient-menu]');
+    if(!menu)return;
+    menu.innerHTML=state.recipients.length?state.recipients.map(function(r,index){
+      const meta=r.targetTaskTitle?'Próxima tarefa · '+r.targetTaskTitle:(r.email||r.source||'Equipe Alliance');
+      const selected=state.recipient&&state.recipient.key===r.key;
+      return '<button type="button" class="alliance-drive-recipient-option '+(selected?'selected':'')+'" data-drive-recipient-index="'+index+'">'+
+        '<span class="alliance-drive-option-avatar">'+recipientAvatarInner(r)+'</span>'+
+        '<span class="alliance-drive-option-copy"><b>'+esc(r.name)+'</b><small>'+esc(meta)+'</small></span>'+
+        '<i>'+ (selected?'✓':'') +'</i>'+
+      '</button>';
+    }).join(''):'<div class="alliance-drive-recipient-empty">Nenhuma pessoa disponível.</div>';
   }
   function updateConfirmState(modal,state){
     const folderOk=!!(state.destination&&state.destination.folderId);
@@ -580,27 +604,46 @@
   }
   function setRecipient(modal,state,recipient){
     state.recipient=recipient||null;
-    const select=modal.querySelector('[data-drive-recipient-select]');
+    const avatar=modal.querySelector('[data-drive-recipient-avatar]');
     const name=modal.querySelector('[data-drive-recipient-name]');
     const task=modal.querySelector('[data-drive-recipient-task]');
     const source=modal.querySelector('[data-drive-recipient-source]');
-    if(select)select.value=recipient&&recipient.key||'';
+    const toggleLabel=modal.querySelector('[data-drive-recipient-toggle-label]');
+    if(avatar){
+      avatar.innerHTML=recipient?recipientAvatarInner(recipient):'<span>?</span>';
+      avatar.classList.toggle('has-photo',!!recipient?.photoUrl);
+    }
     if(name)name.textContent=recipient&&recipient.name||'Escolher destinatário';
     if(task)task.textContent=recipient&&recipient.targetTaskTitle?'Próxima tarefa: '+recipient.targetTaskTitle:'Selecione quem deve receber o contexto desta entrega.';
     if(source)source.textContent=recipient&&recipient.source||'';
+    if(toggleLabel)toggleLabel.textContent=recipient?'Alterar pessoa':'Escolher pessoa';
+    renderRecipientMenu(modal,state);
     updateConfirmState(modal,state);
   }
   function setDestination(modal,state,destination){
     state.destination=destination;
-    modal.querySelector('[data-drive-path]').textContent=destination && destination.path || 'Escolher pasta';
-    modal.querySelector('[data-drive-source]').textContent=destination && destination.source || '';
+    modal.querySelector('[data-drive-path]').textContent=destination&&destination.path||'Escolher pasta';
+    modal.querySelector('[data-drive-source]').textContent=destination&&destination.source||'';
     updateConfirmState(modal,state);
   }
-  function confirm(ctx){
+  async function confirm(ctx){
+    const task=ctx.task||{};
+    const brand=String(task.brand||ctx.brand||'');
+    const initialSuggestion=suggest(ctx);
+    const campaign=initialSuggestion?.campaign||ctx.campaign||campaignForTask(task);
+    let suggestion=initialSuggestion;
+    let campaignResolutionError='';
+    if(campaign&&initialSuggestion&&!['Pasta usada anteriormente','Sugerido pela campanha'].includes(initialSuggestion.source)){
+      try{
+        suggestion=await resolveCampaignDestination(ctx,initialSuggestion);
+        if(!suggestion)campaignResolutionError='Não encontrei com segurança a pasta da campanha “'+String(campaign.name||'Campanha')+'” no Drive. Escolha a pasta correta em “Alterar pasta”.';
+      }catch(e){
+        suggestion=null;
+        campaignResolutionError='Não foi possível localizar automaticamente a pasta da campanha. Escolha o destino em “Alterar pasta”.';
+        console.warn('[Drive entregas] resolução da campanha',e);
+      }
+    }
     return new Promise(function(resolve){
-      const task=ctx.task||{};
-      const brand=String(task.brand||ctx.brand||'');
-      const suggestion=suggest(ctx);
       const modal=ensureModal();
       const recipients=recipientList(ctx);
       const suggestedRaw=ctx.suggestedRecipient||null;
@@ -608,23 +651,24 @@
       const suggestedRecipient=recipients.find(function(r){return r.key===suggestedKey||r.id===suggestedKey||r.name===suggestedKey})||recipients.find(function(r){return !!r.targetTaskId})||null;
       const state={brand:brand,ctx:ctx,destination:suggestion,currentFolder:null,currentTrail:[],recipients:recipients,recipient:suggestedRecipient,requireRecipient:ctx.requireRecipient===true};
       const recipientWrap=modal.querySelector('[data-drive-recipient]');
-      const recipientSelect=modal.querySelector('[data-drive-recipient-select]');
+      const recipientToggle=modal.querySelector('[data-drive-recipient-toggle]');
+      const recipientMenu=modal.querySelector('[data-drive-recipient-menu]');
       modal.querySelector('[data-drive-files]').innerHTML=fileSummary(ctx.files||[],ctx.links||[]);
       modal.querySelector('[data-drive-browser]').hidden=true;
       modal.querySelector('[data-drive-error]').hidden=true;
       modal.querySelector('[data-drive-remember]').checked=true;
       modal.querySelector('[data-drive-confirm]').textContent=ctx.confirmLabel||'Confirmar destino';
       if(recipientWrap)recipientWrap.hidden=!(state.requireRecipient||recipients.length);
-      if(recipientSelect){
-        recipientSelect.innerHTML=(state.requireRecipient?'<option value="">Escolher pessoa…</option>':'')+recipients.map(function(r){return '<option value="'+esc(r.key)+'">'+esc(r.name)+(r.targetTaskTitle?' · '+esc(r.targetTaskTitle):'')+'</option>'}).join('');
-      }
+      if(recipientMenu)recipientMenu.hidden=true;
       setRecipient(modal,state,suggestedRecipient);
       setDestination(modal,state,suggestion);
-      if(state.requireRecipient&&!recipients.length)showModalError(modal,'Nenhum usuário disponível para receber esta entrega. Cadastre ou ative um usuário da equipe para continuar.');
+      if(state.requireRecipient&&!recipients.length)showModalError(modal,'Nenhum usuário ativo disponível para receber esta entrega.');
+      else if(campaignResolutionError)showModalError(modal,campaignResolutionError);
       modal.classList.add('open');
 
       function done(result){
         modal.classList.remove('open');
+        if(recipientMenu)recipientMenu.hidden=true;
         cleanup();
         resolve(result);
       }
@@ -633,24 +677,36 @@
         modal.querySelector('[data-drive-change]').removeEventListener('click',onChange);
         modal.querySelector('[data-drive-select-current]').removeEventListener('click',onSelectCurrent);
         modal.querySelector('[data-drive-confirm]').removeEventListener('click',onConfirm);
-        recipientSelect&&recipientSelect.removeEventListener('change',onRecipientChange);
+        recipientToggle&&recipientToggle.removeEventListener('click',onRecipientToggle);
+        recipientMenu&&recipientMenu.removeEventListener('click',onRecipientPick);
       }
       function onCancel(){done({cancelled:true})}
-      function onRecipientChange(){
-        const picked=recipients.find(function(r){return r.key===recipientSelect.value})||null;
-        setRecipient(modal,state,picked?Object.assign({},picked,{source:'Escolhido por você'}):null);
+      function onRecipientToggle(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(recipientMenu)recipientMenu.hidden=!recipientMenu.hidden;
+      }
+      function onRecipientPick(e){
+        const option=e.target.closest&&e.target.closest('[data-drive-recipient-index]');
+        if(!option)return;
+        e.preventDefault();
+        const picked=recipients[Number(option.dataset.driveRecipientIndex)]||null;
+        setRecipient(modal,state,picked?Object.assign({},picked,{source:picked.targetTaskId?'Sugerido pela próxima tarefa':'Escolhido por você'}):null);
+        if(recipientMenu)recipientMenu.hidden=true;
       }
       function onChange(){
         const browser=modal.querySelector('[data-drive-browser]');
         browser.hidden=false;
-        const start=(state.destination&&state.destination.folderId) || (ROOTS[brand]&&ROOTS[brand].id) || '';
+        const start=(state.destination&&state.destination.folderId)||(ROOTS[brand]&&ROOTS[brand].id)||'';
         renderBrowser(modal,state,start).catch(function(e){showModalError(modal,e.message)});
       }
       function onSelectCurrent(){
         if(!state.currentFolder)return;
         const path=state.currentTrail.map(function(x){return x.nome}).join(' › ');
-        setDestination(modal,state,{folderId:state.currentFolder,path:path,source:'Escolhido por você',kind:suggestion&&suggestion.kind||detectKind(ctx),key:suggestion&&suggestion.key||learnedKey(task,campaignForTask(task),detectKind(ctx))});
+        const kind=initialSuggestion&&initialSuggestion.kind||detectKind(ctx);
+        setDestination(modal,state,{folderId:state.currentFolder,path:path,source:'Escolhido por você',kind:kind,key:initialSuggestion&&initialSuggestion.key||learnedKey(task,campaign,kind),campaign:campaign});
         modal.querySelector('[data-drive-browser]').hidden=true;
+        modal.querySelector('[data-drive-error]').hidden=true;
       }
       async function onConfirm(){
         const dest=state.destination;
@@ -658,20 +714,22 @@
         if(state.requireRecipient&&!state.recipient)return;
         const remember=modal.querySelector('[data-drive-remember]').checked;
         if(remember){
-          const key=dest.key || suggestion && suggestion.key || learnedKey(task,campaignForTask(task),dest.kind||detectKind(ctx));
-          await saveLearned({key:key,brand:brand,campaignId:task.campaignId||null,kind:dest.kind||suggestion&&suggestion.kind||detectKind(ctx),folderId:dest.folderId,path:dest.path,updatedAt:new Date().toISOString(),source:'manual'});
+          const kind=dest.kind||initialSuggestion&&initialSuggestion.kind||detectKind(ctx);
+          const key=dest.key||initialSuggestion&&initialSuggestion.key||learnedKey(task,campaign,kind);
+          await saveLearned({key:key,brand:brand,campaignId:campaign&&campaign.id||task.campaignId||null,kind:kind,folderId:dest.folderId,path:dest.path,updatedAt:new Date().toISOString(),source:'manual'});
         }
-        const recipient=state.recipient?{id:state.recipient.id||null,name:state.recipient.name,targetTaskId:state.recipient.targetTaskId||'',targetTaskTitle:state.recipient.targetTaskTitle||'',source:state.recipient.source||''}:null;
-        done({cancelled:false,recipient:recipient,destination:{folderId:dest.folderId,path:dest.path,source:dest.source||'Confirmado',kind:dest.kind||suggestion&&suggestion.kind||detectKind(ctx),folderLink:'https://drive.google.com/drive/folders/'+dest.folderId}});
+        const recipient=state.recipient?{id:state.recipient.id||null,name:state.recipient.name,photoUrl:state.recipient.photoUrl||'',targetTaskId:state.recipient.targetTaskId||'',targetTaskTitle:state.recipient.targetTaskTitle||'',source:state.recipient.source||''}:null;
+        const kind=dest.kind||initialSuggestion&&initialSuggestion.kind||detectKind(ctx);
+        done({cancelled:false,recipient:recipient,destination:{folderId:dest.folderId,path:dest.path,source:dest.source||'Confirmado',kind:kind,folderLink:'https://drive.google.com/drive/folders/'+dest.folderId}});
       }
       modal.querySelectorAll('[data-drive-cancel]').forEach(function(x){x.addEventListener('click',onCancel)});
       modal.querySelector('[data-drive-change]').addEventListener('click',onChange);
       modal.querySelector('[data-drive-select-current]').addEventListener('click',onSelectCurrent);
       modal.querySelector('[data-drive-confirm]').addEventListener('click',onConfirm);
-      recipientSelect&&recipientSelect.addEventListener('change',onRecipientChange);
+      recipientToggle&&recipientToggle.addEventListener('click',onRecipientToggle);
+      recipientMenu&&recipientMenu.addEventListener('click',onRecipientPick);
     });
   }
-
   async function sbConfig(){
     if(cfgCache)return cfgCache;
     const r=await fetch(SB_CONFIG_URL,{cache:'no-store'});
