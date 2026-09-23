@@ -618,7 +618,7 @@
     const descendantCount=Number(opts.descendantCount||0);
 
     const treeControl=hasChildren
-      ? `<button class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" type="button" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><span class="v4-tree-glyph" aria-hidden="true">${collapsed?'▶':'▼'}</span></button>`
+      ? `<span class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" role="button" tabindex="0" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><span class="v4-tree-glyph" aria-hidden="true">${collapsed?'▶':'▼'}</span></span>`
       : '<span class="v4-tree-spacer" aria-hidden="true"></span>';
 
     const parentCount=hasChildren
@@ -723,15 +723,21 @@
     </div>`;
     bindTaskElements();
 
-    canvas.querySelectorAll('[data-tree-toggle]').forEach(btn=>btn.addEventListener('click',e=>{
-      e.preventDefault();e.stopPropagation();
-      const id=String(btn.dataset.treeToggle||'');
-      if(!id)return;
-      if(v4CollapsedTaskIds.has(id))v4CollapsedTaskIds.delete(id);
-      else v4CollapsedTaskIds.add(id);
-      v4SaveTreeState();
-      renderTasks();
-    }));
+    canvas.querySelectorAll('[data-tree-toggle]').forEach(control=>{
+      const toggle=e=>{
+        e.preventDefault();e.stopPropagation();
+        const id=String(control.dataset.treeToggle||'');
+        if(!id)return;
+        if(v4CollapsedTaskIds.has(id))v4CollapsedTaskIds.delete(id);
+        else v4CollapsedTaskIds.add(id);
+        v4SaveTreeState();
+        renderTasks();
+      };
+      control.addEventListener('click',toggle);
+      control.addEventListener('keydown',e=>{
+        if(e.key==='Enter'||e.key===' '){toggle(e)}
+      });
+    });
   };
 
   function v11Priority(t,showLabel=true){
