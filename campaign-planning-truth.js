@@ -431,8 +431,16 @@ function bindDelegates(){
     if(tab.dataset.planTab==='campaigns'||label==='campanhas'){
       e.preventDefault();
       e.stopImmediatePropagation();
-      if(typeof window.__centralShowCampaigns==='function'){
+
+      /* A navegação unificada também é dona do estado visual dos quatro
+         botões. Ir direto para __centralShowCampaigns abria a tela correta,
+         mas deixava selecionada a aba anterior (ex.: Mês). */
+      if(typeof window.AllianceOSStrategy?.campanhas==='function'){
+        window.AllianceOSStrategy.campanhas();
+      }else if(typeof window.__centralShowCampaigns==='function'){
         window.__centralShowCampaigns();
+        document.querySelectorAll('#campaignsView .ref-strategy-tabs [data-strategy-tab]')
+          .forEach(b=>b.classList.toggle('active',b.dataset.strategyTab==='campaigns'));
       }else{
         document.getElementById('campaignsNav')?.click();
       }
