@@ -4271,7 +4271,7 @@
   outline-offset:1px!important;
 }
 
-#tasksCanvas .v4-tree-list .v4-tree-toggle .v4-tree-chevron{
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle > .v4-tree-chevron{
   position:relative!important;
   display:block!important;
   width:8px!important;
@@ -4289,7 +4289,7 @@
   transform:rotate(-45deg)!important;
   transition:transform .15s ease!important;
 }
-#tasksCanvas .v4-tree-list .v4-tree-toggle .v4-tree-chevron::before{
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle > .v4-tree-chevron::before{
   content:""!important;
   position:absolute!important;
   inset:0!important;
