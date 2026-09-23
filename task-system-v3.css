@@ -4087,3 +4087,123 @@
 #tasksCanvas .v4-tree-list .v4-tree-parent .cu-row-title{
   padding-left:0!important;
 }
+
+
+/* ===== Task List Tree V6 · seta discreta + equipe agregada ===== */
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .cu-row-title{
+  position:relative!important;
+  padding-left:0!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle{
+  position:relative!important;
+  left:auto!important;
+  top:auto!important;
+  transform:none!important;
+  z-index:auto!important;
+  box-sizing:border-box!important;
+  width:16px!important;
+  height:20px!important;
+  min-width:16px!important;
+  flex:0 0 16px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  margin:0 2px 0 0!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  color:#6f7980!important;
+  opacity:1!important;
+  visibility:visible!important;
+  overflow:visible!important;
+  font:700 11px/1 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  text-align:center!important;
+  cursor:pointer!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle::before,
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle::after{
+  display:none!important;
+  content:none!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:hover{
+  background:#eff2f3!important;
+  color:#263036!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:focus-visible{
+  outline:2px solid #c9d0d4!important;
+  outline-offset:1px!important;
+}
+
+/* Equipe resumida: mostra as pessoas das subtarefas na tarefa mãe recolhida. */
+#tasksCanvas .v4-owner{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  min-width:0!important;
+  overflow:visible!important;
+}
+#tasksCanvas .v4-owner>.avatar-stack{
+  flex:0 1 auto!important;
+  min-width:0!important;
+}
+#tasksCanvas .v4-child-assignees{
+  display:inline-flex!important;
+  align-items:center!important;
+  flex:0 0 auto!important;
+  min-width:0!important;
+  margin-left:1px!important;
+  padding-left:7px!important;
+  border-left:1px solid #e2e7e9!important;
+}
+#tasksCanvas .v4-child-avatar{
+  box-sizing:border-box!important;
+  width:22px!important;
+  height:22px!important;
+  min-width:22px!important;
+  max-width:22px!important;
+  flex:0 0 22px!important;
+  aspect-ratio:1/1!important;
+  margin-left:-6px!important;
+  padding:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border:2px solid #fff!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  background:#edf1f3!important;
+  color:#68737a!important;
+  font-size:7px!important;
+  font-weight:720!important;
+  line-height:1!important;
+}
+#tasksCanvas .v4-child-avatar:first-child{
+  margin-left:0!important;
+}
+#tasksCanvas .v4-child-avatar img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:100%!important;
+  min-height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  aspect-ratio:1/1!important;
+  border-radius:50%!important;
+  object-fit:cover!important;
+  object-position:center!important;
+}
+#tasksCanvas .v4-child-avatar-more{
+  background:#edf1f3!important;
+  color:#566269!important;
+  border-color:#fff!important;
+}
+
+/* Mantém a densidade fina sem sacrificar a leitura. */
+#tasksCanvas .v4-tree-list .v4-work-row{
+  min-height:40px!important;
+  height:40px!important;
+}
+#tasksCanvas .v4-tree-list .v4-work-row.v4-is-subtask{
+  min-height:38px!important;
+  height:38px!important;
+}
