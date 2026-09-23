@@ -26,6 +26,8 @@ const ONBOARDING_JS = path.join(__dirname, 'onboarding.js');
 const ONBOARDING_CSS = path.join(__dirname, 'onboarding.css');
 const CONTEXT_GUIDE_JS = path.join(__dirname, 'context-guide.js');
 const CONTEXT_GUIDE_CSS = path.join(__dirname, 'context-guide.css');
+const MOBILE_RUNTIME_JS = path.join(__dirname, 'mobile-runtime.js');
+const MOBILE_RUNTIME_CSS = path.join(__dirname, 'mobile-runtime.css');
 const SOCIAL_PREVIEW_IMAGE = path.join(__dirname, 'assets', 'allianceos-whatsapp-preview-v6.jpg');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
@@ -58,6 +60,8 @@ async function main() {
   const onboardingCss = fs.readFileSync(ONBOARDING_CSS, 'utf8');
   const contextGuideJs = fs.readFileSync(CONTEXT_GUIDE_JS, 'utf8');
   const contextGuideCss = fs.readFileSync(CONTEXT_GUIDE_CSS, 'utf8');
+  const mobileRuntimeJs = fs.readFileSync(MOBILE_RUNTIME_JS, 'utf8');
+  const mobileRuntimeCss = fs.readFileSync(MOBILE_RUNTIME_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -293,7 +297,7 @@ async function main() {
   const socialHead = "<meta name=\"description\" content=\"Campanhas, tarefas, entregas e gestão das marcas da Alliance em um só lugar.\">\n<meta property=\"og:type\" content=\"website\">\n<meta property=\"og:site_name\" content=\"AllianceOS\">\n<meta property=\"og:title\" content=\"AllianceOS — Operação em um só lugar\">\n<meta property=\"og:description\" content=\"Campanhas, tarefas, entregas e gestão das marcas da Alliance em um só lugar.\">\n<meta property=\"og:url\" content=\"https://alliance-os-sooty.vercel.app/\">\n<meta property=\"og:image\" content=\"https://alliance-os-sooty.vercel.app/allianceos-whatsapp-preview-v6.jpg?v=20260922-6\">\n<meta property=\"og:image:secure_url\" content=\"https://alliance-os-sooty.vercel.app/allianceos-whatsapp-preview-v6.jpg?v=20260922-6\">\n<meta property=\"og:image:type\" content=\"image/jpeg\">\n<meta property=\"og:image:width\" content=\"1200\">\n<meta property=\"og:image:height\" content=\"630\">\n<meta property=\"og:image:alt\" content=\"AllianceOS — Operação em um só lugar\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n<meta name=\"twitter:title\" content=\"AllianceOS — Operação em um só lugar\">\n<meta name=\"twitter:description\" content=\"Campanhas, tarefas, entregas e gestão das marcas da Alliance em um só lugar.\">\n<meta name=\"twitter:image\" content=\"https://alliance-os-sooty.vercel.app/allianceos-whatsapp-preview-v6.jpg?v=20260922-6\">\n";
   const brandHead = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/api/brand-icon?format=svg&v=20260922-4\">\n<link rel=\"icon\" type=\"image/png\" sizes=\"512x512\" href=\"/api/brand-icon?v=20260922-4\">\n<link rel=\"shortcut icon\" href=\"/api/brand-icon?format=svg&v=20260922-4\">\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon-allianceos-180.png\">\n<link rel=\"apple-touch-icon-precomposed\" sizes=\"180x180\" href=\"/apple-touch-icon-allianceos-180.png\">\n<link rel=\"manifest\" href=\"/manifest.webmanifest?v=20260922-4\">\n<meta name=\"application-name\" content=\"AllianceOS\">\n<meta name=\"apple-mobile-web-app-title\" content=\"AllianceOS\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n<meta name=\"theme-color\" content=\"#0b1014\">\n<meta name=\"msapplication-TileColor\" content=\"#0b1014\">\n<meta name=\"msapplication-TileImage\" content=\"/api/brand-icon?v=20260922-4\">\n";
   html = html.replace(/<title>[^<]*<\/title>/i, '<title>AllianceOS — Operação em um só lugar</title>');
-  html = html.replace('<head>', () => `<head>\n${socialHead}`);
+  html = html.replace('<head>', () => `<head>\n${socialHead}<style id="alliance-mobile-runtime-css">\n${mobileRuntimeCss}\n</style>\n<script id="alliance-mobile-runtime-js">\n${mobileRuntimeJs}\n</script>\n`);
   html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-context-guide-style">\n${contextGuideCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
   html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n</body>`);
 
