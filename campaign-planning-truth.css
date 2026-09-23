@@ -289,3 +289,131 @@
     font-size:12px;
   }
 }
+
+
+/* AllianceOS campaign workspace V3 */
+.cw-delete-btn{
+  height:34px;
+  padding:0 13px;
+  border:1px solid #e1e4e6;
+  border-radius:10px;
+  background:#fff;
+  color:#a13d3d;
+  font:650 9px/1 Inter,system-ui,sans-serif;
+  cursor:pointer;
+}
+.cw-delete-btn:hover{
+  border-color:#e7c2c2;
+  background:#fff5f5;
+  color:#8d2525;
+}
+.alliance-summary-note{
+  margin-top:14px;
+  padding:12px 14px;
+  border:1px solid #e8ebed;
+  border-radius:11px;
+  background:#f8f9f9;
+}
+.alliance-summary-note b{
+  display:block;
+  margin-bottom:5px;
+  color:#33393d;
+  font-size:9px;
+}
+.alliance-summary-note p{
+  margin:0;
+  color:#687077;
+  font-size:9.5px;
+  line-height:1.55;
+  white-space:pre-line;
+}
+.alliance-offer-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.5fr) minmax(120px,.5fr);
+  gap:10px;
+}
+.alliance-offer-grid>div{
+  padding:12px;
+  border-radius:11px;
+  background:#f5f6f7;
+}
+.alliance-offer-grid small{
+  display:block;
+  margin-bottom:5px;
+  color:#91999f;
+  font-size:8px;
+}
+.alliance-offer-grid b{
+  color:#23292d;
+  font-size:10.5px;
+  line-height:1.4;
+}
+.alliance-offer-lines{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+.alliance-offer-lines span{
+  padding:6px 8px;
+  border-radius:8px;
+  background:#f0f2f3;
+  color:#5c646a;
+  font-size:8.5px;
+}
+.alliance-cron-list{
+  display:flex;
+  flex-direction:column;
+}
+.alliance-cron-row{
+  display:grid;
+  grid-template-columns:100px 110px minmax(0,1fr) 130px;
+  gap:10px;
+  align-items:start;
+  padding:9px 0;
+  border-bottom:1px solid #edf0f1;
+}
+.alliance-cron-row:last-child{border-bottom:0}
+.alliance-cron-row span,
+.alliance-cron-row em{
+  color:#8c949a;
+  font-size:8.5px;
+  font-style:normal;
+}
+.alliance-cron-row b{
+  color:#30363a;
+  font-size:9px;
+}
+.alliance-cron-row p{
+  margin:0;
+  color:#555e64;
+  font-size:9px;
+  line-height:1.4;
+}
+.alliance-task-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+}
+.alliance-task-stats>div{
+  padding:12px 8px;
+  border-radius:11px;
+  background:#f5f6f7;
+  text-align:center;
+}
+.alliance-task-stats b{
+  display:block;
+  color:#171b1e;
+  font-size:18px;
+  line-height:1;
+}
+.alliance-task-stats span{
+  display:block;
+  margin-top:5px;
+  color:#899197;
+  font-size:7.5px;
+}
+@media(max-width:900px){
+  .alliance-offer-grid{grid-template-columns:1fr}
+  .alliance-cron-row{grid-template-columns:1fr 1fr}
+}
