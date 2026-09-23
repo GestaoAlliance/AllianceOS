@@ -35,6 +35,7 @@
   function close(){
     if(view)view.hidden=true;
     navBtn?.classList.remove('active');
+    restoreOthers();
   }
   function hideOthers(){
     baseViews().forEach(v=>v.style.setProperty('display','none','important'));
@@ -83,11 +84,11 @@
   function renderShell(){
     const b=brand();
     view.innerHTML='<div class="tcl-head">'+
-      '<div><div class="tcl-eyebrow">Tráfego · '+esc(b.name)+'</div><h1>Laboratório de criativos</h1><p>Teste, compare e escale criativos ligados ao Meta Ads e às campanhas do AllianceOS.</p></div>'+
+      '<div><div class="tcl-eyebrow">SETOR · '+esc(b.name)+'</div><h1>Tráfego</h1><p>Operação de mídia, biblioteca de criativos, testes e performance em um só lugar.</p></div>'+
       '<div class="tcl-head-actions"><label>Janela <select id="tclDays"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label><button class="tcl-primary" data-new-test>'+TEST+' Novo teste</button></div>'+
     '</div>'+
     '<div class="tcl-tabs">'+
-      [['overview','Visão geral'],['creatives','Criativos'],['tests','Testes'],['top','Melhores ADS'],['candidates','C1 / C2']]
+      [['overview','Visão geral'],['creatives','Biblioteca'],['tests','Testes'],['top','Performance'],['candidates','C1 / C2']]
       .map(([k,l])=>'<button data-tab="'+k+'" class="'+(state.tab===k?'active':'')+'">'+esc(l)+'</button>').join('')+
     '</div><div id="tclBody"></div>';
 
@@ -281,5 +282,5 @@
   }
   const obs=new MutationObserver(()=>{setup()});obs.observe(document.documentElement,{childList:true,subtree:true});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
-  window.AllianceOSTrafficLab={open,refresh:load};
+  window.AllianceOSTrafficLab={open,close,refresh:load};
 })();

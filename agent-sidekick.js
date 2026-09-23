@@ -79,7 +79,11 @@
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||('HTTP '+response.status));
-    return Array.isArray(data.results)?data.results:[];
+    return {
+      results:Array.isArray(data.results)?data.results:[],
+      answer:String(data.answer||'').trim(),
+      liveSummary:data.live_summary||null
+    };
   }
   async function submitPrompt(){
     const q=input?input.value.trim():'';
@@ -90,18 +94,19 @@
     resize();
     render();
     try{
-      const results=await semanticSearch(q);
+      const response=await semanticSearch(q);
+      const results=response.results||[];
       state.messages=state.messages.filter((x)=>x.role!=='loading');
       const b=currentBrand();
       const where=b.name==='Todas as marcas'?'AllianceOS':b.name;
       state.messages.push({
         role:'assistant',
-        text:results.length?'Encontrei '+results.length+' registros relevantes em '+where+'.':'Não encontrei registros suficientemente próximos em '+where+'.',
+        text:response.answer||(results.length?'Encontrei '+results.length+' registros relevantes em '+where+'.':'Não encontrei registros suficientemente próximos em '+where+'.'),
         results:results
       });
     }catch(err){
       state.messages=state.messages.filter((x)=>x.role!=='loading');
-      state.messages.push({role:'assistant',text:'Não consegui consultar a memória agora. '+String(err&&err.message?err.message:err),results:[]});
+      state.messages.push({role:'assistant',text:'Não consegui consultar os dados do AllianceOS agora. '+String(err&&err.message?err.message:err),results:[]});
     }
     state.busy=false;
     persist();
