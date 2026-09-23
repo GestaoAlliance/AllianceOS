@@ -4039,3 +4039,51 @@
 #tasksCanvas .v4-tree-list .v4-work-row.v4-has-children .v4-tree-toggle:focus-visible .v4-tree-glyph{
   color:#11181c!important;
 }
+
+
+/* ===== Task List Tree V7 · controle textual direto ===== */
+#tasksCanvas .v4-tree-list .v4-tree-parent .v4-tree-toggle{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
+  box-sizing:border-box!important;
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  max-width:20px!important;
+  min-height:20px!important;
+  max-height:20px!important;
+  flex:0 0 20px!important;
+  margin:0 4px 0 0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:4px!important;
+  background:transparent!important;
+  color:#3e474d!important;
+  opacity:1!important;
+  visibility:visible!important;
+  overflow:visible!important;
+  font-family:Arial,"Helvetica Neue",sans-serif!important;
+  font-size:13px!important;
+  font-weight:800!important;
+  line-height:20px!important;
+  text-align:center!important;
+  text-indent:0!important;
+  letter-spacing:0!important;
+  cursor:pointer!important;
+}
+#tasksCanvas .v4-tree-list .v4-tree-parent .v4-tree-toggle::before,
+#tasksCanvas .v4-tree-list .v4-tree-parent .v4-tree-toggle::after{
+  content:none!important;
+  display:none!important;
+}
+#tasksCanvas .v4-tree-list .v4-tree-parent .v4-tree-toggle:hover{
+  background:#edf1f2!important;
+  color:#12181c!important;
+}
+#tasksCanvas .v4-tree-list .v4-tree-parent .cu-row-title{
+  padding-left:0!important;
+}

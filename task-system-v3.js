@@ -612,13 +612,14 @@
   renderListRow = function(t,opts={}){
     const blockers=v3Blockers(t),due=v4Due(t),description=v4TaskPreview(t),parent=v3Parent(t);
     const depth=Math.max(0,Number(opts.depth||0));
-    const hasChildren=!!opts.hasChildren;
-    const collapsed=!!opts.collapsed;
+    const actualChildren=v3Children(t).filter(x=>!x.archivedAt);
+    const hasChildren=actualChildren.length>0;
+    const collapsed=hasChildren&&v4CollapsedTaskIds.has(String(t.id));
     const contextOnly=!!opts.contextOnly;
-    const descendantCount=Number(opts.descendantCount||0);
+    const descendantCount=hasChildren?v4DescendantCount(t):0;
 
     const treeControl=hasChildren
-      ? `<span class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" role="button" tabindex="0" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}"><span class="v4-tree-glyph" aria-hidden="true">${collapsed?'▶':'▼'}</span></span>`
+      ? `<span class="v4-tree-toggle ${collapsed?'is-collapsed':'is-open'}" role="button" tabindex="0" data-tree-toggle="${esc(t.id)}" aria-expanded="${collapsed?'false':'true'}" aria-label="${collapsed?'Abrir subtarefas':'Fechar subtarefas'}" title="${collapsed?'Mostrar subtarefas':'Ocultar subtarefas'}">${collapsed?'▶':'▼'}</span>`
       : '<span class="v4-tree-spacer" aria-hidden="true"></span>';
 
     const parentCount=hasChildren
@@ -629,7 +630,7 @@
       ? '<span class="v4-child-label">Subtarefa</span>'
       : '';
 
-    return `<div class="cu-row v4-work-row ${depth>0?'v4-is-subtask ':''}${hasChildren?'v4-has-children ':''}${contextOnly?'v4-context-parent ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}" data-tree-depth="${depth}" style="--tree-depth:${depth}">
+    return `<div class="cu-row v4-work-row ${depth>0?'v4-is-subtask ':''}${hasChildren?'v4-has-children v4-tree-parent ':''}${contextOnly?'v4-context-parent ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}" data-tree-depth="${depth}" data-child-count="${actualChildren.length}" style="--tree-depth:${depth}">
       <div class="cu-row-title">
         <span class="v4-tree-indent" aria-hidden="true"></span>
         ${treeControl}
