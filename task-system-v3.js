@@ -8,6 +8,40 @@
   let v3PeopleCampaignOrder = 'person-campaign';
   window.AllianceOSDirectory=window.AllianceOSDirectory||{members:[],lists:[],brands:[]};
 
+  // alliance-task-done-check-v1 — check de concluído em SVG, centralizado e com traço consistente.
+  {
+    const styleId='alliance-task-done-check-v1';
+    if(!document.getElementById(styleId)){
+      const style=document.createElement('style');
+      style.id=styleId;
+      style.textContent=`
+        #tasksCanvas .cu-complete{
+          padding:0!important;
+          display:inline-flex!important;
+          align-items:center!important;
+          justify-content:center!important;
+          line-height:1!important;
+          font-size:0!important;
+        }
+        #tasksCanvas .cu-complete.done .v4-complete-check{
+          width:58%!important;
+          height:58%!important;
+          display:block!important;
+          overflow:visible!important;
+          fill:none!important;
+          stroke:#fff!important;
+          stroke-width:2.8!important;
+          stroke-linecap:round!important;
+          stroke-linejoin:round!important;
+          vector-effect:non-scaling-stroke;
+          transform:none!important;
+          margin:0!important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
   // AllianceOS V2: status operacionais, horário, recorrência e arquivamento.
   if(Array.isArray(TASK_STATUSES)){
     TASK_STATUSES.splice(0,TASK_STATUSES.length,'a fazer','fazendo','em revisão','bloqueado','feito');
@@ -665,7 +699,7 @@
       <div class="cu-row-title">
         <span class="v4-tree-indent" aria-hidden="true"></span>
         ${treeControl}
-        <button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'✓':''}</button>
+        <button class="cu-complete ${t.status==='feito'?'done':''}" type="button" data-v3-toggle-done="${esc(t.id)}" title="${t.status==='feito'?'Reabrir tarefa':blockers.length?'Conclua as dependências primeiro':'Concluir tarefa'}">${t.status==='feito'?'<svg class="v4-complete-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.4 9.6 16.5 18.7 7.5"/></svg>':''}</button>
         <div class="cu-titletext">
           <div class="task-title-line">
             ${childLabel}
@@ -1078,7 +1112,7 @@
 
   function v3FlowTaskRow(x,relation){
     const blocked=v3Blockers(x).length;
-    return `<div class="v3-flow-task" data-flow-open="${esc(x.id)}"><button type="button" class="v3-flow-status ${x.status==='feito'?'done':''}" aria-label="Abrir tarefa">${x.status==='feito'?'✓':'↗'}</button><div><b>${esc(x.title)}</b><small>${esc(v3Short(x.assignees[0]||'Sem responsável'))} · ${dateBr(x.due)} · ${esc(x.status)}</small></div>${relation==='before'?`<button type="button" class="v3-unlink" data-unlink-dep="${esc(x.id)}" title="Desvincular">×</button>`:blocked?'<span class="v3-mini-badge">bloqueada</span>':''}</div>`;
+    return `<div class="v3-flow-task" data-flow-open="${esc(x.id)}"><button type="button" class="v3-flow-status ${x.status==='feito'?'done':''}" aria-label="Abrir tarefa">${x.status==='feito'?'<svg class="v4-complete-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 12.4 9.6 16.5 18.7 7.5"/></svg>':'↗'}</button><div><b>${esc(x.title)}</b><small>${esc(v3Short(x.assignees[0]||'Sem responsável'))} · ${dateBr(x.due)} · ${esc(x.status)}</small></div>${relation==='before'?`<button type="button" class="v3-unlink" data-unlink-dep="${esc(x.id)}" title="Desvincular">×</button>`:blocked?'<span class="v3-mini-badge">bloqueada</span>':''}</div>`;
   }
 
   function v3DependencyCandidates(t){
