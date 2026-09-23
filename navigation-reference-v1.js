@@ -595,15 +595,50 @@
 
     function openCampaignDirectory(){
       syncTaskCampaignIds();
-      window.__centralShowCampaigns?.();
+
+      // Prefer the app's public navigation hook. Some builds do not expose it,
+      // so always keep the original Campaigns nav and a direct view switch as
+      // fallbacks. Without this, only the tab's visual state changes and the
+      // Planning month pane remains on screen.
+      if(typeof window.__centralShowCampaigns==='function'){
+        window.__centralShowCampaigns();
+      }else if(targets.campaigns){
+        targets.campaigns.click();
+      }else{
+        const home=document.getElementById('homeView');
+        const tasks=document.getElementById('tasksView');
+        const planning=document.getElementById('planningView');
+        const campaignsView=document.getElementById('campaignsView');
+        const deliveries=document.getElementById('deliveriesView');
+        if(home)home.style.display='none';
+        tasks?.classList.remove('active');
+        planning?.classList.remove('active');
+        deliveries?.classList.remove('active');
+        campaignsView?.classList.add('active');
+      }
+
       setActive('campaigns');
       setTimeout(()=>{
+        const campaignsView=document.getElementById('campaignsView');
+        const planning=document.getElementById('planningView');
+
+        // Safety: ensure the directory is the visible strategy surface.
+        planning?.classList.remove('active');
+        campaignsView?.classList.add('active');
+
         const overview=document.querySelector('#campaignsView [data-camp-view="overview"]');
         if(overview) overview.click();
+
         document.getElementById('campaignOverviewList')?.classList.remove('hidden');
         document.getElementById('campaignWorkspace')?.classList.remove('active');
+
+        // Re-render after becoming visible; renderCampaigns intentionally exits
+        // while #campaignsView is not active.
+        try{ window.__centralRenderCampaigns?.(); }catch{}
+        document.getElementById('campaignSearch')?.dispatchEvent(new Event('input',{bubbles:true}));
+
         installUnifiedStrategyNav('campaigns');
-      },45);
+      },70);
     }
 
     /* Unified strategy navigation
