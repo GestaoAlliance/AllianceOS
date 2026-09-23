@@ -69,95 +69,229 @@
 /* AllianceOS campaign split columns */
 #campaignList{
   display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-  gap:14px;
+  grid-template-columns:minmax(640px,1fr) minmax(640px,1fr);
+  gap:18px;
   align-items:start;
-  padding:14px;
+  padding:16px;
   background:#f7f8f9;
+  overflow-x:auto;
+  overflow-y:visible;
 }
-#campaignList>.camp-list-head{display:none!important}
+
+#campaignList>.camp-list-head{
+  display:none!important;
+}
+
 #campaignList>.alliance-campaign-group{
-  min-width:0;
+  min-width:640px;
+  min-height:100%;
   border:1px solid #e4e8ea;
-  border-radius:15px;
+  border-radius:18px;
   overflow:hidden;
   background:#fff;
   box-shadow:0 1px 2px rgba(20,25,29,.025);
 }
+
 #campaignList .alliance-campaign-group-head{
-  min-height:62px;
-  padding:0 16px;
+  min-height:72px;
+  padding:0 20px;
   background:#fff;
 }
+
 #campaignList .alliance-campaign-group-head>div{
   min-width:0;
+  display:flex;
   flex-direction:column;
   align-items:flex-start;
-  gap:3px;
+  gap:4px;
 }
+
 #campaignList .alliance-campaign-group-head strong{
-  font-size:13px;
-  letter-spacing:-.015em;
+  font-size:17px;
+  line-height:1.1;
+  letter-spacing:-.02em;
 }
+
 #campaignList .alliance-campaign-group-head span{
   max-width:100%;
-  font-size:9px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  font-size:12px;
+  line-height:1.35;
+  color:#8c959c;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:unset;
 }
+
+#campaignList .alliance-campaign-group-head em{
+  min-width:38px;
+  height:38px;
+  padding:0 10px;
+  font-size:13px;
+}
+
 #campaignList .alliance-campaign-group .camp-row{
-  min-height:96px;
-  padding:12px 14px;
+  min-height:132px;
+  padding:18px 20px;
   display:grid;
-  grid-template-columns:minmax(0,1fr) auto auto auto;
+  grid-template-columns:minmax(0,1fr) minmax(150px,auto) auto;
   grid-template-areas:
-    "name name status more"
-    "period owner meta budget"
-    "progress progress progress progress";
-  gap:8px 12px;
+    "name status more"
+    "period owner owner"
+    "meta budget budget"
+    "progress progress progress";
+  gap:10px 18px;
   align-items:center;
 }
-#campaignList .alliance-campaign-group .camp-name{grid-area:name;min-width:0}
-#campaignList .alliance-campaign-group .camp-chip{grid-area:status;justify-self:end}
-#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(2){grid-area:period}
-#campaignList .alliance-campaign-group .camp-owner{grid-area:owner}
-#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(4){grid-area:meta}
-#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(5){grid-area:budget}
+
+#campaignList .alliance-campaign-group .camp-name{
+  grid-area:name;
+  min-width:0;
+  align-items:flex-start;
+}
+
+#campaignList .alliance-campaign-group .camp-chip{
+  grid-area:status;
+  justify-self:start;
+  font-size:11px;
+  padding:7px 12px;
+  border-radius:999px;
+}
+
+#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(2){
+  grid-area:period;
+}
+
+#campaignList .alliance-campaign-group .camp-owner{
+  grid-area:owner;
+  justify-self:start;
+}
+
+#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(4){
+  grid-area:meta;
+}
+
+#campaignList .alliance-campaign-group .camp-row>div:nth-of-type(5){
+  grid-area:budget;
+}
+
 #campaignList .alliance-campaign-group .camp-progress{
   grid-area:progress;
   width:100%;
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
-  gap:8px;
+  gap:10px;
+  align-items:center;
 }
-#campaignList .alliance-campaign-group .camp-progress-line{width:100%}
+
+#campaignList .alliance-campaign-group .camp-progress-line{
+  width:100%;
+  height:8px;
+}
+
 #campaignList .alliance-campaign-group .camp-more{
   grid-area:more;
   justify-self:end;
+  font-size:22px;
 }
-#campaignList .alliance-campaign-group .camp-name-text b{font-size:10.5px}
-#campaignList .alliance-campaign-group .camp-name-text small{font-size:7.5px}
-#campaignList .alliance-campaign-group .camp-color{height:38px}
-#campaignList .alliance-campaign-group .camp-meta-val{font-size:8.5px}
-#campaignList .alliance-campaign-group .camp-meta-sub{font-size:6.8px}
-#campaignList .alliance-campaign-group .camp-owner{font-size:7.5px}
-#campaignList .alliance-campaign-group .camp-owner .miniav{width:20px;height:20px}
 
-@media(max-width:1180px){
-  #campaignList{grid-template-columns:1fr}
+#campaignList .alliance-campaign-group .camp-name-text b{
+  font-size:16px;
+  line-height:1.2;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:unset;
 }
-@media(max-width:700px){
-  #campaignList{padding:10px;gap:10px}
+
+#campaignList .alliance-campaign-group .camp-name-text small{
+  display:block;
+  margin-top:4px;
+  font-size:11px;
+  line-height:1.4;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:unset;
+}
+
+#campaignList .alliance-campaign-group .camp-color{
+  width:5px;
+  height:56px;
+}
+
+#campaignList .alliance-campaign-group .camp-meta-val{
+  font-size:14px;
+  line-height:1.2;
+  white-space:nowrap;
+}
+
+#campaignList .alliance-campaign-group .camp-meta-sub{
+  margin-top:4px;
+  font-size:10px;
+}
+
+#campaignList .alliance-campaign-group .camp-owner{
+  font-size:12px;
+  gap:8px;
+}
+
+#campaignList .alliance-campaign-group .camp-owner .miniav{
+  width:28px;
+  height:28px;
+  min-width:28px;
+  min-height:28px;
+  font-size:9px;
+}
+
+#campaignList .alliance-campaign-group .camp-progress span{
+  font-size:11px;
+}
+
+@media(max-width:1480px){
+  #campaignList{
+    grid-template-columns:1fr;
+    overflow-x:visible;
+  }
+
+  #campaignList>.alliance-campaign-group{
+    min-width:0;
+  }
+}
+
+@media(max-width:760px){
+  #campaignList{
+    padding:10px;
+    gap:10px;
+  }
+
   #campaignList .alliance-campaign-group .camp-row{
     grid-template-columns:minmax(0,1fr) auto;
     grid-template-areas:
       "name more"
       "status status"
-      "period meta"
-      "owner budget"
+      "period owner"
+      "meta budget"
       "progress progress";
+    min-height:auto;
+    padding:14px;
     gap:8px 10px;
   }
-  #campaignList .alliance-campaign-group .camp-chip{justify-self:start}
+
+  #campaignList .alliance-campaign-group .camp-chip{
+    justify-self:start;
+  }
+
+  #campaignList .alliance-campaign-group-head strong{
+    font-size:15px;
+  }
+
+  #campaignList .alliance-campaign-group .camp-name-text b{
+    font-size:14px;
+  }
+
+  #campaignList .alliance-campaign-group .camp-name-text small{
+    font-size:10px;
+  }
+
+  #campaignList .alliance-campaign-group .camp-meta-val{
+    font-size:12px;
+  }
 }
