@@ -6,6 +6,16 @@ const CAMPAIGN_KEY='central.campaigns.vitor-gutierrez';
 const DAY=86400000;
 let lastSig='';
 
+/* Evita a linha dupla no card de atenção:
+   o contorno do card já fecha a seção; a divisória fica só quando há conteúdo. */
+const installHomeLineFix=()=>{
+  if(document.getElementById('alliance-home-line-fix'))return;
+  const style=document.createElement('style');
+  style.id='alliance-home-line-fix';
+  style.textContent='[data-module="attention"] .cardhead{border-bottom:0!important}[data-module="attention"] #homeAtencao:not(:empty){border-top:1px solid var(--line)!important}';
+  document.head.appendChild(style);
+};
+
 const esc=v=>String(v??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 const read=key=>{try{const v=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
@@ -233,6 +243,8 @@ function render(){
   timeline(d.campaigns,d.tasks);
   lastSig=[d.brand,d.tasks.length,d.campaigns.length,localStorage.getItem(TASK_KEY)?.length||0,localStorage.getItem(CAMPAIGN_KEY)?.length||0].join('|');
 }
+
+installHomeLineFix();
 
 function whenReady(){
   let tries=0;
