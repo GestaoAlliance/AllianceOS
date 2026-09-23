@@ -200,12 +200,12 @@
 
   function catIcon(cat){
     if(/google/i.test(cat))return 'user';
-    if(/site|infra/i.test(cat))return 'folder';
+    if(/site|infra|servidor|dom[ií]nio|p[aá]gina/i.test(cat))return 'folder';
     if(/crm|comunica/i.test(cat))return 'key';
-    if(/automa|dados/i.test(cat))return 'shield';
-    if(/pagamento/i.test(cat))return 'card';
-    if(/^IA$/i.test(cat))return 'shield';
-    if(/anúncio|tracking/i.test(cat))return 'search';
+    if(/automa|dados|banco/i.test(cat))return 'shield';
+    if(/pagamento|dashboard/i.test(cat))return 'card';
+    if(/\bia\b|intelig/i.test(cat))return 'shield';
+    if(/an[uú]ncio|tracking/i.test(cat))return 'search';
     if(/credenciais/i.test(cat))return 'lock';
     return 'key';
   }
@@ -249,7 +249,7 @@
     root.innerHTML=
       '<div class="ac-shell">'+
         '<header class="ac-head">'+
-          '<div class="ac-head-copy"><span class="ac-kicker">SEGURANÇA & OPERAÇÃO</span><h1>Central de Acessos</h1><p>Contas, credenciais e renovações de <strong>'+esc(state.brandName)+'</strong>, organizadas como na planilha operacional.</p><span class="ac-source-pill">▦ Central de Acessos: Botanika.xlsx</span></div>'+
+          '<div class="ac-head-copy"><span class="ac-kicker">SEGURANÇA & OPERAÇÃO</span><h1>Central de Acessos</h1><p>Contas, credenciais e renovações de <strong>'+esc(state.brandName)+'</strong>, organizadas como na planilha operacional.</p><span class="ac-source-pill">▦ '+esc(state.brandName==='Botanika'?'Central de Acessos: Botanika.xlsx':'Base de acessos · '+state.brandName)+'</span></div>'+
           '<div class="ac-head-actions"><span class="ac-security-pill">'+icon('shield')+'Vault ativo</span>'+(canCreate?'<button type="button" class="ac-primary" data-ac-new>'+icon('plus')+'Novo acesso</button>':'')+'</div>'+
         '</header>'+
         '<section class="ac-summary">'+
