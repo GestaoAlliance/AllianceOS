@@ -305,7 +305,7 @@
 
   // Antes eram 7+ MB a cada 20 s. Agora o intervalo consulta somente
   // metadados (chave + versão) e baixa uma chave apenas quando ela mudou.
-  setInterval(checkRemote, 120000);
+  setInterval(checkRemote, 15000);
   addEventListener('focus', checkRemote);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRemote(); });
 })();

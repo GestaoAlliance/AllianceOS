@@ -140,11 +140,15 @@ const sameCollection=(a,b)=>{
   }
   return true;
 };
+const sameCampaignCollection=(a,b)=>{
+  if(!Array.isArray(a)||!Array.isArray(b))return false;
+  try{return JSON.stringify(a)===JSON.stringify(b)}catch{return false}
+};
 
 function syncLegacyMemory(){
   const canonicalCampaigns=read(CAMP_KEY);
   const liveCampaigns=window.__centralGetCampaigns?.();
-  if(Array.isArray(liveCampaigns)&&!sameCollection(liveCampaigns,canonicalCampaigns)){
+  if(Array.isArray(liveCampaigns)&&!sameCampaignCollection(liveCampaigns,canonicalCampaigns)){
     liveCampaigns.length=0;
     liveCampaigns.push(...canonicalCampaigns);
   }
@@ -456,6 +460,170 @@ function bindDelegates(){
   },true);
 }
 
+/* AllianceOS campaign immutable history V1 */
+const CAMPAIGN_HISTORY_ENDPOINT='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/campaign-history';
+const campaignHistoryCache=new Map();
+const monthOriginalCache=new Map();
+function allianceAuthToken(){
+  try{
+    const raw=localStorage.getItem('sb-lpnyrzsdiyzjnhovpduk-auth-token');
+    if(!raw)return'';
+    const parsed=JSON.parse(raw);
+    return parsed?.access_token||parsed?.currentSession?.access_token||'';
+  }catch{return''}
+}
+async function historyRequest(params){
+  try{if(window.AllianceOSAuth?.ready)await window.AllianceOSAuth.ready}catch{}
+  const token=allianceAuthToken();
+  if(!token)throw new Error('Sessão não encontrada.');
+  const qs=new URLSearchParams(params);
+  const res=await fetch(CAMPAIGN_HISTORY_ENDPOINT+'?'+qs.toString(),{
+    cache:'no-store',
+    headers:{Authorization:'Bearer '+token}
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data?.error)throw new Error(data?.error||('Erro '+res.status));
+  return data;
+}
+function activeWorkspaceCampaign(){
+  const ws=document.querySelector('#campaignWorkspace.active');
+  if(!ws)return null;
+  const rows=read(CAMP_KEY);
+  const saved=String(ws.dataset.campaignId||'');
+  if(saved){
+    const found=rows.find(c=>String(c?.id||'')===saved);
+    if(found)return found;
+  }
+  const title=String(ws.querySelector('.cw-title h2')?.textContent||'').trim();
+  const brandText=String(ws.querySelector('.cw-title small')?.textContent||'').split('·')[0].trim();
+  const matches=rows.filter(c=>String(c?.name||'').trim()===title&&(!brandText||norm(c?.brand)===norm(brandText)));
+  const found=matches[0]||rows.find(c=>String(c?.name||'').trim()===title)||null;
+  if(found)ws.dataset.campaignId=String(found.id);
+  return found;
+}
+const historyFieldLabels={
+  name:'Nome',brand:'Marca',type:'Tipo',start:'Início',startAt:'Início',
+  end:'Fim',endAt:'Fim',goal:'Meta',budget:'Verba',status:'Status',
+  owner:'Responsável',offer:'Oferta',objective:'Objetivo',channels:'Canais',
+  tapStructured:'TAP',monthRef:'Mês',monthId:'Mês',clientId:'Cliente',
+  archivedAt:'Arquivamento',progress:'Progresso'
+};
+function historyValue(key,value){
+  if(value==null||value==='')return'—';
+  if(key==='goal'||key==='budget')return money(Number(value||0));
+  if(key==='start'||key==='startAt'||key==='end'||key==='endAt')return dateBR(value);
+  if(key==='tapStructured')return value?'TAP atualizado':'Sem TAP';
+  if(Array.isArray(value))return value.map(v=>typeof v==='object'?(v?.name||v?.nome||'item'):String(v)).join(', ')||'—';
+  if(typeof value==='object')return'Conteúdo estruturado atualizado';
+  return String(value);
+}
+function historyMoment(value){
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return String(value||'');
+  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function campaignMonthRef(c){
+  return String(c?.monthRef||c?.startAt||c?.start||'').slice(0,7);
+}
+function historyDiffRows(before,after,keys){
+  const list=(Array.isArray(keys)&&keys.length?keys:Object.keys({...before,...after}))
+    .filter(k=>!['history','updatedAt','updated_at','updatedBy'].includes(k));
+  const rows=[];
+  for(const key of list){
+    const a=before?.[key],b=after?.[key];
+    if(JSON.stringify(a)===JSON.stringify(b))continue;
+    rows.push('<div class="alliance-history-diff"><b>'+esc(historyFieldLabels[key]||key)+'</b><span>'+esc(historyValue(key,a))+'</span><i>→</i><strong>'+esc(historyValue(key,b))+'</strong></div>');
+  }
+  return rows.join('')||'<div class="alliance-history-note">Registro técnico sem alteração visível de campo.</div>';
+}
+function renderMonthOriginal(c,data){
+  const snap=Array.isArray(data?.snapshot)?data.snapshot:[];
+  const original=snap.find(x=>String(x?.id||'')===String(c?.id||''));
+  const current=c||{};
+  const compareKeys=['name','type','startAt','start','endAt','end','goal','budget','status','offer'];
+  let compare='';
+  if(original){
+    const rows=[];
+    const seen=new Set();
+    for(const key of compareKeys){
+      const canonical=(key==='start'&&original.startAt!==undefined)||(key==='end'&&original.endAt!==undefined)?null:key;
+      if(!canonical||seen.has(canonical))continue;
+      seen.add(canonical);
+      const a=original[canonical],b=current[canonical];
+      if(JSON.stringify(a)===JSON.stringify(b))continue;
+      rows.push('<div class="alliance-original-compare-row"><span>'+esc(historyFieldLabels[canonical]||canonical)+'</span><b>'+esc(historyValue(canonical,a))+'</b><i>→</i><strong>'+esc(historyValue(canonical,b))+'</strong></div>');
+    }
+    compare=rows.length?'<div class="alliance-original-compare"><div class="alliance-history-subtitle">O que mudou nesta campanha desde o original</div>'+rows.join('')+'</div>':'<div class="alliance-original-unchanged">Esta campanha continua igual à versão original do mês.</div>';
+  }else{
+    compare='<div class="alliance-original-new">Esta campanha não existia no original do mês — foi adicionada depois.</div>';
+  }
+  const cards=snap.length?snap.map(x=>'<article class="alliance-original-campaign '+(String(x?.id||'')===String(c?.id||'')?'is-current':'')+'"><b>'+esc(x?.name||'Campanha')+'</b><span>'+esc(String(x?.type||'Campanha'))+' · '+esc(dateBR(x?.startAt||x?.start))+' — '+esc(dateBR(x?.endAt||x?.end))+'</span><small>'+esc(statusLabel(x?.status))+' · '+money(campaignGoal(x))+'</small></article>').join(''):'<div class="alliance-history-empty">O original deste mês não tinha campanhas cadastradas.</div>';
+  return '<section class="alliance-history-card alliance-original-card"><div class="alliance-history-card-head"><div><strong>Original do mês</strong><span>fotografia preservada · não muda com as edições atuais</span></div><em>'+esc(data?.captured_at?historyMoment(data.captured_at):'versão atual ainda é a original')+'</em></div>'+compare+'<div class="alliance-history-subtitle">Planejamento original completo</div><div class="alliance-original-grid">'+cards+'</div></section>';
+}
+function renderVersionTimeline(data){
+  const versions=Array.isArray(data?.versions)?data.versions:[];
+  if(!versions.length)return'<section class="alliance-history-card"><div class="alliance-history-empty">Ainda não há alterações registradas nesta campanha.</div></section>';
+  return '<section class="alliance-history-card"><div class="alliance-history-card-head"><div><strong>Histórico de modificações</strong><span>interface, MCP e sistema na mesma linha do tempo</span></div><em>'+versions.length+' versão'+(versions.length===1?'':'ões')+'</em></div><div class="alliance-history-timeline">'+versions.map(v=>{
+    const origin=v.origin==='mcp'?'MCP':v.origin==='job'?'Sistema':v.origin==='baseline'?'Original':'Interface';
+    const actor=v.actor||v.autor||(v.origin==='baseline'?'Implantação':'Usuário');
+    return '<article class="alliance-history-event '+(v.is_original?'is-original':'')+'"><div class="alliance-history-dot"></div><div class="alliance-history-event-body"><div class="alliance-history-event-head"><div><b>'+esc(v.is_original?'Versão original salva':'Campanha alterada')+'</b><span>'+esc(actor)+' · '+esc(origin)+'</span></div><time>'+esc(historyMoment(v.created_at))+'</time></div>'+historyDiffRows(v.previous_snapshot||{},v.snapshot||{},v.changed_keys)+'</div></article>';
+  }).join('')+'</div></section>';
+}
+async function loadCampaignHistoryPane(c,pane){
+  const cid=String(c?.id||''),month=campaignMonthRef(c),b=String(c?.brand||'');
+  const key=cid,monthKey=norm(b)+'::'+month;
+  pane.innerHTML='<div class="alliance-history-loading"><span></span>Carregando histórico sincronizado…</div>';
+  try{
+    let h=campaignHistoryCache.get(key);
+    if(!h||Date.now()-h.at>15000){
+      h={at:Date.now(),data:await historyRequest({mode:'campaign',campaign_id:cid,limit:'120'})};
+      campaignHistoryCache.set(key,h);
+    }
+    let m=monthOriginalCache.get(monthKey);
+    if(!m||Date.now()-m.at>30000){
+      m={at:Date.now(),data:await historyRequest({mode:'month',brand:b,month})};
+      monthOriginalCache.set(monthKey,m);
+    }
+    if(String(activeWorkspaceCampaign()?.id||'')!==cid)return;
+    pane.innerHTML=renderMonthOriginal(c,m.data)+renderVersionTimeline(h.data);
+  }catch(err){
+    pane.innerHTML='<div class="alliance-history-error"><b>Não foi possível carregar o histórico.</b><span>'+esc(err?.message||String(err))+'</span></div>';
+  }
+}
+function campaignHistoryWorkspace(){
+  const ws=document.querySelector('#campaignWorkspace.active');
+  const c=activeWorkspaceCampaign();
+  if(!ws||!c)return;
+  const tabs=ws.querySelector('.cw-tabs');
+  if(!tabs)return;
+  let tab=tabs.querySelector('[data-alliance-history-tab]');
+  if(!tab){
+    tab=document.createElement('button');
+    tab.type='button';
+    tab.className='cw-tab';
+    tab.dataset.allianceHistoryTab='1';
+    tab.textContent='Histórico';
+    tabs.appendChild(tab);
+  }
+  let pane=ws.querySelector('[data-alliance-history-pane]');
+  if(!pane){
+    pane=document.createElement('div');
+    pane.className='cw-pane alliance-history-pane';
+    pane.dataset.allianceHistoryPane='1';
+    tabs.insertAdjacentElement('afterend',pane);
+  }
+  if(tab.dataset.bound!=='1'){
+    tab.dataset.bound='1';
+    tab.addEventListener('click',()=>{
+      ws.querySelectorAll('.cw-tab').forEach(x=>x.classList.remove('active'));
+      ws.querySelectorAll('.cw-pane').forEach(x=>x.classList.remove('active'));
+      tab.classList.add('active');
+      pane.classList.add('active');
+      loadCampaignHistoryPane(c,pane);
+    });
+  }
+}
+
 function normalizeWorkspaceActions(){
   const ws=document.querySelector('#campaignWorkspace.active');
   const top=ws?.querySelector('.cw-top');
@@ -501,6 +669,7 @@ function apply(){
   syncLegacyMemory();
   bindDelegates();
   normalizeWorkspaceActions();
+  campaignHistoryWorkspace();
   campaignList();
   campaignCalendar();
   planContext();
