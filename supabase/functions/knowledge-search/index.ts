@@ -4,10 +4,23 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const model = new Supabase.ai.Session("gte-small");
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   if (req.method !== "POST") {
-    return Response.json({ error: "method_not_allowed" }, { status: 405 });
+    return json({ error: "method_not_allowed" }, 405);
   }
 
   const authorization = req.headers.get("Authorization") ?? "";
@@ -18,12 +31,12 @@ Deno.serve(async (req: Request) => {
 
   const { data: authData, error: authError } = await db.auth.getUser();
   if (authError || !authData.user) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
+    return json({ error: "unauthorized" }, 401);
   }
 
   const body = await req.json().catch(() => ({}));
   const query = String(body.query ?? "").trim();
-  if (!query) return Response.json({ error: "query_required" }, { status: 400 });
+  if (!query) return json({ error: "query_required" }, 400);
 
   const requested = Number(body.limit ?? 20);
   const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 20, 100));
@@ -40,6 +53,6 @@ Deno.serve(async (req: Request) => {
     p_limit: limit,
   });
 
-  if (error) return Response.json({ error: error.message }, { status: 400 });
-  return Response.json({ query, model: "gte-small", results: data ?? [] });
+  if (error) return json({ error: error.message }, 400);
+  return json({ query, model: "gte-small", results: data ?? [] });
 });
