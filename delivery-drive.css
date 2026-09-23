@@ -732,3 +732,136 @@
   .alliance-drive-browser-list{min-height:170px}
   .alliance-drive-tree-line{padding-left:calc(var(--tree-depth,0) * 16px)}
 }
+
+
+/* Delivery folder picker V6 — dedicated large navigation mode */
+.alliance-drive-modal.folder-picker-open{
+  padding:12px;
+  align-items:center;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-dialog{
+  width:min(1040px,calc(100vw - 24px));
+  height:min(900px,calc(100vh - 24px));
+  max-height:calc(100vh - 24px);
+  display:flex;
+  flex-direction:column;
+  border-radius:20px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-dialog>header{
+  flex:0 0 auto;
+  padding:18px 22px 15px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-body{
+  flex:1 1 auto;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  overflow:hidden;
+  padding:14px 22px 18px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-files,
+.alliance-drive-modal.folder-picker-open .alliance-drive-recipient,
+.alliance-drive-modal.folder-picker-open .alliance-drive-destination,
+.alliance-drive-modal.folder-picker-open .alliance-drive-remember{
+  display:none!important;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser{
+  flex:1 1 auto;
+  min-height:0;
+  display:flex!important;
+  flex-direction:column;
+  margin:0;
+  border-radius:15px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-head{
+  flex:0 0 auto;
+  min-height:64px;
+  padding:11px 14px 11px 18px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-title{
+  font-size:14px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-subtitle{
+  font-size:10px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-head [data-drive-select-current]{
+  min-width:180px;
+  height:42px;
+  padding:0 17px;
+  font-size:11px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-search{
+  flex:0 0 auto;
+  padding:12px 14px 9px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-search span{
+  left:29px;
+  top:25px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-search input{
+  height:46px;
+  padding-left:38px;
+  font-size:12px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-list{
+  flex:1 1 auto;
+  min-height:0;
+  max-height:none;
+  overflow:auto;
+  padding:8px 14px 14px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-tree-list{
+  min-height:100%;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-tree-line{
+  min-height:54px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-tree-main{
+  min-height:50px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-tree-folder{
+  width:38px;
+  height:38px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-tree-copy b{
+  font-size:13px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-tree-copy small{
+  font-size:10px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-browser-note{
+  flex:0 0 auto;
+  margin:0 14px 14px;
+  padding:10px 12px;
+  font-size:9.5px;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-error{
+  flex:0 0 auto;
+  margin:10px 0 0;
+}
+.alliance-drive-modal.folder-picker-open .alliance-drive-dialog>footer{
+  display:none;
+}
+@media(max-width:760px){
+  .alliance-drive-modal.folder-picker-open{
+    padding:6px;
+    align-items:flex-end;
+  }
+  .alliance-drive-modal.folder-picker-open .alliance-drive-dialog{
+    width:100%;
+    height:calc(100vh - 12px);
+    max-height:calc(100vh - 12px);
+    border-radius:18px 18px 10px 10px;
+  }
+  .alliance-drive-modal.folder-picker-open .alliance-drive-body{
+    padding:10px 12px 12px;
+  }
+  .alliance-drive-modal.folder-picker-open .alliance-drive-browser-head{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .alliance-drive-modal.folder-picker-open .alliance-drive-browser-head [data-drive-select-current]{
+    width:100%;
+  }
+}
