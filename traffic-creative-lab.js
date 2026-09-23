@@ -237,7 +237,7 @@
   }
   async function saveTest(e){
     e.preventDefault();const f=new FormData(e.currentTarget),b=brand(),s=await client();
-    const parse=v=>{const n=Number(String(v||'').replace('.','').replace(',','.'));return Number.isFinite(n)&&n>0?n:null};
+    const parse=v=>{let x=String(v||'').trim().replace(/[^\d,.-]/g,'');if(x.includes(',')&&x.includes('.'))x=x.replace(/\./g,'').replace(',','.');else if(x.includes(','))x=x.replace(',','.');const n=Number(x);return Number.isFinite(n)&&n>0?n:null};
     const {error}=await s.rpc('criar_teste_criativo',{
       p_brand_id:b.id,p_creative_id:f.get('creative'),p_nome:f.get('name'),p_hipotese:f.get('hypothesis')||null,
       p_meta_ad_id:f.get('ad')||null,p_meta_adset_id:f.get('adset')||null,p_meta_campaign_id:f.get('campaign')||null,
