@@ -1836,3 +1836,56 @@ linear-gradient(145deg,#12171d 0%,#090d10 58%,#151c22 100%);background-size:52px
     z-index:2!important;
   }
 }
+
+
+/* ===== AllianceOS AUTH MOBILE V7 · single continuous safe-area background ===== */
+@media (max-width:820px){
+  /*
+   * Uma única superfície visual cobre a tela inteira e continua por baixo
+   * do home indicator. Não desenhamos mais uma "faixa" separada.
+   */
+  html.alliance-auth-pending,
+  html.alliance-auth-locked,
+  html.alliance-auth-pending body,
+  html.alliance-auth-locked body{
+    width:100%!important;
+    height:100%!important;
+    min-height:100%!important;
+    overflow:hidden!important;
+    background:#0b1014!important;
+  }
+
+  #allianceAuthRoot{
+    position:fixed!important;
+    top:0!important;
+    left:0!important;
+    right:0!important;
+    bottom:calc(-1 * env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    background:
+      radial-gradient(ellipse at -4% 19%,rgba(144,163,177,.40) 0 11%,rgba(74,90,101,.18) 21%,transparent 31%),
+      linear-gradient(124deg,transparent 0 61%,rgba(188,199,207,.16) 62%,rgba(103,116,126,.08) 77%,transparent 78%),
+      radial-gradient(ellipse at 96% 7%,rgba(144,155,166,.34),transparent 25%),
+      linear-gradient(139deg,#34414b 0%,#11171c 19%,#090d11 48%,#1a2229 74%,#687078 100%)!important;
+    background-color:#0b1014!important;
+    background-repeat:no-repeat!important;
+    background-size:100% 100%!important;
+    background-position:center!important;
+  }
+
+  .auth-stage{
+    min-height:calc(100dvh + env(safe-area-inset-bottom))!important;
+    padding-bottom:calc(env(safe-area-inset-bottom) + 14px)!important;
+    background:transparent!important;
+  }
+
+  /* Desliga especificamente o preenchimento inferior separado do V6. */
+  .auth-stage::after{
+    display:none!important;
+    content:none!important;
+  }
+}
