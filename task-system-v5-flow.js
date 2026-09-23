@@ -56,12 +56,13 @@
       });
     };
     v5Dependents(t).forEach(dep=>(dep.assignees||[]).forEach(name=>add(name,dep,'Sugerido pela próxima tarefa')));
+    directory.forEach(member=>add(member.nome,null,'Equipe da marca'));
     v5RecipientCandidates(t).forEach(name=>add(name,null,'Equipe da marca'));
     return out;
   }
   function v5SuggestedRecipientObject(t){
     const rows=v5RecipientChoiceObjects(t);
-    return rows.find(x=>x.targetTaskId)||rows[0]||null;
+    return rows.find(x=>x.targetTaskId)||null;
   }
   function v5SuggestedRecipient(t){
     return v5SuggestedRecipientObject(t)?.name||'';
@@ -493,7 +494,6 @@
     if(url){try{const parsed=new URL(url);if(!/^https?:$/.test(parsed.protocol))throw new Error();}catch{showToast('Use um link válido começando por https://');return false;}}
     if(!rawFiles.length&&!url&&!note){showToast('Adicione um arquivo, escreva a entrega ou informe um link.');return false;}
     const recipientOptions=v5RecipientChoiceObjects(t),suggestedRecipient=v5SuggestedRecipientObject(t);
-    if(!recipientOptions.length){showToast('Defina um responsável na próxima tarefa para receber esta entrega.');return false;}
     const ts=v5NowIso(),id=v5Id('del');
     const links=url?[{id:v5Id('link'),label:label||'Material da entrega',url}]:[];
     let files=[],driveResult=null,recipient=suggestedRecipient;
@@ -515,7 +515,10 @@
         recipient=driveResult.recipient||suggestedRecipient;
         files=Array.isArray(driveResult.files)?driveResult.files:[];
       }else{
-        if(!recipient){showToast('Não foi possível identificar quem recebe esta entrega.');return false;}
+        if(!recipient){
+          showToast(recipientOptions.length?'Atualize a página para escolher quem recebe esta entrega.':'Nenhum usuário disponível para receber esta entrega.');
+          return false;
+        }
         const total=rawFiles.reduce((n,f)=>n+f.size,0);
         if(total>1200000){showToast('O envio ao Drive não carregou. Atualize a página antes de enviar arquivos maiores.');return false;}
         files=await Promise.all(rawFiles.map(v5ReadFile));
