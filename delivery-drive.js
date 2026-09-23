@@ -501,7 +501,7 @@
     modal.innerHTML=
       '<div class="alliance-drive-backdrop" data-drive-cancel></div>'+
       '<section class="alliance-drive-dialog" role="dialog" aria-modal="true" aria-labelledby="allianceDriveTitle">'+
-        '<header><div><span class="alliance-drive-kicker">ENTREGA</span><h2 id="allianceDriveTitle">Enviar entrega</h2><p>Confira quem vai receber e onde os arquivos serão salvos antes de concluir.</p></div><button type="button" class="alliance-drive-close" data-drive-cancel aria-label="Fechar">×</button></header>'+
+        '<header><div class="alliance-drive-title-group"><span class="alliance-drive-brand-mark"><img src="/api/brand-icon?format=svg&v=20260923-delivery-1" alt="" aria-hidden="true"></span><div><span class="alliance-drive-kicker">ENTREGA</span><h2 id="allianceDriveTitle">Enviar entrega</h2><p>Revise os detalhes antes de enviar.</p></div></div><button type="button" class="alliance-drive-close" data-drive-cancel aria-label="Fechar">×</button></header>'+
         '<div class="alliance-drive-body">'+
           '<div class="alliance-drive-files" data-drive-files></div>'+
           '<div class="alliance-drive-recipient" data-drive-recipient hidden>'+
@@ -526,7 +526,7 @@
             '<div class="alliance-drive-browser-list" data-drive-list></div>'+
             '<div class="alliance-drive-browser-note" data-drive-browser-note hidden></div>'+
           '</div>'+
-          '<label class="alliance-drive-remember"><input type="checkbox" data-drive-remember checked><span><b>Usar esta pasta nas próximas entregas semelhantes</b><small>O AllianceOS lembra por campanha e tipo de material. Você pode mudar novamente quando quiser.</small></span></label>'+
+          '<label class="alliance-drive-remember"><span class="alliance-drive-remember-copy"><b>Lembrar este destino</b><small>Usar esta pasta em entregas semelhantes desta campanha.</small></span><input type="checkbox" data-drive-remember checked><i aria-hidden="true"></i></label>'+
           '<div class="alliance-drive-error" data-drive-error hidden></div>'+
         '</div>'+
         '<footer><button type="button" class="alliance-drive-secondary" data-drive-cancel>Cancelar</button><button type="button" class="alliance-drive-primary" data-drive-confirm>Confirmar destino</button></footer>'+
@@ -542,7 +542,7 @@
   function fileSummary(files,links){
     const rows=[];
     (files||[]).slice(0,4).forEach(function(f){
-      rows.push('<article class="alliance-drive-file-summary"><span class="alliance-drive-file-summary-icon">▤</span><div><b>'+esc(f.name)+'</b><small>'+prettySize(f.size)+' · arquivo pronto para enviar</small></div></article>');
+      rows.push('<article class="alliance-drive-file-summary"><span class="alliance-drive-file-summary-icon">▤</span><div><b>'+esc(f.name)+'</b><small>'+prettySize(f.size)+' · arquivo</small></div></article>');
     });
     (links||[]).slice(0,2).forEach(function(l){
       rows.push('<article class="alliance-drive-file-summary"><span class="alliance-drive-file-summary-icon">↗</span><div><b>'+esc(l.label||'Link da entrega')+'</b><small>Link incluído na entrega</small></div></article>');
