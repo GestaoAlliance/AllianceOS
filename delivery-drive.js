@@ -1037,13 +1037,22 @@
     const campaign=initialSuggestion?.campaign||ctx.campaign||campaignForTask(task);
     let suggestion=initialSuggestion;
     let campaignResolutionError='';
-    if(campaign&&initialSuggestion&&!['Pasta usada anteriormente','Sugerido pela campanha'].includes(initialSuggestion.source)){
+    if(campaign&&initialSuggestion&&!['Pasta usada anteriormente','Sugerido pela campanha','Sugerido pela lista'].includes(initialSuggestion.source)){
       try{
-        suggestion=await resolveCampaignDestination(ctx,initialSuggestion);
-        if(!suggestion)campaignResolutionError='Não encontrei com segurança a pasta da campanha “'+String(campaign.name||'Campanha')+'” no Drive. Escolha a pasta correta em “Alterar pasta”.';
+        const resolved=await resolveCampaignDestination(ctx,initialSuggestion);
+        if(resolved)suggestion=resolved;
+        else suggestion=initialSuggestion;
+      }catch(e){
+        suggestion=initialSuggestion;
+        console.warn('[Drive entregas] resolução da campanha; usando sugestão segura por tipo',e);
+      }
+    }else if(campaign&&!initialSuggestion){
+      try{
+        suggestion=await resolveCampaignDestination(ctx,null);
+        if(!suggestion)campaignResolutionError='Não encontrei um destino automático para esta entrega. Escolha a pasta em “Alterar pasta”.';
       }catch(e){
         suggestion=null;
-        campaignResolutionError='Não foi possível localizar automaticamente a pasta da campanha. Escolha o destino em “Alterar pasta”.';
+        campaignResolutionError='Não foi possível localizar automaticamente um destino. Escolha a pasta em “Alterar pasta”.';
         console.warn('[Drive entregas] resolução da campanha',e);
       }
     }
