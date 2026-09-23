@@ -31,6 +31,8 @@ const MOBILE_RUNTIME_CSS = path.join(__dirname, 'mobile-runtime.css');
 const HOME_LIVE_SYNC = path.join(__dirname, 'home-live-sync.js');
 const CAMPAIGN_PLANNING_TRUTH_JS = path.join(__dirname, 'campaign-planning-truth.js');
 const CAMPAIGN_PLANNING_TRUTH_CSS = path.join(__dirname, 'campaign-planning-truth.css');
+const DELIVERY_DRIVE_JS = path.join(__dirname, 'delivery-drive.js');
+const DELIVERY_DRIVE_CSS = path.join(__dirname, 'delivery-drive.css');
 const SOCIAL_PREVIEW_IMAGE = path.join(__dirname, 'assets', 'allianceos-whatsapp-preview-v6.jpg');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
 const SB_REF_OLD = 'sjkuysdmixfzeerxuudn';
@@ -68,6 +70,8 @@ async function main() {
   const homeLiveSync = fs.readFileSync(HOME_LIVE_SYNC, 'utf8');
   const campaignPlanningTruthJs = fs.readFileSync(CAMPAIGN_PLANNING_TRUTH_JS, 'utf8');
   const campaignPlanningTruthCss = fs.readFileSync(CAMPAIGN_PLANNING_TRUTH_CSS, 'utf8');
+  const deliveryDriveJs = fs.readFileSync(DELIVERY_DRIVE_JS, 'utf8');
+  const deliveryDriveCss = fs.readFileSync(DELIVERY_DRIVE_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
   execFileSync('git', ['clone', '--depth=1', '--branch', BRANCH, REPO, LEGACY], { stdio: 'inherit' });
@@ -222,6 +226,17 @@ async function main() {
           const newRenderDeliveries = "  function renderDeliveries(){const all=deliveries.filter(d=>!d.archivedAt&&!d.arquivado_em),received=all.filter";
           if (!s.includes(oldRenderDeliveries)) throw new Error('Não encontrei renderDeliveries legado para aplicar arquivamento');
           s = s.replace(oldRenderDeliveries, newRenderDeliveries);
+
+          // AllianceOS Drive: confirmar a pasta antes de concluir a entrega.
+          const oldHandoffFileSave = "const previous=deliveries.filter(d=>String(d.sourceTaskId)===String(taskId)&&d.to===to);const deliveryId='del-'+Date.now();const fileMeta=deliveryState.pendingFiles.map((f,i)=>({id:'f'+Date.now()+'-'+i,name:f.name,type:f.type||'',size:f.size}));try{await Promise.all(deliveryState.pendingFiles.map((f,i)=>putBlob(\`\${deliveryId}:\${fileMeta[i].id}\`,f)))}catch(e){showToast('Algum arquivo não pôde ser salvo neste navegador');return}const complete=document.getElementById('handoffCompleteTask').checked;";
+          const newHandoffFileSave = "const previous=deliveries.filter(d=>String(d.sourceTaskId)===String(taskId)&&d.to===to);const deliveryId='del-'+Date.now();let driveResult=null;try{if(window.AllianceOSDeliveryDrive?.confirmAndUpload){driveResult=await window.AllianceOSDeliveryDrive.confirmAndUpload({deliveryId,task,title:title||\`Entrega · \${task.title}\`,note,to,files:[...deliveryState.pendingFiles],links:deliveryState.pendingLinks.map(x=>({...x}))});if(!driveResult||driveResult.cancelled)return}}catch(e){console.error('[AllianceOS Drive] falha ao salvar entrega',e);showToast(e?.message||'Não foi possível salvar no Google Drive.');return}const fileMeta=(driveResult&&Array.isArray(driveResult.files)&&driveResult.files.length)?driveResult.files:deliveryState.pendingFiles.map((f,i)=>({id:'f'+Date.now()+'-'+i,name:f.name,type:f.type||'',size:f.size}));if((!driveResult||!Array.isArray(driveResult.files)||!driveResult.files.length)&&deliveryState.pendingFiles.length){try{await Promise.all(deliveryState.pendingFiles.map((f,i)=>putBlob(\`\${deliveryId}:\${fileMeta[i].id}\`,f)))}catch(e){showToast('Algum arquivo não pôde ser salvo neste navegador');return}}const complete=document.getElementById('handoffCompleteTask').checked;";
+          if (!s.includes(oldHandoffFileSave)) throw new Error('Não encontrei o salvamento legado de arquivos da entrega');
+          s = s.replace(oldHandoffFileSave, newHandoffFileSave);
+
+          const oldHandoffDriveMeta = "version:previous.length+1,completeTask:complete,files:fileMeta,links:";
+          const newHandoffDriveMeta = "version:previous.length+1,completeTask:complete,drive:driveResult?.destination||null,files:fileMeta,links:";
+          if (!s.includes(oldHandoffDriveMeta)) throw new Error('Não encontrei a estrutura da entrega para registrar o Drive');
+          s = s.replace(oldHandoffDriveMeta, newHandoffDriveMeta);
 
           const taskAnchor = '  function showHome(){';
           if (!s.includes(taskAnchor)) throw new Error('Não encontrei o ponto de injeção do sistema de tarefas');
@@ -413,8 +428,8 @@ async function main() {
   const brandHead = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/api/brand-icon?format=svg&v=20260922-4\">\n<link rel=\"icon\" type=\"image/png\" sizes=\"512x512\" href=\"/api/brand-icon?v=20260922-4\">\n<link rel=\"shortcut icon\" href=\"/api/brand-icon?format=svg&v=20260922-4\">\n<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon-allianceos-180.png\">\n<link rel=\"apple-touch-icon-precomposed\" sizes=\"180x180\" href=\"/apple-touch-icon-allianceos-180.png\">\n<link rel=\"manifest\" href=\"/manifest.webmanifest?v=20260922-4\">\n<meta name=\"application-name\" content=\"AllianceOS\">\n<meta name=\"apple-mobile-web-app-title\" content=\"AllianceOS\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n<meta name=\"theme-color\" content=\"#0b1014\">\n<meta name=\"msapplication-TileColor\" content=\"#0b1014\">\n<meta name=\"msapplication-TileImage\" content=\"/api/brand-icon?v=20260922-4\">\n";
   html = html.replace(/<title>[^<]*<\/title>/i, '<title>AllianceOS — Operação em um só lugar</title>');
   html = html.replace('<head>', () => `<head>\n${socialHead}<script id="alliance-mobile-runtime-js">\n${mobileRuntimeJs}\n</script>\n`);
-  html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-context-guide-style">\n${contextGuideCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<style id="alliance-mobile-runtime-css">\n${mobileRuntimeCss}\n</style>\n<style id="alliance-campaign-planning-truth-css">\n${campaignPlanningTruthCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
-  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n<script id="alliance-home-live-sync">\n${homeLiveSync}\n</script>\n<script id="alliance-campaign-planning-truth">\n${campaignPlanningTruthJs}\n</script>\n</body>`);
+  html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-context-guide-style">\n${contextGuideCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<style id="alliance-mobile-runtime-css">\n${mobileRuntimeCss}\n</style>\n<style id="alliance-campaign-planning-truth-css">\n${campaignPlanningTruthCss}\n</style>\n<style id="alliance-delivery-drive-css">\n${deliveryDriveCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
+  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n<script id="alliance-home-live-sync">\n${homeLiveSync}\n</script>\n<script id="alliance-campaign-planning-truth">\n${campaignPlanningTruthJs}\n</script>\n<script id="alliance-delivery-drive-js">\n${deliveryDriveJs}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });

@@ -1230,12 +1230,19 @@
       syncDetailDraft(t);
       const actor=v3ActorInfo(),ts=v3NowIso(),id='del-'+Date.now()+'-'+Math.random().toString(36).slice(2,10),ds=v3OfficialDeliveries();
       const links=/^https?:\/\//i.test(text)?[{id:'l-'+Math.random().toString(36).slice(2,10),label:'Link',url:text}]:[];
+      let driveChoice=null;
+      try{
+        if(window.AllianceOSDeliveryDrive?.confirm){
+          driveChoice=await window.AllianceOSDeliveryDrive.confirm({deliveryId:id,task:t,title:'Entrega · '+t.title,note:text,files:[],links});
+          if(!driveChoice||driveChoice.cancelled)return;
+        }
+      }catch(e){console.error('[AllianceOS Drive] falha ao confirmar destino',e);showToast(e?.message||'Não foi possível confirmar a pasta do Drive.');return}
       const version=ds.filter(d=>String(d?.sourceTaskId||'')===String(t.id)&&String(d?.to||'')===String(recipient.nome||recipient.email||'')).length+1;
-      const official={id,sourceTaskId:String(t.id),targetTaskId:'',campaignId:t.campaignId||null,campaignSource:'task',title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:actor.by,fromId:actor.authorId,to:recipient.nome||recipient.email||'Usuário',toId:recipient.id,note:text,status:'enviado',createdAt:ts,updatedAt:ts,sentAt:ts,version,completeTask:false,files:[],links,events:[{at:ts,by:actor.by,authorId:actor.authorId,origin:'interface',text:'Entrega enviada para '+(recipient.nome||recipient.email||'Usuário')+'.'}],origin:'interface',archivedAt:null,archivedBy:null};
+      const official={id,sourceTaskId:String(t.id),targetTaskId:'',campaignId:t.campaignId||null,campaignSource:'task',title:'Entrega · '+t.title,taskTitle:t.title,project:t.project,brand:t.brand,from:actor.by,fromId:actor.authorId,to:recipient.nome||recipient.email||'Usuário',toId:recipient.id,note:text,status:'enviado',createdAt:ts,updatedAt:ts,sentAt:ts,version,completeTask:false,drive:driveChoice?.destination||null,files:[],links,events:[{at:ts,by:actor.by,authorId:actor.authorId,origin:'interface',text:'Entrega enviada para '+(recipient.nome||recipient.email||'Usuário')+'.'}],origin:'interface',archivedAt:null,archivedBy:null};
       ds.unshift(official);
       try{await v3SaveOfficialDeliveries(ds)}catch(e){console.error('[AllianceOS entrega] falha ao salvar coleção oficial',e);showToast('Não foi possível salvar a entrega oficial. Nada foi alterado na tarefa.');return}
       t.deliveries=Array.isArray(t.deliveries)?t.deliveries:[];
-      t.deliveries.unshift({id,deliveryId:id,text:official.title,note:text,at:ts,sentAt:ts,author:actor.by,authorId:actor.authorId,to:official.to,toId:official.toId,source:'interface',status:'enviado',campaignId:official.campaignId,targetTaskId:'',links:structuredClone(links),files:[],archivedAt:null,archivedBy:null});
+      t.deliveries.unshift({id,deliveryId:id,text:official.title,note:text,at:ts,sentAt:ts,author:actor.by,authorId:actor.authorId,to:official.to,toId:official.toId,source:'interface',status:'enviado',campaignId:official.campaignId,targetTaskId:'',drive:official.drive||null,links:structuredClone(links),files:[],archivedAt:null,archivedBy:null});
       v3AddHistory(t,'Entrega registrada na coleção oficial e enviada para '+official.to+'.','delivery-created:'+id);
       v3Persist(false);
       window.AllianceOSOps?.recordTaskAction?.('registrar_entrega',t,{entrega:text,delivery_id:id,destinatario:official.to});
