@@ -83,7 +83,9 @@
 
 #campaignList>.alliance-campaign-group{
   min-width:0;
-  min-height:100%;
+  min-height:0;
+  height:max-content;
+  align-self:start;
   border:1px solid #e4e8ea;
   border-radius:18px;
   overflow:hidden;
@@ -129,10 +131,14 @@
 }
 
 #campaignList .alliance-campaign-group .camp-row{
+  min-width:0!important;
+  width:100%!important;
+  max-width:none!important;
   min-height:132px;
-  padding:18px 20px;
+  padding:18px 20px!important;
+  box-sizing:border-box!important;
   display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(150px,auto) auto;
+  grid-template-columns:minmax(0,1fr) minmax(150px,auto) auto!important;
   grid-template-areas:
     "name status more"
     "period owner owner"
@@ -175,9 +181,10 @@
 
 #campaignList .alliance-campaign-group .camp-progress{
   grid-area:progress;
-  width:100%;
+  width:100%!important;
+  max-width:none!important;
   display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-columns:minmax(0,1fr) auto!important;
   gap:10px;
   align-items:center;
 }
