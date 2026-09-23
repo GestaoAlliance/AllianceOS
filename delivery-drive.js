@@ -751,6 +751,7 @@
     if(type==='chevron')return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 5.5 12 10l-4.5 4.5"/></svg>';
     if(type==='check')return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10.5 3.1 3.1L15 6.8"/></svg>';
     if(type==='search')return '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.4"/><path d="m13.2 13.2 3.3 3.3"/></svg>';
+    if(type==='person')return '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="7" r="3"/><path d="M4.7 16c.7-3 2.5-4.6 5.3-4.6s4.6 1.6 5.3 4.6"/></svg>';
     return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.8 6.1h5l1.5 1.8h7.9v7.2a1.6 1.6 0 0 1-1.6 1.6H4.4a1.6 1.6 0 0 1-1.6-1.6V6.1Z"/><path d="M2.8 6.1V4.9a1.6 1.6 0 0 1 1.6-1.6h3.1l1.6 1.8h6.5a1.6 1.6 0 0 1 1.6 1.6v1.2"/></svg>';
   }
   function knownFoldersForBrand(brand,state){
@@ -830,7 +831,7 @@
       note.hidden=false;
       note.textContent='Abra as setas para navegar pelas subpastas. Clique em uma pasta para selecioná-la e depois confirme em “Usar pasta selecionada”.';
     }
-    crumbs.innerHTML='<span class="alliance-drive-browser-title">Pastas da '+esc(state.brand)+'</span><span class="alliance-drive-browser-subtitle">Estrutura completa de pastas</span>';
+    crumbs.innerHTML='<span class="alliance-drive-browser-title">Pastas da '+esc(state.brand)+'</span><span class="alliance-drive-browser-subtitle" data-drive-browser-selection>Escolha uma pasta para ver o caminho completo</span>';
 
     let tree=null;
     let all=[];
@@ -844,6 +845,8 @@
     const q=norm(query||'');
     const current=String(state.currentFolder||state.destination&&state.destination.folderId||'');
     const currentPath=(state.currentTrail||[]).map(function(x){return x.nome}).join(' › ')||(state.destination&&state.destination.path)||state.brand;
+    const selectionLabel=crumbs.querySelector('[data-drive-browser-selection]');
+    if(selectionLabel)selectionLabel.textContent=current&&currentPath&&norm(currentPath)!==norm(state.brand)?currentPath:'Escolha uma pasta para ver o caminho completo';
     treeAncestors(currentPath).forEach(function(key){state.treeExpanded.add(key)});
     state.treeExpanded.add(norm(state.brand));
 
@@ -1010,7 +1013,7 @@
     const source=modal.querySelector('[data-drive-recipient-source]');
     const toggleLabel=modal.querySelector('[data-drive-recipient-toggle-label]');
     if(avatar){
-      avatar.innerHTML=recipient?recipientAvatarInner(recipient):'<span>?</span>';
+      avatar.innerHTML=recipient?recipientAvatarInner(recipient):'<span class="alliance-drive-avatar-placeholder">'+driveTreeSvg('person')+'</span>';
       avatar.classList.toggle('has-photo',!!recipient?.photoUrl);
     }
     if(name)name.textContent=recipient&&recipient.name||'Escolher destinatário';
