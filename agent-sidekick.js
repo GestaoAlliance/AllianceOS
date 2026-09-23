@@ -14,6 +14,7 @@
     send:icon('<path d="m4 12 16-7-5 14-3-6-8-1Z"/><path d="m12 13 4-4"/>'),
     wave:icon('<path d="M5 10v4M9 7v10M13 5v14M17 8v8M21 10v4"/>')
   };
+  const MARK=icon('<path d="M12 5v14M5 12h14M7.05 7.05l9.9 9.9M16.95 7.05l-9.9 9.9"/>');
   const state={open:false,expanded:false,busy:false,messages:[]};
   let launcher,panel,thread,input,send,titleMenu,settingsMenu;
 
@@ -42,14 +43,14 @@
   function emptyMarkup(){
     const b=currentBrand();
     const name=b.name==='Todas as marcas'?'AllianceOS':b.name;
-    return '<div class="aos-agent-empty"><div class="aos-agent-mark"><span><img src="'+ICON+'" alt=""></span></div><h2>Por onde devemos começar?</h2><p>Consulte tarefas, campanhas, entregas e o conhecimento de '+esc(name)+'.</p></div>';
+    return '<div class="aos-agent-empty"><div class="aos-agent-mark">'+MARK+'</div><h2>Por onde devemos começar?</h2></div>';
   }
   function render(){
     if(!thread)return;
     if(!state.messages.length){thread.innerHTML=emptyMarkup();return}
     thread.innerHTML=state.messages.map((m)=>{
       if(m.role==='user')return '<div class="aos-agent-row user"><div class="aos-agent-user">'+esc(m.text)+'</div></div>';
-      if(m.role==='loading')return '<div class="aos-agent-row agent"><span class="aos-agent-mini"><img src="'+ICON+'" alt=""></span><div class="aos-agent-thinking"><i></i><i></i><i></i></div></div>';
+      if(m.role==='loading')return '<div class="aos-agent-row agent"><span class="aos-agent-mini">'+MARK+'</span><div class="aos-agent-thinking"><i></i><i></i><i></i></div></div>';
       const cards=(m.results||[]).map((r)=>{
         const score=Number(r.similarity);
         const pct=Number.isFinite(score)?'<em>'+Math.round(score*100)+'%</em>':'';
@@ -118,11 +119,17 @@
     if(page)page.textContent=pageName();
     if(!state.messages.length)render();
   }
+  function positionPanel(){
+    if(!panel||window.innerWidth<=700)return;
+    const bar=document.querySelector('.global-toolbar');
+    const bottom=bar?bar.getBoundingClientRect().bottom:108;
+    panel.style.top=Math.round(bottom+12)+'px';
+  }
   function setOpen(next){
     state.open=!!next;
     if(panel)panel.classList.toggle('open',state.open);
     if(launcher){launcher.classList.toggle('active',state.open);launcher.setAttribute('aria-pressed',String(state.open))}
-    if(state.open){syncLabels();setTimeout(()=>{if(input)input.focus()},120)}else closeMenus();
+    if(state.open){positionPanel();syncLabels();setTimeout(()=>{if(input)input.focus()},120)}else closeMenus();
   }
   function newConversation(){
     state.messages=[];
@@ -141,7 +148,7 @@
     launcher.className='aos-agent-launcher';
     launcher.title='Agente AllianceOS';
     launcher.setAttribute('aria-label','Abrir agente AllianceOS');
-    launcher.innerHTML='<span><img src="'+ICON+'" alt=""></span>';
+    launcher.innerHTML=MARK;
     actions.prepend(launcher);
 
     panel=document.createElement('aside');
@@ -168,11 +175,10 @@
       '<div class="aos-agent-thread"></div>'+
       '<div class="aos-agent-compose-wrap">'+
         '<div class="aos-agent-compose">'+
-          '<button class="aos-agent-plus" type="button" aria-label="Adicionar contexto">'+I.plus+'</button>'+
           '<textarea rows="1" placeholder="Trabalhar com o agente"></textarea>'+
+          '<button class="aos-agent-plus" type="button" aria-label="Adicionar contexto">'+I.plus+'</button>'+
           '<button class="aos-agent-send" type="button" aria-label="Enviar">'+I.wave+'</button>'+
         '</div>'+
-        '<div class="aos-agent-meta"><strong class="aos-agent-brand-label"></strong><span>Memória semântica · gte-small</span></div>'+
       '</div>';
     document.body.appendChild(panel);
 
@@ -214,6 +220,7 @@
       if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key.toLowerCase()==='a'){e.preventDefault();setOpen(true)}
       else if(e.key==='Escape'&&state.open)setOpen(false);
     });
+    window.addEventListener('resize',positionPanel);
     const brandSelect=document.getElementById('brandSelect');
     if(brandSelect)brandSelect.addEventListener('change',syncLabels);
 
