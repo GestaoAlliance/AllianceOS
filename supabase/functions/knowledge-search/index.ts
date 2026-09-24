@@ -117,6 +117,7 @@ Deno.serve(async (req: Request) => {
         const paidMonth = Number(sales.paid_orders_month || 0);
         const ordersToday = Number(sales.orders_today || 0);
         const hasData = Boolean(shopify.has_month_data);
+        const dataMode = String(sales.data_mode || shopify.data_mode || "none");
 
         if (!hasData) {
           const status = String(shopify.status || "pendente");
@@ -126,9 +127,13 @@ Deno.serve(async (req: Request) => {
         } else if (/ticket/.test(q)) {
           answer = `O ticket médio de ${brand} neste mês está em ${brl(sales.average_ticket_month)}, considerando ${ordersMonth} ${plural(ordersMonth, "pedido")}.`;
         } else if (/(faturamento|receita)/.test(q)) {
-          answer = `O faturamento líquido de ${brand} neste mês é ${brl(sales.net_revenue_month)}. O bruto é ${brl(sales.gross_revenue_month)} e os reembolsos somam ${brl(sales.refunds_month)}.`;
+          answer = dataMode === "snapshot"
+            ? `As vendas totais de ${brand} neste mês são ${brl(sales.gross_revenue_month)}, com vendas líquidas de ${brl(sales.net_revenue_month)}.`
+            : `O faturamento líquido de ${brand} neste mês é ${brl(sales.net_revenue_month)}. O bruto é ${brl(sales.gross_revenue_month)} e os reembolsos somam ${brl(sales.refunds_month)}.`;
         } else {
-          answer = `${brand} teve ${ordersMonth} ${plural(ordersMonth, "pedido")} neste mês. ${paidMonth} estão com status financeiro pago/confirmado, e o faturamento líquido acumulado é ${brl(sales.net_revenue_month)}.`;
+          answer = dataMode === "snapshot"
+            ? `${brand} teve ${ordersMonth} ${plural(ordersMonth, "pedido")} neste mês. As vendas totais somam ${brl(sales.gross_revenue_month)} e as vendas líquidas ${brl(sales.net_revenue_month)}.`
+            : `${brand} teve ${ordersMonth} ${plural(ordersMonth, "pedido")} neste mês. ${paidMonth} estão com status financeiro pago/confirmado, e o faturamento líquido acumulado é ${brl(sales.net_revenue_month)}.`;
         }
       } else if (campaignIntent) {
         const active = Number(operation.active_campaigns || 0);
