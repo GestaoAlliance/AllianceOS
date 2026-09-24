@@ -75,7 +75,16 @@
     const response=await fetch(SEARCH,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify({query:query,brand_id:b.id,limit:5})
+      body:JSON.stringify({
+        query:query,
+        brand_id:b.id,
+        limit:5,
+        history:state.messages
+          .filter((m)=>m&&m.role==='user')
+          .slice(0,-1)
+          .slice(-4)
+          .map((m)=>({role:'user',text:String(m.text||'')}))
+      })
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.error||('HTTP '+response.status));

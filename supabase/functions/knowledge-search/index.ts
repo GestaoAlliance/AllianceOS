@@ -55,8 +55,16 @@ Deno.serve(async (req: Request) => {
   const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 20, 100));
   const brandId = body.brand_id ? String(body.brand_id) : null;
   const q = normalize(query);
+  const history = Array.isArray(body.history) ? body.history : [];
+  const lastUserContext = history
+    .filter((item: any) => item && item.role === "user" && item.text)
+    .slice(-1)
+    .map((item: any) => normalize(item.text))
+    .join(" ");
+  const hasDirectDomain = /(tarefa|prazo|atrasad|vencid|pendente|cliente|comprador|venda|pedido|faturamento|receita|ticket|shopify|campanha|entrega|aprovacao|aprovação)/.test(q);
+  const intentQ = hasDirectDomain ? q : normalize(q + " " + lastUserContext);
 
-  const taskIntent = /(tarefa|tarefas|prazo|prazos|atrasad|vencid|vencem|vence|pendente|pendentes)/.test(q);
+  const taskIntent = /(tarefa|tarefas|prazo|prazos|atrasad|vencid|vencem|vence|pendente|pendentes)/.test(intentQ);
   if (taskIntent && brandId) {
     const { data: summary, error: summaryError } = await db.rpc("agent_task_summary", {
       p_brand_id: brandId,
@@ -96,10 +104,10 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const customerIntent = /(cliente|clientes|comprador|compradores|pessoa.*compr|pessoas.*compr)/.test(q);
-  const salesIntent = /(venda|vendas|pedido|pedidos|faturamento|receita|ticket|shopify)/.test(q);
-  const campaignIntent = /(campanha|campanhas)/.test(q);
-  const deliveryIntent = /(entrega|entregas|aprovacao|aprovação)/.test(q);
+  const customerIntent = /(cliente|clientes|comprador|compradores|pessoa.*compr|pessoas.*compr)/.test(intentQ);
+  const salesIntent = /(venda|vendas|pedido|pedidos|faturamento|receita|ticket|shopify)/.test(intentQ);
+  const campaignIntent = /(campanha|campanhas)/.test(intentQ);
+  const deliveryIntent = /(entrega|entregas|aprovacao|aprovação)/.test(intentQ);
 
   if ((customerIntent || salesIntent || campaignIntent || deliveryIntent) && brandId) {
     const { data: summary, error: summaryError } = await db.rpc("agent_operational_summary", {
@@ -124,9 +132,9 @@ Deno.serve(async (req: Request) => {
           answer = `Ainda não há dados de clientes sincronizados no AllianceOS para ${brand}. Assim que essa métrica entrar na sincronização, eu consigo responder clientes totais, novos e recorrentes.`;
         } else if (/hoje/.test(q)) {
           answer = `${brand} teve ${customersToday} ${plural(customersToday, "cliente")} hoje.`;
-        } else if (/(novo|novos|nova|novas|primeira compra|primeira vez)/.test(q)) {
+        } else if (/(novo|novos|nova|novas|primeira compra|primeira vez)/.test(intentQ)) {
           answer = `${brand} teve ${newCustomersMonth} ${plural(newCustomersMonth, "cliente novo", "clientes novos")} neste mês.`;
-        } else if (/(recorr|retorn|recompr|recompra)/.test(q)) {
+        } else if (/(recorr|retorn|recompr|recompra)/.test(intentQ)) {
           answer = `${brand} teve ${returningCustomersMonth} ${plural(returningCustomersMonth, "cliente recorrente", "clientes recorrentes")} neste mês.`;
         } else {
           answer = `${brand} teve ${customersMonth} ${plural(customersMonth, "cliente único", "clientes únicos")} neste mês.`;
@@ -168,7 +176,7 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const metricLikeIntent = /(quant[oa]s?|n[uú]mero|total|m[eé]dia|taxa|percentual|faturamento|receita|venda|pedido|cliente|comprador|ticket|convers[aã]o|sess[aã]o|acesso|reembolso|desconto|produto|sku|estoque|roas|investimento|custo|cac|ltv)/.test(q);
+  const metricLikeIntent = /(quant[oa]s?|n[uú]mero|total|m[eé]dia|taxa|percentual|faturamento|receita|venda|pedido|cliente|comprador|ticket|convers[aã]o|sess[aã]o|acesso|reembolso|desconto|produto|sku|estoque|roas|investimento|custo|cac|ltv)/.test(intentQ);
   if (metricLikeIntent) {
     return json({
       query,
