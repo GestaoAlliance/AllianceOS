@@ -346,6 +346,8 @@ async function main() {
   });
 
   let html = fs.readFileSync(path.join(op, 'dist', 'index.html'), 'utf8');
+  // Remove the legacy hardcoded user name before auth hydrates the registered profile.
+  html = html.replace(/<h1 id="greeting">[^<]*<\/h1>/, '<h1 id="greeting">Olá.</h1>');
   const mapSaveOld = "  const salvar = () => { try { localStorage.setItem(chave(), JSON.stringify(M)) } catch (e) { console.error('[mapa]', e) } };";
   const mapSaveNew = "  const salvar = () => { try { localStorage.setItem(chave(), JSON.stringify(M)); window.AllianceOSMapSync?.queue?.(M, marcaAtual()); } catch (e) { console.error('[mapa]', e) } };";
   if (!html.includes(mapSaveOld)) throw new Error('Não encontrei o salvamento do mapa mental para ligar ao Supabase canônico');
