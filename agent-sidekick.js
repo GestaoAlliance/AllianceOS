@@ -2,7 +2,7 @@
   'use strict';
   const SEARCH='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/knowledge-search';
   const ICON='/api/brand-icon?format=svg&v=20260923-agent-3';
-  const KEY='allianceos.agent.sidekick.v1';
+  const KEY='allianceos.agent.sidekick.v2';
   const esc=(v)=>String(v==null?'':v).replace(/[&<>"']/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const icon=(d)=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+d+'</svg>';
   const I={
@@ -174,7 +174,7 @@
           '<div><span>Marca</span><b class="aos-agent-brand-label"></b></div>'+
           '<div><span>Tela</span><b class="aos-agent-page-label"></b></div>'+
           '<label><input type="checkbox" checked data-context> Usar contexto da tela atual</label>'+
-          '<small>A consulta usa a memória semântica do AllianceOS. Nenhum modelo gerador pago está ativo.</small>'+
+          '<small>O agente consulta os dados operacionais e a memória do AllianceOS em tempo real.</small>'+
         '</div>'+
       '</header>'+
       '<div class="aos-agent-thread"></div>'+
