@@ -18,6 +18,26 @@ const installHomeLineFix=()=>{
 
 const esc=v=>String(v??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+
+function registeredFirstName(){
+  const profileName=
+    window.AllianceOSSession?.profile?.nome||
+    window.CentralEu?.nome||
+    window.user?.name||
+    window.user?.firstName||
+    '';
+  const clean=String(profileName||'').trim();
+  if(!clean)return 'Equipe';
+  return clean.split(/\s+/)[0]||'Equipe';
+}
+
+function updateGreeting(){
+  const el=document.getElementById('greeting');
+  if(!el)return;
+  const hour=new Date().getHours();
+  const greeting=hour<12?'Bom dia':hour<18?'Boa tarde':'Boa noite';
+  el.textContent=greeting+', '+registeredFirstName()+'.';
+}
 const read=key=>{try{const v=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
 const parseDate=value=>{
   if(!value)return null;
@@ -236,6 +256,7 @@ function timeline(campaigns,tasks){
 
 function render(){
   if(!document.getElementById('homeView'))return;
+  updateGreeting();
   const d=currentData();
   const s=stats(d.tasks);
   attention(d.tasks,s);
@@ -258,6 +279,7 @@ function whenReady(){
 }
 
 document.addEventListener('DOMContentLoaded',whenReady,{once:true});
+addEventListener('allianceos:auth',()=>setTimeout(updateGreeting,0));
 addEventListener('pageshow',whenReady);
 addEventListener('focus',render);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
