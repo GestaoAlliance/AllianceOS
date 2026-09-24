@@ -96,11 +96,12 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  const customerIntent = /(cliente|clientes|comprador|compradores|pessoa.*compr|pessoas.*compr)/.test(q);
   const salesIntent = /(venda|vendas|pedido|pedidos|faturamento|receita|ticket|shopify)/.test(q);
   const campaignIntent = /(campanha|campanhas)/.test(q);
   const deliveryIntent = /(entrega|entregas|aprovacao|aprovação)/.test(q);
 
-  if ((salesIntent || campaignIntent || deliveryIntent) && brandId) {
+  if ((customerIntent || salesIntent || campaignIntent || deliveryIntent) && brandId) {
     const { data: summary, error: summaryError } = await db.rpc("agent_operational_summary", {
       p_brand_id: brandId,
     });
@@ -112,7 +113,25 @@ Deno.serve(async (req: Request) => {
       const shopify = summary.shopify || {};
       let answer = "";
 
-      if (salesIntent) {
+      if (customerIntent) {
+        const customersMonth = Number(sales.customers_month || 0);
+        const newCustomersMonth = Number(sales.new_customers_month || 0);
+        const returningCustomersMonth = Number(sales.returning_customers_month || 0);
+        const customersToday = Number(sales.customers_today || 0);
+        const hasCustomerData = Boolean(shopify.has_customer_data);
+
+        if (!hasCustomerData) {
+          answer = `Ainda não há dados de clientes sincronizados no AllianceOS para ${brand}. Assim que essa métrica entrar na sincronização, eu consigo responder clientes totais, novos e recorrentes.`;
+        } else if (/hoje/.test(q)) {
+          answer = `${brand} teve ${customersToday} ${plural(customersToday, "cliente")} hoje.`;
+        } else if (/(novo|novos|nova|novas|primeira compra|primeira vez)/.test(q)) {
+          answer = `${brand} teve ${newCustomersMonth} ${plural(newCustomersMonth, "cliente novo", "clientes novos")} neste mês.`;
+        } else if (/(recorr|retorn|recompr|recompra)/.test(q)) {
+          answer = `${brand} teve ${returningCustomersMonth} ${plural(returningCustomersMonth, "cliente recorrente", "clientes recorrentes")} neste mês.`;
+        } else {
+          answer = `${brand} teve ${customersMonth} ${plural(customersMonth, "cliente único", "clientes únicos")} neste mês.`;
+        }
+      } else if (salesIntent) {
         const ordersMonth = Number(sales.orders_month || 0);
         const paidMonth = Number(sales.paid_orders_month || 0);
         const ordersToday = Number(sales.orders_today || 0);
@@ -147,6 +166,15 @@ Deno.serve(async (req: Request) => {
 
       if (answer) return json({ query, answer, live_summary: summary, results: [] });
     }
+  }
+
+  const metricLikeIntent = /(quant[oa]s?|n[uú]mero|total|m[eé]dia|taxa|percentual|faturamento|receita|venda|pedido|cliente|comprador|ticket|convers[aã]o|sess[aã]o|acesso|reembolso|desconto|produto|sku|estoque|roas|investimento|custo|cac|ltv)/.test(q);
+  if (metricLikeIntent) {
+    return json({
+      query,
+      answer: "Essa é uma pergunta de métrica, mas esse indicador ainda não está estruturado no AllianceOS. Hoje consigo responder diretamente vendas, pedidos, clientes, faturamento, ticket médio, tarefas, campanhas e entregas. Não vou misturar isso com tarefas ou documentos não relacionados.",
+      results: []
+    });
   }
 
   const embedding = await model.run(query.slice(0, 12000), {
