@@ -4,6 +4,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const model = new Supabase.ai.Session("gte-small");
+const cfAccountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID") ?? "";
+const cfApiToken = Deno.env.get("CLOUDFLARE_API_TOKEN") ?? "";
+const cfModel = Deno.env.get("CLOUDFLARE_AI_MODEL") || "@cf/meta/llama-3.1-8b-instruct-fp8";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +76,89 @@ const dateBR = (value: unknown) => {
     timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric"
   }).format(d);
 };
+
+
+const compactForAI = (value: any, depth = 0): any => {
+  if (value == null) return value;
+  if (typeof value === "string") return value.length > 1800 ? value.slice(0, 1800) + "…" : value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (depth >= 5) return Array.isArray(value) ? `[${value.length} itens]` : "[objeto resumido]";
+  if (Array.isArray(value)) return value.slice(0, 10).map((item) => compactForAI(item, depth + 1));
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value).slice(0, 28)) {
+      if (["raw","history","historico","embedding"].includes(key)) continue;
+      out[key] = compactForAI(val, depth + 1);
+    }
+    return out;
+  }
+  return String(value);
+};
+
+async function askCloudflareAI(query: string, history: any[], context: any) {
+  if (!cfAccountId || !cfApiToken) return null;
+
+  const recentHistory = history
+    .filter((item: any) => item && (item.role === "user" || item.role === "assistant") && item.text)
+    .slice(-8)
+    .map((item: any) => ({ role: item.role, content: clip(item.text, 900) }));
+
+  const system = [
+    "Você é o agente operacional do AllianceOS.",
+    "Responda em português do Brasil, de forma direta, natural e útil.",
+    "Use SOMENTE os dados fornecidos em CONTEXTO ALLIANCEOS para fatos sobre a operação.",
+    "Não invente números, datas, responsáveis, status, campanhas, tarefas, resultados ou decisões.",
+    "Se o dado necessário não estiver no contexto, diga claramente que ele não está disponível/sincronizado.",
+    "Entenda referências de conversa como 'ela', 'isso', 'essa campanha', 'esse lançamento' usando o histórico.",
+    "Quando houver datas, considere America/Sao_Paulo.",
+    "Diferencie campanhas pontuais de perpétuas quando isso importar.",
+    "Ao resumir prioridades ou riscos, explique em 1-3 motivos concretos baseados nos dados.",
+    "Não diga que é um modelo de IA e não descreva a implementação.",
+  ].join("\n");
+
+  const payload = {
+    model: cfModel,
+    messages: [
+      { role: "system", content: system },
+      ...recentHistory,
+      {
+        role: "user",
+        content:
+          "PERGUNTA ATUAL:\n" + query +
+          "\n\nCONTEXTO ALLIANCEOS (fonte da verdade):\n" +
+          JSON.stringify(compactForAI(context))
+      }
+    ],
+    temperature: 0.2,
+    max_tokens: 700,
+  };
+
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModel}`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + cfApiToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    console.warn("[knowledge-search] Cloudflare AI HTTP", response.status, await response.text().catch(() => ""));
+    return null;
+  }
+
+  const data = await response.json().catch(() => null);
+  const answer = String(data?.result?.response || "").trim();
+  if (!answer) return null;
+  return {
+    answer,
+    usage: data?.result?.usage || null,
+    model: cfModel,
+  };
+}
 
 function synthesizeUniversal(query: string, intentQ: string, context: any) {
   const q = normalize(query + " " + intentQ);
@@ -504,6 +590,18 @@ Deno.serve(async (req: Request) => {
       p_limit: 8,
     });
     if (!universalError && universalContext) {
+      const ai = await askCloudflareAI(query, history, universalContext);
+      if (ai?.answer) {
+        return json({
+          query,
+          answer: ai.answer,
+          ai_provider: "cloudflare-workers-ai",
+          ai_model: ai.model,
+          ai_usage: ai.usage,
+          results: [],
+        });
+      }
+
       const synthesized = synthesizeUniversal(query, normalize(intentQ + " " + recentUserContext), universalContext);
       if (synthesized?.answer) {
         const e = synthesized.entity || {};
