@@ -56,11 +56,12 @@ Deno.serve(async (req: Request) => {
   const brandId = body.brand_id ? String(body.brand_id) : null;
   const q = normalize(query);
   const history = Array.isArray(body.history) ? body.history : [];
-  const lastUserContext = history
+  const userHistory = history
     .filter((item: any) => item && item.role === "user" && item.text)
-    .slice(-1)
-    .map((item: any) => normalize(item.text))
-    .join(" ");
+    .slice(-4)
+    .map((item: any) => normalize(item.text));
+  const lastUserContext = userHistory.slice(-1).join(" ");
+  const recentUserContext = userHistory.join(" ");
   const hasDirectDomain = /(tarefa|prazo|atrasad|vencid|pendente|cliente|comprador|venda|pedido|faturamento|receita|ticket|shopify|campanha|entrega|aprovacao|aprovação)/.test(q);
   const intentQ = hasDirectDomain ? q : normalize(q + " " + lastUserContext);
 
@@ -163,6 +164,90 @@ Deno.serve(async (req: Request) => {
             : `${brand} teve ${ordersMonth} ${plural(ordersMonth, "pedido")} neste mês. ${paidMonth} estão com status financeiro pago/confirmado, e o faturamento líquido acumulado é ${brl(sales.net_revenue_month)}.`;
         }
       } else if (campaignIntent) {
+        const campaignContext = normalize(query + " " + recentUserContext);
+        const wantsPunctual = /(pontual|pontuais|nao perpetu|não perpetu|sem perpetu|fora do perpetu|fora do perp[eé]tuo)/.test(campaignContext);
+        const wantsWeek = /(essa semana|esta semana|semana atual|nesta semana|dessa semana)/.test(campaignContext);
+        const wantsToday = /(hoje|agora)/.test(campaignContext);
+
+        if (wantsPunctual || wantsWeek || wantsToday) {
+          const { data: campaignState, error: campaignStateError } = await db
+            .from("operacional_estado")
+            .select("valor")
+            .eq("chave", "central.campaigns.vitor-gutierrez")
+            .is("dono", null)
+            .maybeSingle();
+
+          if (!campaignStateError && Array.isArray(campaignState?.valor)) {
+            const asDate = (value: unknown, end = false) => {
+              const raw = String(value ?? "").trim();
+              if (!raw) return null;
+              const d = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+                ? new Date(raw + (end ? "T23:59:59-03:00" : "T00:00:00-03:00"))
+                : new Date(raw);
+              return Number.isNaN(d.getTime()) ? null : d;
+            };
+            const now = new Date();
+            const spDate = new Intl.DateTimeFormat("en-CA", {
+              timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+            }).format(now);
+            const todayStart = new Date(spDate + "T00:00:00-03:00");
+            const weekdayName = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", weekday: "short" });
+            const weekday = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(weekdayName);
+            const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+            const weekStart = new Date(todayStart.getTime() + mondayOffset * 86400000);
+            const weekEnd = new Date(weekStart.getTime() + 7 * 86400000 - 1);
+            const todayEnd = new Date(todayStart.getTime() + 86400000 - 1);
+
+            const campaigns = (campaignState.valor as any[])
+              .filter((item: any) => item && normalize(item.brand) === normalize(brand))
+              .filter((item: any) => !(item.archivedAt || item.archived_at || item.is_archived === true))
+              .filter((item: any) => !wantsPunctual || !/(perpetuo|perp[eé]tuo)/.test(normalize(item.type)))
+              .map((item: any) => ({
+                ...item,
+                _start: asDate(item.startAt || item.start_at || item.start),
+                _end: asDate(item.endAt || item.end_at || item.end, true),
+              }))
+              .filter((item: any) => item._start && item._end)
+              .filter((item: any) => {
+                if (wantsToday) return item._start <= todayEnd && item._end >= todayStart;
+                if (wantsWeek) return item._start <= weekEnd && item._end >= weekStart;
+                return item._start <= now && item._end >= now;
+              })
+              .sort((a: any, b: any) => a._start.getTime() - b._start.getTime());
+
+            if (campaigns.length) {
+              const fmt = (d: Date) => new Intl.DateTimeFormat("pt-BR", {
+                timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit",
+              }).format(d);
+              const named = campaigns.map((item: any) =>
+                "“" + String(item.name || "Sem nome") + "” (" + fmt(item._start) + " a " + fmt(item._end) + ")"
+              );
+              answer = campaigns.length === 1
+                ? "A campanha pontual de " + brand + (wantsWeek ? " nesta semana é " : " agora é ") + named[0] + "."
+                : "As campanhas pontuais de " + brand + (wantsWeek ? " nesta semana são: " : " agora são: ") + named.join("; ") + ".";
+
+              const results = campaigns.slice(0, 8).map((item: any) => ({
+                source_type: "campaign",
+                source_id: item.id,
+                title: item.name || "Campanha",
+                content: [
+                  item.status ? "Status: " + item.status : "",
+                  item.type ? "Tipo: " + item.type : "",
+                  "Período: " + fmt(item._start) + " a " + fmt(item._end),
+                ].filter(Boolean).join(" · "),
+                similarity: 1,
+                metadata: item,
+              }));
+              return json({ query, answer, live_summary: summary, results });
+            }
+
+            if (wantsPunctual || wantsWeek) {
+              answer = "Não encontrei campanha pontual de " + brand + (wantsWeek ? " com período nesta semana." : " em andamento agora.");
+              return json({ query, answer, live_summary: summary, results: [] });
+            }
+          }
+        }
+
         const active = Number(operation.active_campaigns || 0);
         const total = Number(operation.campaigns || 0);
         answer = `${brand} tem ${active} ${plural(active, "campanha")} ativa${active === 1 ? "" : "s"} agora, de ${total} cadastrada${total === 1 ? "" : "s"} no total.`;
