@@ -100,8 +100,16 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
 
   const recentHistory = history
     .filter((item: any) => item && (item.role === "user" || item.role === "assistant") && item.text)
-    .slice(-8)
-    .map((item: any) => ({ role: item.role, content: clip(item.text, 900) }));
+    .slice(-10)
+    .map((item: any) => ({ role: item.role, content: clip(item.text, 1100) }));
+
+  const manualSections = asArray(context?.agent_manual?.sections);
+  const manualText = manualSections.map((section: any) => {
+    const examples = asArray(section?.examples);
+    const exampleText = examples.length ? "\nExemplos: " + JSON.stringify(examples) : "";
+    return "### " + String(section?.title || section?.key || "Regra") + "\n" +
+      String(section?.content || "") + exampleText;
+  }).join("\n\n");
 
   const system = [
     "Você é o agente operacional do AllianceOS.",
@@ -114,7 +122,10 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
     "Diferencie campanhas pontuais de perpétuas quando isso importar.",
     "Ao resumir prioridades ou riscos, explique em 1-3 motivos concretos baseados nos dados.",
     "Não diga que é um modelo de IA e não descreva a implementação.",
-  ].join("\n");
+    manualText ? "\nMANUAL PERMANENTE DO ALLIANCEOS — siga estas regras como instruções operacionais:\n" + manualText : "",
+  ].filter(Boolean).join("\n");
+
+  const { agent_manual: _manual, ...operationalContext } = context || {};
 
   const payload = {
     messages: [
@@ -125,7 +136,7 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
         content:
           "PERGUNTA ATUAL:\n" + query +
           "\n\nCONTEXTO ALLIANCEOS (fonte da verdade):\n" +
-          JSON.stringify(compactForAI(context))
+          JSON.stringify(compactForAI(operationalContext))
       }
     ],
     temperature: 0.2,
@@ -381,7 +392,11 @@ Deno.serve(async (req: Request) => {
   // Deterministic handlers below are retained only as a reliable fallback.
   {
     const searchText = [query, ...userHistory.slice(-3)].join(" ");
-    const [universalRes, operationalRes, taskRes] = await Promise.all([
+    const [manualRes, universalRes, operationalRes, taskRes, campaignDetailsRes] = await Promise.all([
+      db.rpc("agent_instruction_context", {
+        p_query: searchText,
+        p_limit: 14,
+      }),
       db.rpc("agent_universal_context", {
         p_brand_id: brandId,
         p_query: searchText,
@@ -389,11 +404,14 @@ Deno.serve(async (req: Request) => {
       }),
       brandId ? db.rpc("agent_operational_summary", { p_brand_id: brandId }) : Promise.resolve({ data: null, error: null }),
       brandId ? db.rpc("agent_task_summary", { p_brand_id: brandId }) : Promise.resolve({ data: null, error: null }),
+      brandId ? db.rpc("agent_campaign_details", { p_brand_id: brandId }) : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (!universalRes.error && universalRes.data) {
       const groundedContext = {
         ...universalRes.data,
+        agent_manual: manualRes.error ? null : manualRes.data,
+        campaign_details: campaignDetailsRes.error ? null : campaignDetailsRes.data,
         operational_summary: operationalRes.error ? null : operationalRes.data,
         task_summary: taskRes.error ? null : taskRes.data,
         current_time: new Date().toISOString(),
@@ -415,6 +433,8 @@ Deno.serve(async (req: Request) => {
     } else if (universalRes.error) {
       console.warn("[knowledge-search] universal context failed", universalRes.error.message);
     }
+    if (manualRes.error) console.warn("[knowledge-search] manual context failed", manualRes.error.message);
+    if (campaignDetailsRes.error) console.warn("[knowledge-search] campaign details failed", campaignDetailsRes.error.message);
   }
 
   const taskIntent = /(tarefa|tarefas|prazo|prazos|atrasad|vencid|vencem|vence|pendente|pendentes|checklist|subtarefa|dependencia|dependência)/.test(intentQ);
