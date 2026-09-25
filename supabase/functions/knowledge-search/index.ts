@@ -528,7 +528,7 @@ Deno.serve(async (req: Request) => {
   if (metricLikeIntent) {
     return json({
       query,
-      answer: "Essa é uma pergunta de métrica, mas esse indicador ainda não está estruturado no AllianceOS. Hoje consigo responder diretamente vendas, pedidos, clientes, faturamento, ticket médio, tarefas, campanhas e entregas. Não vou misturar isso com tarefas ou documentos não relacionados.",
+      answer: "Esse indicador específico ainda não aparece em nenhuma fonte sincronizada do AllianceOS. Não vou inventar um número; quando o dado estiver na base, o agente passa a usá-lo automaticamente.",
       results: []
     });
   }
