@@ -117,7 +117,6 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
   ].join("\n");
 
   const payload = {
-    model: cfModel,
     messages: [
       { role: "system", content: system },
       ...recentHistory,
