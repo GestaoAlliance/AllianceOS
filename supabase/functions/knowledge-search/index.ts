@@ -377,6 +377,46 @@ Deno.serve(async (req: Request) => {
   const hasDirectDomain = /(tarefa|prazo|atrasad|vencid|pendente|cliente|comprador|venda|pedido|faturamento|receita|ticket|shopify|campanha|entrega|aprovacao|aprovação)/.test(q);
   const intentQ = hasDirectDomain ? q : normalize(q + " " + lastUserContext);
 
+  // Primary path: let the LLM interpret the conversation using grounded AllianceOS data.
+  // Deterministic handlers below are retained only as a reliable fallback.
+  {
+    const searchText = [query, ...userHistory.slice(-3)].join(" ");
+    const [universalRes, operationalRes, taskRes] = await Promise.all([
+      db.rpc("agent_universal_context", {
+        p_brand_id: brandId,
+        p_query: searchText,
+        p_limit: 10,
+      }),
+      brandId ? db.rpc("agent_operational_summary", { p_brand_id: brandId }) : Promise.resolve({ data: null, error: null }),
+      brandId ? db.rpc("agent_task_summary", { p_brand_id: brandId }) : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (!universalRes.error && universalRes.data) {
+      const groundedContext = {
+        ...universalRes.data,
+        operational_summary: operationalRes.error ? null : operationalRes.data,
+        task_summary: taskRes.error ? null : taskRes.data,
+        current_time: new Date().toISOString(),
+      };
+
+      const ai = await askCloudflareAI(query, history, groundedContext);
+      if (ai?.answer) {
+        console.log("[knowledge-search] provider=cloudflare-workers-ai model=" + ai.model);
+        return json({
+          query,
+          answer: ai.answer,
+          ai_provider: "cloudflare-workers-ai",
+          ai_model: ai.model,
+          ai_usage: ai.usage,
+          results: [],
+        });
+      }
+      console.warn("[knowledge-search] Cloudflare AI unavailable; using deterministic fallback");
+    } else if (universalRes.error) {
+      console.warn("[knowledge-search] universal context failed", universalRes.error.message);
+    }
+  }
+
   const taskIntent = /(tarefa|tarefas|prazo|prazos|atrasad|vencid|vencem|vence|pendente|pendentes|checklist|subtarefa|dependencia|dependência)/.test(intentQ);
   const taskSummaryIntent = /(quant|total|abert|atrasad|vencid|hoje|fazendo|andamento|revisao|revisão|pendente)/.test(intentQ);
   if (taskIntent && taskSummaryIntent && brandId) {
@@ -589,18 +629,6 @@ Deno.serve(async (req: Request) => {
       p_limit: 8,
     });
     if (!universalError && universalContext) {
-      const ai = await askCloudflareAI(query, history, universalContext);
-      if (ai?.answer) {
-        return json({
-          query,
-          answer: ai.answer,
-          ai_provider: "cloudflare-workers-ai",
-          ai_model: ai.model,
-          ai_usage: ai.usage,
-          results: [],
-        });
-      }
-
       const synthesized = synthesizeUniversal(query, normalize(intentQ + " " + recentUserContext), universalContext);
       if (synthesized?.answer) {
         const e = synthesized.entity || {};
