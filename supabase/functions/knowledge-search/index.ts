@@ -121,6 +121,12 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
     "Quando houver datas, considere America/Sao_Paulo.",
     "Diferencie campanhas pontuais de perpétuas quando isso importar.",
     "Ao resumir prioridades ou riscos, explique em 1-3 motivos concretos baseados nos dados.",
+    "Se existir current_campaign_focus/current_scope, ele é o recorte prioritário para referências como 'ela', 'nela', 'essa campanha', 'o que falta', 'atrasada' e 'sobrecarregado nela'.",
+    "Nunca responda carga de uma campanha com carga geral da marca quando current_campaign_focus estiver disponível.",
+    "Nunca repita a mesma tarefa, campanha ou informação duas vezes na mesma resposta.",
+    "Para listas operacionais, mostre no máximo 8 itens e agrupe o restante em uma contagem curta.",
+    "Se o usuário pedir N pontos, entregue exatamente N pontos.",
+    "Seja conciso: normalmente responda em até 180 palavras, salvo se o usuário pedir detalhes.",
     "Não diga que é um modelo de IA e não descreva a implementação.",
     manualText ? "\nMANUAL PERMANENTE DO ALLIANCEOS — siga estas regras como instruções operacionais:\n" + manualText : "",
   ].filter(Boolean).join("\n");
@@ -140,7 +146,7 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
       }
     ],
     temperature: 0.2,
-    max_tokens: 700,
+    max_tokens: 520,
   };
 
   const response = await fetch(
@@ -167,6 +173,60 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
     answer,
     usage: data?.result?.usage || null,
     model: cfModel,
+  };
+}
+
+
+function resolveCampaignFocus(query: string, history: any[], campaigns: any[]) {
+  const rows = asArray(campaigns).filter((x:any) => x?.id && x?.name);
+  if (!rows.length) return null;
+
+  const messages = [
+    ...history
+      .filter((item:any) => item && item.text)
+      .slice(-12)
+      .map((item:any) => String(item.text || "")),
+    query,
+  ];
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = normalize(messages[i]);
+    const matches = rows
+      .filter((camp:any) => {
+        const name = normalize(camp.name);
+        if (!name) return false;
+        return msg.includes(name) || name.includes(msg);
+      })
+      .sort((a:any,b:any) => normalize(b.name).length - normalize(a.name).length);
+    if (matches.length) return matches[0];
+  }
+
+  return null;
+}
+
+const campaignScopedFollowup = (query: string) =>
+  /(nessa campanha|dessa campanha|essa campanha|nela|dela|a meta dela|qual a meta|qual a oferta|a oferta|quais produtos|produto|respons[aá]vel|quem est[aá]|o que falta|ainda falta|atrasad|em atraso|sobrecarreg|mais cr[ií]tico|resum|5 pontos|cinco pontos)/.test(normalize(query));
+
+const asksBrandWideComparison = (query: string) =>
+  /(compar|perpetu|perp[eé]tuo|marca inteira|vis[aã]o geral|geral da marca|todas as campanhas|time inteiro|opera[cç][aã]o toda)/.test(normalize(query));
+
+function scopedContext(base: any, focus: any, query: string) {
+  if (!focus || asksBrandWideComparison(query)) return base;
+  if (!campaignScopedFollowup(query)) return { ...base, current_campaign_focus: focus };
+
+  return {
+    ...base,
+    current_campaign_focus: focus,
+    current_scope: {
+      type: "campaign",
+      id: focus?.campaign?.id || null,
+      name: focus?.campaign?.name || null,
+      rule: "Para esta pergunta, responda primeiro usando SOMENTE o recorte da campanha em foco. Não use totais da marca para preencher dados ausentes da campanha.",
+    },
+    tasks: asArray(focus?.tasks),
+    deliveries: asArray(focus?.deliveries),
+    results: asArray(focus?.results),
+    workload: asArray(focus?.workload),
   };
 }
 
@@ -408,14 +468,39 @@ Deno.serve(async (req: Request) => {
     ]);
 
     if (!universalRes.error && universalRes.data) {
-      const groundedContext = {
+      const campaignsForFocus = [
+        ...asArray(universalRes.data?.campaigns),
+        ...asArray(campaignDetailsRes.data?.campaigns),
+      ];
+      let focusCampaign = resolveCampaignFocus(query, history, campaignsForFocus);
+
+      // If this is clearly a follow-up about "the campaign" and the current
+      // week has exactly one punctual campaign, use it as the conversation focus.
+      if (!focusCampaign && campaignScopedFollowup(query)) {
+        const punctual = asArray(campaignDetailsRes.data?.punctual_this_week);
+        if (punctual.length === 1) focusCampaign = punctual[0];
+      }
+
+      let campaignFocus: any = null;
+      if (brandId && focusCampaign?.id) {
+        const focusRes = await db.rpc("agent_campaign_focus", {
+          p_brand_id: brandId,
+          p_campaign_id: String(focusCampaign.id),
+        });
+        if (!focusRes.error && focusRes.data?.campaign) campaignFocus = focusRes.data;
+        else if (focusRes.error) console.warn("[knowledge-search] campaign focus failed", focusRes.error.message);
+      }
+
+      const rawGroundedContext = {
         ...universalRes.data,
         agent_manual: manualRes.error ? null : manualRes.data,
         campaign_details: campaignDetailsRes.error ? null : campaignDetailsRes.data,
         operational_summary: operationalRes.error ? null : operationalRes.data,
         task_summary: taskRes.error ? null : taskRes.data,
+        current_campaign_focus: campaignFocus,
         current_time: new Date().toISOString(),
       };
+      const groundedContext = scopedContext(rawGroundedContext, campaignFocus, query);
 
       const ai = await askCloudflareAI(query, history, groundedContext);
       if (ai?.answer) {
