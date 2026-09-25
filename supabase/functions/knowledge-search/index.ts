@@ -81,12 +81,98 @@ function synthesizeUniversal(query: string, intentQ: string, context: any) {
   const deliveries = asArray(context?.deliveries);
   const results = asArray(context?.results);
   const people = asArray(context?.people);
+  const workload = asArray(context?.workload);
   const lists = asArray(context?.lists);
   const planning = asArray(context?.planning);
   const positive = (rows: any[]) => {
     const scored = rows.filter((x) => Number(x?.score || 0) > 0);
     return scored.length ? scored : rows.slice(0, 1);
   };
+
+  const resultsWords = /(resultado|resultados|roas|faturamento.*campanha|campanha.*faturamento|fonte de receita|investimento.*campanha|campanha.*investimento)/.test(q);
+  if (resultsWords && results.length) {
+    const rows = positive(results);
+    const faturamento = rows.reduce((s:number,r:any)=>s+Number(r.faturamento||0),0);
+    const investimento = rows.reduce((s:number,r:any)=>s+Number(r.investimento||0),0);
+    const roas = investimento > 0 ? faturamento / investimento : null;
+    const canais = [...new Set(rows.map((r:any)=>r.canal).filter(Boolean))].join(", ");
+    const campaignNames = [...new Set(rows.map((r:any)=>r.campaign_name).filter(Boolean))].join(", ");
+    return {
+      answer: `${campaignNames ? "Para “" + campaignNames + "”, " : ""}encontrei faturamento de ${brl(faturamento)} e investimento de ${brl(investimento)}${roas != null ? ", ROAS " + roas.toFixed(2).replace(".",",") : ""}${canais ? ". Canais: " + canais : ""}.`,
+      entity:rows[0], source_type:"campaign_result"
+    };
+  }
+
+  const workloadWords = /(sobrecarg|carga|mais tarefas|quem tem mais|distribuicao|distribuição|capacidade|time.*tarefas|tarefas.*time)/.test(q);
+  if (workloadWords && workload.length) {
+    const rows = workload.slice(0,6);
+    return {
+      answer: "Carga atual do time: " + rows.map((w:any) =>
+        `${w.person}: ${w.open_tasks} abertas${Number(w.overdue_tasks||0) ? ", " + w.overdue_tasks + " atrasadas" : ""}`
+      ).join("; ") + ".",
+      entity:rows[0], source_type:"workload"
+    };
+  }
+
+  const taskWords = /(tarefa|tarefas|checklist|comentario|comentário|dependencia|dependência|prazo|responsavel|responsável|prioridade|subtarefa|bloquead)/.test(q);
+  if (taskWords && tasks.length) {
+    const now = new Date();
+    const spDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"
+    }).format(now);
+    const today = new Date(spDate + "T00:00:00-03:00");
+    const weekday = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(
+      now.toLocaleString("en-US",{timeZone:"America/Sao_Paulo",weekday:"short"})
+    );
+    const monday = new Date(today.getTime() + (weekday===0?-6:1-weekday)*86400000);
+    const sunday = new Date(monday.getTime()+7*86400000-1);
+    let taskPool = positive(tasks);
+    if (/(essa semana|esta semana|nesta semana|semana atual|dessa semana)/.test(q)) {
+      taskPool = tasks.filter((t:any)=>{
+        if(!t.due_date_text) return false;
+        const d = new Date(String(t.due_date_text)+"T12:00:00-03:00");
+        return !Number.isNaN(d.getTime()) && d>=monday && d<=sunday;
+      });
+    } else if (/hoje/.test(q)) {
+      taskPool = tasks.filter((t:any)=>String(t.due_date_text||"")===spDate);
+    }
+    const matches = taskPool.slice(0, /quais|lista|tarefas|o que/.test(q) ? 8 : 1);
+    if (matches.length > 1) {
+      const lines = matches.map((t:any) => {
+        const who = asArray(t.assignees).join(", ");
+        return `“${t.title}” — ${t.status || "sem status"}${t.due_date_text ? ", prazo " + t.due_date_text : ""}${who ? ", responsável " + who : ""}`;
+      });
+      return { answer: "Encontrei estas tarefas: " + lines.join("; ") + ".", entity: matches[0], source_type: "task" };
+    }
+    if (matches.length === 1) {
+      const t = matches[0];
+      if (/(checklist)/.test(q)) return { answer: `O checklist de “${t.title}” é: ${humanValue(t.checklist) || "não informado"}.`, entity:t, source_type:"task" };
+      if (/(comentario|comentário)/.test(q)) return { answer: `Os comentários de “${t.title}” são: ${humanValue(t.comments) || "não há comentários registrados"}.`, entity:t, source_type:"task" };
+      if (/(dependencia|dependência|bloque)/.test(q)) return { answer: `As dependências de “${t.title}” são: ${humanValue(t.dependencies) || "nenhuma registrada"}.`, entity:t, source_type:"task" };
+      const who = asArray(t.assignees).join(", ");
+      return {
+        answer: `“${t.title}” está ${t.status || "sem status"}, prioridade ${t.priority || "normal"}${t.due_date_text ? ", com prazo " + t.due_date_text : ""}${who ? ", responsável: " + who : ""}${t.project ? ", projeto: " + t.project : ""}${t.description ? ". " + clip(t.description,420) : ""}.`,
+        entity:t, source_type:"task"
+      };
+    }
+    return { answer:"Não encontrei tarefas que batam com esse recorte.", entity:{}, source_type:"task" };
+  }
+
+  if (/(entrega|entregas|arquivo|link|aprovacao|aprovação|material)/.test(q) && deliveries.length) {
+    const rows = positive(deliveries);
+    if (/quais|lista|entregas/.test(q) && rows.length > 1) {
+      return {
+        answer:"Entregas encontradas: "+rows.slice(0,8).map((d:any)=>`“${d.title || d.task_title || "Sem título"}” — ${d.status || "sem status"}`).join("; ")+".",
+        entity:rows[0], source_type:"delivery"
+      };
+    }
+    const d = rows[0];
+    const extra = /(arquivo|link|material)/.test(q) ? humanValue(d.files || d.links, 700) : clip(d.note || "", 380);
+    return {
+      answer: `A entrega “${d.title || d.task_title || "Sem título"}” está com status ${d.status || "não informado"}${d.project ? ", projeto " + d.project : ""}${d.sender ? ", enviada por " + d.sender : ""}${d.recipient ? " para " + d.recipient : ""}${extra ? ". " + extra : ""}.`,
+      entity:d, source_type:"delivery"
+    };
+  }
 
   const campaignWords = /(campanha|oferta|meta|verba|orcamento|orçamento|produto|sku|canal|cronograma|fase|tap|equipe|lancamento|lançamento|dia d|perpetuo|perpétuo)/.test(q);
   if (campaignWords && campaigns.length) {
@@ -121,51 +207,18 @@ function synthesizeUniversal(query: string, intentQ: string, context: any) {
       const value = humanValue(c.tap, 1100);
       if (value) return { answer: `O TAP de “${name}” registra: ${value}`, entity: c, source_type: "campaign" };
     }
+    const rows = positive(campaigns);
+    if (/quais|campanhas|lista/.test(q) && rows.length > 1) {
+      return {
+        answer: "Campanhas encontradas: " + rows.slice(0,8).map((x:any) =>
+          `“${x.name}” — ${x.status || "sem status"}, ${dateBR(x.start_at) || "—"} a ${dateBR(x.end_at) || "—"}`
+        ).join("; ") + ".",
+        entity: rows[0], source_type: "campaign"
+      };
+    }
     return {
       answer: `“${name}” está com status ${c.status || "não informado"}, tipo ${c.type || "não informado"} e período de ${dateBR(c.start_at) || "—"} a ${dateBR(c.end_at) || "—"}${c.objective ? ". Objetivo: " + c.objective : ""}${c.goal ? ". Meta: " + c.goal : ""}.`,
       entity: c, source_type: "campaign"
-    };
-  }
-
-  const taskWords = /(tarefa|tarefas|checklist|comentario|comentário|dependencia|dependência|prazo|responsavel|responsável|prioridade|subtarefa)/.test(q);
-  if (taskWords && tasks.length) {
-    const matches = positive(tasks).slice(0, /quais|lista|tarefas/.test(q) ? 6 : 1);
-    if (matches.length > 1) {
-      const lines = matches.map((t:any) => {
-        const who = asArray(t.assignees).join(", ");
-        return `“${t.title}” — ${t.status || "sem status"}${t.due_date_text ? ", prazo " + t.due_date_text : ""}${who ? ", responsável " + who : ""}`;
-      });
-      return { answer: "Encontrei estas tarefas: " + lines.join("; ") + ".", entity: matches[0], source_type: "task" };
-    }
-    const t = matches[0];
-    if (/(checklist)/.test(q)) return { answer: `O checklist de “${t.title}” é: ${humanValue(t.checklist) || "não informado"}.`, entity:t, source_type:"task" };
-    if (/(comentario|comentário)/.test(q)) return { answer: `Os comentários de “${t.title}” são: ${humanValue(t.comments) || "não há comentários registrados"}.`, entity:t, source_type:"task" };
-    if (/(dependencia|dependência|bloque)/.test(q)) return { answer: `As dependências de “${t.title}” são: ${humanValue(t.dependencies) || "nenhuma registrada"}.`, entity:t, source_type:"task" };
-    const who = asArray(t.assignees).join(", ");
-    return {
-      answer: `“${t.title}” está ${t.status || "sem status"}, prioridade ${t.priority || "normal"}${t.due_date_text ? ", com prazo " + t.due_date_text : ""}${who ? ", responsável: " + who : ""}${t.project ? ", projeto: " + t.project : ""}${t.description ? ". " + clip(t.description,420) : ""}.`,
-      entity:t, source_type:"task"
-    };
-  }
-
-  if (/(entrega|entregas|arquivo|link|aprovacao|aprovação|material)/.test(q) && deliveries.length) {
-    const d = positive(deliveries)[0];
-    const extra = /(arquivo|link|material)/.test(q) ? humanValue(d.files || d.links, 700) : clip(d.note || "", 380);
-    return {
-      answer: `A entrega “${d.title || d.task_title || "Sem título"}” está com status ${d.status || "não informado"}${d.project ? ", projeto " + d.project : ""}${d.sender ? ", enviada por " + d.sender : ""}${d.recipient ? " para " + d.recipient : ""}${extra ? ". " + extra : ""}.`,
-      entity:d, source_type:"delivery"
-    };
-  }
-
-  if (/(resultado|resultados|roas|faturamento.*campanha|campanha.*faturamento|fonte de receita|investimento)/.test(q) && results.length) {
-    const rows = positive(results);
-    const faturamento = rows.reduce((s:number,r:any)=>s+Number(r.faturamento||0),0);
-    const investimento = rows.reduce((s:number,r:any)=>s+Number(r.investimento||0),0);
-    const roas = investimento > 0 ? faturamento / investimento : null;
-    const canais = [...new Set(rows.map((r:any)=>r.canal).filter(Boolean))].join(", ");
-    return {
-      answer: `Nos resultados relacionados encontrei faturamento de ${brl(faturamento)} e investimento de ${brl(investimento)}${roas != null ? ", ROAS " + roas.toFixed(2).replace(".",",") : ""}${canais ? ". Canais: " + canais : ""}.`,
-      entity:rows[0], source_type:"campaign_result"
     };
   }
 
@@ -443,7 +496,7 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  if (brandId) {
+  {
     const searchText = [query, ...userHistory.slice(-3)].join(" ");
     const { data: universalContext, error: universalError } = await db.rpc("agent_universal_context", {
       p_brand_id: brandId,
