@@ -80,10 +80,10 @@
         brand_id:b.id,
         limit:5,
         history:state.messages
-          .filter((m)=>m&&m.role==='user')
+          .filter((m)=>m&&(m.role==='user'||m.role==='assistant'))
           .slice(0,-1)
-          .slice(-4)
-          .map((m)=>({role:'user',text:String(m.text||'')}))
+          .slice(-8)
+          .map((m)=>({role:m.role,text:String(m.text||'')}))
       })
     });
     const data=await response.json().catch(()=>({}));
