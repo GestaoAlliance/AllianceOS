@@ -121,6 +121,10 @@ async function askCloudflareAI(query: string, history: any[], context: any) {
     "Quando houver datas, considere America/Sao_Paulo.",
     "Diferencie campanhas pontuais de perpétuas quando isso importar.",
     "Ao resumir prioridades ou riscos, explique em 1-3 motivos concretos baseados nos dados.",
+    "Use organization_context para perguntas sobre organograma, áreas, cadeiras, autoridade, escalonamento, KPIs, rituais, donos e responsabilidades.",
+    "Cadeira e pessoa são conceitos diferentes: uma pessoa pode acumular várias cadeiras.",
+    "Quando perguntarem quem decide ou para quem escalar, responda com a alçada da cadeira e o escalonamento registrado; não invente autoridade.",
+    "Quando perguntarem qual ritual usar, escolha entre R01-R07 pelo objetivo e regras registradas no organization_context.",
     "Se existir current_campaign_focus/current_scope, ele é o recorte prioritário para referências como 'ela', 'nela', 'essa campanha', 'o que falta', 'atrasada' e 'sobrecarregado nela'.",
     "Nunca responda carga de uma campanha com carga geral da marca quando current_campaign_focus estiver disponível.",
     "Nunca repita a mesma tarefa, campanha ou informação duas vezes na mesma resposta.",
@@ -452,10 +456,14 @@ Deno.serve(async (req: Request) => {
   // Deterministic handlers below are retained only as a reliable fallback.
   {
     const searchText = [query, ...userHistory.slice(-3)].join(" ");
-    const [manualRes, universalRes, operationalRes, taskRes, campaignDetailsRes] = await Promise.all([
+    const [manualRes, orgRes, universalRes, operationalRes, taskRes, campaignDetailsRes] = await Promise.all([
       db.rpc("agent_instruction_context", {
         p_query: searchText,
-        p_limit: 14,
+        p_limit: 16,
+      }),
+      db.rpc("agent_organization_context", {
+        p_query: searchText,
+        p_limit: 10,
       }),
       db.rpc("agent_universal_context", {
         p_brand_id: brandId,
@@ -494,6 +502,7 @@ Deno.serve(async (req: Request) => {
       const rawGroundedContext = {
         ...universalRes.data,
         agent_manual: manualRes.error ? null : manualRes.data,
+        organization_context: orgRes.error ? null : orgRes.data,
         campaign_details: campaignDetailsRes.error ? null : campaignDetailsRes.data,
         operational_summary: operationalRes.error ? null : operationalRes.data,
         task_summary: taskRes.error ? null : taskRes.data,
@@ -519,6 +528,7 @@ Deno.serve(async (req: Request) => {
       console.warn("[knowledge-search] universal context failed", universalRes.error.message);
     }
     if (manualRes.error) console.warn("[knowledge-search] manual context failed", manualRes.error.message);
+    if (orgRes.error) console.warn("[knowledge-search] organization context failed", orgRes.error.message);
     if (campaignDetailsRes.error) console.warn("[knowledge-search] campaign details failed", campaignDetailsRes.error.message);
   }
 
