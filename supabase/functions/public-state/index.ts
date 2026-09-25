@@ -17,6 +17,60 @@ const validKey = (k: string) => (k.startsWith('central.') || k.startsWith('allia
 
 type RemovalAttempt = { path: string, id: string }
 
+const CAMPAIGNS_KEY = 'central.campaigns.vitor-gutierrez'
+const CAMPAIGN_META_KEYS = new Set(['history','updatedAt','updated_at','updatedBy','updated_by','origin'])
+function campaignComparable(value: unknown) {
+  if (!isObj(value)) return value
+  const out: Record<string, unknown> = {}
+  for (const [key,val] of Object.entries(value)) if (!CAMPAIGN_META_KEYS.has(key)) out[key]=val
+  return out
+}
+function campaignChangedKeys(before: Record<string, unknown>|undefined, after: Record<string, unknown>) {
+  const a=before||{}
+  return [...new Set([...Object.keys(a),...Object.keys(after)])]
+    .filter((key)=>!CAMPAIGN_META_KEYS.has(key) && !equal(a[key],after[key]))
+}
+function annotateCampaignInterfaceChanges(
+  current: unknown,
+  next: unknown,
+  actorId: string,
+  actorName: string,
+) {
+  if (!withId(next)) return next
+  const oldById=new Map(
+    (Array.isArray(current)?current:[])
+      .filter(isObj)
+      .filter((x)=>x.id!=null)
+      .map((x)=>[String(x.id),x]),
+  )
+  const at=new Date().toISOString()
+  return next.map((item)=>{
+    const id=String(item.id)
+    const before=oldById.get(id)
+    const changed=!before || !equal(campaignComparable(before),campaignComparable(item))
+    if(!changed)return item
+    const keys=campaignChangedKeys(before,item)
+    const history=Array.isArray(item.history)?[...item.history]:[]
+    history.unshift({
+      at,
+      by:actorName||'Usuário',
+      authorId:actorId,
+      origin:'interface',
+      campos:keys,
+      text:before
+        ? 'Campanha atualizada pela interface'+(keys.length?': '+keys.join(', '):'')+'.'
+        : 'Campanha criada pela interface.',
+    })
+    return {
+      ...item,
+      history,
+      updatedAt:at,
+      updatedBy:actorId,
+      origin:'interface',
+    }
+  })
+}
+
 function mergeList(
   base: unknown,
   mine: Array<Record<string, unknown> & { id: unknown }>,
@@ -95,6 +149,40 @@ async function authenticatedClient(req: Request) {
   return db
 }
 
+
+const TASKS_KEY = 'central.tasks.vitor-gutierrez'
+
+async function featureEnabled(admin: ReturnType<typeof adminClient>, key: string) {
+  const { data, error } = await admin
+    .from('system_feature_flags')
+    .select('enabled,config')
+    .eq('key', key)
+    .maybeSingle()
+  if (error) {
+    console.warn('[feature flag] read failed', key, error.message)
+    return { enabled: false, config: {} as Record<string, unknown> }
+  }
+  return {
+    enabled: data?.enabled === true,
+    config: isObj(data?.config) ? data.config : {},
+  }
+}
+
+async function taskMirrorItem(admin: ReturnType<typeof adminClient>) {
+  const { data, error } = await admin.rpc('alliance_task_mirror_sync_payload')
+  if (error) throw error
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row || row.in_sync !== true) return null
+  if (Number(row.source_count || 0) !== Number(row.mirror_count || 0)) return null
+  if (!row.source_hash || row.source_hash !== row.mirror_hash) return null
+  if (!Array.isArray(row.valor)) return null
+  return {
+    chave: TASKS_KEY,
+    valor: row.valor,
+    atualizado_em: row.atualizado_em,
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
@@ -104,7 +192,7 @@ Deno.serve(async (req: Request) => {
     const { data: authData, error: authError } = await userDb.auth.getUser()
     if (authError || !authData?.user) return ok({ error: 'authentication_required' }, 401)
     const actorId = authData.user.id
-    const { data: profile, error: profileError } = await userDb.from('profiles').select('id,papel,ativo,tipo_membro').eq('id', actorId).maybeSingle()
+    const { data: profile, error: profileError } = await userDb.from('profiles').select('id,nome,papel,ativo,tipo_membro').eq('id', actorId).maybeSingle()
     if (profileError || !profile?.ativo || profile?.papel === 'externo' || profile?.tipo_membro === 'servico') return ok({ error: 'access_not_allowed' }, 403)
     if (req.method === 'GET') {
       const url = new URL(req.url)
@@ -112,9 +200,21 @@ Deno.serve(async (req: Request) => {
       const key = String(url.searchParams.get('key') || '')
       if (key) {
         if (!validKey(key)) return ok({ error: 'invalid_key' }, 400)
+        if (key === TASKS_KEY) {
+          const flag = await featureEnabled(admin, 'tasks_mirror_read')
+          if (flag.enabled) {
+            try {
+              const mirror = await taskMirrorItem(admin)
+              if (mirror) return ok({ item: mirror, user_id: actorId, read_source: 'alliance_data' })
+              console.warn('[tasks mirror] parity check failed; falling back to operacional_estado')
+            } catch (e) {
+              console.warn('[tasks mirror] read failed; falling back to operacional_estado', e)
+            }
+          }
+        }
         const { data, error } = await userDb.from('operacional_estado').select('chave,valor,atualizado_em').eq('chave', key).is('dono', null).maybeSingle()
         if (error) throw error
-        return ok({ item: data || null, user_id: actorId })
+        return ok({ item: data || null, user_id: actorId, read_source: 'operacional_estado' })
       }
       if (mode === 'meta') {
         const { data, error } = await userDb.from('operacional_estado').select('chave,atualizado_em').is('dono', null).or('chave.like.central.%,chave.like.allianceos.%').order('chave')
@@ -144,7 +244,22 @@ Deno.serve(async (req: Request) => {
     const { data: currentRow, error: readError } = await userDb.from('operacional_estado').select('valor').eq('chave', chave).is('dono', null).maybeSingle()
     if (readError) throw readError
     const removalAttempts: RemovalAttempt[] = []
-    const finalValue = currentRow ? merge(body.base, body.valor, currentRow.valor, removalAttempts, "$") : body.valor
+    // Planning maps contain visual nodes. Removing a node from the canvas is not
+    // a destructive deletion of the underlying campaign/task entity, so do not
+    // resurrect omitted map nodes through the shared-array anti-delete merge.
+    // For map state, the latest authenticated save is authoritative.
+    const isPlanningMap = /^(central|allianceos)\.planning\.map\./.test(chave)
+    let finalValue = isPlanningMap
+      ? body.valor
+      : (currentRow ? merge(body.base, body.valor, currentRow.valor, removalAttempts, "$") : body.valor)
+    if (chave === CAMPAIGNS_KEY) {
+      finalValue = annotateCampaignInterfaceChanges(
+        currentRow?.valor,
+        finalValue,
+        actorId,
+        String(profile.nome || authData.user.email || 'Usuário'),
+      )
+    }
     if (removalAttempts.length) {
       try { await admin.from('physical_delete_attempts').insert(removalAttempts.slice(0,200).map((a)=>({actor_id:actorId,origin:'interface',entity_type:'operacional_estado_item',entity_id:a.id,details:{chave,path:a.path,blocked:true,reason:'item_omitted_from_shared_state'}}))) } catch {}
     }
