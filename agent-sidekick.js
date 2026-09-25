@@ -16,7 +16,7 @@
   };
   const MARK=icon('<path d="M12 5v14M5 12h14M7.05 7.05l9.9 9.9M16.95 7.05l-9.9 9.9"/>');
   const state={open:false,expanded:false,busy:false,messages:[]};
-  let launcher,panel,thread,input,send,titleMenu,settingsMenu;
+  let launcher,panel,thread,input,send,composer,titleMenu,settingsMenu;
 
   function currentBrand(){
     const select=document.getElementById('brandSelect');
@@ -95,6 +95,13 @@
     };
   }
   async function submitPrompt(){
+    // Re-resolve os elementos a cada envio para evitar referências obsoletas
+    // quando partes da interface legada são re-renderizadas.
+    if(panel){
+      input=panel.querySelector('textarea')||input;
+      send=panel.querySelector('.aos-agent-send')||send;
+      composer=panel.querySelector('.aos-agent-compose')||composer;
+    }
     const q=input?input.value.trim():'';
     if(!q||state.busy)return;
     state.busy=true;
@@ -188,15 +195,16 @@
       '</header>'+
       '<div class="aos-agent-thread"></div>'+
       '<div class="aos-agent-compose-wrap">'+
-        '<div class="aos-agent-compose">'+
+        '<form class="aos-agent-compose" novalidate>'+
           '<textarea rows="1" placeholder="Trabalhar com o agente"></textarea>'+
           '<button class="aos-agent-plus" type="button" aria-label="Adicionar contexto">'+I.plus+'</button>'+
-          '<button class="aos-agent-send" type="button" aria-label="Enviar">'+I.wave+'</button>'+
-        '</div>'+
+          '<button class="aos-agent-send" type="submit" aria-label="Enviar">'+I.wave+'</button>'+
+        '</form>'+
       '</div>';
     document.body.appendChild(panel);
 
     thread=panel.querySelector('.aos-agent-thread');
+    composer=panel.querySelector('.aos-agent-compose');
     input=panel.querySelector('textarea');
     send=panel.querySelector('.aos-agent-send');
     titleMenu=panel.querySelector('.aos-agent-title-menu');
@@ -224,9 +232,20 @@
     });
     input.addEventListener('input',resize);
     input.addEventListener('keydown',(e)=>{
-      if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitPrompt()}
+      if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();composer?.requestSubmit()}
     });
-    send.addEventListener('click',submitPrompt);
+    composer.addEventListener('submit',(e)=>{
+      e.preventDefault();
+      submitPrompt();
+    });
+    // Fallback em captura: alguns runtimes legados do AllianceOS substituem nós
+    // depois do mount. Mesmo nesse cenário, Enter no campo continua enviando.
+    panel.addEventListener('keydown',(e)=>{
+      if(e.key==='Enter'&&!e.shiftKey&&e.target?.matches?.('textarea')){
+        e.preventDefault();
+        submitPrompt();
+      }
+    },true);
     document.addEventListener('click',(e)=>{
       if(!panel.contains(e.target)&&!launcher.contains(e.target))closeMenus();
     });
