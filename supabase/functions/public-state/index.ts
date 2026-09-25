@@ -15,6 +15,116 @@ const withId = (v: unknown): v is Array<Record<string, unknown> & { id: unknown 
 const PROTECTED_KEYS = new Set(['central.tasks.vitor-gutierrez','allianceos.tasks.vitor-gutierrez'])
 const validKey = (k: string) => (k.startsWith('central.') || k.startsWith('allianceos.')) && !k.includes('.__') && k.length <= 220
 
+function planningMapInfo(key: string) {
+  const match = key.match(/^(central|allianceos)\.planning\.map\.([^.]+)\.(.+)$/)
+  return match ? { prefix: match[1], owner: match[2], brand: match[3] } : null
+}
+
+const normalizeText = (value: unknown) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+
+async function normalizePlanningMap(admin: ReturnType<typeof adminClient>, value: unknown) {
+  if (!isObj(value) || !Array.isArray(value.nos)) return value
+
+  const originalNodes = value.nos.filter(isObj)
+  const campaignIds = [...new Set(
+    originalNodes
+      .map((node) => String(node.campId || '').trim())
+      .filter(Boolean)
+  )]
+
+  const campaigns = new Map<string, { name: string; archived: boolean }>()
+  if (campaignIds.length) {
+    const { data, error } = await admin
+      .schema('alliance_data')
+      .from('campaigns')
+      .select('id,name,is_archived')
+      .in('id', campaignIds)
+    if (!error) {
+      for (const row of data || []) {
+        campaigns.set(String(row.id), {
+          name: String(row.name || ''),
+          archived: row.is_archived === true,
+        })
+      }
+    } else {
+      console.warn('[planning map] campaign lookup failed', error.message)
+    }
+  }
+
+  const rootIds = new Set(
+    originalNodes
+      .filter((node) => node.pai == null)
+      .map((node) => String(node.id))
+  )
+
+  const removedIds = new Set<string>()
+  const prepared: Record<string, unknown>[] = []
+
+  for (const source of originalNodes) {
+    const node = { ...source }
+    const id = String(node.id ?? '')
+    const parent = node.pai == null ? null : String(node.pai)
+    const campId = String(node.campId || '').trim()
+    const campaign = campId ? campaigns.get(campId) : undefined
+
+    // A campaign archived in the database must not return as a top-level
+    // campaign node in the planning map.
+    if (parent && rootIds.has(parent) && campaign?.archived) {
+      removedIds.add(id)
+      continue
+    }
+
+    // Root/structural nodes sometimes inherited campId from old UI bugs.
+    // Keep the node, but remove the misleading campaign badge/link.
+    if (campId && (parent == null || (campaign && !(
+      normalizeText(node.t).includes(normalizeText(campaign.name)) ||
+      normalizeText(campaign.name).includes(normalizeText(node.t))
+    )))) {
+      delete node.campId
+    }
+
+    prepared.push(node)
+  }
+
+  // If a removed duplicate had children, reparent them to the root instead of
+  // leaving invisible/orphaned nodes.
+  for (const node of prepared) {
+    const parent = node.pai == null ? null : String(node.pai)
+    if (parent && removedIds.has(parent)) {
+      const firstRoot = originalNodes.find((candidate) => candidate.pai == null)
+      node.pai = firstRoot?.id ?? null
+    }
+  }
+
+  // Exact sibling duplicates are a visual corruption, not distinct entities.
+  // Keep the oldest node id and preserve one visual instance.
+  const seen = new Set<string>()
+  const deduped: Record<string, unknown>[] = []
+  for (const node of prepared.sort((a,b) => Number(a.id || 0) - Number(b.id || 0))) {
+    const signature = [
+      node.pai == null ? 'root' : String(node.pai),
+      normalizeText(node.t),
+      String(node.campId || ''),
+    ].join('|')
+    if (seen.has(signature)) continue
+    seen.add(signature)
+    deduped.push(node)
+  }
+
+  const maxId = deduped.reduce((max,node) => Math.max(max, Number(node.id || 0)), 0)
+  return {
+    ...value,
+    nos: deduped,
+    prox: Math.max(Number(value.prox || 1), maxId + 1),
+  }
+}
+
 type RemovalAttempt = { path: string, id: string }
 
 const CAMPAIGNS_KEY = 'central.campaigns.vitor-gutierrez'
@@ -214,7 +324,29 @@ Deno.serve(async (req: Request) => {
         }
         const { data, error } = await userDb.from('operacional_estado').select('chave,valor,atualizado_em').eq('chave', key).is('dono', null).maybeSingle()
         if (error) throw error
-        return ok({ item: data || null, user_id: actorId, read_source: 'operacional_estado' })
+        if (data) return ok({ item: data, user_id: actorId, read_source: 'operacional_estado' })
+
+        const mapInfo = planningMapInfo(key)
+        if (mapInfo) {
+          const pattern = 'central.planning.map.%.' + mapInfo.brand
+          const { data: fallback, error: fallbackError } = await userDb
+            .from('operacional_estado')
+            .select('valor,atualizado_em')
+            .like('chave', pattern)
+            .is('dono', null)
+            .order('atualizado_em', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (fallbackError) throw fallbackError
+          if (fallback) {
+            return ok({
+              item: { chave: key, valor: fallback.valor, atualizado_em: fallback.atualizado_em },
+              user_id: actorId,
+              read_source: 'planning_map_shared_fallback',
+            })
+          }
+        }
+        return ok({ item: null, user_id: actorId, read_source: 'operacional_estado' })
       }
       if (mode === 'meta') {
         const { data, error } = await userDb.from('operacional_estado').select('chave,atualizado_em').is('dono', null).or('chave.like.central.%,chave.like.allianceos.%').order('chave')
@@ -248,9 +380,10 @@ Deno.serve(async (req: Request) => {
     // a destructive deletion of the underlying campaign/task entity, so do not
     // resurrect omitted map nodes through the shared-array anti-delete merge.
     // For map state, the latest authenticated save is authoritative.
-    const isPlanningMap = /^(central|allianceos)\.planning\.map\./.test(chave)
+    const mapInfo = planningMapInfo(chave)
+    const isPlanningMap = !!mapInfo
     let finalValue = isPlanningMap
-      ? body.valor
+      ? await normalizePlanningMap(admin, body.valor)
       : (currentRow ? merge(body.base, body.valor, currentRow.valor, removalAttempts, "$") : body.valor)
     if (chave === CAMPAIGNS_KEY) {
       finalValue = annotateCampaignInterfaceChanges(
@@ -266,6 +399,25 @@ Deno.serve(async (req: Request) => {
     const row={chave,dono:null,valor:finalValue,atualizado_em:new Date().toISOString()}
     const { data, error } = await userDb.from('operacional_estado').upsert(row,{onConflict:'chave,dono'}).select('chave,valor,atualizado_em').single()
     if (error) throw error
+
+    // Planning is shared by brand, not private per user. Mirror an authenticated
+    // map save to every existing per-user key and keep one stable shared copy.
+    if (mapInfo) {
+      const canonicalKey = 'central.planning.map.shared.' + mapInfo.brand
+      const now = new Date().toISOString()
+      const pattern = 'central.planning.map.%.' + mapInfo.brand
+      const { error: mirrorError } = await admin
+        .from('operacional_estado')
+        .update({ valor: finalValue, atualizado_em: now })
+        .like('chave', pattern)
+        .is('dono', null)
+      if (mirrorError) console.warn('[planning map] mirror existing keys failed', mirrorError.message)
+
+      const { error: canonicalError } = await admin
+        .from('operacional_estado')
+        .upsert({ chave: canonicalKey, dono: null, valor: finalValue, atualizado_em: now }, { onConflict: 'chave,dono' })
+      if (canonicalError) console.warn('[planning map] canonical save failed', canonicalError.message)
+    }
     const syncV2 = req.headers.get('x-alliance-sync-version') === '2'
     if (!syncV2) return ok({ok:true,item:data})
     const mergedChanged = !equal(finalValue, body.valor)
