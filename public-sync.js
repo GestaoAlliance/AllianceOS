@@ -100,6 +100,7 @@
     if(row.atualizado_em)setVersion(key,row.atualizado_em);
     if(changed){
       rawSet.call(localStorage,key,wanted);
+      try { window.dispatchEvent(new CustomEvent('allianceos:state-updated',{detail:{key,value:row.valor,updatedAt:row.atualizado_em||null}})); } catch {}
       if(notice)showUpdateNotice();
     }
     return changed;
