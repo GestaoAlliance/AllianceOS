@@ -122,6 +122,7 @@
     traffic:svg('<path d="M4 18V9M9 18V5M14 18v-7M19 18V3"/><path d="M3 18h18"/>'),
     deliveries:svg('<rect x="4" y="7" width="16" height="13" rx="2"/><path d="m7 7 2-3h6l2 3M9 12h6"/>'),
     access:svg('<circle cx="8" cy="12" r="3.2"/><path d="M11 11h9v2h-2.5v2H15v-2h-4"/><path d="M5 9V6.5A3.5 3.5 0 0 1 8.5 3h3A3.5 3.5 0 0 1 15 6.5V8"/>'),
+    organization:svg('<path d="M12 4v4M5 20v-4a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v4"/><circle cx="12" cy="4" r="2"/><circle cx="5" cy="20" r="2"/><circle cx="12" cy="20" r="2"/><circle cx="19" cy="20" r="2"/>'),
     clients:svg('<path d="M7.5 19v-1.2A4.8 4.8 0 0 1 12.3 13h.4a4.8 4.8 0 0 1 4.8 4.8V19"/><circle cx="12.5" cy="8.5" r="3"/><path d="M5 17.5a3.8 3.8 0 0 1 3-3.7M20 17.5a3.8 3.8 0 0 0-3-3.7"/>'),
     automations:svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>'),
     notifications:svg('<path d="M18 9a6 6 0 0 0-12 0c0 5.8-2.5 7-2.5 7h17S18 14.8 18 9Z"/><path d="M10 20h4"/>'),
@@ -187,6 +188,7 @@
       ['campaigns','Campanhas','campaigns',targets.campaigns],
       ['traffic','Tráfego','traffic',null],
       ['deliveries','Entregas','deliveries',targets.deliveries],
+      ['organization','Organização','organization',null],
       ['access','Acessos','access',null],
       ['clients','Clientes','clients',null],
       ['automations','Automações','automations',null],
@@ -204,6 +206,7 @@
         setActive(key);
         if(key!=='access')window.AllianceOSAccessCenter?.close?.();
         if(key!=='traffic')window.AllianceOSTrafficLab?.close?.();
+        if(key!=='organization')window.AllianceOSOrganization?.close?.();
         if(key==='access'){
           if(window.AllianceOSAccessCenter?.open)window.AllianceOSAccessCenter.open();
           else toast('Central de Acessos · carregando…');
@@ -212,6 +215,11 @@
         if(key==='traffic'){
           if(window.AllianceOSTrafficLab?.open)window.AllianceOSTrafficLab.open();
           else toast('Tráfego · carregando…');
+          return;
+        }
+        if(key==='organization'){
+          if(window.AllianceOSOrganization?.open)window.AllianceOSOrganization.open();
+          else toast('Organização · carregando…');
           return;
         }
         if(key==='campaigns'){
@@ -230,10 +238,11 @@
         if(target)target.click();
         else toast(label+' · módulo em preparação.');
       });
-      if(target)target.addEventListener('click',()=>{window.AllianceOSAccessCenter?.close?.();window.AllianceOSTrafficLab?.close?.();setActive(key)},true);
+      if(target)target.addEventListener('click',()=>{window.AllianceOSAccessCenter?.close?.();window.AllianceOSTrafficLab?.close?.();window.AllianceOSOrganization?.close?.();setActive(key)},true);
       btns.set(key,b);nav.appendChild(b);
     });
     window.addEventListener('allianceos:access-open',()=>setActive('access'));
+    window.addEventListener('allianceos:organization-open',()=>setActive('organization'));
     if(targets.planning)targets.planning.addEventListener('click',()=>{window.AllianceOSAccessCenter?.close?.();window.AllianceOSTrafficLab?.close?.();setActive('campaigns')},true);
     const initial=[['home',targets.home],['tasks',targets.tasks],['campaigns',targets.campaigns],['campaigns',targets.planning],['deliveries',targets.deliveries],['notifications',targets.notifications],['reports',targets.reports],['settings',targets.settings]]
       .find(([,el])=>el?.classList.contains('active'))?.[0]||'home';

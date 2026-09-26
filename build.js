@@ -38,6 +38,7 @@ const AGENT_SIDEKICK_CSS = path.join(__dirname, 'agent-sidekick.css');
 const ACCESS_CENTER_JS = path.join(__dirname, 'access-center.js');
 const ACCESS_CENTER_CSS = path.join(__dirname, 'access-center.css');
 const TRAFFIC_CREATIVE_LAB_JS = path.join(__dirname, 'traffic-creative-lab.js');
+const ORGANIZATION_CENTER_JS = path.join(__dirname, 'organization-center.js');
 const TRAFFIC_CREATIVE_LAB_CSS = path.join(__dirname, 'traffic-creative-lab.css');
 const SOCIAL_PREVIEW_IMAGE = path.join(__dirname, 'assets', 'allianceos-whatsapp-preview-v6.jpg');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
@@ -83,6 +84,7 @@ async function main() {
   const accessCenterJs = fs.readFileSync(ACCESS_CENTER_JS, 'utf8');
   const accessCenterCss = fs.readFileSync(ACCESS_CENTER_CSS, 'utf8');
   const trafficCreativeLabJs = fs.readFileSync(TRAFFIC_CREATIVE_LAB_JS, 'utf8');
+  const organizationCenterJs = fs.readFileSync(ORGANIZATION_CENTER_JS, 'utf8');
   const trafficCreativeLabCss = fs.readFileSync(TRAFFIC_CREATIVE_LAB_CSS, 'utf8');
 
   fs.rmSync(LEGACY, { recursive: true, force: true });
@@ -443,7 +445,7 @@ async function main() {
   html = html.replace(/<title>[^<]*<\/title>/i, '<title>AllianceOS — Operação em um só lugar</title>');
   html = html.replace('<head>', () => `<head>\n${socialHead}<script id="alliance-mobile-runtime-js">\n${mobileRuntimeJs}\n</script>\n`);
   html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-context-guide-style">\n${contextGuideCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<style id="alliance-mobile-runtime-css">\n${mobileRuntimeCss}\n</style>\n<style id="alliance-campaign-planning-truth-css">\n${campaignPlanningTruthCss}\n</style>\n<style id="alliance-delivery-drive-css">\n${deliveryDriveCss}\n</style>\n<style id="alliance-agent-sidekick-css">\n${agentSidekickCss}\n</style>\n<style id="alliance-access-center-css">\n${accessCenterCss}\n</style>\n<style id="alliance-traffic-creative-lab-css">\n${trafficCreativeLabCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
-  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n<script id="alliance-home-live-sync">\n${homeLiveSync}\n</script>\n<script id="alliance-campaign-planning-truth">\n${campaignPlanningTruthJs}\n</script>\n<script id="alliance-delivery-drive-js">\n${deliveryDriveJs}\n</script>\n<script id="alliance-agent-sidekick-js">\n${agentSidekickJs}\n</script>\n<script id="alliance-access-center-js">\n${accessCenterJs}\n</script>\n<script id="alliance-traffic-creative-lab-js">\n${trafficCreativeLabJs}\n</script>\n</body>`);
+  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n<script id="alliance-home-live-sync">\n${homeLiveSync}\n</script>\n<script id="alliance-campaign-planning-truth">\n${campaignPlanningTruthJs}\n</script>\n<script id="alliance-delivery-drive-js">\n${deliveryDriveJs}\n</script>\n<script id="alliance-agent-sidekick-js">\n${agentSidekickJs}\n</script>\n<script id="alliance-access-center-js">\n${accessCenterJs}\n</script>\n<script id="alliance-traffic-creative-lab-js">\n${trafficCreativeLabJs}\n</script>\n<script id="alliance-organization-center-js">\n${organizationCenterJs}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
