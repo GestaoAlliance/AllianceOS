@@ -761,8 +761,9 @@ function normalizeWorkspaceActions(){
 
   const chip=status.querySelector('.camp-chip');
   if(chip){
-    chip.textContent=statusLabel(chip.textContent||'Em execução');
-    chip.classList.add('alliance-cw-status-chip');
+    const nextStatus=statusLabel(chip.textContent||'Em execução');
+    if(chip.textContent!==nextStatus)chip.textContent=nextStatus;
+    if(!chip.classList.contains('alliance-cw-status-chip'))chip.classList.add('alliance-cw-status-chip');
   }
 
   const edit=top.querySelector('#cwEdit');
@@ -783,9 +784,14 @@ function apply(){
   summary();
 }
 
+let applying=false;
 function schedule(){
   clearTimeout(scheduled);
-  scheduled=setTimeout(apply,35);
+  scheduled=setTimeout(()=>{
+    if(applying)return;
+    applying=true;
+    try{apply()}finally{applying=false}
+  },50);
 }
 
 const observer=new MutationObserver(schedule);
