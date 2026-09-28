@@ -138,12 +138,27 @@ function render(){
   document.getElementById('campaignListSection')?.style.removeProperty('display');
 }
 
+function syncPlanningCampaignKpi(){
+  const root=document.getElementById('planContext');
+  if(!root)return;
+  const first=root.querySelector('.plan-kpi');
+  if(!first)return;
+  const data=campaigns();
+  const perpetual=data.filter(isPerpetual);
+  const punctual=data.filter(c=>!isPerpetual(c));
+  const value=first.querySelector('b');
+  const meta=first.querySelector('span');
+  if(value)value.textContent=String(data.length);
+  if(meta)meta.textContent=perpetual.length+' perpétua'+(perpetual.length===1?'':'s')+' · '+punctual.length+' pontual'+(punctual.length===1?'':'is');
+}
+
 function forceDirectory(){
   const overview=document.getElementById('campaignOverviewList');
   const ws=document.getElementById('campaignWorkspace');
   overview?.classList.remove('hidden');
   ws?.classList.remove('active');
   render();
+  syncPlanningCampaignKpi();
 }
 
 document.addEventListener('click',e=>{
@@ -166,6 +181,10 @@ window.addEventListener('allianceos:state-updated',e=>{
 document.getElementById('brandSelect')?.addEventListener('change',()=>setTimeout(forceDirectory,0));
 document.getElementById('campaignSearch')?.addEventListener('input',()=>setTimeout(render,0));
 document.getElementById('campaignStatusFilter')?.addEventListener('change',()=>setTimeout(render,0));
-window.AllianceCampaignDirectoryHardfix={render:forceDirectory};
+const planContext=document.getElementById('planContext');
+if(planContext){
+  new MutationObserver(()=>syncPlanningCampaignKpi()).observe(planContext,{childList:true,subtree:true});
+}
+window.AllianceCampaignDirectoryHardfix={render:forceDirectory,syncPlanningCampaignKpi};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(forceDirectory,80),{once:true});else setTimeout(forceDirectory,80);
 })();
