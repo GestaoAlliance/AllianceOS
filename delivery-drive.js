@@ -306,7 +306,7 @@
   function norm(value){
     return String(value == null ? '' : value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   }
-  function authToken(){
+  function storedAuthToken(){
     try{
       const raw=localStorage.getItem('sb-lpnyrzsdiyzjnhovpduk-auth-token');
       if(!raw)return '';
@@ -314,11 +314,49 @@
       return parsed && (parsed.access_token || (parsed.currentSession && parsed.currentSession.access_token)) || '';
     }catch{return ''}
   }
+  function tokenExpiresAt(token){
+    try{
+      const part=String(token||'').split('.')[1]||'',normalized=part.replace(/-/g,'+').replace(/_/g,'/');
+      const padded=normalized+'='.repeat((4-normalized.length%4)%4);
+      const payload=JSON.parse(atob(padded));
+      return Number(payload?.exp||0)*1000;
+    }catch{return 0}
+  }
+  function tokenIsFresh(token,minTtlSeconds=300){
+    if(!token)return false;
+    const expiresAt=tokenExpiresAt(token);
+    return !expiresAt || expiresAt-Date.now()>minTtlSeconds*1000;
+  }
+  async function authToken(forceRefresh=false){
+    try{
+      const auth=window.AllianceOSAuth;
+      if(auth?.ready)await auth.ready;
+      let token=auth?.getAccessToken?.()||auth?.session?.()?.access_token||'';
+      const client=auth?.client;
+      if(!forceRefresh&&tokenIsFresh(token))return token;
+      if(client?.auth){
+        const current=await client.auth.getSession();
+        token=current?.data?.session?.access_token||token;
+        if(!forceRefresh&&tokenIsFresh(token))return token;
+        const refreshed=await client.auth.refreshSession();
+        if(!refreshed?.error&&refreshed?.data?.session?.access_token)return refreshed.data.session.access_token;
+        if(tokenIsFresh(token,0))return token;
+        if(refreshed?.error)console.warn('[Drive entregas] não foi possível renovar a sessão',refreshed.error);
+      }
+      const stored=storedAuthToken();
+      if(tokenIsFresh(stored,0))return stored;
+    }catch(e){
+      console.warn('[Drive entregas] falha ao obter sessão atualizada',e);
+    }
+    return '';
+  }
   function currentUserId(){
-    const direct=(window.AllianceOSSession&&window.AllianceOSSession.user&&window.AllianceOSSession.user.id)||(window.user&&window.user.id);
+    const direct=(window.AllianceOSSession&&window.AllianceOSSession.user&&window.AllianceOSSession.user.id)||
+      window.AllianceOSAuth?.session?.()?.user?.id||
+      (window.user&&window.user.id);
     if(direct)return String(direct);
     try{
-      const token=authToken(),part=token.split('.')[1]||'',normalized=part.replace(/-/g,'+').replace(/_/g,'/');
+      const token=window.AllianceOSAuth?.getAccessToken?.()||storedAuthToken(),part=token.split('.')[1]||'',normalized=part.replace(/-/g,'+').replace(/_/g,'/');
       const padded=normalized+'='.repeat((4-normalized.length%4)%4);
       const payload=JSON.parse(atob(padded));
       if(payload?.sub)return String(payload.sub);
@@ -551,7 +589,7 @@
     return rows.join('')||'<article class="alliance-drive-file-summary empty"><div><b>Entrega sem arquivo</b><small>O destino continuará registrado no histórico.</small></div></article>';
   }
   async function driveList(brand,folderId){
-    const token=authToken();
+    let token=await authToken();
     if(!token)throw new Error('Sua sessão expirou. Entre novamente no AllianceOS.');
     const u=new URL('/api/drive',location.origin);
     u.searchParams.set('marca',brand);
@@ -1193,7 +1231,7 @@
   }
   async function tusUpload(file,deliveryId,index,onProgress){
     const cfg=await sbConfig();
-    const token=authToken();
+    let token=await authToken();
     if(!token)throw new Error('Sua sessão expirou.');
     const userId=currentUserId();
     const objectPath=userId+'/'+safeName(deliveryId)+'/'+String(index+1).padStart(2,'0')+'-'+safeName(file.name);
@@ -1248,7 +1286,7 @@
     return {path:objectPath,bucket:STORAGE_BUCKET,name:file.name,type:file.type||'application/octet-stream',size:file.size};
   }
   async function copyStorageToDrive(staged,destination,brand,uploadId){
-    const token=authToken();
+    let token=await authToken();
     const res=await fetch('/api/drive',{
       method:'POST',
       headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
