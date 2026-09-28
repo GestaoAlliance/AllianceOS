@@ -390,6 +390,12 @@
       .alliance-goals-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #edf0f2;background:#fafbfc}
       .alliance-goals-section-head b{font-size:12px;color:#293138}
       .alliance-goals-section-head span{font-size:9.5px;color:#8a949b}
+      .alliance-goals-channel-add{height:32px;padding:0 10px;border:1px solid #d8dfe3;border-radius:8px;background:#fff;color:#3f4b54;font:650 10px/1 Inter,system-ui;white-space:nowrap;cursor:pointer}
+      .alliance-goals-channel-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;padding:11px 14px;border-bottom:1px solid #edf0f2;background:#fff}
+      .alliance-goals-channel-form[hidden]{display:none}
+      .alliance-goals-channel-form input{box-sizing:border-box;width:100%;height:36px;padding:0 10px;border:1px solid #dce2e6;border-radius:8px;background:#fff;color:#263139;font:600 10.5px/1 Inter,system-ui}
+      .alliance-goals-channel-form button{height:36px;padding:0 12px;border:1px solid #171c20;border-radius:8px;background:#171c20;color:#fff;font:650 10.5px/1 Inter,system-ui;cursor:pointer}
+      .alliance-goals-channel-form button:disabled{opacity:.5;cursor:wait}
       .alliance-goals-table{width:100%;border-collapse:collapse;table-layout:fixed}
       .alliance-goals-table th,.alliance-goals-table td{padding:9px 10px;border-bottom:1px solid #eef1f3;text-align:left;vertical-align:middle}
       .alliance-goals-table th{background:#fff;color:#89939a;font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
@@ -511,6 +517,14 @@
     const v=Number(value||0);
     return '<input type="number" min="0" step="0.01" name="'+esc(name)+'" value="'+(v?v:'')+'" placeholder="0" '+extra+'>';
   }
+  function planningChannelSlug(name){
+    const base=String(name||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,72);
+    return base||('canal-'+Date.now().toString(36));
+  }
+  function planningChannelRow(ch,g={}){
+    return '<tr data-channel-row data-channel-slug="'+esc(ch.slug)+'"><td>'+esc(ch.nome||ch.slug)+'</td><td>'+goalsMoneyInput('meta1',g.meta1)+'</td><td>'+goalsMoneyInput('meta2',g.meta2)+'</td><td>'+goalsMoneyInput('meta3',g.meta3)+'</td><td>'+goalsMoneyInput('investimento_previsto',g.investimento_previsto)+'</td></tr>';
+  }
   function planningGoalsTotals(layer){
     const active=Number(layer.querySelector('[name="meta_ativa"]')?.value||1);
     const rows=[...layer.querySelectorAll('[data-channel-row]')];
@@ -555,13 +569,51 @@
           '<label class="alliance-goals-field"><span>Meta ativa</span><select name="meta_ativa">'+[1,2,3].map(i=>'<option value="'+i+'" '+(Number(m.meta_ativa||1)===i?'selected':'')+'>Meta '+i+'</option>').join('')+'</select></label>'+
           '<label class="alliance-goals-field"><span>Ticket médio previsto</span>'+goalsMoneyInput('ticket_medio_previsto',m.ticket_medio_previsto)+'</label>'+
         '</div>'+
-        '<div class="alliance-goals-section"><div class="alliance-goals-section-head"><div><b>Metas por canal</b><span>Defina o faturamento esperado em cada cenário e o investimento do canal.</span></div></div>'+
-          '<table class="alliance-goals-table"><thead><tr><th>Canal</th><th>Meta 1</th><th>Meta 2</th><th>Meta 3</th><th>Investimento previsto</th></tr></thead><tbody>'+
-          (channels||[]).map(ch=>{
-            const g=bySlug.get(String(ch.slug))||{};
-            return '<tr data-channel-row data-channel-slug="'+esc(ch.slug)+'"><td>'+esc(ch.nome||ch.slug)+'</td><td>'+goalsMoneyInput('meta1',g.meta1)+'</td><td>'+goalsMoneyInput('meta2',g.meta2)+'</td><td>'+goalsMoneyInput('meta3',g.meta3)+'</td><td>'+goalsMoneyInput('investimento_previsto',g.investimento_previsto)+'</td></tr>';
-          }).join('')+
+        '<div class="alliance-goals-section"><div class="alliance-goals-section-head"><div><b>Metas por canal</b><span>Defina o faturamento esperado em cada cenário e o investimento do canal.</span></div><button type="button" class="alliance-goals-channel-add" data-goals-add-channel>+ Criar canal</button></div>'+
+          '<form class="alliance-goals-channel-form" data-goals-channel-form hidden><input name="channel_name" maxlength="80" placeholder="Ex.: TikTok Shop, Google Ads, Afiliados…" required><button type="submit">Adicionar canal</button></form>'+
+          '<table class="alliance-goals-table"><thead><tr><th>Canal</th><th>Meta 1</th><th>Meta 2</th><th>Meta 3</th><th>Investimento previsto</th></tr></thead><tbody data-goals-channel-body>'+
+          (channels||[]).map(ch=>planningChannelRow(ch,bySlug.get(String(ch.slug))||{})).join('')+
           '</tbody></table></div>';
+      const addChannel=layer.querySelector('[data-goals-add-channel]');
+      const channelForm=layer.querySelector('[data-goals-channel-form]');
+      const channelBody=layer.querySelector('[data-goals-channel-body]');
+      let nextChannelOrder=Math.max(0,...(channels||[]).map(ch=>Number(ch.ordem||0)))+10;
+      addChannel?.addEventListener('click',()=>{
+        channelForm.hidden=!channelForm.hidden;
+        if(!channelForm.hidden)setTimeout(()=>channelForm.querySelector('[name="channel_name"]')?.focus(),20);
+      });
+      channelForm?.addEventListener('submit',async e=>{
+        e.preventDefault();
+        const input=channelForm.querySelector('[name="channel_name"]');
+        const button=channelForm.querySelector('button[type="submit"]');
+        const nome=String(input?.value||'').trim();
+        if(!nome){window.showToast?.('Digite o nome do canal.');return}
+        const slug=planningChannelSlug(nome);
+        button.disabled=true;button.textContent='Adicionando…';
+        try{
+          const existing=[...layer.querySelectorAll('[data-channel-row]')].find(r=>String(r.dataset.channelSlug||'')===slug);
+          if(existing){
+            existing.scrollIntoView({behavior:'smooth',block:'center'});
+            throw new Error('Esse canal já existe neste planejamento.');
+          }
+          const ins=await ctx.s.from('alliance_channels').insert({
+            slug,nome,ordem:nextChannelOrder,ativo:true,origem:'interface'
+          }).select('slug,nome,ordem,ativo').single();
+          if(ins.error)throw ins.error;
+          nextChannelOrder+=10;
+          channelBody?.insertAdjacentHTML('beforeend',planningChannelRow(ins.data||{slug,nome},{}));
+          input.value='';
+          channelForm.hidden=true;
+          planningGoalsTotals(layer);
+          window.showToast?.('Canal '+nome+' criado e disponível nos próximos planejamentos.');
+        }catch(err){
+          console.error('[AllianceOS canais] falha ao criar',err);
+          const status=layer.querySelector('[data-goals-status]');
+          if(status)status.textContent='Não foi possível criar o canal: '+String(err?.message||err);
+        }finally{
+          button.disabled=false;button.textContent='Adicionar canal';
+        }
+      });
       layer.addEventListener('input',()=>planningGoalsTotals(layer));
       layer.addEventListener('change',()=>planningGoalsTotals(layer));
       planningGoalsTotals(layer);
