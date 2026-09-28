@@ -468,13 +468,17 @@
     const label=planningMonthLabel(ref);
     const planMonth=document.getElementById('planMonthLabel');
     const campMonth=document.getElementById('campMonthBtn');
-    if(planMonth)planMonth.textContent=label;
-    if(campMonth)campMonth.textContent=label;
+    // IMPORTANT: this function is called from a body MutationObserver.
+    // Writing identical textContent recreates text nodes and triggers that
+    // observer again forever, freezing Chrome. Only touch the DOM on change.
+    if(planMonth&&planMonth.textContent!==label)planMonth.textContent=label;
+    if(campMonth&&campMonth.textContent!==label)campMonth.textContent=label;
     const crumb=document.querySelector('#planningView .plan-titlebar p');
     if(crumb){
       const parts=String(crumb.textContent||'').split('/').map(x=>x.trim()).filter(Boolean);
       const prefix=parts.length>1?parts.slice(0,-1).join(' / '):'AllianceOS / Estratégia';
-      crumb.textContent=prefix+' / '+label;
+      const next=prefix+' / '+label;
+      if(crumb.textContent!==next)crumb.textContent=next;
     }
   }
   function refreshPlanningMapControls(info={}){
@@ -486,9 +490,9 @@
     if(input&&input.value!==ref)input.value=ref;
     const state=controls.querySelector('[data-alliance-planning-month-state]');
     if(state){
-      if(info.exists===true)state.textContent='Salvo · '+planningMonthLabel(ref);
-      else if(info.exists===false)state.textContent='Novo · '+planningMonthLabel(ref);
-      else state.textContent=planningMonthLabel(ref);
+      const nextState=info.exists===true?'Salvo · '+planningMonthLabel(ref)
+        :(info.exists===false?'Novo · '+planningMonthLabel(ref):planningMonthLabel(ref));
+      if(state.textContent!==nextState)state.textContent=nextState;
     }
   }
   let planningMonthSwitchSeq=0;
