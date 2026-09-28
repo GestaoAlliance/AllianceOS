@@ -181,10 +181,6 @@ window.addEventListener('allianceos:state-updated',e=>{
 document.getElementById('brandSelect')?.addEventListener('change',()=>setTimeout(forceDirectory,0));
 document.getElementById('campaignSearch')?.addEventListener('input',()=>setTimeout(render,0));
 document.getElementById('campaignStatusFilter')?.addEventListener('change',()=>setTimeout(render,0));
-const planContext=document.getElementById('planContext');
-if(planContext){
-  new MutationObserver(()=>syncPlanningCampaignKpi()).observe(planContext,{childList:true,subtree:true});
-}
 window.AllianceCampaignDirectoryHardfix={render:forceDirectory,syncPlanningCampaignKpi};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(forceDirectory,80),{once:true});else setTimeout(forceDirectory,80);
 })();
