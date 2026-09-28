@@ -113,17 +113,27 @@ const currentTasks=()=>{
   const ref=selectedMonthRef();
   const campaigns=currentCampaigns();
   const ids=new Set(campaigns.map(c=>String(c?.id||'')).filter(Boolean));
-  const names=campaigns.map(c=>projectNorm(c?.name)).filter(Boolean);
+  const names=new Set(campaigns.map(c=>projectNorm(c?.name)).filter(Boolean));
   return read(TASK_KEY).filter(t=>{
     if(t?.archivedAt)return false;
     if(b&&t.brand&&t.brand!==b)return false;
+
+    // Month membership has to be explicit. A task belongs to the selected
+    // month when its own monthRef says so, its due date falls in the month,
+    // or it is linked to a campaign that belongs to that month.
     const explicit=String(t?.monthRef||t?.month_ref||'').slice(0,7);
     if(validMonthRef(explicit))return explicit===ref;
+
     const due=dateOnly(t?.dueAt||t?.due||t?.deadline);
-    if(due&&monthRefFromDate(due)===ref)return true;
+    if(due)return monthRefFromDate(due)===ref;
+
     if(t?.campaignId&&ids.has(String(t.campaignId)))return true;
+
+    // Legacy tasks without campaignId may still carry the exact campaign
+    // name in project. Exact match only: prefix matching was pulling old
+    // "Perpétuo"/"Dia D" tasks from other months into October.
     const p=projectNorm(t?.project);
-    return !!p&&names.some(name=>p===name||p.startsWith(name)||name.startsWith(p));
+    return !!p&&names.has(p);
   });
 };
 const currentPlanningMetrics=()=>{
@@ -772,16 +782,34 @@ function normalizeWorkspaceActions(){
 }
 
 function apply(){
-  syncLegacyMemory();
-  bindDelegates();
-  syncMonthChrome();
-  normalizeWorkspaceActions();
-  campaignHistoryWorkspace();
-  campaignList();
-  campaignCalendar();
-  planContext();
-  planningWeek();
-  summary();
+  // The planning KPI strip is month-critical, so render it before any
+  // optional campaign workspace enhancement. One unrelated legacy error must
+  // never leave September's counters visible while October is selected.
+  try{syncLegacyMemory()}catch(e){console.warn('[AllianceOS mês] memória',e)}
+  try{bindDelegates()}catch(e){console.warn('[AllianceOS mês] navegação',e)}
+  try{syncMonthChrome()}catch(e){console.warn('[AllianceOS mês] cabeçalho',e)}
+  try{planContext()}catch(e){console.warn('[AllianceOS mês] indicadores',e)}
+  try{planningWeek()}catch(e){console.warn('[AllianceOS mês] semana',e)}
+  try{campaignList()}catch(e){console.warn('[AllianceOS mês] campanhas',e)}
+  try{campaignCalendar()}catch(e){console.warn('[AllianceOS mês] calendário',e)}
+  try{normalizeWorkspaceActions()}catch(e){console.warn('[AllianceOS campanha] ações',e)}
+  try{campaignHistoryWorkspace()}catch(e){console.warn('[AllianceOS campanha] histórico',e)}
+  try{summary()}catch(e){console.warn('[AllianceOS campanha] resumo',e)}
+}
+
+let planContextObserver=null;
+function ensurePlanContextObserver(){
+  const root=document.getElementById('planContext');
+  if(!root)return;
+  if(planContextObserver&&root.dataset.allianceMonthKpiObserved==='1')return;
+  try{planContextObserver?.disconnect()}catch{}
+  root.dataset.allianceMonthKpiObserved='1';
+  planContextObserver=new MutationObserver(()=>{
+    // Legacy renderContext can still repaint this strip. Re-assert the
+    // selected-month truth on the next task, without writing when identical.
+    setTimeout(()=>{try{planContext()}catch{}},0);
+  });
+  planContextObserver.observe(root,{childList:true,subtree:true,characterData:true});
 }
 
 let applying=false;
@@ -790,7 +818,7 @@ function schedule(){
   scheduled=setTimeout(()=>{
     if(applying)return;
     applying=true;
-    try{apply()}finally{applying=false}
+    try{apply();ensurePlanContextObserver()}finally{applying=false}
   },50);
 }
 
@@ -807,7 +835,10 @@ window.addEventListener('allianceos:planning-month',e=>{
   }
   schedule();
 });
-window.addEventListener('allianceos:planning-month-changing',schedule);
+window.addEventListener('allianceos:planning-month-changing',()=>{
+  try{syncMonthChrome();planContext();planningWeek()}catch{}
+  schedule();
+});
 window.addEventListener('allianceos:planning-month-ready',schedule);
 window.addEventListener('allianceos:planning-metrics',schedule);
 window.addEventListener('pageshow',schedule);
