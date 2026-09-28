@@ -28,7 +28,23 @@ const dateOnly=v=>{
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const dateBR=v=>{const d=dateOnly(v);return d?String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'):'—'};
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
+const validMonthRef=v=>/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(v||''));
+const monthRefFromDate=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+const selectedMonthRef=()=>{
+  const live=String(window.AlliancePlanningMonthRef||'');
+  if(validMonthRef(live))return live;
+  const picker=String(document.querySelector('[data-alliance-planning-month]')?.value||'');
+  if(validMonthRef(picker))return picker;
+  let saved='';
+  try{saved=sessionStorage.getItem('allianceos.planning.monthRef')||''}catch{}
+  if(validMonthRef(saved))return saved;
+  return monthRefFromDate(today());
+};
 const monthName=d=>d.toLocaleDateString('pt-BR',{month:'long'}).replace(/^./,x=>x.toUpperCase());
+const selectedMonthLabel=()=>{
+  const [y,m]=selectedMonthRef().split('-').map(Number);
+  return monthName(new Date(y,m-1,1))+' '+y;
+};
 const statusNorm=s=>norm(s).replace(/\s+/g,' ');
 const statusLabel=s=>{
   const n=statusNorm(s);
@@ -57,15 +73,19 @@ const brand=()=>{
   return !v||norm(v)==='todas as marcas'?'':v;
 };
 const monthBounds=()=>{
-  const n=today();
+  const ref=selectedMonthRef();
+  const [y,m]=ref.split('-').map(Number);
   return {
-    start:new Date(n.getFullYear(),n.getMonth(),1),
-    end:new Date(n.getFullYear(),n.getMonth()+1,0),
-    now:n
+    ref,
+    start:new Date(y,m-1,1),
+    end:new Date(y,m,0),
+    now:today()
   };
 };
 const overlapsMonth=c=>{
   const b=monthBounds();
+  const explicit=String(c?.monthRef||c?.month_ref||'').slice(0,7);
+  if(validMonthRef(explicit))return explicit===b.ref;
   const s=dateOnly(c.startAt||c.start);
   const e=dateOnly(c.endAt||c.end)||s;
   return !!s&&!!e&&s<=b.end&&e>=b.start;
@@ -88,7 +108,21 @@ const currentCampaigns=()=>{
 };
 const currentTasks=()=>{
   const b=brand();
-  return read(TASK_KEY).filter(t=>!t?.archivedAt&&(!b||!t.brand||t.brand===b));
+  const ref=selectedMonthRef();
+  const campaigns=currentCampaigns();
+  const ids=new Set(campaigns.map(c=>String(c?.id||'')).filter(Boolean));
+  const names=campaigns.map(c=>projectNorm(c?.name)).filter(Boolean);
+  return read(TASK_KEY).filter(t=>{
+    if(t?.archivedAt)return false;
+    if(b&&t.brand&&t.brand!==b)return false;
+    const explicit=String(t?.monthRef||t?.month_ref||'').slice(0,7);
+    if(validMonthRef(explicit))return explicit===ref;
+    const due=dateOnly(t?.dueAt||t?.due||t?.deadline);
+    if(due&&monthRefFromDate(due)===ref)return true;
+    if(t?.campaignId&&ids.has(String(t.campaignId)))return true;
+    const p=projectNorm(t?.project);
+    return !!p&&names.some(name=>p===name||p.startsWith(name)||name.startsWith(p));
+  });
 };
 const sourceGoals=c=>{
   const rows=Array.isArray(c?.tapStructured?.metas_por_fonte)?c.tapStructured.metas_por_fonte:[];
@@ -231,7 +265,8 @@ function campaignList(){
   if(summary&&summary.textContent!==summaryText)summary.textContent=summaryText;
 
   const sub=document.getElementById('campaignListSub');
-  const subText=monthName(today())+' · '+(brand()||'todas as marcas');
+  const bnd=monthBounds();
+  const subText=monthName(bnd.start)+' · '+(brand()||'todas as marcas');
   if(sub&&sub.textContent!==subText)sub.textContent=subText;
 
   const head='<div class="camp-list-head"><span>Campanha</span><span>Status</span><span>Período</span><span>Responsável</span><span>Meta</span><span>Verba</span><span>Execução</span><span></span></div>';
@@ -257,8 +292,51 @@ function mondayOf(d){
 }
 
 function weekInfo(){
-  const n=today(),m=mondayOf(n),s=new Date(m);s.setDate(m.getDate()+6);
-  return {now:n,monday:m,sunday:s};
+  const real=today();
+  const ref=selectedMonthRef();
+  const [y,mn]=ref.split('-').map(Number);
+  let anchor=real;
+  if(monthRefFromDate(real)!==ref){
+    anchor=new Date(y,mn-1,1);
+    let firstMonday=mondayOf(anchor);
+    if(firstMonday.getMonth()!==mn-1){
+      firstMonday=new Date(firstMonday);
+      firstMonday.setDate(firstMonday.getDate()+7);
+    }
+    anchor=firstMonday;
+  }
+  const m=mondayOf(anchor),s=new Date(m);s.setDate(m.getDate()+6);
+  return {now:anchor,monday:m,sunday:s};
+}
+
+function syncMonthChrome(){
+  const label=selectedMonthLabel();
+  const ref=selectedMonthRef();
+  const [y,m]=ref.split('-').map(Number);
+  const lower=monthName(new Date(y,m-1,1)).toLowerCase();
+
+  const planMonth=document.getElementById('planMonthLabel');
+  if(planMonth&&planMonth.textContent!==label)planMonth.textContent=label;
+  const campMonth=document.getElementById('campMonthBtn');
+  if(campMonth&&campMonth.textContent!==label)campMonth.textContent=label;
+
+  const planCrumb=document.querySelector('#planningView .plan-titlebar p');
+  if(planCrumb){
+    const parts=String(planCrumb.textContent||'').split('/').map(x=>x.trim()).filter(Boolean);
+    const prefix=parts.length>1?parts.slice(0,-1).join(' / '):'AllianceOS / Estratégia';
+    const next=prefix+' / '+label;
+    if(planCrumb.textContent!==next)planCrumb.textContent=next;
+  }
+
+  const monthTitle=document.querySelector('#planningView [data-plan-pane="month"] .month-toolbar strong');
+  if(monthTitle&&monthTitle.textContent!==label)monthTitle.textContent=label;
+
+  const w=weekInfo();
+  const weekTitle=document.querySelector('#planningView [data-plan-pane="week"] .month-toolbar strong');
+  if(weekTitle){
+    const next='Semana · '+String(w.monday.getDate()).padStart(2,'0')+' — '+String(w.sunday.getDate()).padStart(2,'0')+' de '+lower;
+    if(weekTitle.textContent!==next)weekTitle.textContent=next;
+  }
 }
 
 function planContext(){
@@ -432,7 +510,7 @@ function bindDelegates(){
     const tab=e.target.closest?.('.plan-tab');
     if(!tab)return;
     const label=norm(tab.textContent||'');
-    if(tab.dataset.planTab==='campaigns'||label==='campanhas'){
+    if(tab.dataset.planTab==='campaigns'||tab.dataset.strategyTab==='campaigns'||label==='campanhas'){
       e.preventDefault();
       e.stopImmediatePropagation();
 
@@ -668,6 +746,7 @@ function normalizeWorkspaceActions(){
 function apply(){
   syncLegacyMemory();
   bindDelegates();
+  syncMonthChrome();
   normalizeWorkspaceActions();
   campaignHistoryWorkspace();
   campaignList();
@@ -686,6 +765,7 @@ const observer=new MutationObserver(schedule);
 observer.observe(document.documentElement,{subtree:true,childList:true});
 document.addEventListener('input',e=>{if(e.target?.id==='campaignSearch')schedule()});
 document.addEventListener('change',e=>{if(['campaignStatusFilter','brandSelect'].includes(e.target?.id))schedule()});
+window.addEventListener('allianceos:planning-month',schedule);
 window.addEventListener('pageshow',schedule);
 window.addEventListener('focus',schedule);
 setInterval(schedule,1800);
