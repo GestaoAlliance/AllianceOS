@@ -381,6 +381,22 @@
       nos:[{id:1,pai:null,t:'Planejamento',cor:0,x:4500,y:3000}]
     };
   }
+  function ensureLocalMonthMapIsolation(brand,ref){
+    if(!brand||!validMonthRef(ref))return false;
+    const key=mapLocalKey(brand,ref);
+    try{
+      if(localStorage.getItem(key))return false;
+      // IMPORTANT: local placeholder only. It prevents mapa.js from falling
+      // back to the old generic/month-previous cache while canonical data is
+      // loading. It is never written to Supabase unless the user actually edits
+      // or creates this planning month.
+      localStorage.setItem(key,JSON.stringify(blankPlanningMap(brand,ref)));
+      return true;
+    }catch(e){
+      console.warn('[AllianceOS mapa mensal] não foi possível isolar o cache do mês',e);
+      return false;
+    }
+  }
   function ensurePlanningMapStyle(){
     if(document.getElementById('alliance-planning-month-style'))return;
     const st=document.createElement('style');st.id='alliance-planning-month-style';st.textContent=`
@@ -480,17 +496,37 @@
     const next=setPlanningMonthRef(ref);
     const seq=++planningMonthSwitchSeq;
     const brand=window.MapaMental?.marca?.()||activeBrand();
-    if(brand)migrateLegacyLocalMap(brand,next);
+
+    // Change the visual context immediately. Never show September while
+    // October is selected just because Supabase is still loading.
+    if(brand){
+      migrateLegacyLocalMap(brand,next);
+      ensureLocalMonthMapIsolation(brand,next);
+    }
     refreshPlanningMapControls({ref:next});
+    syncPlanningMonthChrome(next);
     document.getElementById('campaignOverviewList')?.classList.remove('hidden');
     document.getElementById('campaignWorkspace')?.classList.remove('active');
     window.MapaMental?.recarregar?.();
-    await hydrateCanonicalMap({silent,monthRef:next});
-    if(seq!==planningMonthSwitchSeq)return next;
-    await refreshPlanningMonthMetrics(next);
-    if(seq!==planningMonthSwitchSeq)return next;
-    await refreshConsistency();
-    window.dispatchEvent(new CustomEvent('allianceos:planning-month-ready',{detail:{monthRef:next}}));
+    window.dispatchEvent(new CustomEvent('allianceos:planning-month-changing',{detail:{monthRef:next}}));
+
+    // Canonical hydration is deliberately background work. Month navigation
+    // must remain usable even on a slow connection. Sequence guards prevent
+    // an older request from repainting a newer selected month.
+    Promise.resolve().then(async()=>{
+      await hydrateCanonicalMap({silent,monthRef:next});
+      if(seq!==planningMonthSwitchSeq)return;
+      await refreshPlanningMonthMetrics(next);
+      if(seq!==planningMonthSwitchSeq)return;
+      await refreshConsistency();
+      if(seq!==planningMonthSwitchSeq)return;
+      refreshPlanningMapControls({ref:next});
+      window.dispatchEvent(new CustomEvent('allianceos:planning-month-ready',{detail:{monthRef:next}}));
+    }).catch(e=>{
+      if(seq!==planningMonthSwitchSeq)return;
+      console.warn('[AllianceOS mês] falha ao sincronizar o mês selecionado',e);
+      window.dispatchEvent(new CustomEvent('allianceos:planning-month-ready',{detail:{monthRef:next,error:true}}));
+    });
     return next;
   }
   function offsetMonthRef(ref,delta=1){
