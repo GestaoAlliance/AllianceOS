@@ -758,7 +758,10 @@
       const hasChildren=children.length>0;
       const hasMatchedDescendant=directChildren.some(c=>branchMatches(c));
       const contextParent=!selfMatched&&!wholeBranch&&hasMatchedDescendant;
-      const collapsed=hasChildren&&!v4ExpandedTaskIds.has(String(t.id))&&!contextParent;
+      // Subtasks stay closed by default even when an assignee filter is active.
+      // A context parent must obey the same explicit chevron state as any other
+      // parent; forcing context parents open made the arrow impossible to close.
+      const collapsed=hasChildren&&!v4ExpandedTaskIds.has(String(t.id));
       const row=renderListRow(t,{
         depth,
         hasChildren,
