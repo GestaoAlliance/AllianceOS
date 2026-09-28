@@ -928,7 +928,7 @@ async function main() {
   // Name-based links (week/month cards) must resolve inside the selected-month
   // collection, otherwise a repeated campaign name can open last month's item.
   const oldOpenCampaignByName = "  window.openCampaignWorkspaceByName=(name)=>{showCampaigns();const c=campaignData.find(x=>normalizeProject(x.name)===normalizeProject(name));if(c)openCampaignWorkspace(c.id)};";
-  const newOpenCampaignByName = "  window.openCampaignWorkspaceByName=(name)=>{showCampaigns();const c=filteredCampaigns().find(x=>normalizeProject(x.name)===normalizeProject(name));if(c)openCampaignWorkspace(c.id)};\n  window.openCampaignWorkspaceById=(id)=>{const c=campaignData.find(x=>String(x.id)===String(id)&&!x.archivedAt);if(!c)return;showCampaigns();openCampaignWorkspace(c.id)};";
+  const newOpenCampaignByName = "  window.openCampaignWorkspaceById=(id)=>{\n    try{const live=JSON.parse(localStorage.getItem(campaignStorageKey)||'[]');if(Array.isArray(live))campaignData=live}catch{}\n    const c=campaignData.find(x=>String(x.id)===String(id)&&!x.archivedAt);\n    if(!c)return false;\n    if(!document.getElementById('campaignsView')?.classList.contains('active'))showCampaigns();\n    openCampaignWorkspace(c.id);\n    return true;\n  };\n  window.openCampaignWorkspaceByName=(name)=>{\n    const c=filteredCampaigns().find(x=>normalizeProject(x.name)===normalizeProject(name));\n    return c?window.openCampaignWorkspaceById(c.id):false;\n  };";
   if (html.includes(oldOpenCampaignByName)) html = html.replace(oldOpenCampaignByName,newOpenCampaignByName);
   else console.warn("[AllianceOS build] openCampaignWorkspaceByName not found for selected-month scope");
 
