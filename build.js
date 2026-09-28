@@ -354,6 +354,26 @@ async function main() {
   const mapSaveNew = "  const salvar = () => { try { localStorage.setItem(chave(), JSON.stringify(M)); window.AllianceOSMapSync?.queue?.(M, marcaAtual()); } catch (e) { console.error('[mapa]', e) } };";
   if (!html.includes(mapSaveOld)) throw new Error('Não encontrei o salvamento do mapa mental para ligar ao Supabase canônico');
   html = html.replace(mapSaveOld,mapSaveNew);
+  // Planning maps are monthly. Keep the legacy key untouched as migration source,
+  // but make the live map key include the selected planning month.
+  const mapKeyOld = `  const chave = (marca) => {
+    const id = (window.user && window.user.id) || 'vitor-gutierrez';
+    const m = marca === undefined ? marcaAtual() : marca;
+    return \`central.planning.map.\${id}\` + (m ? '.' + m : '');
+  };`;
+  const mapKeyNew = `  const mesMapa = () => {
+    const live = String(window.AlliancePlanningMonthRef || '');
+    if (/^20\\d{2}-(0[1-9]|1[0-2])$/.test(live)) return live;
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  };
+  const chave = (marca) => {
+    const id = (window.user && window.user.id) || 'vitor-gutierrez';
+    const m = marca === undefined ? marcaAtual() : marca;
+    return \`central.planning.map.\${id}\` + (m ? '.' + m : '') + '.' + mesMapa();
+  };`;
+  if (!html.includes(mapKeyOld)) throw new Error('Não encontrei a chave do mapa mental para separar os planejamentos por mês');
+  html = html.replace(mapKeyOld,mapKeyNew);
   // AllianceOS is a shared workspace: campaign data must use the canonical workspace collection, not the auth UUID.
   html = html.replaceAll('central.campaigns.${user.id}', 'central.campaigns.vitor-gutierrez');
   // LEGACY_CAMPAIGN_RENDERER_PATCH_V2: replace hardcoded legacy functions without aborting the deployment.
