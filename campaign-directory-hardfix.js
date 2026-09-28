@@ -167,8 +167,24 @@ document.addEventListener('click',e=>{
   const item=e.target.closest?.('[data-hard-campaign]');
   if(item){
     e.preventDefault();
+    e.stopPropagation();
+    const id=item.dataset.hardCampaign||'';
     const name=item.dataset.hardCampaignName||'';
-    if(name)window.openCampaignWorkspaceByName?.(name);
+    if(id&&window.openCampaignWorkspaceById){
+      window.openCampaignWorkspaceById(id);
+      return;
+    }
+    if(name&&window.openCampaignWorkspaceByName){
+      window.openCampaignWorkspaceByName(name);
+      return;
+    }
+    // Last-resort fallback: ask the legacy directory to redraw, then click
+    // the row with the same canonical id if it exists.
+    try{window.__centralRenderCampaigns?.()}catch{}
+    setTimeout(()=>{
+      const row=document.querySelector('#campaignsView [data-campaign-id="'+CSS.escape(id)+'"]');
+      row?.click();
+    },0);
   }
 },true);
 
