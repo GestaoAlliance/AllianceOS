@@ -24,6 +24,23 @@
   const campaignRows=()=>{try{const v=JSON.parse(localStorage.getItem('central.campaigns.vitor-gutierrez')||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
   const activeBrand=()=>{const v=document.getElementById('brandSelect')?.value||'';return !v||/todas/i.test(v)?'':v};
   const monthRef=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+  const validMonthRef=v=>/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(v||''));
+  const planningMonthRef=()=>{
+    const live=String(window.AlliancePlanningMonthRef||'');
+    if(validMonthRef(live))return live;
+    let saved='';
+    try{saved=sessionStorage.getItem('allianceos.planning.monthRef')||''}catch{}
+    const ref=validMonthRef(saved)?saved:monthRef();
+    window.AlliancePlanningMonthRef=ref;
+    return ref;
+  };
+  const setPlanningMonthRef=ref=>{
+    const next=validMonthRef(ref)?String(ref):monthRef();
+    window.AlliancePlanningMonthRef=next;
+    try{sessionStorage.setItem('allianceos.planning.monthRef',next)}catch{}
+    window.dispatchEvent(new CustomEvent('allianceos:planning-month',{detail:{monthRef:next}}));
+    return next;
+  };
   const campaignRef=c=>c.monthRef||String(c.startAt||c.start||'').slice(0,7);
 
   function channelPlan(c){
@@ -129,40 +146,59 @@
   let mapHydrateSeq=0;
   const mapSaveTimers=new Map();
 
-  const mapLocalKey=brand=>'central.planning.map.'+uid()+(brand?'.'+brand:'');
+  const mapLocalKey=(brand,ref=planningMonthRef())=>'central.planning.map.'+uid()+(brand?'.'+brand:'')+'.'+ref;
+  const legacyMapLocalKey=brand=>'central.planning.map.'+uid()+(brand?'.'+brand:'');
+  function migrateLegacyLocalMap(brand,ref=planningMonthRef()){
+    if(ref!==monthRef())return;
+    const next=mapLocalKey(brand,ref),legacy=legacyMapLocalKey(brand);
+    try{
+      if(localStorage.getItem(next)||!localStorage.getItem(legacy))return;
+      localStorage.setItem(next,localStorage.getItem(legacy));
+    }catch(e){console.warn('[AllianceOS mapa] não foi possível migrar o cache mensal legado',e)}
+  }
   async function authReady(){
     try{if(window.AllianceOSAuth?.ready)await window.AllianceOSAuth.ready}catch{}
     return client();
   }
-  async function canonicalMapContext(brandName,{createMonth=false}={}){
+  async function canonicalMapContext(brandName,{createMonth=false,monthRef:requestedRef=planningMonthRef()}={}){
     const brand=String(brandName||activeBrand()||'').trim();
     if(!brand)return null;
+    const ref=validMonthRef(requestedRef)?String(requestedRef):planningMonthRef();
     const s=await authReady();
     const {data:brands,error:be}=await s.from('brands').select('id,nome').eq('ativo',true);
     if(be)throw be;
     const br=(brands||[]).find(x=>norm(x.nome)===norm(brand));
     if(!br)throw new Error('Marca não encontrada no AllianceOS: '+brand);
-    const [ano,mes]=monthRef().split('-').map(Number);
+    const [ano,mes]=ref.split('-').map(Number);
     let {data:months,error:me}=await s.from('planning_months')
       .select('*').eq('brand_id',br.id).eq('ano',ano).eq('mes',mes)
-      .is('arquivado_em',null).order('atualizado_em',{ascending:false}).limit(1);
+      .order('atualizado_em',{ascending:false});
     if(me)throw me;
-    let month=months?.[0]||null;
+    let month=(months||[]).find(x=>!x.arquivado_em)||null;
     if(!month&&createMonth){
-      const ins=await s.from('planning_months').insert({
-        brand_id:br.id,ano,mes,meta1:0,meta2:0,meta3:0,meta_ativa:1,
-        ticket_medio_previsto:0,origem:'interface'
-      }).select('*').single();
-      if(ins.error)throw ins.error;month=ins.data;
+      const archived=(months||[])[0]||null;
+      if(archived){
+        const revive=await s.from('planning_months').update({
+          arquivado_em:null,arquivado_por:null,atualizado_em:new Date().toISOString(),origem:'interface'
+        }).eq('id',archived.id).select('*').single();
+        if(revive.error)throw revive.error;
+        month=revive.data;
+      }else{
+        const ins=await s.from('planning_months').insert({
+          brand_id:br.id,ano,mes,meta1:0,meta2:0,meta3:0,meta_ativa:1,
+          ticket_medio_previsto:0,origem:'interface'
+        }).select('*').single();
+        if(ins.error)throw ins.error;
+        month=ins.data;
+      }
     }
-    if(!month)return{s,brand:br,month:null,map:null};
+    if(!month)return{s,brand:br,month:null,map:null,maps:[],ref};
     const {data:maps,error:mae}=await s.from('planning_maps').select('*')
       .eq('brand_id',br.id).eq('month_id',month.id).is('arquivado_em',null)
-      .order('atualizado_em',{ascending:false}).limit(1);
+      .order('atualizado_em',{ascending:false});
     if(mae)throw mae;
-    return{s,brand:br,month,map:maps?.[0]||null};
+    return{s,brand:br,month,map:maps?.[0]||null,maps:maps||[],ref};
   }
-
   function canonicalPayload(mapRow,nodeRows){
     const visual=mapRow?.estado&&typeof mapRow.estado==='object'?mapRow.estado:{};
     return{
@@ -178,17 +214,21 @@
     };
   }
 
-  async function hydrateCanonicalMap({silent=false}={}){
+  async function hydrateCanonicalMap({silent=false,monthRef:requestedRef=planningMonthRef()}={}){
     const brand=window.MapaMental?.marca?.()||activeBrand();
     if(!brand)return null;
+    const ref=validMonthRef(requestedRef)?String(requestedRef):planningMonthRef();
+    migrateLegacyLocalMap(brand,ref);
     const seq=++mapHydrateSeq;
     const state=document.getElementById('mindSaveState');
     if(state&&!silent)state.textContent='Sincronizando mapa…';
     try{
-      const ctx=await canonicalMapContext(brand);
+      const ctx=await canonicalMapContext(brand,{monthRef:ref});
       if(seq!==mapHydrateSeq)return null;
       if(!ctx?.map){
-        if(state&&!silent)state.textContent='Nenhum mapa salvo neste mês';
+        if(state&&!silent)state.textContent='Novo planejamento · '+ref;
+        window.MapaMental?.recarregar?.();
+        refreshPlanningMapControls({exists:false,ref});
         return null;
       }
       const {data:nodes,error}=await ctx.s.from('planning_map_nodes').select('*')
@@ -202,9 +242,10 @@
       map.itens=Array.isArray(visual.itens)?visual.itens:map.itens;
       map.proxItem=Number(visual.proxItem||map.proxItem||1);
       map.prox=Math.max(Number(visual.prox||0),map.prox||2);
-      localStorage.setItem(mapLocalKey(ctx.brand.nome),JSON.stringify(map));
+      localStorage.setItem(mapLocalKey(ctx.brand.nome,ref),JSON.stringify(map));
       window.MapaMental?.recarregar?.();
-      if(state&&!silent)state.textContent='Mapa sincronizado do AllianceOS';
+      if(state&&!silent)state.textContent='Mapa sincronizado · '+ref;
+      refreshPlanningMapControls({exists:true,ref,map:ctx.map});
       return map;
     }catch(e){
       console.error('[AllianceOS mapa canônico] falha ao carregar',e);
@@ -213,9 +254,10 @@
     }
   }
 
-  async function saveCanonicalMapNow(map,brandName){
+  async function saveCanonicalMapNow(map,brandName,requestedRef=planningMonthRef()){
     if(!map||!Array.isArray(map.nos)||!map.nos.length)return;
-    const ctx=await canonicalMapContext(brandName,{createMonth:true});
+    const ref=validMonthRef(requestedRef)?String(requestedRef):planningMonthRef();
+    const ctx=await canonicalMapContext(brandName,{createMonth:true,monthRef:ref});
     if(!ctx?.month)return;
     const s=ctx.s,now=new Date().toISOString();
     let row=ctx.map;
@@ -269,11 +311,12 @@
   function queueCanonicalMapSave(map,brandName){
     const brand=String(brandName||activeBrand()||'').trim();
     if(!brand)return Promise.resolve();
-    clearTimeout(mapSaveTimers.get(brand));
+    const ref=planningMonthRef(),timerKey=brand+'|'+ref;
+    clearTimeout(mapSaveTimers.get(timerKey));
     return new Promise(resolve=>{
-      mapSaveTimers.set(brand,setTimeout(async()=>{
-        mapSaveTimers.delete(brand);
-        try{await saveCanonicalMapNow(JSON.parse(JSON.stringify(map)),brand)}
+      mapSaveTimers.set(timerKey,setTimeout(async()=>{
+        mapSaveTimers.delete(timerKey);
+        try{await saveCanonicalMapNow(JSON.parse(JSON.stringify(map)),brand,ref)}
         catch(e){console.error('[AllianceOS mapa canônico] falha ao salvar',e);window.showToast?.('Não foi possível sincronizar o mapa com o AllianceOS.')}
         resolve();
       },650));
@@ -281,11 +324,96 @@
   }
 
   function importMap(payload){
-    const map=normalizeMap(payload),brand=window.MapaMental?.marca?.()||activeBrand(),key='central.planning.map.'+uid()+(brand?'.'+brand:'');
+    const map=normalizeMap(payload),brand=window.MapaMental?.marca?.()||activeBrand(),ref=planningMonthRef(),key=mapLocalKey(brand,ref);
     localStorage.setItem(key,JSON.stringify(map));window.MapaMental?.recarregar?.();queueCanonicalMapSave(map,brand);
     if(map.avisos?.length){console.warn('[AllianceOS mapa] nós sem campanha:',map.avisos);window.showToast?.(map.avisos.length+' nó(s) ficaram sem vínculo de campanha.')}
     return map;
   }
+  function planningMonthLabel(ref=planningMonthRef()){
+    if(!validMonthRef(ref))return ref;
+    const [y,m]=ref.split('-').map(Number);
+    return MONTH_NAMES[m-1].charAt(0)+MONTH_NAMES[m-1].slice(1).toLowerCase()+' de '+y;
+  }
+  function blankPlanningMap(brand,ref){
+    const [,m]=ref.split('-').map(Number);
+    return{
+      v:2,layout:'direita',prox:2,proxItem:1,itens:[],
+      nome:'Planejamento ['+MONTH_NAMES[m-1]+'-'+String(brand||'').toUpperCase()+']',
+      nos:[{id:1,pai:null,t:'Planejamento',cor:0,x:4500,y:3000}]
+    };
+  }
+  function ensurePlanningMapStyle(){
+    if(document.getElementById('alliance-planning-month-style'))return;
+    const st=document.createElement('style');st.id='alliance-planning-month-style';st.textContent=`
+      .alliance-planning-month-controls{display:flex;align-items:center;gap:7px;margin-left:2px;padding-left:8px;border-left:1px solid #e4e5e2}
+      .alliance-planning-month-controls input[type="month"]{width:142px!important;height:32px!important;padding:0 8px!important;border:1px solid #dfe4e7!important;border-radius:8px!important;background:#fff!important;font:600 11px/1 Inter,system-ui!important;color:#31383e!important}
+      .alliance-planning-new{height:32px!important;padding:0 11px!important;border:1px solid #171b1e!important;border-radius:8px!important;background:#171b1e!important;color:#fff!important;font:650 10.5px/1 Inter,system-ui!important;white-space:nowrap!important}
+      .alliance-planning-month-state{max-width:160px;color:#7d878f;font:500 9.5px/1.25 Inter,system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      @media(max-width:1050px){.alliance-planning-month-controls{flex-wrap:wrap}.alliance-planning-month-state{display:none}}
+    `;document.head.appendChild(st);
+  }
+  function refreshPlanningMapControls(info={}){
+    const controls=document.querySelector('.alliance-planning-month-controls');
+    if(!controls)return;
+    const ref=info.ref||planningMonthRef();
+    const input=controls.querySelector('[data-alliance-planning-month]');
+    if(input&&input.value!==ref)input.value=ref;
+    const state=controls.querySelector('[data-alliance-planning-month-state]');
+    if(state){
+      if(info.exists===true)state.textContent='Salvo · '+planningMonthLabel(ref);
+      else if(info.exists===false)state.textContent='Novo · '+planningMonthLabel(ref);
+      else state.textContent=planningMonthLabel(ref);
+    }
+  }
+  async function switchPlanningMonth(ref,{silent=false}={}){
+    const next=setPlanningMonthRef(ref);
+    const brand=window.MapaMental?.marca?.()||activeBrand();
+    if(brand)migrateLegacyLocalMap(brand,next);
+    refreshPlanningMapControls({ref:next});
+    window.MapaMental?.recarregar?.();
+    await hydrateCanonicalMap({silent,monthRef:next});
+    refreshConsistency();
+    return next;
+  }
+  async function createPlanningMapForSelectedMonth(){
+    const brand=window.MapaMental?.marca?.()||activeBrand();
+    if(!brand){window.showToast?.('Selecione uma marca para criar o planejamento.');return}
+    const ref=planningMonthRef();
+    const state=document.getElementById('mindSaveState');
+    if(state)state.textContent='Preparando '+planningMonthLabel(ref)+'…';
+    try{
+      const ctx=await canonicalMapContext(brand,{createMonth:true,monthRef:ref});
+      if(ctx?.map){
+        window.showToast?.('Este mês já tem um planejamento. Abrindo o mapa salvo.');
+        await hydrateCanonicalMap({monthRef:ref});
+        return;
+      }
+      const map=blankPlanningMap(brand,ref);
+      localStorage.setItem(mapLocalKey(brand,ref),JSON.stringify(map));
+      await saveCanonicalMapNow(map,brand,ref);
+      window.MapaMental?.recarregar?.();
+      await hydrateCanonicalMap({monthRef:ref});
+      window.showToast?.('Planejamento de '+planningMonthLabel(ref)+' criado.');
+    }catch(e){
+      console.error('[AllianceOS mapa mensal] falha ao criar',e);
+      if(state)state.textContent='Não foi possível criar o planejamento';
+      window.showToast?.('Não foi possível criar o planejamento deste mês.');
+    }
+  }
+  function installPlanningMapControls(){
+    const top=document.querySelector('.mp-topo');
+    if(!top||top.querySelector('.alliance-planning-month-controls'))return;
+    ensurePlanningMapStyle();
+    const wrap=document.createElement('div');wrap.className='alliance-planning-month-controls';
+    wrap.innerHTML='<input type="month" data-alliance-planning-month aria-label="Mês do planejamento"><button type="button" class="alliance-planning-new" data-alliance-new-planning>+ Novo planejamento</button><span class="alliance-planning-month-state" data-alliance-planning-month-state></span>';
+    const input=wrap.querySelector('[data-alliance-planning-month]');
+    input.value=planningMonthRef();
+    input.addEventListener('change',()=>{if(validMonthRef(input.value))switchPlanningMonth(input.value)});
+    wrap.querySelector('[data-alliance-new-planning]').addEventListener('click',createPlanningMapForSelectedMonth);
+    top.appendChild(wrap);
+    refreshPlanningMapControls();
+  }
+
   function installMapImport(){
     const bar=document.querySelector('.mp-fer');if(!bar||bar.querySelector('[data-alliance-import-map]'))return;
     const group=bar.querySelector('.mp-grupo');if(!group)return;
@@ -349,14 +477,14 @@
       if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),90);
     });
     document.getElementById('campaignsNav')?.addEventListener('click',()=>setTimeout(refreshConsistency,80));
-    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();installMapImport();hydrateCanonicalMap()},120));
+    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();installMapImport();installPlanningMapControls();hydrateCanonicalMap()},120));
     document.getElementById('painelNav')?.addEventListener('click',()=>setTimeout(enhanceReports,120));
-    new MutationObserver(()=>{installMapImport();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
-    refreshConsistency();installMapImport();installNameGuards();
+    new MutationObserver(()=>{installMapImport();installPlanningMapControls();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
+    refreshConsistency();installMapImport();installPlanningMapControls();installNameGuards();
     if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),180);
     window.addEventListener('allianceos:auth',()=>setTimeout(()=>hydrateCanonicalMap({silent:true}),500));
   }
-  window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow};
+  window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow,month:planningMonthRef,switchMonth:switchPlanningMonth,createMonth:createPlanningMapForSelectedMonth};
   window.AllianceFullSystem={refreshConsistency,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',wire,{once:true});else wire();
 })();
