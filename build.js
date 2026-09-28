@@ -455,6 +455,328 @@ async function main() {
   }
   html = html.replace('Semana · 07 — 13 de setembro','Semana atual');
 
+
+  // CAMPAIGN_EDITING_V6_MESSAGE_MODAL
+  // TAP fields are explicit form controls now, and campaign schedule messages
+  // are edited through one canonical modal backed by tapStructured.cronograma.
+  {
+    const replaceRuntimeBlock=(startMarker,endMarker,replacement,label)=>{
+      const start=html.indexOf(startMarker);
+      const end=html.indexOf(endMarker,start);
+      if(start<0||end<0||end<=start)throw new Error('Não encontrei o bloco '+label+' no runtime final');
+      html=html.slice(0,start)+replacement+'\n'+html.slice(end);
+    };
+
+    const scheduleV6=String.raw`
+  function tapSectionIsSchedule(section){
+    const title=String(section?.title||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    const cols=Array.isArray(section?.columns)?section.columns.map(x=>String(x||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")):[];
+    return title.includes("cronograma")||(cols.includes("data")&&cols.includes("canal")&&cols.some(x=>x.includes("acao")));
+  }
+  function scheduleIsoFromLabel(c,label){
+    const raw=String(label||"");
+    const iso=raw.match(/(20\d{2})-(\d{2})-(\d{2})/);
+    if(iso)return iso[1]+"-"+iso[2]+"-"+iso[3];
+    const br=raw.match(/(\d{1,2})\/(\d{1,2})(?:\/(20\d{2}))?/);
+    if(!br)return "";
+    const year=br[3]||String(c.start||c.end||new Date().getFullYear()).slice(0,4)||String(new Date().getFullYear());
+    return year+"-"+String(br[2]).padStart(2,"0")+"-"+String(br[1]).padStart(2,"0");
+  }
+  function scheduleTimeFromLabel(label){
+    const raw=String(label||"");
+    const clock=raw.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+    if(clock)return String(clock[1]).padStart(2,"0")+":"+clock[2];
+    const h=raw.match(/\b(\d{1,2})h(?:(\d{2}))?/i);
+    return h?String(h[1]).padStart(2,"0")+":"+(h[2]||"00"):"";
+  }
+  function schedulePeriodLabel(data,hora){
+    if(!data)return hora||"";
+    const parts=String(data).split("-");
+    const d=parts.length===3?parts[2]+"/"+parts[1]:data;
+    return hora?d+" · "+hora:d;
+  }
+  function campaignScheduleEntries(c){
+    if(!c.tapStructured||typeof c.tapStructured!=="object"||Array.isArray(c.tapStructured))c.tapStructured={};
+    let rows=Array.isArray(c.tapStructured.cronograma)?c.tapStructured.cronograma:null;
+    if(!rows||!rows.length){
+      let legacy=Array.isArray(c.schedule)?c.schedule:[];
+      if(!legacy.length&&Array.isArray(c.tap)){
+        const sec=c.tap.find(tapSectionIsSchedule);
+        if(sec&&Array.isArray(sec.rows))legacy=sec.rows;
+      }
+      rows=(legacy||[]).map((r,i)=>{
+        if(!Array.isArray(r))return {...r};
+        const periodo=String(r[0]||"");
+        return {
+          id:"cron-"+String(c.id||"camp")+"-"+i,
+          data:scheduleIsoFromLabel(c,periodo),
+          hora:scheduleTimeFromLabel(periodo),
+          periodo:periodo,
+          canal:String(r[1]||""),
+          tipo:"Mensagem / ação",
+          titulo:String(r[2]||""),
+          conteudo:String(r[2]||""),
+          quem_faz:String(r[3]||""),
+          responsaveis:String(r[3]||"")?[String(r[3])]:[]
+        };
+      });
+      c.tapStructured.cronograma=rows;
+    }
+    rows.forEach((r,i)=>{
+      if(!r.id)r.id="cron-"+String(c.id||"camp")+"-"+i;
+      if(!r.data)r.data=scheduleIsoFromLabel(c,r.periodo||r.prazo||"");
+      if(!r.hora)r.hora=scheduleTimeFromLabel(r.periodo||r.prazo||"");
+      if(!r.periodo)r.periodo=schedulePeriodLabel(r.data,r.hora);
+      if(!r.tipo)r.tipo="Mensagem / ação";
+      if(!r.titulo)r.titulo=String(r.acao||r.conteudo||"").split(/\n/)[0].slice(0,100);
+      if(!Array.isArray(r.responsaveis)&&r.quem_faz)r.responsaveis=[r.quem_faz];
+    });
+    return rows;
+  }
+  function persistCampaignDraft(c){
+    const raw=campaignData.find(x=>String(x.id)===String(c.id));
+    if(raw&&raw!==c)Object.assign(raw,c);
+    const target=raw||c;
+    target.updatedAt=new Date().toISOString();
+    localStorage.setItem(campaignStorageKey,JSON.stringify(campaignData));
+  }
+  function syncScheduleLegacy(c){
+    const rows=campaignScheduleEntries(c);
+    c.schedule=rows.map(r=>[
+      schedulePeriodLabel(r.data,r.hora)||String(r.periodo||r.prazo||""),
+      String(r.canal||""),
+      String(r.titulo||r.acao||r.conteudo||""),
+      String(r.quem_faz||((r.responsaveis||[]).join(", "))||"")
+    ]);
+    const tap=getTap(c);
+    let sec=tap.find(tapSectionIsSchedule);
+    if(!sec){
+      sec={title:"2. Cronograma e canais",columns:["Data","Canal","Ação","Responsável"],rows:[]};
+      tap.splice(Math.min(1,tap.length),0,sec);
+    }
+    sec.columns=["Data","Canal","Ação","Responsável"];
+    sec.rows=c.schedule.map(r=>r.slice());
+    c.channels=[...new Set([...(Array.isArray(c.channels)?c.channels:[]),...rows.map(r=>String(r.canal||"").trim()).filter(Boolean)])];
+    persistCampaignDraft(c);
+  }
+  function closeScheduleMessageModal(){
+    document.querySelector(".schedule-editor-layer")?.remove();
+  }
+  function openScheduleMessageModal(c,id="",prefillDate=""){
+    closeScheduleMessageModal();
+    const rows=campaignScheduleEntries(c);
+    const current=rows.find(x=>String(x.id)===String(id))||null;
+    const value=(x,fallback="")=>current&&current[x]!=null?String(current[x]):fallback;
+    const layer=document.createElement("div");
+    layer.className="schedule-editor-layer";
+    layer.innerHTML=
+      '<div class="schedule-editor-backdrop" data-schedule-close></div>'+
+      '<section class="schedule-editor-modal" role="dialog" aria-modal="true">'+
+        '<div class="schedule-editor-head"><div><small>CRONOGRAMA DA CAMPANHA</small><h3>'+(current?"Editar mensagem / ação":"Nova mensagem / ação")+'</h3><p>Defina canal, data, hora e a copy. O item entra no Cronograma e no TAP ao mesmo tempo.</p></div><button type="button" data-schedule-close aria-label="Fechar">×</button></div>'+
+        '<form class="schedule-editor-form">'+
+          '<div class="schedule-editor-grid">'+
+            '<label><span>Tipo</span><select name="tipo"><option>Mensagem / disparo</option><option>Post / story</option><option>Live</option><option>Site / LP</option><option>Criativo / anúncio</option><option>Outro</option></select></label>'+
+            '<label><span>Canal</span><input name="canal" list="scheduleChannelOptions" required placeholder="Ex.: WhatsApp API"></label>'+
+            '<label><span>Data</span><input name="data" type="date" required></label>'+
+            '<label><span>Hora</span><input name="hora" type="time"></label>'+
+            '<label class="wide"><span>Título / ação</span><input name="titulo" maxlength="160" placeholder="Ex.: Mensagem 1 · abertura do carrinho" required></label>'+
+            '<label class="wide"><span>Mensagem / copy</span><textarea name="conteudo" rows="8" placeholder="Escreva aqui a mensagem completa, briefing ou ação que deve ser executada."></textarea></label>'+
+            '<label><span>Responsável</span><input name="quem_faz" placeholder="Nome do responsável"></label>'+
+            '<label><span>Template / nome interno</span><input name="template" placeholder="Opcional · útil para API"></label>'+
+            '<label class="wide"><span>Link / CTA</span><input name="link" placeholder="Opcional"></label>'+
+          '</div>'+
+          '<datalist id="scheduleChannelOptions"><option value="WhatsApp API"><option value="WhatsApp grupos"><option value="E-mail"><option value="Instagram Feed"><option value="Instagram Stories"><option value="TikTok Shop"><option value="TikTok Ads"><option value="Meta Ads"><option value="Site / LP"><option value="Influenciadores"></datalist>'+
+          '<div class="schedule-editor-foot"><span>Salvar atualiza Cronograma + TAP e sincroniza o estado da campanha.</span><div><button type="button" class="secondary" data-schedule-close>Cancelar</button><button type="submit" class="primary">'+(current?"Salvar alterações":"Criar mensagem")+'</button></div></div>'+
+        '</form>'+
+      '</section>';
+    document.body.appendChild(layer);
+    const form=layer.querySelector(".schedule-editor-form");
+    form.tipo.value=value("tipo","Mensagem / disparo");
+    form.canal.value=value("canal","");
+    form.data.value=value("data",prefillDate||c.start||"");
+    form.hora.value=value("hora","");
+    form.titulo.value=value("titulo",value("acao",""));
+    form.conteudo.value=value("conteudo","");
+    form.quem_faz.value=value("quem_faz",Array.isArray(current?.responsaveis)?current.responsaveis.join(", "):"");
+    form.template.value=value("template","");
+    form.link.value=value("link","");
+    layer.querySelectorAll("[data-schedule-close]").forEach(x=>x.addEventListener("click",closeScheduleMessageModal));
+    layer.addEventListener("click",e=>{if(e.target===layer.querySelector(".schedule-editor-backdrop"))closeScheduleMessageModal()});
+    form.addEventListener("submit",e=>{
+      e.preventDefault();
+      const owner=String(form.quem_faz.value||"").trim();
+      const payload={
+        id:current?.id||("cron-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6)),
+        data:String(form.data.value||""),
+        hora:String(form.hora.value||""),
+        periodo:schedulePeriodLabel(form.data.value,form.hora.value),
+        canal:String(form.canal.value||"").trim(),
+        tipo:String(form.tipo.value||"Mensagem / disparo"),
+        titulo:String(form.titulo.value||"").trim(),
+        acao:String(form.titulo.value||"").trim(),
+        conteudo:String(form.conteudo.value||"").trim(),
+        quem_faz:owner,
+        responsaveis:owner?[owner]:[],
+        template:String(form.template.value||"").trim(),
+        link:String(form.link.value||"").trim(),
+        origem:"interface",
+        atualizado_em:new Date().toISOString()
+      };
+      if(current)Object.assign(current,payload);
+      else rows.push(payload);
+      syncScheduleLegacy(c);
+      closeScheduleMessageModal();
+      campaignState.workspaceTab="schedule";
+      saveCampaigns();
+      showToast(current?"Mensagem atualizada no cronograma":"Mensagem adicionada ao cronograma");
+    });
+    setTimeout(()=>form.canal.focus(),30);
+  }
+  function bindScheduleEditing(c){
+    document.querySelectorAll("[data-schedule-add]").forEach(b=>b.addEventListener("click",()=>openScheduleMessageModal(c)));
+    document.querySelectorAll("[data-schedule-id]").forEach(el=>el.addEventListener("click",e=>{
+      e.preventDefault();e.stopPropagation();openScheduleMessageModal(c,el.dataset.scheduleId||"");
+    }));
+    document.querySelectorAll("[data-schedule-date]").forEach(day=>day.addEventListener("dblclick",e=>{
+      if(e.target.closest("[data-schedule-id]"))return;
+      openScheduleMessageModal(c,"",day.dataset.scheduleDate||"");
+    }));
+  }
+  function renderSchedule(c){
+    const rows=campaignScheduleEntries(c);
+    const dated=rows.map(r=>({row:r,iso:r.data||scheduleIsoFromLabel(c,r.periodo||r.prazo||"")})).filter(x=>/^20\d{2}-\d{2}-\d{2}$/.test(x.iso));
+    const dates=dated.map(x=>new Date(x.iso+"T00:00:00")).filter(d=>!Number.isNaN(d.getTime()));
+    const campaignStart=c.start?new Date(c.start+"T00:00:00"):null;
+    const campaignEnd=c.end?new Date(c.end+"T00:00:00"):null;
+    const allStart=[campaignStart,...dates].filter(Boolean);
+    const allEnd=[campaignEnd,...dates].filter(Boolean);
+    const minDate=allStart.length?new Date(Math.min(...allStart.map(d=>d.getTime()))):new Date();
+    const maxDate=allEnd.length?new Date(Math.max(...allEnd.map(d=>d.getTime()))):new Date(minDate);
+    const first=new Date(minDate),firstWd=first.getDay();
+    first.setDate(first.getDate()+(firstWd===0?-6:1-firstWd));first.setHours(0,0,0,0);
+    const last=new Date(maxDate),lastWd=last.getDay();
+    last.setDate(last.getDate()+(lastWd===0?0:7-lastWd));last.setHours(0,0,0,0);
+    const days=[];for(let d=new Date(first);d<=last;d.setDate(d.getDate()+1))days.push(new Date(d));
+    const names=["SEG","TER","QUA","QUI","SEX","SÁB","DOM"];
+    const today=new Date();today.setHours(0,0,0,0);
+    const channelClass=v=>{
+      const n=String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+      if(n.includes("whatsapp")||n.includes("api"))return"whatsapp";
+      if(n.includes("email")||n.includes("e-mail"))return"email";
+      if(n.includes("instagram")||n.includes("tiktok"))return"instagram";
+      if(n.includes("site")||n.includes("pagina")||n.includes("lp"))return"site";
+      if(n.includes("criativ")||n.includes("ads")||n.includes("anuncio"))return"creative";
+      return"other";
+    };
+    const eventCard=r=>{
+      const preview=String(r.conteudo||"").trim();
+      return '<article class="schedule-event '+channelClass(r.canal)+'" data-schedule-id="'+cesc(r.id)+'" title="Clique para editar">'+
+        '<div class="schedule-event-top"><span class="schedule-event-channel">'+cesc(r.canal||"Canal")+'</span>'+(r.hora?'<time>'+cesc(r.hora)+'</time>':"")+'</div>'+
+        '<b>'+cesc(r.titulo||r.acao||"Ação")+'</b>'+
+        (preview&&preview!==r.titulo?'<p>'+cesc(preview.slice(0,120))+(preview.length>120?"…":"")+'</p>':"")+
+        '<small>'+cesc(r.quem_faz||((r.responsaveis||[]).join(", "))||"Sem responsável")+'</small></article>';
+    };
+    const dayCells=days.map((d,i)=>{
+      const key=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      const list=dated.filter(x=>x.iso===key).map(x=>x.row);
+      const outside=(campaignStart&&d<campaignStart)||(campaignEnd&&d>campaignEnd);
+      return '<section class="schedule-day '+(outside?"outside ":"")+(d.getTime()===today.getTime()?"today":"")+'" data-schedule-date="'+key+'">'+
+        '<header><span>'+names[i%7]+'</span><b>'+d.getDate()+'</b>'+(d.getTime()===today.getTime()?'<em>Hoje</em>':"")+'</header>'+
+        '<div class="schedule-day-events">'+list.map(eventCard).join("")+'</div></section>';
+    }).join("");
+    const listRows=rows.slice().sort((a,b)=>String(a.data||"9999").localeCompare(String(b.data||"9999"))||String(a.hora||"").localeCompare(String(b.hora||""))).map(r=>
+      '<button type="button" class="schedule-list-row schedule-list-button" data-schedule-id="'+cesc(r.id)+'">'+
+        '<div class="schedule-list-date"><b>'+cesc(r.data?cDate(r.data):"Sem data")+'</b>'+(r.hora?'<span>'+cesc(r.hora)+'</span>':"")+'</div>'+
+        '<span class="schedule-list-channel '+channelClass(r.canal)+'">'+cesc(r.canal||"Canal")+'</span>'+
+        '<div class="schedule-list-action"><b>'+cesc(r.titulo||r.acao||"Ação")+'</b><small>'+cesc(r.quem_faz||((r.responsaveis||[]).join(", "))||"Sem responsável")+'</small></div><span class="schedule-edit-hint">Editar</span></button>'
+    ).join("");
+    const channels=[...new Set(rows.map(r=>String(r.canal||"").trim()).filter(Boolean))];
+    const legend=channels.map(ch=>'<span class="schedule-legend-item '+channelClass(ch)+'"><i></i>'+cesc(ch)+'</span>').join("");
+    const monthTitle=minDate.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    return '<section class="cw-card campaign-schedule-card">'+
+      '<div class="schedule-toolbar"><div><small>Cronograma da campanha</small><h3>'+cesc(monthTitle)+'</h3><p>'+rows.length+' '+(rows.length===1?"ação":"ações")+' · '+channels.length+' canais · '+cDate(c.start)+' — '+cDate(c.end)+'</p></div>'+
+      '<div class="schedule-toolbar-actions"><button type="button" class="schedule-add-message" data-schedule-add>+ Mensagem / ação</button><div class="schedule-view-switch"><input id="scheduleCalendarView" type="radio" name="scheduleView" checked><label for="scheduleCalendarView">Calendário</label><input id="scheduleListView" type="radio" name="scheduleView"><label for="scheduleListView">Lista</label></div></div></div>'+
+      '<div class="schedule-legend">'+(legend||'<span class="schedule-legend-item other"><i></i>Sem canais cadastrados</span>')+'</div>'+
+      '<div class="schedule-view-panels"><div class="schedule-calendar-panel"><div class="schedule-weekdays">'+names.map(n=>'<span>'+n+'</span>').join("")+'</div><div class="schedule-calendar-grid">'+dayCells+'</div><small class="schedule-doubleclick-hint">Dica: dê dois cliques em um dia para criar uma mensagem já com a data preenchida.</small></div>'+
+      '<div class="schedule-list-panel">'+(listRows||'<div class="alliance-summary-empty">Nenhuma ação cadastrada. Clique em “+ Mensagem / ação” para criar a primeira.</div>')+'</div></div></section>';
+  }`;
+
+    const tapV6=String.raw`
+  function renderTap(c){
+    const tap=getTap(c);
+    campaignScheduleEntries(c);
+    syncScheduleLegacy(c);
+    const editor=(value,si,ri,ci)=>{
+      const v=String(value??"");
+      const long=v.length>70||ci===1;
+      if(long)return '<textarea class="tap-cell-editor" data-tap-input="'+si+':'+ri+':'+ci+'" rows="'+(v.length>160?4:2)+'">'+cesc(v)+'</textarea>';
+      return '<input class="tap-cell-editor" data-tap-input="'+si+':'+ri+':'+ci+'" value="'+cesc(v)+'">';
+    };
+    const sections=tap.map((s,si)=>{
+      if(tapSectionIsSchedule(s)){
+        const rows=campaignScheduleEntries(c);
+        const scheduleRows=rows.length?rows.map(r=>
+          '<tr><td>'+cesc(schedulePeriodLabel(r.data,r.hora)||r.periodo||"—")+'</td><td>'+cesc(r.canal||"—")+'</td><td><b>'+cesc(r.titulo||r.acao||"Ação")+'</b><small class="tap-message-preview">'+cesc(String(r.conteudo||"").slice(0,100))+'</small></td><td>'+cesc(r.quem_faz||((r.responsaveis||[]).join(", "))||"—")+'</td><td><button type="button" class="tap-row-edit" data-tap-schedule-edit="'+cesc(r.id)+'">Editar</button></td></tr>'
+        ).join(""):'<tr><td colspan="5"><div class="alliance-summary-empty">Nenhuma mensagem ou ação no cronograma.</div></td></tr>';
+        return '<section class="tap-section tap-schedule-section"><div class="tap-section-head"><input class="tap-title-editor" data-tap-title-input="'+si+'" value="'+cesc(s.title)+'"><button type="button" data-tap-add-schedule>+ Mensagem / ação</button></div><div class="tap-table-wrap"><table class="tap-table"><thead><tr><th>Data / hora</th><th>Canal</th><th>Mensagem / ação</th><th>Responsável</th><th></th></tr></thead><tbody>'+scheduleRows+'</tbody></table></div></section>';
+      }
+      return '<section class="tap-section"><div class="tap-section-head"><input class="tap-title-editor" data-tap-title-input="'+si+'" value="'+cesc(s.title)+'"><button type="button" data-add-tap-row="'+si+'">+ linha</button></div><div class="tap-table-wrap"><table class="tap-table"><thead><tr>'+s.columns.map(x=>'<th>'+cesc(x)+'</th>').join("")+'</tr></thead><tbody>'+s.rows.map((row,ri)=>'<tr>'+s.columns.map((_,ci)=>'<td>'+editor(row[ci]||"",si,ri,ci)+'</td>').join("")+'</tr>').join("")+'</tbody></table></div></section>';
+    }).join("");
+    return '<div class="tap-editor-root"><div class="tap-editor-toolbar"><div><b>TAP · '+cesc(c.name)+'</b><span>Digite diretamente nos campos. Cronograma e mensagens usam o editor completo.</span></div><div><span class="tap-save-state" data-tap-save-state>Salvo</span><button class="cw-edit-btn" type="button" id="addTapSection">+ seção</button></div></div>'+sections+'</div>';
+  }`;
+
+    const bindTapV6=String.raw`
+  function bindTapEditing(c){
+    const state=()=>document.querySelector("[data-tap-save-state]");
+    let timer=0;
+    const saved=()=>{
+      const el=state();if(el)el.textContent="Salvando…";
+      clearTimeout(timer);
+      timer=setTimeout(()=>{persistCampaignDraft(c);const x=state();if(x)x.textContent="Salvo agora";},180);
+    };
+    document.querySelectorAll("[data-tap-input]").forEach(el=>{
+      const apply=()=>{
+        const parts=String(el.dataset.tapInput||"").split(":").map(Number);
+        const sec=getTap(c)[parts[0]],row=sec?.rows?.[parts[1]];
+        if(!row)return;
+        row[parts[2]]=el.value;
+        const label=String(row[0]||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+        if(parts[2]===1&&label==="objetivo")c.objective=el.value;
+        if(parts[2]===1&&label.includes("oferta principal"))c.offer=el.value;
+        saved();
+      };
+      el.addEventListener("input",apply);
+      el.addEventListener("change",apply);
+    });
+    document.querySelectorAll("[data-tap-title-input]").forEach(el=>el.addEventListener("input",()=>{
+      const sec=getTap(c)[Number(el.dataset.tapTitleInput)];
+      if(sec){sec.title=el.value||sec.title;saved()}
+    }));
+    document.querySelectorAll("[data-add-tap-row]").forEach(b=>b.addEventListener("click",()=>{
+      const si=Number(b.dataset.addTapRow),sec=getTap(c)[si];
+      if(!sec)return;
+      if(tapSectionIsSchedule(sec)){openScheduleMessageModal(c);return}
+      sec.rows.push(sec.columns.map(()=>""));
+      persistCampaignDraft(c);renderWorkspace();
+    }));
+    document.querySelectorAll("[data-tap-schedule-edit]").forEach(b=>b.addEventListener("click",()=>openScheduleMessageModal(c,b.dataset.tapScheduleEdit||"")));
+    document.querySelectorAll("[data-tap-add-schedule]").forEach(b=>b.addEventListener("click",()=>openScheduleMessageModal(c)));
+    const add=document.getElementById("addTapSection");
+    if(add)add.addEventListener("click",()=>{
+      getTap(c).push({title:"Nova seção",columns:["Campo","Valor"],rows:[["",""]]});
+      persistCampaignDraft(c);renderWorkspace();
+    });
+  }`;
+
+    replaceRuntimeBlock('  function renderSchedule(c){','  function renderTap(c)',scheduleV6,'Cronograma');
+    replaceRuntimeBlock('  function renderTap(c){','  function renderCampaignTasks(c)',tapV6,'TAP');
+    replaceRuntimeBlock('  function bindTapEditing(c){','  function openCampaignModal',bindTapV6,'edição do TAP');
+
+    const oldBind='bindTapEditing(c);bindCampaignTaskLinks(c)';
+    if(!html.includes(oldBind))throw new Error('Não encontrei o vínculo do editor no workspace');
+    html=html.replace(oldBind,'bindTapEditing(c);bindScheduleEditing(c);bindCampaignTaskLinks(c)');
+  }
+
   html = html.replace('<html lang="pt-BR">','<html lang="pt-BR" class="alliance-auth-pending">');
   const mobileViewportMeta = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">';
   if (/<meta\s+name=["']viewport["'][^>]*>/i.test(html)) html = html.replace(/<meta\s+name=["']viewport["'][^>]*>/i, mobileViewportMeta);
