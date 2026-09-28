@@ -505,6 +505,43 @@ async function main() {
     console.log('[AllianceOS build] campaign directory locked to selected month/map');
   }
 
+  // CAMPAIGN_DIRECTORY_HYDRATION_V4
+  // The campaign script can boot before public-state hydration finishes.
+  // Re-render the directory whenever the canonical campaign/map state arrives,
+  // and expose one reliable renderer for the newer strategy layers.
+  {
+    const hook = "  window.__centralShowCampaigns=showCampaigns;\n  window.__centralGetCampaigns=()=>campaignData;";
+    if(!html.includes(hook)) throw new Error('Não encontrei o hook final da tela de Campanhas');
+    const replacement = String.raw`  function refreshCampaignDirectory(){
+    try{
+      const live=JSON.parse(localStorage.getItem(campaignStorageKey)||'[]');
+      if(Array.isArray(live))campaignData=live;
+    }catch{}
+    if(document.getElementById('campaignsView')?.classList.contains('active')){
+      try{renderCampaigns()}catch(e){console.warn('[AllianceOS campanhas] render',e)}
+    }
+  }
+  window.__centralShowCampaigns=showCampaigns;
+  window.__centralRenderCampaigns=refreshCampaignDirectory;
+  window.__centralGetCampaigns=()=>campaignData;
+  window.addEventListener('allianceos:state-updated',e=>{
+    const key=String(e?.detail?.key||'');
+    if(key===campaignStorageKey||key.startsWith('central.planning.map.')){
+      setTimeout(refreshCampaignDirectory,0);
+      setTimeout(refreshCampaignDirectory,120);
+    }
+  });
+  window.addEventListener('allianceos:planning-month',()=>setTimeout(refreshCampaignDirectory,0));
+  window.addEventListener('allianceos:planning-month-ready',()=>setTimeout(refreshCampaignDirectory,0));
+  document.getElementById('campaignsNav')?.addEventListener('click',()=>{
+    setTimeout(refreshCampaignDirectory,0);
+    setTimeout(refreshCampaignDirectory,180);
+    setTimeout(refreshCampaignDirectory,700);
+  });`;
+    html=html.replace(hook,replacement);
+    console.log('[AllianceOS build] campaign directory hydration hooks installed');
+  }
+
   // AllianceOS: corrige a fonte canônica e remove datas congeladas do calendário legado.
   // Esse runtime antigo redesenha Mês/Semana/Campanhas via MutationObserver, então
   // precisa ler a mesma coleção canônica usada pelo restante do AllianceOS.
