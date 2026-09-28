@@ -664,11 +664,17 @@
     });
     layer.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{
       const to=Number(b.dataset.step);
-      if(to>S.step){
-        const err=validateStep(S.step);
-        if(err){toast(err);return}
-      }
-      S.step=to;saveDraft();render();
+      if(!Number.isInteger(to)||to<0||to>=STEPS.length)return;
+      // Sidebar tabs are navigation, not submission. The user must be able
+      // to inspect Cronograma/Revisão even when Canais e metas is incomplete.
+      // Validation remains on "Continuar" and on the final save.
+      S.step=to;
+      saveDraft();
+      render();
+      requestAnimationFrame(()=>{
+        const body=layer?.querySelector('.acw-body');
+        if(body)body.scrollTop=0;
+      });
     }));
     layer.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{
       applyPreset(b.dataset.preset||'Livre');
