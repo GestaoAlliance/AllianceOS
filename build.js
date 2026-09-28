@@ -31,6 +31,7 @@ const MOBILE_RUNTIME_CSS = path.join(__dirname, 'mobile-runtime.css');
 const HOME_LIVE_SYNC = path.join(__dirname, 'home-live-sync.js');
 const CAMPAIGN_PLANNING_TRUTH_JS = path.join(__dirname, 'campaign-planning-truth.js');
 const CAMPAIGN_PLANNING_TRUTH_CSS = path.join(__dirname, 'campaign-planning-truth.css');
+const CAMPAIGN_DIRECTORY_HARDFIX_JS = path.join(__dirname, 'campaign-directory-hardfix.js');
 const CAMPAIGN_CREATION_WIZARD_JS = path.join(__dirname, 'campaign-creation-wizard.js');
 const CAMPAIGN_CREATION_WIZARD_CSS = path.join(__dirname, 'campaign-creation-wizard.css');
 const DELIVERY_DRIVE_JS = path.join(__dirname, 'delivery-drive.js');
@@ -79,6 +80,7 @@ async function main() {
   const homeLiveSync = fs.readFileSync(HOME_LIVE_SYNC, 'utf8');
   const campaignPlanningTruthJs = fs.readFileSync(CAMPAIGN_PLANNING_TRUTH_JS, 'utf8');
   const campaignPlanningTruthCss = fs.readFileSync(CAMPAIGN_PLANNING_TRUTH_CSS, 'utf8');
+  const campaignDirectoryHardfixJs = fs.readFileSync(CAMPAIGN_DIRECTORY_HARDFIX_JS, 'utf8');
   const campaignCreationWizardJs = fs.readFileSync(CAMPAIGN_CREATION_WIZARD_JS, 'utf8');
   const campaignCreationWizardCss = fs.readFileSync(CAMPAIGN_CREATION_WIZARD_CSS, 'utf8');
   const deliveryDriveJs = fs.readFileSync(DELIVERY_DRIVE_JS, 'utf8');
@@ -952,7 +954,7 @@ async function main() {
   html = html.replace(/<title>[^<]*<\/title>/i, '<title>AllianceOS — Operação em um só lugar</title>');
   html = html.replace('<head>', () => `<head>\n${socialHead}<script id="alliance-mobile-runtime-js">\n${mobileRuntimeJs}\n</script>\n`);
   html = html.replace('</head>', () => `${brandHead}<style id="alliance-auth-style">\n${authGateCss}\n</style>\n<style id="alliance-onboarding-style">\n${onboardingCss}\n</style>\n<style id="alliance-context-guide-style">\n${contextGuideCss}\n</style>\n<style id="alliance-navigation-reference">\n${navReferenceCss}\n</style>\n<style id="alliance-admin-style">\n${allianceAdminCss}\n</style>\n<style id="alliance-mobile-runtime-css">\n${mobileRuntimeCss}\n</style>\n<style id="alliance-campaign-planning-truth-css">\n${campaignPlanningTruthCss}\n</style>\n<style id="alliance-campaign-creation-wizard-css">\n${campaignCreationWizardCss}\n</style>\n<style id="alliance-delivery-drive-css">\n${deliveryDriveCss}\n</style>\n<style id="alliance-agent-sidekick-css">\n${agentSidekickCss}\n</style>\n<style id="alliance-access-center-css">\n${accessCenterCss}\n</style>\n<style id="alliance-traffic-creative-lab-css">\n${trafficCreativeLabCss}\n</style>\n<script id="alliance-onboarding">\n${onboardingJs}\n</script>\n<script id="alliance-auth-gate">\n${authGateJs}\n</script>\n<script>\n${sync}\n</script>\n</head>`);
-  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n<script id="alliance-home-live-sync">\n${homeLiveSync}\n</script>\n<script id="alliance-campaign-planning-truth">\n${campaignPlanningTruthJs}\n</script>\n<script id="alliance-campaign-creation-wizard">\n${campaignCreationWizardJs}\n</script>\n<script id="alliance-delivery-drive-js">\n${deliveryDriveJs}\n</script>\n<script id="alliance-agent-sidekick-js">\n${agentSidekickJs}\n</script>\n<script id="alliance-access-center-js">\n${accessCenterJs}\n</script>\n<script id="alliance-traffic-creative-lab-js">\n${trafficCreativeLabJs}\n</script>\n<script id="alliance-organization-center-js">\n${organizationCenterJs}\n</script>\n</body>`);
+  html = html.replace('</body>', () => `<script id="alliance-navigation-reference-js">\n${navReferenceJs}\n</script>\n<script id="alliance-admin-js">\n${allianceAdminJs}\n</script>\n<script id="alliance-full-system-ui">\n${fullSystemUi}\n</script>\n<script id="alliance-context-guide">\n${contextGuideJs}\n</script>\n<script id="alliance-home-live-sync">\n${homeLiveSync}\n</script>\n<script id="alliance-campaign-planning-truth">\n${campaignPlanningTruthJs}\n</script>\n<script id="alliance-campaign-creation-wizard">\n${campaignCreationWizardJs}\n</script>\n<script id="alliance-delivery-drive-js">\n${deliveryDriveJs}\n</script>\n<script id="alliance-agent-sidekick-js">\n${agentSidekickJs}\n</script>\n<script id="alliance-access-center-js">\n${accessCenterJs}\n</script>\n<script id="alliance-traffic-creative-lab-js">\n${trafficCreativeLabJs}\n</script>\n<script id="alliance-organization-center-js">\n${organizationCenterJs}\n</script>\n<script id="alliance-campaign-directory-hardfix">\n${campaignDirectoryHardfixJs}\n</script>\n</body>`);
 
   const out = path.join(__dirname, 'dist');
   fs.rmSync(out, { recursive: true, force: true });
