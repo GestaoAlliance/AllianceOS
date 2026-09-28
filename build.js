@@ -413,6 +413,98 @@ async function main() {
     html = html.replace("  function renderWeek(){const days=[['2026-09-07','Seg','07'],['2026-09-08','Ter','08'],['2026-09-09','Qua','09'],['2026-09-10','Qui','10'],['2026-09-11','Sex','11'],['2026-09-12','Sáb','12'],['2026-09-13','Dom','13']];const cs=filteredCampaigns(),ts=filteredTasks();document.getElementById('planWeekGrid').innerHTML=days.map(([iso,name,num])=>{const active=cs.filter(c=>c.start<=iso&&c.end>=iso),due=ts.filter(t=>t.due===iso);return `<section class=\"plan-day ${iso==='2026-09-07'?'today':''}\"><div class=\"plan-day-head\"><span>${name}</span><b>${num}</b></div><div class=\"plan-day-body\"><div class=\"day-section\"><div class=\"day-section-title\">Campanhas</div>${active.length?active.map(c=>`<article class=\"week-campaign-card\" data-plan-campaign=\"${esc(c.name)}\" style=\"--pc:${c.color||'#121415'}\"><b>${esc(c.name)}</b><span>${esc(c.status)} · ${esc(c.owner?.split(' ')[0]||'')}</span></article>`).join(''):'<div class=\"week-empty\">Nenhuma campanha ativa</div>'}</div><div class=\"day-section\"><div class=\"day-section-title\">Tarefas com prazo</div>${due.length?due.slice(0,12).map(t=>`<div class=\"week-task-row\" data-plan-task=\"${esc(t.id)}\"><b>${esc(t.title)}</b><span>${esc(t.assignees?.[0]||'Sem responsável')} · ${esc(t.status)}</span></div>`).join(''):'<div class=\"week-empty\">Sem vencimentos</div>'}</div></div></section>`}).join('');document.querySelectorAll('#planWeekGrid [data-plan-campaign]').forEach(b=>b.addEventListener('click',()=>window.openCampaignWorkspaceByName?.(b.dataset.planCampaign)));document.querySelectorAll('#planWeekGrid [data-plan-task]').forEach(r=>r.addEventListener('click',()=>{window.__centralShowTasks?.();setTimeout(()=>{document.querySelector(`[data-task-id=\"${CSS.escape(r.dataset.planTask)}\"]`)?.click()},50)}))}", "  function renderWeek(){\n    const realNow=new Date();realNow.setHours(0,0,0,0);\n    let ref=String(window.AlliancePlanningMonthRef||'');if(!/^20\\d{2}-(0[1-9]|1[0-2])$/.test(ref)){try{ref=sessionStorage.getItem('allianceos.planning.monthRef')||localStorage.getItem('allianceos.planning.monthRef')||''}catch{}}\n    if(!/^20\\d{2}-(0[1-9]|1[0-2])$/.test(ref))ref=realNow.getFullYear()+'-'+String(realNow.getMonth()+1).padStart(2,'0');\n    const [yy,mm]=ref.split('-').map(Number);let now=(realNow.getFullYear()===yy&&realNow.getMonth()===mm-1)?new Date(realNow):new Date(yy,mm-1,1);\n    const monday=new Date(now),wd=now.getDay();monday.setDate(now.getDate()+(wd===0?-6:1-wd));if(monday.getMonth()!==mm-1&&realNow.getMonth()!==mm-1)monday.setDate(monday.getDate()+7);\n    const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);\n    const toolbar=document.querySelector('[data-plan-pane=\"week\"] .month-toolbar strong');\n    if(toolbar)toolbar.textContent='Semana · '+String(monday.getDate()).padStart(2,'0')+' — '+String(sunday.getDate()).padStart(2,'0')+' de '+sunday.toLocaleDateString('pt-BR',{month:'long'});\n    const names=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],cs=filteredCampaigns(),ts=filteredTasks();\n    document.getElementById('planWeekGrid').innerHTML=Array.from({length:7},(_,i)=>{\n      const d=new Date(monday);d.setDate(monday.getDate()+i);\n      const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');\n      const active=cs.filter(c=>c.start<=iso&&c.end>=iso),due=ts.filter(t=>t.due===iso);\n      return '<section class=\"plan-day '+(d.getTime()===now.getTime()?'today':'')+'\"><div class=\"plan-day-head\"><span>'+names[i]+'</span><b>'+String(d.getDate()).padStart(2,'0')+'</b></div><div class=\"plan-day-body\">'+\n        '<div class=\"day-section\"><div class=\"day-section-title\">Campanhas</div>'+(active.length?active.map(c=>'<article class=\"week-campaign-card\" data-plan-campaign=\"'+esc(c.name)+'\" style=\"--pc:'+(c.color||'#121415')+'\"><b>'+esc(c.name)+'</b><span>'+esc(c.type)+' · '+esc(c.status)+'</span></article>').join(''):'<div class=\"week-empty\">Nenhuma campanha ativa</div>')+'</div>'+\n        '<div class=\"day-section\"><div class=\"day-section-title\">Tarefas com prazo</div>'+(due.length?due.slice(0,12).map(t=>'<div class=\"week-task-row\"><span>✓</span><b>'+esc(t.title)+'</b></div>').join(''):'<div class=\"week-empty\">Sem tarefas com prazo</div>')+'</div></div></section>';\n    }).join('');\n    document.querySelectorAll('[data-plan-campaign]').forEach(b=>b.addEventListener('click',()=>window.openCampaignWorkspaceByName?.(b.dataset.planCampaign)));\n  }");
     console.log("[AllianceOS build] patched planning week");
   } else console.warn("[AllianceOS build] renderer not found: planning week");
+  // MONTH_SCOPED_CAMPAIGN_DIRECTORY_V3
+  // Final authority for the Campaigns directory. Earlier source patches
+  // normalize campaign objects, but this final runtime replacement ensures
+  // the actual renderer shown to the user obeys the selected planning month.
+  {
+    const start = html.indexOf("  function filteredCampaigns(){");
+    const end = html.indexOf("\n  function renderCampaignRow", start);
+    if (start < 0 || end < 0 || end <= start) {
+      throw new Error('Não encontrei filteredCampaigns final para aplicar o filtro mensal');
+    }
+    const monthlyFiltered = String.raw`  function filteredCampaigns(){
+    try{
+      const live=JSON.parse(localStorage.getItem(campaignStorageKey)||'[]');
+      if(Array.isArray(live))campaignData=live;
+    }catch{}
+
+    const q=(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();
+    const st=document.getElementById('campaignStatusFilter')?.value||'';
+    const brand=getSelectedBrand();
+
+    let ref=String(window.AlliancePlanningMonthRef||'');
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(ref)){
+      try{
+        ref=sessionStorage.getItem('allianceos.planning.monthRef')
+          ||localStorage.getItem('allianceos.planning.monthRef')
+          ||'';
+      }catch{}
+    }
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(ref)){
+      const d=new Date();
+      ref=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    }
+
+    const [yy,mm]=ref.split('-').map(Number);
+    const first=new Date(yy,mm-1,1);
+    const last=new Date(yy,mm,0);
+
+    // If a monthly mind map exists, its campaign links define membership.
+    // This is the same planning the user is looking at in Mapa mental.
+    const mapIds=new Set();
+    if(brand){
+      const uid=(window.user&&window.user.id)||'vitor-gutierrez';
+      const mapKeys=[
+        'central.planning.map.'+uid+'.'+brand+'.'+ref,
+        'central.planning.map.vitor-gutierrez.'+brand+'.'+ref,
+        'central.planning.map.shared.'+brand+'.'+ref
+      ];
+      for(const key of mapKeys){
+        try{
+          const map=JSON.parse(localStorage.getItem(key)||'null');
+          const ids=(Array.isArray(map?.nos)?map.nos:[])
+            .map(n=>String(n?.campId||n?.campaignId||'').trim())
+            .filter(Boolean);
+          if(ids.length){
+            ids.forEach(id=>mapIds.add(id));
+            break;
+          }
+        }catch{}
+      }
+    }
+
+    const allowed=new Set((window.AllianceOSDirectory?.brands||[])
+      .map(b=>String(b?.nome||'')).filter(Boolean));
+
+    return campaignData.map(normalizeCampaign).filter(c=>{
+      if(c?.archivedAt)return false;
+      if(allowed.size&&c.brand&&!allowed.has(String(c.brand)))return false;
+      if(brand&&c.brand!==brand)return false;
+
+      if(mapIds.size){
+        if(!mapIds.has(String(c.id||'')))return false;
+      }else{
+        const explicit=String(c?.monthRef||c?.month_ref||'').slice(0,7);
+        if(/^20\d{2}-(0[1-9]|1[0-2])$/.test(explicit)){
+          if(explicit!==ref)return false;
+        }else{
+          const start=c.start?new Date(c.start+'T00:00:00'):null;
+          const end=c.end?new Date(c.end+'T00:00:00'):start;
+          if(start&&end&&(start>last||end<first))return false;
+        }
+      }
+
+      if(st&&c.status!==st)return false;
+      if(q&&!([c.name,c.type,c.owner,c.offer,...(Array.isArray(c.channels)?c.channels:[])]
+        .join(' ').toLowerCase().includes(q)))return false;
+      return true;
+    });
+  }`;
+    html = html.slice(0,start) + monthlyFiltered + html.slice(end);
+    console.log('[AllianceOS build] campaign directory locked to selected month/map');
+  }
+
   // AllianceOS: corrige a fonte canônica e remove datas congeladas do calendário legado.
   // Esse runtime antigo redesenha Mês/Semana/Campanhas via MutationObserver, então
   // precisa ler a mesma coleção canônica usada pelo restante do AllianceOS.
