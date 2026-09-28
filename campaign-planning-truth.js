@@ -894,6 +894,15 @@ window.addEventListener('allianceos:planning-month-changing',()=>{
 });
 window.addEventListener('allianceos:planning-month-ready',schedule);
 window.addEventListener('allianceos:planning-metrics',schedule);
+window.addEventListener('allianceos:state-updated',e=>{
+  const key=String(e?.detail?.key||'');
+  if(key===CAMP_KEY||key===TASK_KEY||key.startsWith('central.planning.map.'))schedule();
+});
+document.getElementById('campaignsNav')?.addEventListener('click',()=>{
+  setTimeout(schedule,0);
+  setTimeout(schedule,180);
+  setTimeout(schedule,700);
+});
 window.addEventListener('pageshow',schedule);
 window.addEventListener('focus',schedule);
 // No polling loop: month/campaign state is event-driven. The old 1.8s
