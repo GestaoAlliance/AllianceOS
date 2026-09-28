@@ -91,6 +91,36 @@
     return{s,brand,ref,brands:visibleBrands,months,campaigns,sum,target,warnings};
   }
 
+  async function refreshPlanningMonthMetrics(requestedRef=planningMonthRef()){
+    const ref=validMonthRef(requestedRef)?String(requestedRef):planningMonthRef();
+    const brand=window.MapaMental?.marca?.()||activeBrand();
+    const publish=metrics=>{
+      window.AlliancePlanningMonthMetrics=metrics;
+      window.dispatchEvent(new CustomEvent('allianceos:planning-metrics',{detail:metrics||{ref,brand}}));
+      return metrics;
+    };
+    if(!brand)return publish(null);
+    try{
+      const ctx=await canonicalMapContext(brand,{monthRef:ref});
+      if(!ctx?.month)return publish({ref,brand,goal:0,budget:0,active:1,hasPlan:false});
+      const active=Math.max(1,Math.min(3,Number(ctx.month.meta_ativa||1)));
+      const {data:rows,error}=await ctx.s.from('planning_month_channel_goals')
+        .select('channel_slug,meta1,meta2,meta3,investimento_previsto')
+        .eq('month_id',ctx.month.id).is('arquivado_em',null);
+      if(error)throw error;
+      const perChannel=(rows||[]).reduce((sum,row)=>sum+Number(row['meta'+active]||0),0);
+      const overall=Number(ctx.month['meta'+active]||0);
+      const budget=(rows||[]).reduce((sum,row)=>sum+Number(row.investimento_previsto||0),0);
+      return publish({
+        ref,brand:ctx.brand.nome,goal:perChannel||overall,budget,active,
+        overall,perChannel,hasPlan:true,channelCount:(rows||[]).length
+      });
+    }catch(e){
+      console.warn('[AllianceOS métricas mensais]',e);
+      return publish(null);
+    }
+  }
+
   function warning(id,host,msg){
     if(!host)return;let el=document.getElementById(id);
     if(!msg){el?.remove();return}
@@ -435,6 +465,7 @@
     refreshPlanningMapControls({ref:next});
     window.MapaMental?.recarregar?.();
     await hydrateCanonicalMap({silent,monthRef:next});
+    await refreshPlanningMonthMetrics(next);
     refreshConsistency();
     return next;
   }
@@ -645,6 +676,7 @@
             if(up.error)throw up.error;
           }
           closePlanningGoalsDialog();
+          await refreshPlanningMonthMetrics(ref);
           refreshConsistency();
           window.showToast?.('Metas de '+planningMonthLabel(ref)+' salvas.');
         }catch(e){
@@ -780,18 +812,18 @@
     autos.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();openAutomations()},{capture:true});
     document.querySelectorAll('.ref2-nav-btn:not([data-key="clients"]):not([data-key="automations"])').forEach(b=>b.addEventListener('click',()=>{closeFull();if(b.dataset.key==='reports')setTimeout(enhanceReports,100)},{capture:true}));
     document.getElementById('brandSelect')?.addEventListener('change',()=>{
-      refreshConsistency();setTimeout(enhanceReports,80);
+      refreshConsistency();refreshPlanningMonthMetrics();setTimeout(enhanceReports,80);
       if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),90);
     });
     document.getElementById('campaignsNav')?.addEventListener('click',()=>setTimeout(refreshConsistency,80));
-    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();installMapImport();installPlanningMapControls();hydrateCanonicalMap()},120));
+    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();refreshPlanningMonthMetrics();installMapImport();installPlanningMapControls();hydrateCanonicalMap()},120));
     document.getElementById('painelNav')?.addEventListener('click',()=>setTimeout(enhanceReports,120));
     new MutationObserver(()=>{installMapImport();installPlanningMapControls();installMapNamePersistence();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
-    refreshConsistency();installMapImport();installPlanningMapControls();installMapNamePersistence();installNameGuards();
+    refreshConsistency();refreshPlanningMonthMetrics();installMapImport();installPlanningMapControls();installMapNamePersistence();installNameGuards();
     if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),180);
     window.addEventListener('allianceos:auth',()=>setTimeout(()=>hydrateCanonicalMap({silent:true}),500));
   }
   window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow,month:planningMonthRef,switchMonth:switchPlanningMonth,createMonth:createPlanningMapForSelectedMonth,goals:openPlanningGoalsDialog};
-  window.AllianceFullSystem={refreshConsistency,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
+  window.AllianceFullSystem={refreshConsistency,refreshPlanningMonthMetrics,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',wire,{once:true});else wire();
 })();
