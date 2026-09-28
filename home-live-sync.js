@@ -145,6 +145,11 @@ function related(c,tasks){
 
 function campaignInMonth(c){
   const now=today();
+  const ref=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const explicit=String(c?.monthRef||c?.month_ref||'').slice(0,7);
+  // monthRef is authoritative when present. This prevents an October
+  // campaign copied from September from leaking into September's Home.
+  if(/^20\d{2}-(0[1-9]|1[0-2])$/.test(explicit))return explicit===ref;
   const first=new Date(now.getFullYear(),now.getMonth(),1);
   const last=new Date(now.getFullYear(),now.getMonth()+1,0);
   const start=parseDate(c.startAt||c.start);
@@ -200,10 +205,18 @@ function timeline(campaigns,tasks){
   const now=today();
   const mon=monday(now);
   const sun=new Date(mon);sun.setDate(mon.getDate()+6);
-  const head=root.closest('.timeline-card')?.querySelector('.timeline-head strong');
+  const head=
+    root.closest('.timeline-card')?.querySelector('.timeline-head strong')||
+    document.querySelector('[data-module="timeline"] .timeline-head strong')||
+    document.querySelector('.timeline-head strong');
   if(head){
-    const month=sun.toLocaleDateString('pt-BR',{month:'long'});
-    head.textContent='Esta semana · '+String(mon.getDate()).padStart(2,'0')+' — '+String(sun.getDate()).padStart(2,'0')+' de '+month;
+    const monDay=String(mon.getDate()).padStart(2,'0');
+    const sunDay=String(sun.getDate()).padStart(2,'0');
+    const monMonth=mon.toLocaleDateString('pt-BR',{month:'long'});
+    const sunMonth=sun.toLocaleDateString('pt-BR',{month:'long'});
+    head.textContent=mon.getMonth()===sun.getMonth()
+      ?'Esta semana · '+monDay+' — '+sunDay+' de '+sunMonth
+      :'Esta semana · '+monDay+' de '+monMonth+' — '+sunDay+' de '+sunMonth;
   }
 
   const events=[];
@@ -289,6 +302,22 @@ setInterval(()=>{
   const d=currentData();
   const sig=[d.brand,d.tasks.length,d.campaigns.length,localStorage.getItem(TASK_KEY)?.length||0,localStorage.getItem(CAMPAIGN_KEY)?.length||0].join('|');
   if(sig!==lastSig)render();
+  else{
+    // Keep the week label coherent even if another legacy renderer rewrites
+    // only the static heading after our first render.
+    const now=today(),mon=monday(now),sun=new Date(mon);sun.setDate(mon.getDate()+6);
+    const head=
+      document.querySelector('[data-module="timeline"] .timeline-head strong')||
+      document.querySelector('.timeline-head strong');
+    if(head){
+      const a=String(mon.getDate()).padStart(2,'0'),b=String(sun.getDate()).padStart(2,'0');
+      const am=mon.toLocaleDateString('pt-BR',{month:'long'}),bm=sun.toLocaleDateString('pt-BR',{month:'long'});
+      const label=mon.getMonth()===sun.getMonth()
+        ?'Esta semana · '+a+' — '+b+' de '+bm
+        :'Esta semana · '+a+' de '+am+' — '+b+' de '+bm;
+      if(head.textContent!==label)head.textContent=label;
+    }
+  }
 },2500);
 if(document.readyState!=='loading')whenReady();
 })();
