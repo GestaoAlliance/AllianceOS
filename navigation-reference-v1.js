@@ -821,6 +821,25 @@
       setTimeout(syncTaskCampaignIds,120);
     });
 
+    // The map's "campanha ↗" button must open only the campaign that belongs
+    // to the month currently being viewed. Never resolve by an old same-name campaign.
+    window.AbrirCampanha=function(campId){
+      const id=String(campId||'');
+      const target=campaigns().find(c=>String(c?.id||'')===id&&!c?.archivedAt&&campaignInSelectedMonth(c));
+      if(!target){
+        openCampaignDirectory();
+        window.showToast?.('Esta campanha não pertence ao mês selecionado.');
+        return;
+      }
+      openCampaignDirectory();
+      const tryOpen=attempt=>{
+        const row=document.querySelector('#campaignsView [data-campaign-id="'+CSS.escape(id)+'"]');
+        if(row){row.click();return}
+        if(attempt<6)setTimeout(()=>tryOpen(attempt+1),60);
+      };
+      setTimeout(()=>tryOpen(0),80);
+    };
+
     // Expose the root flow for any future breadcrumb/back buttons.
     window.AllianceOSStrategy={
       mapa:openStrategyMap,
