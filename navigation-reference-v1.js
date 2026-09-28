@@ -622,35 +622,39 @@
     function openCampaignDirectory(){
       syncTaskCampaignIds();
 
-      // Prefer the app's public navigation hook. Some builds do not expose it,
-      // so always keep the original Campaigns nav and a direct view switch as
-      // fallbacks. Without this, only the tab's visual state changes and the
-      // Planning month pane remains on screen.
-      if(typeof window.__centralShowCampaigns==='function'){
-        window.__centralShowCampaigns();
-      }else if(targets.campaigns){
-        targets.campaigns.click();
-      }else{
-        const home=document.getElementById('homeView');
-        const tasks=document.getElementById('tasksView');
-        const planning=document.getElementById('planningView');
-        const campaignsView=document.getElementById('campaignsView');
-        const deliveries=document.getElementById('deliveriesView');
-        if(home)home.style.display='none';
-        tasks?.classList.remove('active');
-        planning?.classList.remove('active');
-        deliveries?.classList.remove('active');
-        campaignsView?.classList.add('active');
+      // The strategy tab must navigate, not only change its visual state.
+      // Run the app hook first, then the real sidebar button as a fallback and
+      // finally enforce the view state. This covers builds where one of the
+      // legacy navigation hooks exists but no longer toggles the section.
+      try{ window.__centralShowCampaigns?.(); }catch{}
+      const campaignsView=document.getElementById('campaignsView');
+      if(targets.campaigns && !campaignsView?.classList.contains('active')){
+        try{targets.campaigns.click()}catch{}
       }
+      try{
+        if(location.hash!=='#campaigns')history.replaceState(null,'','#campaigns');
+      }catch{}
 
       setActive('campaigns');
       setTimeout(()=>{
         const campaignsView=document.getElementById('campaignsView');
         const planning=document.getElementById('planningView');
+        const home=document.getElementById('homeView');
+        const tasks=document.getElementById('tasksView');
+        const deliveries=document.getElementById('deliveriesView');
+        const reports=document.getElementById('painelView');
 
-        // Safety: ensure the directory is the visible strategy surface.
+        // Safety: make Campaigns the only visible strategy surface.
+        home?.classList.remove('active');
+        tasks?.classList.remove('active');
         planning?.classList.remove('active');
-        campaignsView?.classList.add('active');
+        deliveries?.classList.remove('active');
+        reports?.classList.remove('active');
+        if(campaignsView){
+          campaignsView.hidden=false;
+          campaignsView.style.removeProperty('display');
+          campaignsView.classList.add('active');
+        }
 
         const overview=document.querySelector('#campaignsView [data-camp-view="overview"]');
         if(overview) overview.click();
@@ -658,10 +662,11 @@
         document.getElementById('campaignOverviewList')?.classList.remove('hidden');
         document.getElementById('campaignWorkspace')?.classList.remove('active');
 
-        // Re-render after becoming visible; renderCampaigns intentionally exits
-        // while #campaignsView is not active.
+        // Re-render after becoming visible; the list renderer intentionally
+        // exits while #campaignsView is not active.
         try{ window.__centralRenderCampaigns?.(); }catch{}
         document.getElementById('campaignSearch')?.dispatchEvent(new Event('input',{bubbles:true}));
+        window.dispatchEvent(new Event('resize'));
 
         installUnifiedStrategyNav('campaigns');
       },70);
