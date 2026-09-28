@@ -171,12 +171,12 @@ document.addEventListener('click',e=>{
     const id=item.dataset.hardCampaign||'';
     const name=item.dataset.hardCampaignName||'';
     if(id&&window.openCampaignWorkspaceById){
-      window.openCampaignWorkspaceById(id);
-      return;
+      const opened=window.openCampaignWorkspaceById(id);
+      if(opened!==false)return;
     }
     if(name&&window.openCampaignWorkspaceByName){
-      window.openCampaignWorkspaceByName(name);
-      return;
+      const opened=window.openCampaignWorkspaceByName(name);
+      if(opened!==false)return;
     }
     // Last-resort fallback: ask the legacy directory to redraw, then click
     // the row with the same canonical id if it exists.
