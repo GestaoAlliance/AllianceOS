@@ -35,9 +35,11 @@ const selectedMonthRef=()=>{
   if(validMonthRef(live))return live;
   const picker=String(document.querySelector('[data-alliance-planning-month]')?.value||'');
   if(validMonthRef(picker))return picker;
-  let saved='';
+  let saved='',persistent='';
   try{saved=sessionStorage.getItem('allianceos.planning.monthRef')||''}catch{}
+  try{persistent=localStorage.getItem('allianceos.planning.monthRef')||''}catch{}
   if(validMonthRef(saved))return saved;
+  if(validMonthRef(persistent))return persistent;
   return monthRefFromDate(today());
 };
 const monthName=d=>d.toLocaleDateString('pt-BR',{month:'long'}).replace(/^./,x=>x.toUpperCase());
@@ -777,7 +779,16 @@ const observer=new MutationObserver(schedule);
 observer.observe(document.documentElement,{subtree:true,childList:true});
 document.addEventListener('input',e=>{if(e.target?.id==='campaignSearch')schedule()});
 document.addEventListener('change',e=>{if(['campaignStatusFilter','brandSelect'].includes(e.target?.id))schedule()});
-window.addEventListener('allianceos:planning-month',schedule);
+window.addEventListener('allianceos:planning-month',e=>{
+  const ref=String(e?.detail?.monthRef||'');
+  if(validMonthRef(ref)){
+    window.AlliancePlanningMonthRef=ref;
+    try{sessionStorage.setItem('allianceos.planning.monthRef',ref)}catch{}
+    try{localStorage.setItem('allianceos.planning.monthRef',ref)}catch{}
+  }
+  schedule();
+});
+window.addEventListener('allianceos:planning-month-ready',schedule);
 window.addEventListener('allianceos:planning-metrics',schedule);
 window.addEventListener('pageshow',schedule);
 window.addEventListener('focus',schedule);
