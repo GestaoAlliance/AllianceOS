@@ -94,14 +94,44 @@ const overlapsMonth=c=>{
   const e=dateOnly(c.endAt||c.end)||s;
   return !!s&&!!e&&s<=b.end&&e>=b.start;
 };
+const selectedMapCampaignIds=()=>{
+  const b=brand();
+  const ref=selectedMonthRef();
+  if(!b||!validMonthRef(ref))return new Set();
+  const uid=window.user?.id||'vitor-gutierrez';
+  const keys=[
+    'central.planning.map.'+uid+'.'+b+'.'+ref,
+    'central.planning.map.vitor-gutierrez.'+b+'.'+ref,
+    'central.planning.map.shared.'+b+'.'+ref
+  ];
+  for(const key of keys){
+    try{
+      const map=JSON.parse(localStorage.getItem(key)||'null');
+      const ids=(Array.isArray(map?.nos)?map.nos:[])
+        .map(n=>String(n?.campId||n?.campaignId||'').trim())
+        .filter(Boolean);
+      if(ids.length)return new Set(ids);
+    }catch{}
+  }
+  return new Set();
+};
 const currentCampaigns=()=>{
   const b=brand();
   const q=String(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();
   const st=String(document.getElementById('campaignStatusFilter')?.value||'').trim();
+  const mapIds=selectedMapCampaignIds();
   return read(CAMP_KEY).filter(c=>{
     if(c?.archivedAt)return false;
-    if(!overlapsMonth(c))return false;
     if(b&&c.brand&&c.brand!==b)return false;
+
+    // When the selected month has an actual planning map, that map is the
+    // authoritative membership list for the month. This keeps October from
+    // inheriting September's perpetuals and also includes campaigns created
+    // from the map even when legacy dates were copied from an older month.
+    if(mapIds.size){
+      if(!mapIds.has(String(c?.id||'')))return false;
+    }else if(!overlapsMonth(c))return false;
+
     if(st&&statusNorm(c.status)!==statusNorm(st))return false;
     if(q){
       const hay=[c.name,c.type,c.owner,c.offer,...(Array.isArray(c.channels)?c.channels:[])].join(' ').toLowerCase();
@@ -799,6 +829,27 @@ function apply(){
   try{summary()}catch(e){console.warn('[AllianceOS campanha] resumo',e)}
 }
 
+let campaignViewObserver=null;
+function ensureCampaignViewObserver(){
+  const view=document.getElementById('campaignsView');
+  if(!view)return;
+  if(campaignViewObserver&&view.dataset.allianceMonthCampaignObserved==='1')return;
+  try{campaignViewObserver?.disconnect()}catch{}
+  view.dataset.allianceMonthCampaignObserved='1';
+  let queued=false;
+  campaignViewObserver=new MutationObserver(mutations=>{
+    if(!view.classList.contains('active'))return;
+    if(!mutations.some(m=>m.target?.closest?.('#campaignKpis,#campaignList,#campaignSummary,#campaignListSub')||m.target?.id==='campaignKpis'||m.target?.id==='campaignList'))return;
+    if(queued)return;
+    queued=true;
+    setTimeout(()=>{
+      queued=false;
+      try{campaignList()}catch{}
+    },0);
+  });
+  campaignViewObserver.observe(view,{childList:true,subtree:true,characterData:true});
+}
+
 let planContextObserver=null;
 function ensurePlanContextObserver(){
   const root=document.getElementById('planContext');
@@ -820,7 +871,7 @@ function schedule(){
   scheduled=setTimeout(()=>{
     if(applying)return;
     applying=true;
-    try{apply();ensurePlanContextObserver()}finally{applying=false}
+    try{apply();ensurePlanContextObserver();ensureCampaignViewObserver()}finally{applying=false}
   },50);
 }
 
@@ -838,7 +889,7 @@ window.addEventListener('allianceos:planning-month',e=>{
   schedule();
 });
 window.addEventListener('allianceos:planning-month-changing',()=>{
-  try{syncMonthChrome();planContext();planningWeek()}catch{}
+  try{syncMonthChrome();planContext();planningWeek();campaignList()}catch{}
   schedule();
 });
 window.addEventListener('allianceos:planning-month-ready',schedule);
