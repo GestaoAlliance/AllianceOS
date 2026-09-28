@@ -2919,6 +2919,118 @@
     }
   }
 
+  /* ===== Runtime V30 · containment / no overflow ===== */
+  #taskDetailDrawer .r10-main,
+  #taskDetailDrawer .r10-main-top,
+  #taskDetailDrawer .r10-main-nav,
+  #taskDetailDrawer .r10-save-slot,
+  #taskDetailDrawer .r10-center-stack,
+  #taskDetailDrawer .r10-completion-card,
+  #taskDetailDrawer .r10-completion-action,
+  #taskDetailDrawer .r10-delivery-card,
+  #taskDetailDrawer .r10-delivery-card .v5-delivery-compose,
+  #taskDetailDrawer .r10-delivery-files-bar{
+    box-sizing:border-box!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  #taskDetailDrawer .r10-main{
+    overflow-x:hidden!important;
+  }
+  #taskDetailDrawer .r10-main-top{
+    flex-wrap:wrap!important;
+  }
+  #taskDetailDrawer .r10-main-nav{
+    flex:1 1 auto!important;
+    flex-wrap:wrap!important;
+  }
+  #taskDetailDrawer .r10-save-slot{
+    flex:0 1 auto!important;
+    margin-left:auto!important;
+  }
+  #taskDetailDrawer .r10-save-btn{
+    box-sizing:border-box!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:100%!important;
+    flex:0 1 auto!important;
+    padding-left:12px!important;
+    padding-right:12px!important;
+    white-space:normal!important;
+    line-height:1.15!important;
+  }
+  #taskDetailDrawer .r10-delivery-mode-switch{
+    box-sizing:border-box!important;
+    max-width:calc(100% - 36px)!important;
+    flex-wrap:wrap!important;
+  }
+  #taskDetailDrawer .r10-delivery-mode-btn{
+    min-width:0!important;
+    max-width:100%!important;
+    flex:0 1 auto!important;
+    white-space:normal!important;
+  }
+  #taskDetailDrawer .r10-delivery-files-bar{
+    flex-wrap:wrap!important;
+    padding-top:10px!important;
+    padding-bottom:10px!important;
+  }
+  #taskDetailDrawer .r10-delivery-files-count{
+    min-width:0!important;
+    flex:1 1 150px!important;
+    white-space:normal!important;
+  }
+  #taskDetailDrawer .r10-delivery-files-status{
+    min-width:0!important;
+    flex:1 1 160px!important;
+  }
+  #taskDetailDrawer .r10-delivery-actions{
+    box-sizing:border-box!important;
+    min-width:0!important;
+    max-width:100%!important;
+    flex:1 1 100%!important;
+    margin-left:0!important;
+    flex-wrap:wrap!important;
+  }
+  #taskDetailDrawer .r10-delivery-actions button{
+    box-sizing:border-box!important;
+    min-width:0!important;
+    max-width:100%!important;
+    flex:1 1 140px!important;
+    white-space:normal!important;
+  }
+  #taskDetailDrawer .r10-completion-card{
+    flex-wrap:wrap!important;
+    overflow:hidden!important;
+  }
+  #taskDetailDrawer .r10-completion-copy{
+    flex:1 1 220px!important;
+  }
+  #taskDetailDrawer .r10-completion-action{
+    flex:0 1 auto!important;
+    margin-left:auto!important;
+  }
+  #taskDetailDrawer .r10-complete-btn{
+    box-sizing:border-box!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:100%!important;
+    flex:0 1 auto!important;
+    padding-left:14px!important;
+    padding-right:14px!important;
+    white-space:normal!important;
+    line-height:1.15!important;
+  }
+  @media(max-width:1180px){
+    #taskDetailDrawer .r10-completion-action{
+      width:100%!important;
+      margin-left:0!important;
+    }
+    #taskDetailDrawer .r10-complete-btn{
+      width:100%!important;
+    }
+  }
+
   body.v5-conference-modal-open{overflow:hidden!important}
   .v5-conference-modal{position:fixed!important;inset:0!important;z-index:2147483000!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:24px!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
   .v5-conference-backdrop{position:absolute!important;inset:0!important;background:rgba(17,24,39,.38)!important;backdrop-filter:blur(2px)!important}
