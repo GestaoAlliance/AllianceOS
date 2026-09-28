@@ -82,6 +82,69 @@
     const h=raw.match(/\b(\d{1,2})h(?:(\d{2}))?/i);
     return h?String(h[1]).padStart(2,'0')+':'+(h[2]||'00'):'';
   };
+
+  const dateTimeIso=(date,time='00:00')=>{
+    if(!date)return null;
+    return String(date).slice(0,10)+'T'+String(time||'00:00').slice(0,5)+':00-03:00';
+  };
+  function ensureMessageDetails(x){
+    const q=Math.max(1,Number(x?.quantidade||1));
+    if(!Array.isArray(x.mensagens))x.mensagens=[];
+    while(x.mensagens.length<q){
+      const j=x.mensagens.length;
+      x.mensagens.push({
+        id:id('msg'),hora:j===0?String(x.hora||''):'',contexto:j===0?String(x.titulo||''):'',
+        copy:j===0?String(x.copy||''):'',template:j===0?String(x.template||''):'',link:j===0?String(x.link||''):''
+      });
+    }
+    return x.mensagens.slice(0,q);
+  }
+  function autoMilestones(){
+    if(!S)return[];
+    const rows=[];
+    const add=x=>{
+      if(!x?.data)return;
+      rows.push({
+        id:x.id||id('auto'),automatico:true,origem:'sistema',data:String(x.data).slice(0,10),hora:String(x.hora||'').slice(0,5),
+        data_hora:dateTimeIso(x.data,x.hora||'00:00'),canal:x.canal||'Planejamento',tipo:x.tipo||'Marco da campanha',
+        titulo:x.titulo||'Marco da campanha',acao:x.titulo||'Marco da campanha',contexto:x.contexto||x.titulo||'',
+        conteudo:x.conteudo||'',copy:x.copy||'',audiencia:x.audiencia||'',quantidade:1,quem_faz:x.quem_faz||S.basic.owner||'',
+        responsaveis:x.quem_faz?[x.quem_faz]:[],template:'',link:'',cta:'',atualizado_em:nowIso()
+      });
+    };
+    S.phases.filter(p=>p.tem!==false).forEach((p,i)=>{
+      add({id:'auto-phase-start-'+String(p.id||i),data:p.data||S.basic.start,hora:p.hora||'',canal:'Planejamento',tipo:'Fase',
+        titulo:'Início da fase: '+String(p.nome||('Fase '+(i+1))),conteudo:p.observacoes||'',quem_faz:S.basic.owner||''});
+      if(p.data_fim&&p.data_fim!==p.data) add({id:'auto-phase-end-'+String(p.id||i),data:p.data_fim,hora:'',canal:'Planejamento',tipo:'Fase',
+        titulo:'Fim da fase: '+String(p.nome||('Fase '+(i+1))),conteudo:p.observacoes||'',quem_faz:S.basic.owner||''});
+    });
+    if(S.event.liveEnabled){
+      add({id:'auto-live',data:S.event.liveDate||S.basic.start,hora:S.event.liveTime||'',canal:S.event.livePlatform||'Live',tipo:'Live',
+        titulo:'Live de lançamento',conteudo:S.event.liveNotes||'Live prevista na estratégia da campanha.',quem_faz:S.basic.owner||''});
+    }
+    const activationDate=S.event.activation==='live'&&S.event.liveEnabled?(S.event.liveDate||S.basic.start):(S.event.offerStartDate||S.basic.start);
+    const activationTime=S.event.activation==='live'&&S.event.liveEnabled?(S.event.liveTime||''):(S.event.activation==='midnight'?'00:00':S.event.offerStartTime||'');
+    const scarcity=[
+      S.offer.deadlineEnabled?'Condição até '+dateTimeLabel(S.offer.deadlineDate,S.offer.deadlineTime)+(S.offer.deadlineBenefit?' · '+S.offer.deadlineBenefit:''):'',
+      S.offer.firstNEnabled?'Primeiros '+Number(S.offer.firstN||0)+' pedidos'+(S.offer.firstNBenefit?' · '+S.offer.firstNBenefit:''):''
+    ].filter(Boolean).join(' | ');
+    add({id:'auto-offer-open',data:activationDate,hora:activationTime,canal:'Site / LP',tipo:'Oferta',
+      titulo:'Oferta entra no ar',conteudo:[S.offer.summary,S.offer.cupom_automatico,scarcity].filter(Boolean).join(' · '),quem_faz:S.basic.owner||''});
+    if(S.offer.deadlineEnabled){
+      add({id:'auto-offer-deadline',data:S.offer.deadlineDate||S.basic.end,hora:S.offer.deadlineTime||'23:59',canal:'Site / LP',tipo:'Oferta / escassez',
+        titulo:'Fim / mudança da condição comercial',conteudo:S.offer.deadlineBenefit||'Condição com horário limite.',quem_faz:S.basic.owner||''});
+    }
+    if(S.offer.firstNEnabled){
+      add({id:'auto-first-n',data:activationDate,hora:activationTime,canal:'Oferta',tipo:'Regra de escassez',
+        titulo:'Benefício para os primeiros '+Number(S.offer.firstN||0)+' pedidos',conteudo:S.offer.firstNBenefit||'',quem_faz:S.basic.owner||''});
+    }
+    const seen=new Set();
+    return rows.filter(x=>{
+      const k=[x.id,x.data,x.hora,norm(x.titulo)].join('|');
+      if(seen.has(k))return false;seen.add(k);return true;
+    });
+  }
+
   const pathGet=(obj,path)=>String(path||'').split('.').reduce((o,k)=>o==null?undefined:o[k],obj);
   const pathSet=(obj,path,value)=>{
     const parts=String(path||'').split('.');
@@ -258,14 +321,20 @@
       });
     }
     state.channels=[...channelMap.values()];
-    const cron=Array.isArray(t.cronograma)?t.cronograma:[];
-    state.schedule=(cron.length?cron:(Array.isArray(c.schedule)?c.schedule.map((r,i)=>Array.isArray(r)?{id:id('schedule'),data:legacyScheduleDate(r[0],String(start).slice(0,4)),hora:legacyScheduleTime(r[0]),canal:r[1],titulo:r[2],conteudo:'',quem_faz:r[3]}:r):[])).map(x=>({
+    const cron=Array.isArray(t.cronograma_comunicacao)?t.cronograma_comunicacao:(Array.isArray(t.cronograma)?t.cronograma.filter(x=>!x?.automatico):[]);
+    const sourceSchedule=cron.length?cron:(Array.isArray(c.schedule)?c.schedule.map((r,i)=>Array.isArray(r)?{id:id('schedule'),data:legacyScheduleDate(r[0],String(start).slice(0,4)),hora:legacyScheduleTime(r[0]),canal:r[1],titulo:r[2],conteudo:'',quem_faz:r[3]}:r):[]);
+    state.schedule=sourceSchedule.filter(x=>!x?.automatico).map(x=>({
       id:x.id||id('schedule'),data:String(x.data||'').slice(0,10),hora:String(x.hora||'').slice(0,5),
       canal:String(x.canal||''),audiencia:String(x.audiencia||x.base||''),tipo:String(x.tipo||'Mensagem / disparo'),
       titulo:String(x.contexto||x.titulo||x.acao||''),copy:String(x.copy||x.mensagem||x.conteudo||''),
       quantidade:Number(x.quantidade||1)||1,quem_faz:String(x.quem_faz||((x.responsaveis||[]).join(', '))||''),
-      template:String(x.template||''),link:String(x.link||x.cta||'')
+      template:String(x.template||''),link:String(x.link||x.cta||''),
+      mensagens:Array.isArray(x.mensagens)?x.mensagens.map(m=>({
+        id:m.id||id('msg'),hora:String(m.hora||''),contexto:String(m.contexto||m.titulo||''),copy:String(m.copy||m.conteudo||''),
+        template:String(m.template||''),link:String(m.link||m.cta||'')
+      })):[]
     }));
+    state.schedule.forEach(ensureMessageDetails);
     state.noSchedule=Boolean(t.sem_cronograma);
     return state;
   }
@@ -302,7 +371,7 @@
 
   function phaseRows(){
     return '<div class="acw-card-list">'+S.phases.map((p,i)=>
-      '<div class="acw-row-card '+(p.tem?'':'off')+'"><div class="acw-row-head"><div>'+boolSwitch('Esta fase existe','phases.'+i+'.tem',p.tem,true)+'</div><div class="acw-row-actions"><button type="button" class="acw-icon-btn" data-action="remove-phase" data-index="'+i+'">Remover</button></div></div>'+
+      '<div class="acw-row-card '+(p.tem?'':'off')+'"><div class="acw-row-head"><div>'+boolSwitch('Esta fase existe','phases.'+i+'.tem',p.tem,true)+'</div><div class="acw-row-actions"><button type="button" class="acw-icon-btn" data-action="remove-phase" data-index="'+i+'">Arquivar</button></div></div>'+
       '<div class="acw-grid">'+
         field('Nome da fase','phases.'+i+'.nome',p.nome,'text','span-4')+
         field('Data inicial','phases.'+i+'.data',p.data,'date','span-2')+
@@ -322,14 +391,14 @@
         '<td class="medium"><input type="number" min="0" step="0.01" data-bind="offer.products.'+i+'.preco" data-type="number" value="'+esc(p.preco)+'"></td>'+
         '<td class="mini"><input type="number" min="0" max="100" step="0.1" data-bind="offer.products.'+i+'.desconto" data-type="number" value="'+esc(p.desconto)+'"></td>'+
         '<td class="wide"><input data-bind="offer.products.'+i+'.detalhe" value="'+esc(p.detalhe)+'" placeholder="Benefício, composição, condição..."></td>'+
-        '<td class="mini"><button type="button" class="acw-icon-btn" data-action="remove-product" data-index="'+i+'">Remover</button></td>'+
+        '<td class="mini"><button type="button" class="acw-icon-btn" data-action="remove-product" data-index="'+i+'">Arquivar</button></td>'+
       '</tr>').join('')+'</tbody></table></div>';
   }
 
   function ticketRows(){
     if(!S.ticket.enabled)return '<div class="acw-note">Marcado como “não terá estratégia de aumento de ticket”. Isso ficará registrado no TAP.</div>';
     return '<div class="acw-card-list">'+(S.ticket.strategies.length?S.ticket.strategies.map((x,i)=>
-      '<div class="acw-row-card"><div class="acw-row-head"><b>Estratégia '+(i+1)+'</b><button type="button" class="acw-icon-btn" data-action="remove-ticket" data-index="'+i+'">Remover</button></div><div class="acw-grid">'+
+      '<div class="acw-row-card"><div class="acw-row-head"><b>Estratégia '+(i+1)+'</b><button type="button" class="acw-icon-btn" data-action="remove-ticket" data-index="'+i+'">Arquivar</button></div><div class="acw-grid">'+
       field('Estratégia','ticket.strategies.'+i+'.nome',x.nome,'text','span-3')+
       field('Desconto / condição','ticket.strategies.'+i+'.desconto',x.desconto,'text','span-3')+
       textarea('Como funciona','ticket.strategies.'+i+'.detalhe',x.detalhe,'span-6',2)+
@@ -351,27 +420,37 @@
         '<td class="medium"><input type="number" min="0" step="0.01" data-bind="channels.'+i+'.investimento" data-type="number" value="'+esc(x.investimento||0)+'"></td>'+
         '<td class="medium"><input type="number" min="0" step="0.01" data-bind="channels.'+i+'.meta_faturamento" data-type="number" value="'+esc(x.meta_faturamento||0)+'"></td>'+
         '<td class="medium"><input data-bind="channels.'+i+'.responsavel" value="'+esc(x.responsavel)+'" placeholder="Responsável"></td>'+
-        '<td class="mini">'+(x.custom?'<button type="button" class="acw-icon-btn" data-action="remove-channel" data-index="'+i+'">Remover</button>':'')+'</td>'+
+        '<td class="mini">'+(x.custom?'<button type="button" class="acw-icon-btn" data-action="remove-channel" data-index="'+i+'">Arquivar</button>':'')+'</td>'+
       '</tr>').join('')+'</tbody></table></div>';
   }
 
   function scheduleCard(x,i){
     const channelOptions=S.channels.filter(c=>c.enabled).map(c=>c.nome);
     const opts=[...new Set([...channelOptions,x.canal].filter(Boolean))];
+    const details=ensureMessageDetails(x);
+    const detailHtml=Number(x.quantidade||1)>1
+      ?'<div class="acw-message-details"><div class="acw-message-details-head"><b>Detalhamento individual</b><span>Defina o horário, contexto e copy de cada uma das '+details.length+' mensagens.</span></div>'+
+        details.map((m,j)=>'<div class="acw-message-row"><span class="acw-message-index">'+(j+1)+'</span>'+
+          '<label><span>Hora</span><input type="time" data-bind="schedule.'+i+'.mensagens.'+j+'.hora" value="'+esc(m.hora||'')+'"></label>'+
+          '<label class="context"><span>Contexto / objetivo</span><input data-bind="schedule.'+i+'.mensagens.'+j+'.contexto" value="'+esc(m.contexto||'')+'" placeholder="Ex.: abertura, prova social, urgência..."></label>'+
+          '<label class="copy"><span>Copy / orientação</span><textarea data-bind="schedule.'+i+'.mensagens.'+j+'.copy" rows="2">'+esc(m.copy||'')+'</textarea></label>'+
+          '<label class="link"><span>CTA / link</span><input data-bind="schedule.'+i+'.mensagens.'+j+'.link" value="'+esc(m.link||'')+'"></label>'+
+        '</div>').join('')+'</div>'
+      :'';
     return '<div class="acw-schedule-card"><div class="acw-schedule-top">'+
       '<label><span>Data</span><input type="date" data-bind="schedule.'+i+'.data" value="'+esc(x.data)+'"></label>'+
-      '<label><span>Hora</span><input type="time" data-bind="schedule.'+i+'.hora" value="'+esc(x.hora)+'"></label>'+
+      '<label><span>Hora principal</span><input type="time" data-bind="schedule.'+i+'.hora" value="'+esc(x.hora)+'"></label>'+
       '<label><span>Canal</span><select data-bind="schedule.'+i+'.canal"><option value="">Selecione</option>'+opts.map(o=>'<option '+(o===x.canal?'selected':'')+'>'+esc(o)+'</option>').join('')+'</select></label>'+
-      '<label><span>Público / base</span><input data-bind="schedule.'+i+'.audiencia" value="'+esc(x.audiencia)+'" placeholder="VIP, alunos, base antiga..."></label>'+
-      '<label><span>Quantidade</span><input type="number" min="1" step="1" data-bind="schedule.'+i+'.quantidade" data-type="number" value="'+esc(x.quantidade||1)+'"></label>'+
+      '<label><span>Público / base</span><input data-bind="schedule.'+i+'.audiencia" value="'+esc(x.audiencia)+'" placeholder="VIP, antigos, alunos, base com opt-in..."></label>'+
+      '<label><span>Qtd. mensagens</span><input type="number" min="1" step="1" data-bind="schedule.'+i+'.quantidade" data-type="number" data-rerender-on-change="1" value="'+esc(x.quantidade||1)+'"></label>'+
     '</div><div class="acw-grid" style="margin-top:9px">'+
       selectField('Tipo','schedule.'+i+'.tipo',x.tipo,['Mensagem / disparo','Post / story','Live','Site / LP','Criativo / anúncio','Outro'],'span-3')+
-      field('Contexto / objetivo','schedule.'+i+'.titulo',x.titulo,'text','span-6','placeholder="Ex.: abertura, prova social, última chance"')+
+      field('Contexto geral deste bloco','schedule.'+i+'.titulo',x.titulo,'text','span-6','placeholder="Ex.: abertura, prova social, última chance"')+
       field('Responsável','schedule.'+i+'.quem_faz',x.quem_faz,'text','span-3')+
-      textarea('Copy, briefing ou orientação desta ação','schedule.'+i+'.copy',x.copy,'span-8',3)+
-      field('Template / CTA / link','schedule.'+i+'.link',x.link,'text','span-3')+
-      '<div class="acw-field span-12"><button type="button" class="acw-schedule-remove" data-action="remove-schedule" data-index="'+i+'">Remover esta ação</button></div>'+
-    '</div></div>';
+      textarea('Orientação / copy geral','schedule.'+i+'.copy',x.copy,'span-8',3)+
+      field('Template / CTA / link padrão','schedule.'+i+'.link',x.link,'text','span-3')+
+    '</div>'+detailHtml+
+    '<div class="acw-schedule-actions"><button type="button" class="acw-schedule-remove" data-action="remove-schedule" data-index="'+i+'">Arquivar / retirar do cronograma</button></div></div>';
   }
 
   function scheduleMetrics(){
@@ -436,8 +515,10 @@
         '<div class="acw-metrics" data-channel-metrics><div class="acw-metric"><small>Meta somada</small><b data-total-goal>'+money(m.goal)+'</b><span>'+m.count+' canais ativos</span></div><div class="acw-metric"><small>Investimento</small><b data-total-budget>'+money(m.budget)+'</b><span>verba prevista</span></div><div class="acw-metric"><small>ROAS alvo</small><b data-total-roas>'+(m.roas?m.roas.toFixed(2).replace('.',','):'—')+'</b><span>meta ÷ investimento</span></div></div>'+channelsTable()+'</section></div>';
     }
     if(key==='cronograma'){
-      const m=scheduleMetrics();
-      return '<div class="acw-panel active"><section class="acw-section"><div class="acw-section-head"><div><h3>Cronograma completo</h3><p>Cadastre cada mensagem ou ação com dia, hora, canal, público, quantidade e contexto.</p></div>'+boolSwitch('Esta campanha não terá cronograma','noSchedule',S.noSchedule,true)+'</div>'+
+      const m=scheduleMetrics(),auto=autoMilestones();
+      const autoHtml='<div class="acw-auto-milestones"><div class="acw-auto-head"><div><b>Marcos automáticos da estratégia</b><span>Fases, live, entrada da oferta e regras de escassez entram no cronograma automaticamente.</span></div><em>'+auto.length+' marcos</em></div>'+
+        '<div class="acw-auto-list">'+auto.map(x=>'<div><span>'+esc(dateTimeLabel(x.data,x.hora))+'</span><b>'+esc(x.titulo)+'</b><small>'+esc(x.canal)+'</small></div>').join('')+'</div></div>';
+      return '<div class="acw-panel active"><section class="acw-section"><div class="acw-section-head"><div><h3>Cronograma completo</h3><p>Cadastre cada mensagem ou ação com dia, hora, canal, público, quantidade e contexto individual.</p></div>'+boolSwitch('Esta campanha não terá mensagens / ações manuais','noSchedule',S.noSchedule,true)+'</div>'+autoHtml+
         (S.noSchedule?'<div class="acw-note">Ficará registrado explicitamente que a campanha não terá cronograma de comunicação.</div>':
         '<div class="acw-metrics"><div class="acw-metric"><small>Mensagens / ações</small><b>'+m.qty+'</b><span>soma das quantidades</span></div><div class="acw-metric"><small>Dias usados</small><b>'+m.days+'</b><span>datas com ação</span></div><div class="acw-metric"><small>Canais</small><b>'+m.channels+'</b><span>canais no cronograma</span></div></div>'+
         '<div class="acw-quick"><button type="button" data-quick-channel="WhatsApp API">+ API</button><button type="button" data-quick-channel="WhatsApp Grupo VIP">+ Grupo VIP</button><button type="button" data-quick-channel="WhatsApp grupos antigos">+ Grupos antigos</button><button type="button" data-quick-channel="WhatsApp alunos Dr William">+ Alunos Dr William</button><button type="button" data-quick-channel="E-mail base antiga">+ E-mail</button><button type="button" data-quick-channel="Instagram Stories">+ Stories</button><button type="button" data-quick-channel="Instagram Feed">+ Feed</button><button type="button" data-quick-channel="Live">+ Live</button><button type="button" data-quick-channel="Site / LP">+ Site / LP</button><button type="button" data-action="add-schedule">+ Outro</button></div>'+
@@ -493,7 +574,7 @@
 
   function bind(){
     layer.querySelectorAll('[data-bind]').forEach(el=>{
-      const apply=()=>{
+      const apply=(fromChange=false)=>{
         let v;
         if(el.dataset.type==='bool')v=!!el.checked;
         else if(el.dataset.type==='number'||el.type==='number')v=Number(el.value||0);
@@ -504,11 +585,16 @@
           if(!S.event.offerStartDate)S.event.offerStartDate=S.basic.start;
         }
         if(el.dataset.bind.startsWith('channels.'))updateChannelMetricDom();
+        if(/\.quantidade$/.test(el.dataset.bind||'')){
+          const parts=String(el.dataset.bind).split('.');
+          const row=S.schedule?.[Number(parts[1])];
+          if(row)ensureMessageDetails(row);
+        }
         saveDraft();
-        if(el.dataset.rerender==='1')render();
+        if(el.dataset.rerender==='1'||(fromChange&&el.dataset.rerenderOnChange==='1'))render();
       };
-      el.addEventListener('input',apply);
-      el.addEventListener('change',apply);
+      el.addEventListener('input',()=>apply(false));
+      el.addEventListener('change',()=>apply(true));
     });
     layer.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{
       const to=Number(b.dataset.step);
@@ -542,8 +628,9 @@
     const ch=S.channels.find(x=>norm(x.nome)===norm(channel));
     S.schedule.push({
       id:id('schedule'),data:S.basic.start,hora:'',canal:channel||'',audiencia:ch?.base||'',tipo:channel==='Live'?'Live':'Mensagem / disparo',
-      titulo:'',copy:'',quantidade:1,quem_faz:ch?.responsavel||'',template:'',link:''
+      titulo:'',copy:'',quantidade:1,quem_faz:ch?.responsavel||'',template:'',link:'',mensagens:[]
     });
+    ensureMessageDetails(S.schedule[S.schedule.length-1]);
     render();
     setTimeout(()=>layer?.querySelector('.acw-schedule-card:last-child')?.scrollIntoView({behavior:'smooth',block:'center'}),30);
   }
@@ -568,6 +655,13 @@
     if(step===4){
       if(!S.noSchedule&&!S.schedule.length)return'Cadastre o cronograma ou marque explicitamente que a campanha não terá cronograma.';
       if(!S.noSchedule&&S.schedule.some(x=>!x.data||!x.canal||!x.titulo))return'No cronograma, cada ação precisa ter data, canal e contexto / objetivo.';
+      if(!S.noSchedule){
+        for(const x of S.schedule){
+          const details=ensureMessageDetails(x);
+          if(Number(x.quantidade||1)>1&&details.some(m=>!String(m.contexto||'').trim()))
+            return'Quando houver mais de uma mensagem no mesmo canal/dia, preencha o contexto de cada uma.';
+        }
+      }
     }
     return'';
   }
@@ -577,18 +671,39 @@
   }
 
   function scheduleStructured(){
-    return S.noSchedule?[]:S.schedule.map((x,i)=>{
+    if(S.noSchedule)return[];
+    const out=[];
+    S.schedule.forEach((x,i)=>{
       const q=Math.max(1,Number(x.quantidade||1));
-      const title=(q>1?q+'x · ':'')+String(x.titulo||'Ação');
-      const body=[x.audiencia?'Público: '+x.audiencia:'',x.copy].filter(Boolean).join('\n\n');
-      return{
-        id:x.id||id('cron'),data:x.data,hora:x.hora||'',periodo:dateTimeLabel(x.data,x.hora),
-        canal:x.canal,tipo:x.tipo||'Mensagem / disparo',titulo:title,acao:title,contexto:x.titulo||'',
-        conteudo:body,copy:x.copy||'',audiencia:x.audiencia||'',quantidade:q,
-        quem_faz:x.quem_faz||'',responsaveis:x.quem_faz?[x.quem_faz]:[],
-        template:x.template||'',link:x.link||'',cta:x.link||'',origem:'interface',atualizado_em:nowIso()
-      };
+      const details=ensureMessageDetails(x);
+      if(q===1){
+        const d=details[0]||{};
+        const hour=d.hora||x.hora||'';
+        const context=d.contexto||x.titulo||'Ação';
+        out.push({
+          id:x.id||id('cron'),grupo_id:x.id||'',ordem_no_grupo:1,data:x.data,hora:hour,data_hora:dateTimeIso(x.data,hour||'00:00'),
+          periodo:dateTimeLabel(x.data,hour),canal:x.canal,tipo:x.tipo||'Mensagem / disparo',titulo:context,acao:context,contexto:context,
+          conteudo:[x.audiencia?'Público: '+x.audiencia:'',d.copy||x.copy].filter(Boolean).join('\n\n'),
+          copy:d.copy||x.copy||'',audiencia:x.audiencia||'',quantidade:1,quem_faz:x.quem_faz||'',
+          responsaveis:x.quem_faz?[x.quem_faz]:[],template:d.template||x.template||'',link:d.link||x.link||'',cta:d.link||x.link||'',
+          mensagens:clone(details),origem:'interface',atualizado_em:nowIso()
+        });
+        return;
+      }
+      details.forEach((d,j)=>{
+        const hour=d.hora||x.hora||'';
+        const context=d.contexto||x.titulo||('Mensagem '+(j+1));
+        out.push({
+          id:(x.id||id('cron'))+'-msg-'+(j+1),grupo_id:x.id||'',ordem_no_grupo:j+1,data:x.data,hora:hour,data_hora:dateTimeIso(x.data,hour||'00:00'),
+          periodo:dateTimeLabel(x.data,hour),canal:x.canal,tipo:x.tipo||'Mensagem / disparo',titulo:context,acao:context,contexto:context,
+          conteudo:[x.audiencia?'Público: '+x.audiencia:'',d.copy||x.copy].filter(Boolean).join('\n\n'),
+          copy:d.copy||x.copy||'',audiencia:x.audiencia||'',quantidade:1,quem_faz:x.quem_faz||'',
+          responsaveis:x.quem_faz?[x.quem_faz]:[],template:d.template||x.template||'',link:d.link||x.link||'',cta:d.link||x.link||'',
+          mensagens:[clone(d)],origem:'interface',atualizado_em:nowIso()
+        });
+      });
     });
+    return out;
   }
 
   function teamStructured(){
@@ -612,6 +727,7 @@
       responsavel:x.responsavel||'',base:x.base||''
     }));
     const cron=scheduleStructured();
+    const milestones=autoMilestones();
     return{
       sobre_evento:{
         nome:S.basic.name,tipo:S.basic.type,formato:S.event.formato||S.basic.objective,
@@ -638,7 +754,9 @@
       canais:channels.map(x=>({id:x.id,nome:x.nome,base:x.base,ativo:true,responsavel:x.responsavel})),
       metas_por_fonte:goals,
       equipe:teamStructured(),
-      cronograma:cron,
+      cronograma_comunicacao:cron,
+      marcos_automaticos:milestones,
+      cronograma:[...milestones,...cron],
       sem_cronograma:Boolean(S.noSchedule)
     };
   }
@@ -697,6 +815,65 @@
     return out;
   }
 
+  function itemIdentity(x,kind){
+    if(!x)return'';
+    if(x.id)return'id:'+String(x.id);
+    if(kind==='phases')return'name:'+norm(x.nome);
+    if(kind==='products')return'sku:'+(String(x.sku||'')||norm(x.nome||x.name));
+    if(kind==='ticket')return'name:'+norm(x.nome||x.estrategia);
+    if(kind==='channels')return'name:'+norm(x.nome||x.canal||x.fonte);
+    if(kind==='goals')return'name:'+norm(x.fonte||x.canal);
+    if(kind==='schedule')return[norm(x.canal),String(x.data||''),String(x.hora||''),norm(x.contexto||x.titulo||x.acao||x.conteudo)].join('|');
+    return JSON.stringify(x);
+  }
+  function archiveMissing(bucket,kind,oldRows,newRows){
+    const before=Array.isArray(oldRows)?oldRows:[];
+    const after=Array.isArray(newRows)?newRows:[];
+    const live=new Set(after.map(x=>itemIdentity(x,kind)).filter(Boolean));
+    before.forEach(x=>{
+      const k=itemIdentity(x,kind);
+      if(!k||live.has(k)||x?.automatico)return;
+      const exists=bucket.some(y=>itemIdentity(y,kind)===k);
+      if(!exists)bucket.push({...clone(x),arquivado_em:nowIso(),arquivado_por:window.user?.id||null,origem_arquivamento:'interface'});
+    });
+  }
+  function mergeTeam(oldTeam,newTeam){
+    const map=new Map();
+    (Array.isArray(oldTeam)?oldTeam:[]).forEach(x=>{const k=norm(x?.quem);if(k)map.set(k,clone(x))});
+    (Array.isArray(newTeam)?newTeam:[]).forEach(x=>{
+      const k=norm(x?.quem);if(!k)return;
+      if(!map.has(k))map.set(k,clone(x));
+      else{
+        const prev=map.get(k),a=String(prev.responsabilidade||''),b=String(x.responsabilidade||'');
+        map.set(k,{...prev,...clone(x),responsabilidade:[a,b].filter(Boolean).filter((v,i,a2)=>a2.indexOf(v)===i).join(' · ')});
+      }
+    });
+    return[...map.values()];
+  }
+  function mergeStructuredPreserving(existing,next){
+    const old=existing&&typeof existing==='object'&&!Array.isArray(existing)?clone(existing):{};
+    const archive=old.arquivados&&typeof old.arquivados==='object'?clone(old.arquivados):{};
+    const ensure=k=>Array.isArray(archive[k])?archive[k]:(archive[k]=[]);
+    archiveMissing(ensure('fases'),'phases',old.fases,next.fases);
+    archiveMissing(ensure('produtos'),'products',old.oferta?.produtos,next.oferta?.produtos);
+    const oldTicket=Array.isArray(old.aumento_ticket)?old.aumento_ticket:(old.aumento_ticket?.estrategias||[]);
+    archiveMissing(ensure('aumento_ticket'),'ticket',oldTicket,next.aumento_ticket?.estrategias);
+    archiveMissing(ensure('canais'),'channels',old.canais,next.canais);
+    archiveMissing(ensure('metas_por_fonte'),'goals',old.metas_por_fonte,next.metas_por_fonte);
+    const oldManual=Array.isArray(old.cronograma_comunicacao)?old.cronograma_comunicacao:(Array.isArray(old.cronograma)?old.cronograma.filter(x=>!x?.automatico):[]);
+    archiveMissing(ensure('cronograma'),'schedule',oldManual,next.cronograma_comunicacao);
+    return{
+      ...old,...next,
+      sobre_evento:{...(old.sobre_evento||{}),...(next.sobre_evento||{})},
+      oferta:{...(old.oferta||{}),...(next.oferta||{})},
+      regras_oferta:{...(old.regras_oferta||{}),...(next.regras_oferta||{})},
+      equipe:mergeTeam(old.equipe,next.equipe),
+      arquivados:archive,
+      schema_version:3,
+      atualizado_em:nowIso()
+    };
+  }
+
   async function persistCustomChannels(channels){
     const custom=(channels||[]).filter(x=>x.custom&&x.enabled&&String(x.nome||'').trim());
     if(!custom.length)return;
@@ -715,56 +892,81 @@
     }catch(e){console.warn('[AllianceOS canais] não foi possível registrar canal globalmente',e)}
   }
 
-  function finish(){
+  async function finish(){
     const err=validateAll();if(err){toast(err);return}
+    const finishBtn=layer?.querySelector('[data-action="finish"]');
+    if(finishBtn){finishBtn.disabled=true;finishBtn.textContent='Salvando e sincronizando…'}
     const rows=read();
     const existing=S.mode==='edit'?rows.find(x=>String(x.id)===String(S.campaignId)):null;
     const st=structured();
     const metrics=channelMetrics();
-    const cron=st.cronograma;
-    const tap=generatedTap(st);
     const base=existing||{};
+    const mergedStructured=mergeStructuredPreserving(base.tapStructured,st);
+    const cron=mergedStructured.cronograma||[];
+    const tap=generatedTap(mergedStructured);
     const benefits=[...new Set([...(Array.isArray(base.benefits)?base.benefits:[]),S.offer.frete,S.offer.brinde,S.offer.bonus_universal,S.offer.bonus_influencer].filter(Boolean))];
-    const finalGoal=metrics.goal>0?metrics.goal:Number(base.goal||0);
-    const finalBudget=metrics.budget>0?metrics.budget:Number(base.budget||0);
+    const hasActiveChannels=S.channels.some(x=>x.enabled);
+    const finalGoal=hasActiveChannels?metrics.goal:Number(base.goal||0);
+    const finalBudget=hasActiveChannels?metrics.budget:Number(base.budget||0);
+    const actorId=window.user?.id||null;
+    const actorName=window.user?.name||window.AllianceOSAuth?.profile?.nome||window.AllianceOSAuth?.profile?.name||'Usuário AllianceOS';
+    const history=[...(Array.isArray(base.history)?base.history:[])];
+    history.push({
+      at:nowIso(),by:actorName,authorId:actorId,origin:'interface',
+      text:(existing?'Campanha atualizada':'Campanha criada')+' pelo assistente completo, preservando o histórico e os dados anteriores.',
+      campos:['sobre_evento','fases','oferta','aumento_ticket','canais','metas_por_fonte','cronograma']
+    });
     const campaign={
       ...base,
       id:existing?.id||id('camp'),
       name:String(S.basic.name).trim(),brand:S.basic.brand,type:S.basic.type,owner:S.basic.owner||'Sem responsável',
-      status:S.basic.status,start:S.basic.start,end:S.basic.end,startAt:S.basic.start,endAt:S.basic.end,
+      status:S.basic.status,start:S.basic.start,end:S.basic.end,
+      startAt:dateTimeIso(S.basic.start,'00:00'),endAt:dateTimeIso(S.basic.end,'23:59'),
       monthRef:S.basic.monthRef||dateRef(S.basic.start),planningStart:S.basic.planningStart,
       goal:finalGoal,budget:finalBudget,objective:S.basic.objective||S.event.formato,
       offer:S.offer.summary||S.offer.cupom_automatico,channels:S.channels.filter(x=>x.enabled).map(x=>x.nome),
       products:S.offer.products.map(p=>({name:p.nome,sku:p.sku,price:Number(p.preco||0),discount:Number(p.desconto||0),detail:p.detalhe||''})),
       benefits,progress:Number(base.progress||0),color:base.color||(window.Marcas?.cor?.(S.basic.brand)||'#121415'),
       schedule:cron.map(x=>[dateTimeLabel(x.data,x.hora),x.canal,x.titulo,x.quem_faz]),
-      tapStructured:{...(base.tapStructured&&typeof base.tapStructured==='object'?base.tapStructured:{}),...st},
+      tapStructured:mergedStructured,
       tap:mergeTap(base.tap,tap),
-      origem:'interface',origin:'interface',updatedAt:nowIso()
+      history,
+      origem:'interface',origin:'interface',updatedAt:nowIso(),updatedBy:actorId
     };
     if(!existing){
       campaign.createdAt=nowIso();
+      campaign.createdBy=actorId;
       campaign.tapBase=clone(campaign.tap);
       rows.unshift(campaign);
     }else{
       const idx=rows.findIndex(x=>String(x.id)===String(existing.id));
       rows[idx]=campaign;
     }
-    saveRows(rows);
-    persistCustomChannels(S.channels.map(x=>({...x})));
-    clearDraft();
-    const wasEdit=S.mode==='edit';
-    const nodeId=S.nodeId;
-    close();
     try{
-      if(!wasEdit)window.MapaMental?.virarCampanha?.(nodeId,{nome:campaign.name,cor:0,campId:campaign.id});
-      window.RecarregarCampanhas?.();
-      window.__centralRenderCampaigns?.();
-      window.AllianceFullSystem?.refreshConsistency?.();
-      window.dispatchEvent(new CustomEvent('allianceos:campaign-saved',{detail:{id:campaign.id,mode:wasEdit?'edit':'create'}}));
-    }catch(e){console.warn('[AllianceOS campanha] atualização visual',e)}
-    toast(wasEdit?'Campanha atualizada sem apagar os dados existentes.':'Campanha criada com TAP, metas e cronograma completos.');
-    setTimeout(()=>window.openCampaignWorkspaceByName?.(campaign.name),120);
+      saveRows(rows);
+      await Promise.allSettled([
+        window.AllianceOSStateSync?.save?window.AllianceOSStateSync.save(CAMP_KEY,rows):Promise.resolve(),
+        persistCustomChannels(S.channels.map(x=>({...x})))
+      ]);
+      clearDraft();
+      const wasEdit=S.mode==='edit';
+      const nodeId=S.nodeId;
+      close();
+      try{
+        if(!wasEdit)window.MapaMental?.virarCampanha?.(nodeId,{nome:campaign.name,cor:0,campId:campaign.id});
+        window.RecarregarCampanhas?.();
+        window.__centralRenderCampaigns?.();
+        window.AllianceFullSystem?.refreshConsistency?.();
+        window.AllianceFullSystem?.refreshPlanningMonthMetrics?.(campaign.monthRef);
+        window.dispatchEvent(new CustomEvent('allianceos:campaign-saved',{detail:{id:campaign.id,mode:wasEdit?'edit':'create',monthRef:campaign.monthRef}}));
+      }catch(e){console.warn('[AllianceOS campanha] atualização visual',e)}
+      toast(wasEdit?'Campanha atualizada e sincronizada sem apagar o que já existia.':'Campanha criada e sincronizada com TAP, metas e cronograma completos.');
+      setTimeout(()=>window.openCampaignWorkspaceByName?.(campaign.name),120);
+    }catch(e){
+      console.error('[AllianceOS campanha] falha ao salvar',e);
+      if(finishBtn){finishBtn.disabled=false;finishBtn.textContent=S.mode==='edit'?'Salvar campanha':'Criar campanha'}
+      toast('Não foi possível sincronizar a campanha. O formulário continua aberto para você tentar novamente.');
+    }
   }
 
   function toast(msg){
