@@ -75,7 +75,7 @@
   const effectiveGoal=c=>{const s=channelPlan(c).reduce((n,x)=>n+x.meta,0);return s||Number(c.goal||0)};
 
   async function snapshot(){
-    const s=await client(),brand=activeBrand(),ref=monthRef(),parts=ref.split('-').map(Number);
+    const s=await client(),brand=activeBrand(),ref=planningMonthRef(),parts=ref.split('-').map(Number);
     const {data:brands,error:be}=await s.from('brands').select('id,nome').eq('ativo',true);if(be)throw be;
     const visibleBrands=(brands||[]).filter(b=>!brand||norm(b.nome)===norm(brand)),ids=visibleBrands.map(b=>b.id);
     let months=[];
@@ -680,6 +680,47 @@
     refreshPlanningMapControls();
   }
 
+  function persistPlanningMapName(input){
+    if(!input?.isConnected)return;
+    const brand=window.MapaMental?.marca?.()||activeBrand();
+    if(!brand)return;
+    const ref=planningMonthRef();
+    const key=mapLocalKey(brand,ref);
+    let map=null;
+    try{map=JSON.parse(localStorage.getItem(key)||'null')}catch{}
+    if(!map||!Array.isArray(map.nos)||!map.nos.length)return;
+    const value=String(input.value||'').slice(0,200);
+    if(map.nome!==value){
+      map.nome=value;
+      try{localStorage.setItem(key,JSON.stringify(map))}catch{}
+    }
+    queueCanonicalMapSave(map,brand);
+  }
+
+  function installMapNamePersistence(){
+    const input=document.querySelector('.mp-topo .mp-nome');
+    if(!input||input.dataset.allianceNameSync==='1')return;
+    input.dataset.allianceNameSync='1';
+    input.readOnly=false;
+    input.disabled=false;
+    input.style.setProperty('pointer-events','auto','important');
+    input.style.setProperty('cursor','text','important');
+    input.setAttribute('title','Clique para renomear este planejamento');
+    input.addEventListener('input',()=>persistPlanningMapName(input));
+    input.addEventListener('change',()=>persistPlanningMapName(input));
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();input.blur()}
+    });
+    input.addEventListener('blur',()=>{
+      if(String(input.value||'').trim())return;
+      const brand=window.MapaMental?.marca?.()||activeBrand();
+      const ref=planningMonthRef();
+      const [,m]=ref.split('-').map(Number);
+      input.value='Planejamento ['+MONTH_NAMES[m-1]+'-'+String(brand||'').toUpperCase()+']';
+      persistPlanningMapName(input);
+    });
+  }
+
   function installMapImport(){
     const bar=document.querySelector('.mp-fer');if(!bar||bar.querySelector('[data-alliance-import-map]'))return;
     const group=bar.querySelector('.mp-grupo');if(!group)return;
@@ -745,8 +786,8 @@
     document.getElementById('campaignsNav')?.addEventListener('click',()=>setTimeout(refreshConsistency,80));
     document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();installMapImport();installPlanningMapControls();hydrateCanonicalMap()},120));
     document.getElementById('painelNav')?.addEventListener('click',()=>setTimeout(enhanceReports,120));
-    new MutationObserver(()=>{installMapImport();installPlanningMapControls();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
-    refreshConsistency();installMapImport();installPlanningMapControls();installNameGuards();
+    new MutationObserver(()=>{installMapImport();installPlanningMapControls();installMapNamePersistence();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
+    refreshConsistency();installMapImport();installPlanningMapControls();installMapNamePersistence();installNameGuards();
     if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),180);
     window.addEventListener('allianceos:auth',()=>setTimeout(()=>hydrateCanonicalMap({silent:true}),500));
   }
