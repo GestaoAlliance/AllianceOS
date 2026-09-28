@@ -71,8 +71,10 @@ const isDone=t=>{
 const isPerpetual=c=>norm(c?.type).includes('perpet');
 const typeLabel=c=>isPerpetual(c)?'Perpétua':'Pontual';
 const brand=()=>{
-  const v=String(document.getElementById('brandSelect')?.value||'').trim();
-  return !v||norm(v)==='todas as marcas'?'':v;
+  const selected=String(document.getElementById('brandSelect')?.value||'').trim();
+  if(selected&&norm(selected)!=='todas as marcas')return selected;
+  const mapBrand=String(window.MapaMental?.marca?.()||'').trim();
+  return mapBrand&&norm(mapBrand)!=='todas as marcas'?mapBrand:'';
 };
 const monthBounds=()=>{
   const ref=selectedMonthRef();
