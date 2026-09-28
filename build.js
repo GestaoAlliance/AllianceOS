@@ -1,4 +1,5 @@
 const fs = require('fs');
+// CAMPAIGN_WIZARD_VIEWPORT_FIX_2026_09_28
 const path = require('path');
 const { execFileSync } = require('child_process');
 
