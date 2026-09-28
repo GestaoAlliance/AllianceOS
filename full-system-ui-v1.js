@@ -14,6 +14,13 @@
   let sb=null, fullView=null, wired=false;
 
   async function client(){
+    try{
+      if(window.AllianceOSAuth?.ready)await window.AllianceOSAuth.ready;
+      if(window.AllianceOSAuth?.client){
+        sb=window.AllianceOSAuth.client;
+        return sb;
+      }
+    }catch(e){console.warn('[AllianceOS planejamento] sessão principal indisponível, usando cliente compatível',e)}
     if(sb)return sb;
     const r=await fetch(CFG,{cache:'no-store'});if(!r.ok)throw new Error('Não foi possível carregar a configuração do AllianceOS.');
     const cfg=await r.json(),mod=await import('https://esm.sh/@supabase/supabase-js@2.116.0');
@@ -347,8 +354,24 @@
     const st=document.createElement('style');st.id='alliance-planning-month-style';st.textContent=`
       .alliance-planning-month-controls{display:flex;align-items:center;gap:7px;margin-left:2px;padding-left:8px;border-left:1px solid #e4e5e2}
       .alliance-planning-month-controls input[type="month"]{width:142px!important;height:32px!important;padding:0 8px!important;border:1px solid #dfe4e7!important;border-radius:8px!important;background:#fff!important;font:600 11px/1 Inter,system-ui!important;color:#31383e!important}
+      .alliance-planning-month-step{width:32px!important;height:32px!important;display:grid!important;place-items:center!important;padding:0!important;border:1px solid #dfe4e7!important;border-radius:8px!important;background:#fff!important;color:#4e5961!important;font:500 19px/1 Inter,system-ui!important;cursor:pointer!important}
       .alliance-planning-new{height:32px!important;padding:0 11px!important;border:1px solid #171b1e!important;border-radius:8px!important;background:#171b1e!important;color:#fff!important;font:650 10.5px/1 Inter,system-ui!important;white-space:nowrap!important}
       .alliance-planning-month-state{max-width:160px;color:#7d878f;font:500 9.5px/1.25 Inter,system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .alliance-planning-create-layer{position:fixed;inset:0;z-index:2147482500;display:grid;place-items:center;padding:24px;font-family:Inter,system-ui,sans-serif}
+      .alliance-planning-create-backdrop{position:absolute;inset:0;background:rgba(17,24,39,.38);backdrop-filter:blur(2px)}
+      .alliance-planning-create-dialog{position:relative;z-index:1;box-sizing:border-box;width:min(470px,calc(100vw - 32px));padding:0;border:1px solid #dfe5e9;border-radius:17px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.18);overflow:hidden}
+      .alliance-planning-create-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:20px 20px 15px;border-bottom:1px solid #edf0f2}
+      .alliance-planning-create-head small{display:block;margin-bottom:6px;color:#8b959d;font-size:9px;font-weight:700;letter-spacing:.08em}
+      .alliance-planning-create-head h3{margin:0;color:#171c20;font-size:20px;line-height:1.15;letter-spacing:-.02em}
+      .alliance-planning-create-head p{margin:7px 0 0;color:#75818a;font-size:11.5px;line-height:1.45}
+      .alliance-planning-create-head>button{width:32px;height:32px;flex:0 0 32px;padding:0;border:1px solid #dfe5e9;border-radius:9px;background:#fff;color:#65717a;font-size:18px;cursor:pointer}
+      .alliance-planning-create-field{display:flex;flex-direction:column;gap:7px;padding:18px 20px;color:#4c5861;font-size:10.5px;font-weight:650}
+      .alliance-planning-create-field input{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid #dce2e6;border-radius:10px;background:#fff;color:#263139;font:600 13px/1 Inter,system-ui}
+      .alliance-planning-create-foot{display:flex;justify-content:flex-end;gap:9px;padding:14px 18px;border-top:1px solid #edf0f2;background:#fbfcfd}
+      .alliance-planning-create-foot button{height:38px;padding:0 14px;border-radius:10px;font:650 12px/1 Inter,system-ui;cursor:pointer}
+      .alliance-planning-create-foot .secondary{border:1px solid #d9e0e5;background:#fff;color:#53606a}
+      .alliance-planning-create-foot .primary{border:1px solid #171c20;background:#171c20;color:#fff}
+      .alliance-planning-create-foot .primary:disabled{opacity:.5;cursor:wait}
       @media(max-width:1050px){.alliance-planning-month-controls{flex-wrap:wrap}.alliance-planning-month-state{display:none}}
     `;document.head.appendChild(st);
   }
@@ -375,29 +398,76 @@
     refreshConsistency();
     return next;
   }
-  async function createPlanningMapForSelectedMonth(){
+  function offsetMonthRef(ref,delta=1){
+    const base=validMonthRef(ref)?String(ref):monthRef();
+    const [y,m]=base.split('-').map(Number);
+    const d=new Date(y,m-1+delta,1);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  }
+  function closePlanningCreateDialog(){
+    document.querySelector('.alliance-planning-create-layer')?.remove();
+  }
+  function openPlanningCreateDialog(){
     const brand=window.MapaMental?.marca?.()||activeBrand();
     if(!brand){window.showToast?.('Selecione uma marca para criar o planejamento.');return}
-    const ref=planningMonthRef();
+    closePlanningCreateDialog();
+    const layer=document.createElement('div');
+    layer.className='alliance-planning-create-layer';
+    const suggested=offsetMonthRef(planningMonthRef(),1);
+    layer.innerHTML='<div class="alliance-planning-create-backdrop" data-planning-create-cancel></div>'+
+      '<section class="alliance-planning-create-dialog" role="dialog" aria-modal="true" aria-labelledby="alliancePlanningCreateTitle">'+
+        '<div class="alliance-planning-create-head"><div><small>NOVO PLANEJAMENTO</small><h3 id="alliancePlanningCreateTitle">Criar mapa mental</h3><p>Escolha qualquer mês. O planejamento atual continuará salvo e poderá ser aberto novamente pelo seletor de mês.</p></div><button type="button" data-planning-create-cancel aria-label="Fechar">×</button></div>'+
+        '<label class="alliance-planning-create-field"><span>Mês do planejamento</span><input type="month" data-planning-create-month value="'+esc(suggested)+'"></label>'+
+        '<div class="alliance-planning-create-foot"><button type="button" class="secondary" data-planning-create-cancel>Cancelar</button><button type="button" class="primary" data-planning-create-confirm>Criar planejamento</button></div>'+
+      '</section>';
+    document.body.appendChild(layer);
+    const input=layer.querySelector('[data-planning-create-month]');
+    const confirm=layer.querySelector('[data-planning-create-confirm]');
+    const cancel=()=>closePlanningCreateDialog();
+    layer.querySelectorAll('[data-planning-create-cancel]').forEach(x=>x.addEventListener('click',cancel));
+    confirm.addEventListener('click',async()=>{
+      const ref=String(input?.value||'');
+      if(!validMonthRef(ref)){window.showToast?.('Escolha um mês válido.');return}
+      confirm.disabled=true;confirm.textContent='Criando…';
+      try{
+        await createPlanningMapForSelectedMonth(ref);
+        closePlanningCreateDialog();
+      }finally{
+        if(confirm.isConnected){confirm.disabled=false;confirm.textContent='Criar planejamento'}
+      }
+    });
+    input?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();confirm.click()}});
+    setTimeout(()=>input?.focus(),30);
+  }
+  async function createPlanningMapForSelectedMonth(requestedRef=planningMonthRef()){
+    const brand=window.MapaMental?.marca?.()||activeBrand();
+    if(!brand){window.showToast?.('Selecione uma marca para criar o planejamento.');return false}
+    const ref=validMonthRef(requestedRef)?String(requestedRef):planningMonthRef();
+    setPlanningMonthRef(ref);
+    refreshPlanningMapControls({ref});
     const state=document.getElementById('mindSaveState');
     if(state)state.textContent='Preparando '+planningMonthLabel(ref)+'…';
     try{
       const ctx=await canonicalMapContext(brand,{createMonth:true,monthRef:ref});
       if(ctx?.map){
-        window.showToast?.('Este mês já tem um planejamento. Abrindo o mapa salvo.');
+        localStorage.removeItem(mapLocalKey(brand,ref));
         await hydrateCanonicalMap({monthRef:ref});
-        return;
+        window.showToast?.('Já existe um planejamento em '+planningMonthLabel(ref)+'. Ele foi aberto sem alterar o mapa anterior.');
+        return true;
       }
       const map=blankPlanningMap(brand,ref);
       localStorage.setItem(mapLocalKey(brand,ref),JSON.stringify(map));
       await saveCanonicalMapNow(map,brand,ref);
       window.MapaMental?.recarregar?.();
       await hydrateCanonicalMap({monthRef:ref});
-      window.showToast?.('Planejamento de '+planningMonthLabel(ref)+' criado.');
+      refreshPlanningMapControls({exists:true,ref});
+      window.showToast?.('Planejamento de '+planningMonthLabel(ref)+' criado. Os outros meses continuam armazenados.');
+      return true;
     }catch(e){
       console.error('[AllianceOS mapa mensal] falha ao criar',e);
       if(state)state.textContent='Não foi possível criar o planejamento';
-      window.showToast?.('Não foi possível criar o planejamento deste mês.');
+      window.showToast?.('Não foi possível criar o planejamento de '+planningMonthLabel(ref)+'.');
+      return false;
     }
   }
   function installPlanningMapControls(){
@@ -405,11 +475,13 @@
     if(!top||top.querySelector('.alliance-planning-month-controls'))return;
     ensurePlanningMapStyle();
     const wrap=document.createElement('div');wrap.className='alliance-planning-month-controls';
-    wrap.innerHTML='<input type="month" data-alliance-planning-month aria-label="Mês do planejamento"><button type="button" class="alliance-planning-new" data-alliance-new-planning>+ Novo planejamento</button><span class="alliance-planning-month-state" data-alliance-planning-month-state></span>';
+    wrap.innerHTML='<button type="button" class="alliance-planning-month-step" data-alliance-planning-prev aria-label="Mês anterior">‹</button><input type="month" data-alliance-planning-month aria-label="Mês do planejamento"><button type="button" class="alliance-planning-month-step" data-alliance-planning-next aria-label="Próximo mês">›</button><button type="button" class="alliance-planning-new" data-alliance-new-planning>+ Novo planejamento</button><span class="alliance-planning-month-state" data-alliance-planning-month-state></span>';
     const input=wrap.querySelector('[data-alliance-planning-month]');
     input.value=planningMonthRef();
     input.addEventListener('change',()=>{if(validMonthRef(input.value))switchPlanningMonth(input.value)});
-    wrap.querySelector('[data-alliance-new-planning]').addEventListener('click',createPlanningMapForSelectedMonth);
+    wrap.querySelector('[data-alliance-planning-prev]').addEventListener('click',()=>switchPlanningMonth(offsetMonthRef(planningMonthRef(),-1)));
+    wrap.querySelector('[data-alliance-planning-next]').addEventListener('click',()=>switchPlanningMonth(offsetMonthRef(planningMonthRef(),1)));
+    wrap.querySelector('[data-alliance-new-planning]').addEventListener('click',openPlanningCreateDialog);
     top.appendChild(wrap);
     refreshPlanningMapControls();
   }
