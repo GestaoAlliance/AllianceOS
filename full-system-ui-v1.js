@@ -372,7 +372,41 @@
       .alliance-planning-create-foot .secondary{border:1px solid #d9e0e5;background:#fff;color:#53606a}
       .alliance-planning-create-foot .primary{border:1px solid #171c20;background:#171c20;color:#fff}
       .alliance-planning-create-foot .primary:disabled{opacity:.5;cursor:wait}
-      @media(max-width:1050px){.alliance-planning-month-controls{flex-wrap:wrap}.alliance-planning-month-state{display:none}}
+      .alliance-planning-goals{height:32px!important;padding:0 11px!important;border:1px solid #d7dde1!important;border-radius:8px!important;background:#fff!important;color:#3e4951!important;font:650 10.5px/1 Inter,system-ui!important;white-space:nowrap!important;cursor:pointer!important}
+      .alliance-goals-layer{position:fixed;inset:0;z-index:2147482600;display:grid;place-items:center;padding:24px;font-family:Inter,system-ui,sans-serif}
+      .alliance-goals-backdrop{position:absolute;inset:0;background:rgba(17,24,39,.42);backdrop-filter:blur(2px)}
+      .alliance-goals-dialog{position:relative;z-index:1;box-sizing:border-box;width:min(980px,calc(100vw - 28px));max-height:calc(100vh - 36px);display:flex;flex-direction:column;border:1px solid #dfe5e9;border-radius:18px;background:#fff;box-shadow:0 28px 80px rgba(15,23,42,.2);overflow:hidden}
+      .alliance-goals-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:20px 22px 16px;border-bottom:1px solid #edf0f2}
+      .alliance-goals-head small{display:block;margin-bottom:6px;color:#8b959d;font-size:9px;font-weight:700;letter-spacing:.08em}
+      .alliance-goals-head h3{margin:0;color:#171c20;font-size:21px;line-height:1.15;letter-spacing:-.025em}
+      .alliance-goals-head p{margin:7px 0 0;color:#75818a;font-size:11.5px;line-height:1.45}
+      .alliance-goals-head>button{width:34px;height:34px;flex:0 0 34px;padding:0;border:1px solid #dfe5e9;border-radius:9px;background:#fff;color:#65717a;font-size:18px;cursor:pointer}
+      .alliance-goals-body{overflow:auto;padding:18px 22px 22px;background:#fbfcfd}
+      .alliance-goals-general{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:18px}
+      .alliance-goals-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+      .alliance-goals-field span{color:#65717a;font-size:9.5px;font-weight:650}
+      .alliance-goals-field input,.alliance-goals-field select{box-sizing:border-box;width:100%;height:40px;padding:0 10px;border:1px solid #dce2e6;border-radius:9px;background:#fff;color:#263139;font:600 11.5px/1 Inter,system-ui}
+      .alliance-goals-section{border:1px solid #e1e6e9;border-radius:13px;background:#fff;overflow:hidden}
+      .alliance-goals-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #edf0f2;background:#fafbfc}
+      .alliance-goals-section-head b{font-size:12px;color:#293138}
+      .alliance-goals-section-head span{font-size:9.5px;color:#8a949b}
+      .alliance-goals-table{width:100%;border-collapse:collapse;table-layout:fixed}
+      .alliance-goals-table th,.alliance-goals-table td{padding:9px 10px;border-bottom:1px solid #eef1f3;text-align:left;vertical-align:middle}
+      .alliance-goals-table th{background:#fff;color:#89939a;font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+      .alliance-goals-table th:not(:first-child){text-align:right}
+      .alliance-goals-table td:first-child{width:32%;color:#344049;font-size:10.5px;font-weight:650}
+      .alliance-goals-table td:not(:first-child){width:17%}
+      .alliance-goals-table input{box-sizing:border-box;width:100%;height:34px;padding:0 8px;border:1px solid #e0e5e8;border-radius:8px;background:#fff;color:#263139;text-align:right;font:600 10.5px/1 Inter,system-ui}
+      .alliance-goals-table tbody tr:last-child td{border-bottom:0}
+      .alliance-goals-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border-top:1px solid #edf0f2;background:#fff}
+      .alliance-goals-foot-status{min-width:0;color:#7a858d;font-size:10px;line-height:1.35}
+      .alliance-goals-foot-actions{display:flex;gap:9px;flex:0 0 auto}
+      .alliance-goals-foot button{height:38px;padding:0 14px;border-radius:10px;font:650 11.5px/1 Inter,system-ui;cursor:pointer}
+      .alliance-goals-foot .secondary{border:1px solid #d9e0e5;background:#fff;color:#53606a}
+      .alliance-goals-foot .primary{border:1px solid #171c20;background:#171c20;color:#fff}
+      .alliance-goals-foot .primary:disabled{opacity:.5;cursor:wait}
+      @media(max-width:1050px){.alliance-planning-month-controls{flex-wrap:wrap}.alliance-planning-month-state{display:none}.alliance-goals-general{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media(max-width:700px){.alliance-goals-layer{padding:10px}.alliance-goals-dialog{max-height:calc(100vh - 20px)}.alliance-goals-head,.alliance-goals-body{padding-left:14px;padding-right:14px}.alliance-goals-general{grid-template-columns:1fr}.alliance-goals-table{min-width:760px}.alliance-goals-section{overflow:auto}}
     `;document.head.appendChild(st);
   }
   function refreshPlanningMapControls(info={}){
@@ -470,17 +504,125 @@
       return false;
     }
   }
+  function closePlanningGoalsDialog(){
+    document.querySelector('.alliance-goals-layer')?.remove();
+  }
+  function goalsMoneyInput(name,value,extra=''){
+    const v=Number(value||0);
+    return '<input type="number" min="0" step="0.01" name="'+esc(name)+'" value="'+(v?v:'')+'" placeholder="0" '+extra+'>';
+  }
+  function planningGoalsTotals(layer){
+    const active=Number(layer.querySelector('[name="meta_ativa"]')?.value||1);
+    const rows=[...layer.querySelectorAll('[data-channel-row]')];
+    const total=rows.reduce((acc,row)=>{
+      const key='meta'+active;
+      acc.meta+=Number(row.querySelector('[name="'+key+'"]')?.value||0);
+      acc.inv+=Number(row.querySelector('[name="investimento_previsto"]')?.value||0);
+      return acc;
+    },{meta:0,inv:0});
+    const overall=Number(layer.querySelector('[name="meta'+active+'"]')?.value||0);
+    const status=layer.querySelector('[data-goals-status]');
+    if(status){
+      const diff=Math.abs(total.meta-overall);
+      status.textContent='Meta '+active+' por canal: '+brl(total.meta)+' · investimento previsto: '+brl(total.inv)+(overall&&diff>.01?' · diferença para a meta geral: '+brl(total.meta-overall):'');
+    }
+  }
+  async function openPlanningGoalsDialog(){
+    const brand=window.MapaMental?.marca?.()||activeBrand();
+    if(!brand){window.showToast?.('Selecione uma marca para configurar as metas do mês.');return}
+    const ref=planningMonthRef();
+    closePlanningGoalsDialog();
+    ensurePlanningMapStyle();
+    const layer=document.createElement('div');layer.className='alliance-goals-layer';
+    layer.innerHTML='<div class="alliance-goals-backdrop" data-goals-cancel></div><section class="alliance-goals-dialog" role="dialog" aria-modal="true"><div class="alliance-goals-head"><div><small>PLANEJAMENTO MENSAL</small><h3>Metas de '+esc(planningMonthLabel(ref))+'</h3><p>Meta geral, ticket médio, divisão por canal e investimento esperado. Os dados ficam vinculados a '+esc(brand)+' e a este mês.</p></div><button type="button" data-goals-cancel aria-label="Fechar">×</button></div><div class="alliance-goals-body"><div class="alliance-summary-empty">Carregando metas…</div></div><div class="alliance-goals-foot"><div class="alliance-goals-foot-status" data-goals-status></div><div class="alliance-goals-foot-actions"><button type="button" class="secondary" data-goals-cancel>Cancelar</button><button type="button" class="primary" data-goals-save>Salvar metas</button></div></div></section>';
+    document.body.appendChild(layer);
+    layer.querySelectorAll('[data-goals-cancel]').forEach(x=>x.addEventListener('click',closePlanningGoalsDialog));
+    try{
+      const ctx=await canonicalMapContext(brand,{createMonth:true,monthRef:ref});
+      if(!ctx?.month)throw new Error('Não foi possível preparar o mês.');
+      const [{data:channels,error:ce},{data:goals,error:ge}]=await Promise.all([
+        ctx.s.from('alliance_channels').select('slug,nome,ordem,ativo').eq('ativo',true).order('ordem',{ascending:true}),
+        ctx.s.from('planning_month_channel_goals').select('*').eq('month_id',ctx.month.id).is('arquivado_em',null)
+      ]);
+      if(ce)throw ce;if(ge)throw ge;
+      const bySlug=new Map((goals||[]).map(g=>[String(g.channel_slug),g]));
+      const m=ctx.month;
+      layer.querySelector('.alliance-goals-body').innerHTML=
+        '<div class="alliance-goals-general">'+
+          '<label class="alliance-goals-field"><span>Meta 1</span>'+goalsMoneyInput('meta1',m.meta1)+'</label>'+
+          '<label class="alliance-goals-field"><span>Meta 2</span>'+goalsMoneyInput('meta2',m.meta2)+'</label>'+
+          '<label class="alliance-goals-field"><span>Meta 3</span>'+goalsMoneyInput('meta3',m.meta3)+'</label>'+
+          '<label class="alliance-goals-field"><span>Meta ativa</span><select name="meta_ativa">'+[1,2,3].map(i=>'<option value="'+i+'" '+(Number(m.meta_ativa||1)===i?'selected':'')+'>Meta '+i+'</option>').join('')+'</select></label>'+
+          '<label class="alliance-goals-field"><span>Ticket médio previsto</span>'+goalsMoneyInput('ticket_medio_previsto',m.ticket_medio_previsto)+'</label>'+
+        '</div>'+
+        '<div class="alliance-goals-section"><div class="alliance-goals-section-head"><div><b>Metas por canal</b><span>Defina o faturamento esperado em cada cenário e o investimento do canal.</span></div></div>'+
+          '<table class="alliance-goals-table"><thead><tr><th>Canal</th><th>Meta 1</th><th>Meta 2</th><th>Meta 3</th><th>Investimento previsto</th></tr></thead><tbody>'+
+          (channels||[]).map(ch=>{
+            const g=bySlug.get(String(ch.slug))||{};
+            return '<tr data-channel-row data-channel-slug="'+esc(ch.slug)+'"><td>'+esc(ch.nome||ch.slug)+'</td><td>'+goalsMoneyInput('meta1',g.meta1)+'</td><td>'+goalsMoneyInput('meta2',g.meta2)+'</td><td>'+goalsMoneyInput('meta3',g.meta3)+'</td><td>'+goalsMoneyInput('investimento_previsto',g.investimento_previsto)+'</td></tr>';
+          }).join('')+
+          '</tbody></table></div>';
+      layer.addEventListener('input',()=>planningGoalsTotals(layer));
+      layer.addEventListener('change',()=>planningGoalsTotals(layer));
+      planningGoalsTotals(layer);
+      const save=layer.querySelector('[data-goals-save]');
+      save.addEventListener('click',async()=>{
+        save.disabled=true;save.textContent='Salvando…';
+        try{
+          const now=new Date().toISOString();
+          const payload={
+            meta1:Number(layer.querySelector('.alliance-goals-general [name="meta1"]')?.value||0),
+            meta2:Number(layer.querySelector('.alliance-goals-general [name="meta2"]')?.value||0),
+            meta3:Number(layer.querySelector('.alliance-goals-general [name="meta3"]')?.value||0),
+            meta_ativa:Number(layer.querySelector('.alliance-goals-general [name="meta_ativa"]')?.value||1),
+            ticket_medio_previsto:Number(layer.querySelector('.alliance-goals-general [name="ticket_medio_previsto"]')?.value||0),
+            atualizado_em:now,origem:'interface'
+          };
+          const upd=await ctx.s.from('planning_months').update(payload).eq('id',ctx.month.id).select('*').single();
+          if(upd.error)throw upd.error;
+          const rows=[...layer.querySelectorAll('[data-channel-row]')].map(row=>({
+            month_id:ctx.month.id,brand_id:ctx.brand.id,channel_slug:String(row.dataset.channelSlug||''),
+            meta1:Number(row.querySelector('[name="meta1"]')?.value||0),
+            meta2:Number(row.querySelector('[name="meta2"]')?.value||0),
+            meta3:Number(row.querySelector('[name="meta3"]')?.value||0),
+            investimento_previsto:Number(row.querySelector('[name="investimento_previsto"]')?.value||0),
+            origem:'interface',arquivado_em:null,arquivado_por:null,atualizado_em:now
+          }));
+          if(rows.length){
+            const up=await ctx.s.from('planning_month_channel_goals').upsert(rows,{onConflict:'month_id,channel_slug'});
+            if(up.error)throw up.error;
+          }
+          closePlanningGoalsDialog();
+          refreshConsistency();
+          window.showToast?.('Metas de '+planningMonthLabel(ref)+' salvas.');
+        }catch(e){
+          console.error('[AllianceOS metas mensais] falha ao salvar',e);
+          const status=layer.querySelector('[data-goals-status]');
+          if(status)status.textContent='Não foi possível salvar: '+String(e?.message||e);
+          save.disabled=false;save.textContent='Salvar metas';
+        }
+      });
+    }catch(e){
+      console.error('[AllianceOS metas mensais] falha ao carregar',e);
+      const body=layer.querySelector('.alliance-goals-body');
+      if(body)body.innerHTML='<div class="alliance-summary-empty">Não foi possível carregar as metas deste mês.</div>';
+      const status=layer.querySelector('[data-goals-status]');
+      if(status)status.textContent=String(e?.message||e);
+    }
+  }
+
   function installPlanningMapControls(){
     const top=document.querySelector('.mp-topo');
     if(!top||top.querySelector('.alliance-planning-month-controls'))return;
     ensurePlanningMapStyle();
     const wrap=document.createElement('div');wrap.className='alliance-planning-month-controls';
-    wrap.innerHTML='<button type="button" class="alliance-planning-month-step" data-alliance-planning-prev aria-label="Mês anterior">‹</button><input type="month" data-alliance-planning-month aria-label="Mês do planejamento"><button type="button" class="alliance-planning-month-step" data-alliance-planning-next aria-label="Próximo mês">›</button><button type="button" class="alliance-planning-new" data-alliance-new-planning>+ Novo planejamento</button><span class="alliance-planning-month-state" data-alliance-planning-month-state></span>';
+    wrap.innerHTML='<button type="button" class="alliance-planning-month-step" data-alliance-planning-prev aria-label="Mês anterior">‹</button><input type="month" data-alliance-planning-month aria-label="Mês do planejamento"><button type="button" class="alliance-planning-month-step" data-alliance-planning-next aria-label="Próximo mês">›</button><button type="button" class="alliance-planning-goals" data-alliance-planning-goals>Metas do mês</button><button type="button" class="alliance-planning-new" data-alliance-new-planning>+ Novo planejamento</button><span class="alliance-planning-month-state" data-alliance-planning-month-state></span>';
     const input=wrap.querySelector('[data-alliance-planning-month]');
     input.value=planningMonthRef();
     input.addEventListener('change',()=>{if(validMonthRef(input.value))switchPlanningMonth(input.value)});
     wrap.querySelector('[data-alliance-planning-prev]').addEventListener('click',()=>switchPlanningMonth(offsetMonthRef(planningMonthRef(),-1)));
     wrap.querySelector('[data-alliance-planning-next]').addEventListener('click',()=>switchPlanningMonth(offsetMonthRef(planningMonthRef(),1)));
+    wrap.querySelector('[data-alliance-planning-goals]').addEventListener('click',openPlanningGoalsDialog);
     wrap.querySelector('[data-alliance-new-planning]').addEventListener('click',openPlanningCreateDialog);
     top.appendChild(wrap);
     refreshPlanningMapControls();
@@ -556,7 +698,7 @@
     if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),180);
     window.addEventListener('allianceos:auth',()=>setTimeout(()=>hydrateCanonicalMap({silent:true}),500));
   }
-  window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow,month:planningMonthRef,switchMonth:switchPlanningMonth,createMonth:createPlanningMapForSelectedMonth};
+  window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow,month:planningMonthRef,switchMonth:switchPlanningMonth,createMonth:createPlanningMapForSelectedMonth,goals:openPlanningGoalsDialog};
   window.AllianceFullSystem={refreshConsistency,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',wire,{once:true});else wire();
 })();
