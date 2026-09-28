@@ -759,33 +759,83 @@
     }
   }
 
+  function closeGlobalPlanningMonthPicker(){
+    document.querySelector('.alliance-global-month-layer')?.remove();
+  }
+  function ensureGlobalPlanningMonthPickerStyle(){
+    if(document.getElementById('alliance-global-month-style'))return;
+    const st=document.createElement('style');
+    st.id='alliance-global-month-style';
+    st.textContent=`
+      .alliance-global-month-layer{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:22px;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .alliance-global-month-backdrop{position:absolute;inset:0;background:rgba(15,18,20,.42);backdrop-filter:blur(3px)}
+      .alliance-global-month-dialog{position:relative;width:min(430px,calc(100vw - 28px));background:#fff;border:1px solid #e1e5e8;border-radius:18px;box-shadow:0 24px 80px rgba(18,24,28,.22);overflow:hidden;color:#15191c}
+      .alliance-global-month-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:20px 20px 15px}
+      .alliance-global-month-head small{display:block;font-size:9px;font-weight:750;letter-spacing:.12em;color:#92999f;margin-bottom:5px}
+      .alliance-global-month-head h3{margin:0;font-size:21px;letter-spacing:-.035em}
+      .alliance-global-month-head p{margin:6px 0 0;color:#7d858b;font-size:11px;line-height:1.45}
+      .alliance-global-month-close{width:32px;height:32px;border:1px solid #e1e5e8;border-radius:9px;background:#fff;cursor:pointer;font-size:20px;line-height:1;color:#50585e}
+      .alliance-global-month-body{padding:4px 20px 18px}
+      .alliance-global-month-current{padding:11px 12px;border:1px solid #e7eaec;border-radius:11px;background:#fafbfb;margin-bottom:12px}
+      .alliance-global-month-current small{display:block;font-size:9px;color:#92999f;margin-bottom:3px}
+      .alliance-global-month-current b{font-size:13px}
+      .alliance-global-month-field{display:block}
+      .alliance-global-month-field>span{display:block;font-size:10px;font-weight:650;margin-bottom:7px}
+      .alliance-global-month-field input{width:100%;box-sizing:border-box;height:43px;padding:0 12px;border:1px solid #dfe4e7;border-radius:10px;background:#fff;font:600 12px Inter,system-ui;color:#20262a;outline:none}
+      .alliance-global-month-field input:focus{border-color:#15191c;box-shadow:0 0 0 3px rgba(20,25,28,.08)}
+      .alliance-global-month-quick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px}
+      .alliance-global-month-quick button{height:36px;border:1px solid #e1e5e8;border-radius:9px;background:#fff;font:600 10px Inter,system-ui;color:#454d52;cursor:pointer}
+      .alliance-global-month-quick button:hover{background:#f5f7f8;border-color:#cfd5d9}
+      .alliance-global-month-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid #edf0f2;background:#fafbfb}
+      .alliance-global-month-foot button{height:38px;padding:0 15px;border-radius:10px;font:650 10px Inter,system-ui;cursor:pointer}
+      .alliance-global-month-foot .secondary{border:1px solid #dfe4e7;background:#fff;color:#454d52}
+      .alliance-global-month-foot .primary{border:1px solid #15191c;background:#15191c;color:#fff}
+      @media(max-width:560px){.alliance-global-month-quick{grid-template-columns:1fr}.alliance-global-month-dialog{border-radius:15px}}
+    `;
+    document.head.appendChild(st);
+  }
   function openGlobalPlanningMonthPicker(){
-    let picker=document.getElementById('alliance-global-planning-month-picker');
-    if(!picker){
-      picker=document.createElement('input');
-      picker.type='month';
-      picker.id='alliance-global-planning-month-picker';
-      picker.setAttribute('aria-label','Escolher mês do planejamento');
-      Object.assign(picker.style,{
-        position:'fixed',left:'-120px',top:'8px',width:'1px',height:'1px',
-        opacity:'0',pointerEvents:'none',zIndex:'2147483647'
-      });
-      picker.addEventListener('change',()=>{
-        const ref=String(picker.value||'');
-        if(validMonthRef(ref))switchPlanningMonth(ref);
-      });
-      document.body.appendChild(picker);
-    }
-    picker.value=planningMonthRef();
-    try{
-      if(typeof picker.showPicker==='function')picker.showPicker();
-      else{picker.style.pointerEvents='auto';picker.focus();picker.click();picker.style.pointerEvents='none'}
-    }catch{
-      picker.style.pointerEvents='auto';
-      picker.focus();
-      picker.click();
-      setTimeout(()=>{picker.style.pointerEvents='none'},0);
-    }
+    closeGlobalPlanningMonthPicker();
+    ensureGlobalPlanningMonthPickerStyle();
+
+    const current=planningMonthRef();
+    const previous=offsetMonthRef(current,-1);
+    const next=offsetMonthRef(current,1);
+    const layer=document.createElement('div');
+    layer.className='alliance-global-month-layer';
+    layer.innerHTML=
+      '<div class="alliance-global-month-backdrop" data-global-month-close></div>'+
+      '<section class="alliance-global-month-dialog" role="dialog" aria-modal="true" aria-labelledby="allianceGlobalMonthTitle">'+
+        '<div class="alliance-global-month-head"><div><small>PLANEJAMENTO</small><h3 id="allianceGlobalMonthTitle">Mudar mês</h3><p>Escolha o mês que você quer visualizar. Os planejamentos dos outros meses continuam salvos.</p></div><button type="button" class="alliance-global-month-close" data-global-month-close aria-label="Fechar">×</button></div>'+
+        '<div class="alliance-global-month-body">'+
+          '<div class="alliance-global-month-current"><small>Mês atual</small><b>'+esc(planningMonthLabel(current))+'</b></div>'+
+          '<label class="alliance-global-month-field"><span>Escolher mês</span><input type="month" data-global-month-input value="'+esc(current)+'"></label>'+
+          '<div class="alliance-global-month-quick">'+
+            '<button type="button" data-global-month-ref="'+esc(previous)+'">← '+esc(planningMonthLabel(previous))+'</button>'+
+            '<button type="button" data-global-month-ref="'+esc(current)+'">'+esc(planningMonthLabel(current))+'</button>'+
+            '<button type="button" data-global-month-ref="'+esc(next)+'">'+esc(planningMonthLabel(next))+' →</button>'+
+          '</div>'+
+        '</div>'+
+        '<div class="alliance-global-month-foot"><button type="button" class="secondary" data-global-month-close>Cancelar</button><button type="button" class="primary" data-global-month-confirm>Abrir mês</button></div>'+
+      '</section>';
+
+    document.body.appendChild(layer);
+    const input=layer.querySelector('[data-global-month-input]');
+    const confirm=layer.querySelector('[data-global-month-confirm]');
+    layer.querySelectorAll('[data-global-month-close]').forEach(el=>el.addEventListener('click',closeGlobalPlanningMonthPicker));
+    layer.querySelectorAll('[data-global-month-ref]').forEach(el=>el.addEventListener('click',()=>{
+      input.value=String(el.dataset.globalMonthRef||current);
+    }));
+    const apply=()=>{
+      const ref=String(input?.value||'');
+      if(!validMonthRef(ref)){window.showToast?.('Escolha um mês válido.');return}
+      closeGlobalPlanningMonthPicker();
+      switchPlanningMonth(ref);
+    };
+    confirm.addEventListener('click',apply);
+    input?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();apply()}});
+    layer.addEventListener('keydown',e=>{if(e.key==='Escape')closeGlobalPlanningMonthPicker()});
+    setTimeout(()=>input?.focus(),20);
   }
   function wireGlobalPlanningMonthControls(){
     syncPlanningMonthChrome();
