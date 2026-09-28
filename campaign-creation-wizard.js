@@ -277,8 +277,8 @@
       cupom_automatico:String(off.cupom_automatico||evt.cupom_automatico||oldCupom),
       frete:String(off.frete||oldFrete),
       brinde:String(off.brinde||''),
-      bonus_universal:String(off.bonus_universal||oldBonus).replace(/\s+—\s+.*$/,''),
-      bonus_influencer:String(off.bonus_influencer||oldInf).replace(/\s+—\s+.*$/,''),
+      bonus_universal:String(off.bonus_universal||oldBonus),
+      bonus_influencer:String(off.bonus_influencer||oldInf),
       deadlineEnabled:Boolean(rules.deadline?.enabled||rules.deadlineEnabled),
       deadlineDate:String(rules.deadline?.data||rules.deadlineDate||end).slice(0,10),
       deadlineTime:String(rules.deadline?.hora||rules.deadlineTime||'23:59').slice(0,5),
@@ -288,8 +288,8 @@
       firstNBenefit:String(rules.first_n?.beneficio||rules.firstNBenefit||''),
       products:(products||[]).map(p=>({id:p.id||id('product'),nome:String(p.nome||p.name||''),sku:String(p.sku||''),preco:Number(p.preco??p.price??0)||0,desconto:Number(String(p.desconto??p.discount??0).replace(',','.'))||0,detalhe:String(p.detalhe||'')}))
     };
-    const ticketRows=Array.isArray(ticket.estrategias)?ticket.estrategias:(oldTicket?.rows||[]).map(r=>({nome:r[0],detalhe:r[1],desconto:r[2]}));
-    state.ticket={enabled:ticket.tem!==undefined?Boolean(ticket.tem):ticketRows.length>0,strategies:(ticketRows||[]).map(x=>({id:x.id||id('ticket'),nome:String(x.nome||x.estrategia||''),detalhe:String(x.detalhe||''),desconto:String(x.desconto||'')}))};
+    const ticketRows=Array.isArray(ticket)?ticket:(Array.isArray(ticket.estrategias)?ticket.estrategias:(oldTicket?.rows||[]).map(r=>({nome:r[0],detalhe:r[1],desconto:r[2]})));
+    state.ticket={enabled:Array.isArray(ticket)?ticketRows.length>0:(ticket.tem!==undefined?Boolean(ticket.tem):ticketRows.length>0),strategies:(ticketRows||[]).map(x=>({id:x.id||id('ticket'),nome:String(x.nome||x.estrategia||''),detalhe:String(x.detalhe||''),desconto:String(x.desconto||'')}))};
     const structuredChannels=Array.isArray(t.canais)?t.canais:[];
     const goals=Array.isArray(t.metas_por_fonte)?t.metas_por_fonte:[];
     const channelMap=new Map();
