@@ -588,12 +588,23 @@ function bindDelegates(){
         campaigns.style.removeProperty('display');
         campaigns.classList.add('active');
       }
+      // Reset the legacy campaign workspace state before drawing the
+      // directory. The unified strategy click is captured above, so the
+      // navigation-reference handler (which normally clicks this hidden
+      // overview tab) never runs. Without this reset, campaignState.selected
+      // can keep the last opened campaign and renderCampaigns() redraws the
+      // hidden workspace instead of the directory, leaving the list blank.
+      const overview=campaigns?.querySelector('[data-camp-view="overview"]');
+      if(overview){
+        try{overview.click()}catch{}
+      }
       document.getElementById('campaignOverviewList')?.classList.remove('hidden');
       document.getElementById('campaignWorkspace')?.classList.remove('active');
       document.querySelectorAll('.ref-strategy-tabs [data-strategy-tab]')
         .forEach(b=>b.classList.toggle('active',b.dataset.strategyTab==='campaigns'));
       try{history.replaceState(null,'','#campaigns')}catch{}
       try{window.__centralRenderCampaigns?.()}catch{}
+      try{campaignList()}catch{}
       schedule();
     }
   },true);
