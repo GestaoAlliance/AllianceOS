@@ -67,6 +67,21 @@
     const b=dateBR(d).slice(0,5);
     return t?b+' · '+t:b;
   };
+  const legacyScheduleDate=(label,year)=>{
+    const raw=String(label||'');
+    const iso=raw.match(/(20\d{2})-(\d{2})-(\d{2})/);
+    if(iso)return iso[1]+'-'+iso[2]+'-'+iso[3];
+    const br=raw.match(/(\d{1,2})\/(\d{1,2})(?:\/(20\d{2}))?/);
+    if(!br)return'';
+    return String(br[3]||year||new Date().getFullYear())+'-'+String(br[2]).padStart(2,'0')+'-'+String(br[1]).padStart(2,'0');
+  };
+  const legacyScheduleTime=label=>{
+    const raw=String(label||'');
+    const t=raw.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+    if(t)return String(t[1]).padStart(2,'0')+':'+t[2];
+    const h=raw.match(/\b(\d{1,2})h(?:(\d{2}))?/i);
+    return h?String(h[1]).padStart(2,'0')+':'+(h[2]||'00'):'';
+  };
   const pathGet=(obj,path)=>String(path||'').split('.').reduce((o,k)=>o==null?undefined:o[k],obj);
   const pathSet=(obj,path,value)=>{
     const parts=String(path||'').split('.');
@@ -216,6 +231,10 @@
     const goals=Array.isArray(t.metas_por_fonte)?t.metas_por_fonte:[];
     const channelMap=new Map();
     seedChannels(c.channels||[]).forEach(x=>channelMap.set(norm(x.nome),x));
+    (Array.isArray(c.channels)?c.channels:[]).forEach(nome=>{
+      const key=norm(nome);
+      if(key&&!channelMap.has(key))channelMap.set(key,{id:id('channel'),nome:String(nome),base:'',enabled:true,investimento:0,meta_faturamento:0,responsavel:'',custom:true});
+    });
     structuredChannels.forEach(x=>{
       const key=norm(x.nome||x.canal||x.fonte);
       const cur=channelMap.get(key)||{id:id('channel'),nome:String(x.nome||x.canal||x.fonte||''),base:'',enabled:true,investimento:0,meta_faturamento:0,responsavel:'',custom:true};
@@ -240,7 +259,7 @@
     }
     state.channels=[...channelMap.values()];
     const cron=Array.isArray(t.cronograma)?t.cronograma:[];
-    state.schedule=(cron.length?cron:(Array.isArray(c.schedule)?c.schedule.map((r,i)=>Array.isArray(r)?{id:id('schedule'),data:'',hora:'',canal:r[1],titulo:r[2],conteudo:'',quem_faz:r[3]}:r):[])).map(x=>({
+    state.schedule=(cron.length?cron:(Array.isArray(c.schedule)?c.schedule.map((r,i)=>Array.isArray(r)?{id:id('schedule'),data:legacyScheduleDate(r[0],String(start).slice(0,4)),hora:legacyScheduleTime(r[0]),canal:r[1],titulo:r[2],conteudo:'',quem_faz:r[3]}:r):[])).map(x=>({
       id:x.id||id('schedule'),data:String(x.data||'').slice(0,10),hora:String(x.hora||'').slice(0,5),
       canal:String(x.canal||''),audiencia:String(x.audiencia||x.base||''),tipo:String(x.tipo||'Mensagem / disparo'),
       titulo:String(x.contexto||x.titulo||x.acao||''),copy:String(x.copy||x.mensagem||x.conteudo||''),
@@ -461,7 +480,7 @@
       STEPS.map((x,i)=>'<button type="button" class="acw-step '+(i===S.step?'active ':'')+(i<S.step?'done':'')+'" data-step="'+i+'"><span class="acw-step-index">'+(i+1)+'</span><span><b>'+esc(x[1])+'</b><span>'+esc(x[2])+'</span></span></button>').join('')+
       '</div><div class="acw-draft" data-draft-state>'+(S.mode==='create'?'Rascunho salvo automaticamente':'Alterações só são gravadas ao concluir')+'</div></aside>'+
       '<main class="acw-main"><header class="acw-head"><div><small>ETAPA '+(S.step+1)+' DE '+STEPS.length+'</small><h2>'+esc(meta[1])+'</h2><p>'+esc(meta[2])+'</p></div><button type="button" class="acw-close" data-action="close" aria-label="Fechar">×</button></header><div class="acw-body">'+renderPanel()+'</div>'+
-      '<footer class="acw-foot"><div class="acw-foot-left"><span>'+esc(S.basic.brand||'')+'</span><span>·</span><span>'+esc(S.basic.monthRef||'')+'</span></div><div class="acw-foot-actions">'+(S.step?'<button type="button" class="acw-btn" data-action="prev">Voltar</button>':'')+'<button type="button" class="acw-btn" data-action="close">Salvar rascunho e fechar</button><button type="button" class="acw-btn primary" data-action="'+(S.step===STEPS.length-1?'finish':'next')+'">'+(S.step===STEPS.length-1?(S.mode==='edit'?'Salvar campanha':'Criar campanha'):'Continuar')+'</button></div></footer></main></section>';
+      '<footer class="acw-foot"><div class="acw-foot-left"><span>'+esc(S.basic.brand||'')+'</span><span>·</span><span>'+esc(S.basic.monthRef||'')+'</span></div><div class="acw-foot-actions">'+(S.step?'<button type="button" class="acw-btn" data-action="prev">Voltar</button>':'')+'<button type="button" class="acw-btn" data-action="close">'+(S.mode==='create'?'Salvar rascunho e fechar':'Fechar sem salvar')+'</button><button type="button" class="acw-btn primary" data-action="'+(S.step===STEPS.length-1?'finish':'next')+'">'+(S.step===STEPS.length-1?(S.mode==='edit'?'Salvar campanha':'Criar campanha'):'Continuar')+'</button></div></footer></main></section>';
     bind();
   }
 
@@ -678,6 +697,24 @@
     return out;
   }
 
+  async function persistCustomChannels(channels){
+    const custom=(channels||[]).filter(x=>x.custom&&x.enabled&&String(x.nome||'').trim());
+    if(!custom.length)return;
+    try{
+      if(window.AllianceOSAuth?.ready)await window.AllianceOSAuth.ready;
+      const s=window.AllianceOSAuth?.client;
+      if(!s)return;
+      const slug=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,72);
+      let order=900;
+      for(const x of custom){
+        const payload={slug:slug(x.nome)||('canal-'+Date.now().toString(36)),nome:String(x.nome).trim(),ordem:order,ativo:true,origem:'interface'};
+        order+=10;
+        const r=await s.from('alliance_channels').upsert(payload,{onConflict:'slug'});
+        if(r.error)console.warn('[AllianceOS canal customizado]',r.error);
+      }
+    }catch(e){console.warn('[AllianceOS canais] não foi possível registrar canal globalmente',e)}
+  }
+
   function finish(){
     const err=validateAll();if(err){toast(err);return}
     const rows=read();
@@ -686,15 +723,17 @@
     const metrics=channelMetrics();
     const cron=st.cronograma;
     const tap=generatedTap(st);
-    const benefits=[S.offer.frete,S.offer.brinde,S.offer.bonus_universal,S.offer.bonus_influencer].filter(Boolean);
     const base=existing||{};
+    const benefits=[...new Set([...(Array.isArray(base.benefits)?base.benefits:[]),S.offer.frete,S.offer.brinde,S.offer.bonus_universal,S.offer.bonus_influencer].filter(Boolean))];
+    const finalGoal=metrics.goal>0?metrics.goal:Number(base.goal||0);
+    const finalBudget=metrics.budget>0?metrics.budget:Number(base.budget||0);
     const campaign={
       ...base,
       id:existing?.id||id('camp'),
       name:String(S.basic.name).trim(),brand:S.basic.brand,type:S.basic.type,owner:S.basic.owner||'Sem responsável',
       status:S.basic.status,start:S.basic.start,end:S.basic.end,startAt:S.basic.start,endAt:S.basic.end,
       monthRef:S.basic.monthRef||dateRef(S.basic.start),planningStart:S.basic.planningStart,
-      goal:metrics.goal,budget:metrics.budget,objective:S.basic.objective||S.event.formato,
+      goal:finalGoal,budget:finalBudget,objective:S.basic.objective||S.event.formato,
       offer:S.offer.summary||S.offer.cupom_automatico,channels:S.channels.filter(x=>x.enabled).map(x=>x.nome),
       products:S.offer.products.map(p=>({name:p.nome,sku:p.sku,price:Number(p.preco||0),discount:Number(p.desconto||0),detail:p.detalhe||''})),
       benefits,progress:Number(base.progress||0),color:base.color||(window.Marcas?.cor?.(S.basic.brand)||'#121415'),
@@ -712,6 +751,7 @@
       rows[idx]=campaign;
     }
     saveRows(rows);
+    persistCustomChannels(S.channels.map(x=>({...x})));
     clearDraft();
     const wasEdit=S.mode==='edit';
     const nodeId=S.nodeId;
