@@ -35,9 +35,10 @@
   const planningMonthRef=()=>{
     const live=String(window.AlliancePlanningMonthRef||'');
     if(validMonthRef(live))return live;
-    let saved='';
-    try{saved=sessionStorage.getItem('allianceos.planning.monthRef')||''}catch{}
-    const ref=validMonthRef(saved)?saved:monthRef();
+    let sessionSaved='',persistentSaved='';
+    try{sessionSaved=sessionStorage.getItem('allianceos.planning.monthRef')||''}catch{}
+    try{persistentSaved=localStorage.getItem('allianceos.planning.monthRef')||''}catch{}
+    const ref=validMonthRef(sessionSaved)?sessionSaved:(validMonthRef(persistentSaved)?persistentSaved:monthRef());
     window.AlliancePlanningMonthRef=ref;
     return ref;
   };
@@ -45,6 +46,7 @@
     const next=validMonthRef(ref)?String(ref):monthRef();
     window.AlliancePlanningMonthRef=next;
     try{sessionStorage.setItem('allianceos.planning.monthRef',next)}catch{}
+    try{localStorage.setItem('allianceos.planning.monthRef',next)}catch{}
     window.dispatchEvent(new CustomEvent('allianceos:planning-month',{detail:{monthRef:next}}));
     return next;
   };
@@ -445,10 +447,25 @@
       @media(max-width:700px){.alliance-goals-layer{padding:10px}.alliance-goals-dialog{max-height:calc(100vh - 20px)}.alliance-goals-head,.alliance-goals-body{padding-left:14px;padding-right:14px}.alliance-goals-general{grid-template-columns:1fr}.alliance-goals-table{min-width:760px}.alliance-goals-section{overflow:auto}}
     `;document.head.appendChild(st);
   }
+  function syncPlanningMonthChrome(ref=planningMonthRef()){
+    if(!validMonthRef(ref))return;
+    const label=planningMonthLabel(ref);
+    const planMonth=document.getElementById('planMonthLabel');
+    const campMonth=document.getElementById('campMonthBtn');
+    if(planMonth)planMonth.textContent=label;
+    if(campMonth)campMonth.textContent=label;
+    const crumb=document.querySelector('#planningView .plan-titlebar p');
+    if(crumb){
+      const parts=String(crumb.textContent||'').split('/').map(x=>x.trim()).filter(Boolean);
+      const prefix=parts.length>1?parts.slice(0,-1).join(' / '):'AllianceOS / Estratégia';
+      crumb.textContent=prefix+' / '+label;
+    }
+  }
   function refreshPlanningMapControls(info={}){
+    const ref=info.ref||planningMonthRef();
+    syncPlanningMonthChrome(ref);
     const controls=document.querySelector('.alliance-planning-month-controls');
     if(!controls)return;
-    const ref=info.ref||planningMonthRef();
     const input=controls.querySelector('[data-alliance-planning-month]');
     if(input&&input.value!==ref)input.value=ref;
     const state=controls.querySelector('[data-alliance-planning-month-state]');
@@ -458,15 +475,22 @@
       else state.textContent=planningMonthLabel(ref);
     }
   }
+  let planningMonthSwitchSeq=0;
   async function switchPlanningMonth(ref,{silent=false}={}){
     const next=setPlanningMonthRef(ref);
+    const seq=++planningMonthSwitchSeq;
     const brand=window.MapaMental?.marca?.()||activeBrand();
     if(brand)migrateLegacyLocalMap(brand,next);
     refreshPlanningMapControls({ref:next});
+    document.getElementById('campaignOverviewList')?.classList.remove('hidden');
+    document.getElementById('campaignWorkspace')?.classList.remove('active');
     window.MapaMental?.recarregar?.();
     await hydrateCanonicalMap({silent,monthRef:next});
+    if(seq!==planningMonthSwitchSeq)return next;
     await refreshPlanningMonthMetrics(next);
-    refreshConsistency();
+    if(seq!==planningMonthSwitchSeq)return next;
+    await refreshConsistency();
+    window.dispatchEvent(new CustomEvent('allianceos:planning-month-ready',{detail:{monthRef:next}}));
     return next;
   }
   function offsetMonthRef(ref,delta=1){
@@ -695,6 +719,49 @@
     }
   }
 
+  function openGlobalPlanningMonthPicker(){
+    let picker=document.getElementById('alliance-global-planning-month-picker');
+    if(!picker){
+      picker=document.createElement('input');
+      picker.type='month';
+      picker.id='alliance-global-planning-month-picker';
+      picker.setAttribute('aria-label','Escolher mês do planejamento');
+      Object.assign(picker.style,{
+        position:'fixed',left:'-120px',top:'8px',width:'1px',height:'1px',
+        opacity:'0',pointerEvents:'none',zIndex:'2147483647'
+      });
+      picker.addEventListener('change',()=>{
+        const ref=String(picker.value||'');
+        if(validMonthRef(ref))switchPlanningMonth(ref);
+      });
+      document.body.appendChild(picker);
+    }
+    picker.value=planningMonthRef();
+    try{
+      if(typeof picker.showPicker==='function')picker.showPicker();
+      else{picker.style.pointerEvents='auto';picker.focus();picker.click();picker.style.pointerEvents='none'}
+    }catch{
+      picker.style.pointerEvents='auto';
+      picker.focus();
+      picker.click();
+      setTimeout(()=>{picker.style.pointerEvents='none'},0);
+    }
+  }
+  function wireGlobalPlanningMonthControls(){
+    syncPlanningMonthChrome();
+    for(const id of ['planMonthLabel','campMonthBtn']){
+      const button=document.getElementById(id);
+      if(!button||button.dataset.allianceMonthPicker==='1')continue;
+      button.dataset.allianceMonthPicker='1';
+      button.title='Escolher mês';
+      button.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        openGlobalPlanningMonthPicker();
+      },true);
+    }
+  }
+
   function installPlanningMapControls(){
     const top=document.querySelector('.mp-topo');
     if(!top||top.querySelector('.alliance-planning-month-controls'))return;
@@ -731,26 +798,47 @@
 
   function installMapNamePersistence(){
     const input=document.querySelector('.mp-topo .mp-nome');
-    if(!input||input.dataset.allianceNameSync==='1')return;
-    input.dataset.allianceNameSync='1';
+    if(!input)return;
     input.readOnly=false;
     input.disabled=false;
+    input.removeAttribute('readonly');
+    input.removeAttribute('disabled');
     input.style.setProperty('pointer-events','auto','important');
     input.style.setProperty('cursor','text','important');
     input.setAttribute('title','Clique para renomear este planejamento');
-    input.addEventListener('input',()=>persistPlanningMapName(input));
-    input.addEventListener('change',()=>persistPlanningMapName(input));
-    input.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){e.preventDefault();input.blur()}
-    });
-    input.addEventListener('blur',()=>{
-      if(String(input.value||'').trim())return;
-      const brand=window.MapaMental?.marca?.()||activeBrand();
-      const ref=planningMonthRef();
-      const [,m]=ref.split('-').map(Number);
-      input.value='Planejamento ['+MONTH_NAMES[m-1]+'-'+String(brand||'').toUpperCase()+']';
-      persistPlanningMapName(input);
-    });
+    if(input.dataset.allianceNameSync!=='1'){
+      input.dataset.allianceNameSync='1';
+      input.addEventListener('pointerdown',e=>e.stopPropagation());
+      input.addEventListener('click',e=>e.stopPropagation());
+      input.addEventListener('input',()=>persistPlanningMapName(input));
+      input.addEventListener('change',()=>persistPlanningMapName(input));
+      input.addEventListener('keydown',e=>{
+        if(e.key==='Enter'){e.preventDefault();input.blur()}
+      });
+      input.addEventListener('blur',()=>{
+        if(String(input.value||'').trim())return;
+        const brand=window.MapaMental?.marca?.()||activeBrand();
+        const ref=planningMonthRef();
+        const [,m]=ref.split('-').map(Number);
+        input.value='Planejamento ['+MONTH_NAMES[m-1]+'-'+String(brand||'').toUpperCase()+']';
+        persistPlanningMapName(input);
+      });
+    }
+    const top=input.closest('.mp-topo');
+    if(top&&!top.querySelector('[data-alliance-rename-map]')){
+      const rename=document.createElement('button');
+      rename.type='button';
+      rename.dataset.allianceRenameMap='1';
+      rename.className='alliance-planning-month-step';
+      rename.textContent='✎';
+      rename.title='Renomear planejamento';
+      rename.setAttribute('aria-label','Renomear planejamento');
+      rename.addEventListener('click',e=>{
+        e.preventDefault();e.stopPropagation();
+        input.readOnly=false;input.disabled=false;input.focus();input.select();
+      });
+      input.insertAdjacentElement('afterend',rename);
+    }
   }
 
   function installMapImport(){
@@ -815,15 +903,20 @@
       refreshConsistency();refreshPlanningMonthMetrics();setTimeout(enhanceReports,80);
       if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),90);
     });
-    document.getElementById('campaignsNav')?.addEventListener('click',()=>setTimeout(refreshConsistency,80));
-    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{refreshConsistency();refreshPlanningMonthMetrics();installMapImport();installPlanningMapControls();hydrateCanonicalMap()},120));
+    document.getElementById('campaignsNav')?.addEventListener('click',()=>setTimeout(()=>{syncPlanningMonthChrome();refreshConsistency();refreshPlanningMonthMetrics()},80));
+    document.getElementById('planningNav')?.addEventListener('click',()=>setTimeout(()=>{syncPlanningMonthChrome();refreshConsistency();refreshPlanningMonthMetrics();installMapImport();installPlanningMapControls();installMapNamePersistence();hydrateCanonicalMap()},120));
     document.getElementById('painelNav')?.addEventListener('click',()=>setTimeout(enhanceReports,120));
-    new MutationObserver(()=>{installMapImport();installPlanningMapControls();installMapNamePersistence();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
-    refreshConsistency();refreshPlanningMonthMetrics();installMapImport();installPlanningMapControls();installMapNamePersistence();installNameGuards();
+    window.addEventListener('allianceos:planning-month',e=>{
+      const ref=String(e?.detail?.monthRef||planningMonthRef());
+      syncPlanningMonthChrome(ref);
+      wireGlobalPlanningMonthControls();
+    });
+    new MutationObserver(()=>{installMapImport();installPlanningMapControls();installMapNamePersistence();wireGlobalPlanningMonthControls();installNameGuards()}).observe(document.body,{childList:true,subtree:true});
+    refreshConsistency();refreshPlanningMonthMetrics();installMapImport();installPlanningMapControls();installMapNamePersistence();wireGlobalPlanningMonthControls();installNameGuards();
     if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),180);
     window.addEventListener('allianceos:auth',()=>setTimeout(()=>hydrateCanonicalMap({silent:true}),500));
   }
   window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow,month:planningMonthRef,switchMonth:switchPlanningMonth,createMonth:createPlanningMapForSelectedMonth,goals:openPlanningGoalsDialog};
-  window.AllianceFullSystem={refreshConsistency,refreshPlanningMonthMetrics,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
+  window.AllianceFullSystem={refreshConsistency,refreshPlanningMonthMetrics,switchPlanningMonth,planningMonthRef,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',wire,{once:true});else wire();
 })();
