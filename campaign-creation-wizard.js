@@ -4,7 +4,7 @@
   const CAMP_KEY='central.campaigns.vitor-gutierrez';
   const DRAFT_KEY='ui.alliance.campaignWizardDraft.v2';
   const STEPS=[
-    ['base','Dados gerais','Nome, marca e período'],
+    ['base','Modelo e dados','Escolha o tipo e complete o essencial'],
     ['evento','Evento e fases','Abertura, live e etapas'],
     ['oferta','Oferta e ticket','Mecânica comercial'],
     ['canais','Canais e metas','Verba e faturamento'],
@@ -27,6 +27,17 @@
     ['TikTok Ads','Mídia paga no TikTok']
   ];
   const TYPE_OPTIONS=['Dia D','Lançamento','Semana temática','Grupo VIP','Recompra','Ação de GAP','Conversão e Ticket','Perpétuo','Livre'];
+  const CAMPAIGN_PRESETS=[
+    {type:'Dia D',title:'Dia D',desc:'Ação curta e concentrada em um dia.',days:0,lead:2},
+    {type:'Semana temática',title:'Semana temática',desc:'Campanha de 7 dias com narrativa única.',days:6,lead:3},
+    {type:'Lançamento',title:'Lançamento',desc:'Abertura de produto, oferta ou novidade.',days:2,lead:3},
+    {type:'Grupo VIP',title:'Grupo VIP',desc:'Captação e comunicação para grupo dedicado.',days:3,lead:4},
+    {type:'Recompra',title:'Recompra',desc:'Ação para compradores e base já existente.',days:3,lead:2},
+    {type:'Ação de GAP',title:'Ação de GAP',desc:'Campanha tática para recuperar meta do mês.',days:2,lead:2},
+    {type:'Conversão e Ticket',title:'Conversão e Ticket',desc:'Ação focada em conversão, kit e ticket médio.',days:3,lead:2},
+    {type:'Perpétuo',title:'Perpétuo',desc:'Operação contínua durante todo o mês.',days:null,lead:0},
+    {type:'Livre',title:'Do zero',desc:'Comece sem estrutura pré-definida.',days:2,lead:2}
+  ];
   const STATUS_OPTIONS=['Planejamento','Em preparação','Em execução','Leitura','Concluída'];
   let S=null;
   let layer=null;
@@ -188,6 +199,54 @@
     return DEFAULT_CHANNELS.map(([nome,base])=>({
       id:id('channel'),nome,base,enabled:names.has(norm(nome)),investimento:0,meta_faturamento:0,responsavel:'',custom:false
     }));
+  }
+
+  function endOfMonth(ref){
+    const [y,m]=String(ref||selectedMonth()).split('-').map(Number);
+    const d=new Date(y,m,0);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+
+  function applyPreset(type){
+    if(!S)return;
+    const p=CAMPAIGN_PRESETS.find(x=>x.type===type)||CAMPAIGN_PRESETS[CAMPAIGN_PRESETS.length-1];
+    S.basic.type=p.type;
+    const ref=/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(S.basic.monthRef||''))?S.basic.monthRef:selectedMonth();
+    let start=String(S.basic.start||ref+'-01').slice(0,10);
+    if(dateRef(start)!==ref)start=ref+'-01';
+    let end=p.days==null?endOfMonth(ref):addDays(start,p.days);
+    if(p.type==='Perpétuo')start=ref+'-01';
+    if(p.type==='Perpétuo')end=endOfMonth(ref);
+    S.basic.start=start;
+    S.basic.end=end;
+    S.basic.planningStart=p.lead?addDays(start,-p.lead):start;
+    S.event.offerStartDate=start;
+    S.offer.deadlineDate=end;
+    S.phases=seedPhases(start,end);
+    if(p.type==='Dia D'){
+      S.phases[1].nome='Antecipação';
+      S.phases[1].data=S.basic.planningStart;
+      S.phases[1].data_fim=addDays(start,-1);
+      S.phases[3].nome='Última chance / encerramento';
+      S.phases[3].data=end;S.phases[3].data_fim=end;S.phases[3].hora='23:59';
+    }
+    if(p.type==='Perpétuo'){
+      S.phases=[
+        {id:id('phase'),nome:'Operação do mês',tem:true,data:start,data_fim:end,hora:'',observacoes:''},
+        {id:id('phase'),nome:'Leitura semanal',tem:true,data:start,data_fim:end,hora:'',observacoes:'Acompanhamento e ajuste de rota durante o mês.'}
+      ];
+    }
+  }
+
+  function presetGrid(){
+    if(S.mode!=='create')return'';
+    return '<section class="acw-section acw-preset-section"><div class="acw-section-head"><div><h3>Comece pelo modelo da campanha</h3><p>Como antes: escolha o padrão primeiro. Ele só pré-configura período e fases; depois você pode editar tudo.</p></div></div>'+
+      '<div class="acw-preset-grid">'+CAMPAIGN_PRESETS.map(p=>{
+        const active=norm(S.basic.type)===norm(p.type);
+        return '<button type="button" class="acw-preset '+(active?'active':'')+'" data-preset="'+esc(p.type)+'">'+
+          '<span class="acw-preset-mark"></span><b>'+esc(p.title)+'</b><small>'+esc(p.desc)+'</small>'+
+        '</button>';
+      }).join('')+'</div></section>';
   }
 
   function blankState(noId=null){
@@ -463,18 +522,21 @@
   function renderPanel(){
     const key=STEPS[S.step][0];
     if(key==='base'){
-      return '<div class="acw-panel active"><section class="acw-section"><div class="acw-section-head"><div><h3>Identificação da campanha</h3><p>Estes dados definem a campanha e o mês ao qual ela pertence.</p></div></div><div class="acw-grid">'+
-        field('Nome da campanha','basic.name',S.basic.name,'text','span-6','required placeholder="Ex.: Lançamento NAC / Dia D Kids"')+
-        selectField('Marca','basic.brand',S.basic.brand,brandOptions(),'span-3')+
-        selectField('Formato','basic.type',S.basic.type,TYPE_OPTIONS,'span-3')+
-        field('Responsável geral','basic.owner',S.basic.owner,'text','span-4','placeholder="Nome do responsável"')+
-        selectField('Status inicial','basic.status',S.basic.status,STATUS_OPTIONS,'span-4')+
-        field('Mês do planejamento','basic.monthRef',S.basic.monthRef,'month','span-4')+
-        field('Início da venda / campanha','basic.start',S.basic.start,'date','span-3')+
-        field('Fim da venda / campanha','basic.end',S.basic.end,'date','span-3')+
-        field('Início da antecipação / preparação','basic.planningStart',S.basic.planningStart,'date','span-3')+
-        textarea('Objetivo e contexto da campanha','basic.objective',S.basic.objective,'span-12',4)+
-      '</div></section><section class="acw-section"><div class="acw-note">O cronograma pode começar antes da venda e terminar depois. Nenhuma campanha antiga será alterada ao criar uma nova.</div></section></div>';
+      return '<div class="acw-panel active">'+presetGrid()+
+        '<section class="acw-section"><div class="acw-section-head"><div><h3>Dados gerais</h3><p>Agora complete somente o essencial. Os detalhes estratégicos ficam nas próximas etapas.</p></div></div><div class="acw-grid">'+
+          field('Nome da campanha','basic.name',S.basic.name,'text','span-6','required placeholder="Ex.: Dia D Kids / Semana Rosa Botanika"')+
+          selectField('Marca','basic.brand',S.basic.brand,brandOptions(),'span-3')+
+          field('Responsável geral','basic.owner',S.basic.owner,'text','span-3','placeholder="Nome do responsável"')+
+          selectField('Tipo da campanha','basic.type',S.basic.type,TYPE_OPTIONS,'span-4')+
+          selectField('Status inicial','basic.status',S.basic.status,STATUS_OPTIONS,'span-4')+
+          field('Mês do planejamento','basic.monthRef',S.basic.monthRef,'month','span-4','data-rerender-on-change="1"')+
+          field('Início da campanha','basic.start',S.basic.start,'date','span-4')+
+          field('Fim da campanha','basic.end',S.basic.end,'date','span-4')+
+          field('Início da preparação','basic.planningStart',S.basic.planningStart,'date','span-4')+
+          textarea('Objetivo e contexto','basic.objective',S.basic.objective,'span-12',3)+
+        '</div></section>'+
+        '<div class="acw-base-hint"><b>Você não precisa preencher tudo agora.</b><span>Oferta, canais, metas, cronograma e mensagens continuam nas próximas etapas, sem perder nenhuma das funções que já adicionamos.</span></div>'+
+      '</div>';
     }
     if(key==='evento'){
       const activation=['midnight','live','custom','campaign_start'];
@@ -584,6 +646,10 @@
           if(!S.basic.end||S.basic.end<S.basic.start)S.basic.end=S.basic.start;
           if(!S.event.offerStartDate)S.event.offerStartDate=S.basic.start;
         }
+        if(el.dataset.bind==='basic.monthRef'&&fromChange&&S.mode==='create'){
+          const chosen=S.basic.type||'Livre';
+          applyPreset(chosen);
+        }
         if(el.dataset.bind.startsWith('channels.'))updateChannelMetricDom();
         if(/\.quantidade$/.test(el.dataset.bind||'')){
           const parts=String(el.dataset.bind).split('.');
@@ -603,6 +669,11 @@
         if(err){toast(err);return}
       }
       S.step=to;saveDraft();render();
+    }));
+    layer.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{
+      applyPreset(b.dataset.preset||'Livre');
+      saveDraft();
+      render();
     }));
     layer.querySelectorAll('[data-quick-channel]').forEach(b=>b.addEventListener('click',()=>addSchedule(b.dataset.quickChannel)));
     layer.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{
