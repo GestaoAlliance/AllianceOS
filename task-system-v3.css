@@ -318,6 +318,24 @@
 #tasksCanvas .v4-work-row:hover{
   background:#fafbfb!important;
 }
+/* Tarefas vencidas: destaque na linha inteira, sem comprometer a leitura. */
+#tasksCanvas .v4-work-row.is-overdue{
+  background:#fff3f4!important;
+  border-bottom-color:#f2cfd3!important;
+}
+#tasksCanvas .v4-work-row.is-overdue:hover{
+  background:#ffeaec!important;
+}
+#tasksCanvas .v4-work-row.is-overdue .task-title-line>b{
+  color:#6f252c!important;
+}
+#tasksCanvas .v4-work-row.is-overdue .cu-complete{
+  border-color:#e7b9be!important;
+  background:#fffafa!important;
+}
+#tasksCanvas .v4-work-row.is-overdue .v6-due.over{
+  color:#d92d3a!important;
+}
 #tasksCanvas .v4-work-row.is-blocked{
   background-image:linear-gradient(90deg,rgba(205,112,66,.045),transparent 34%)!important;
 }

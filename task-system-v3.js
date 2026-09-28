@@ -695,7 +695,7 @@
       ? '<span class="v4-child-label">Subtarefa</span>'
       : '';
 
-    return `<div class="cu-row v4-work-row ${depth>0?'v4-is-subtask ':''}${hasChildren?'v4-has-children v4-tree-parent ':''}${contextOnly?'v4-context-parent ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}" data-tree-depth="${depth}" data-child-count="${actualChildren.length}" style="--tree-depth:${depth}">
+    return `<div class="cu-row v4-work-row ${depth>0?'v4-is-subtask ':''}${hasChildren?'v4-has-children v4-tree-parent ':''}${contextOnly?'v4-context-parent ':''}${isOverdue(t)?'is-overdue ':''}${blockers.length||t.status==='bloqueado'?'is-blocked':''}" data-task-id="${esc(t.id)}" data-tree-depth="${depth}" data-child-count="${actualChildren.length}" style="--tree-depth:${depth}">
       <div class="cu-row-title">
         <span class="v4-tree-indent" aria-hidden="true"></span>
         ${treeControl}
