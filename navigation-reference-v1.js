@@ -578,6 +578,33 @@
     };
     const campaigns=()=>readList('central.campaigns.'+uid());
     const tasks=()=>readList('central.tasks.'+uid());
+    const validMonthRef=v=>/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(v||''));
+    const selectedMonthRef=()=>{
+      const api=window.AllianceOSMapSync?.month?.();
+      if(validMonthRef(api))return String(api);
+      const live=String(window.AlliancePlanningMonthRef||'');
+      if(validMonthRef(live))return live;
+      let saved='';
+      try{saved=sessionStorage.getItem('allianceos.planning.monthRef')||localStorage.getItem('allianceos.planning.monthRef')||''}catch{}
+      if(validMonthRef(saved))return saved;
+      const d=new Date();
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    };
+    const campaignMonthRef=c=>{
+      const explicit=String(c?.monthRef||c?.month_ref||'').slice(0,7);
+      if(validMonthRef(explicit))return explicit;
+      return String(c?.startAt||c?.start||'').slice(0,7);
+    };
+    const campaignInSelectedMonth=c=>{
+      const ref=selectedMonthRef();
+      const explicit=campaignMonthRef(c);
+      if(validMonthRef(explicit))return explicit===ref;
+      const [y,m]=ref.split('-').map(Number);
+      const first=new Date(y,m-1,1),last=new Date(y,m,0);
+      const parse=v=>{const s=String(v||'').slice(0,10);return /^20\d{2}-\d{2}-\d{2}$/.test(s)?new Date(s+'T12:00:00'):null};
+      const start=parse(c?.startAt||c?.start),end=parse(c?.endAt||c?.end)||start;
+      return !!start&&!!end&&start<=last&&end>=first;
+    };
 
     function syncTaskCampaignIds(){
       const cs=campaigns(), ts=tasks();
@@ -600,7 +627,9 @@
       const current=new Set((M.campanhasNoMapa()||[]).map(String));
       const palette=[0,4,2,6,5,3,1,7];
       campaigns()
+        .filter(c=>!c?.archivedAt)
         .filter(c=>!brandNow||c.brand===brandNow)
+        .filter(campaignInSelectedMonth)
         .forEach((c,i)=>{
           if(!c?.id||current.has(String(c.id)))return;
           M.virarCampanha(null,{nome:c.name||'Campanha',cor:palette[i%palette.length],campId:c.id});
@@ -626,6 +655,8 @@
       // Run the app hook first, then the real sidebar button as a fallback and
       // finally enforce the view state. This covers builds where one of the
       // legacy navigation hooks exists but no longer toggles the section.
+      const ref=selectedMonthRef();
+      try{ window.AllianceOSMapSync?.switchMonth?.(ref,{silent:true}); }catch{}
       try{ window.__centralShowCampaigns?.(); }catch{}
       const campaignsView=document.getElementById('campaignsView');
       if(targets.campaigns && !campaignsView?.classList.contains('active')){
@@ -666,6 +697,7 @@
         // exits while #campaignsView is not active.
         try{ window.__centralRenderCampaigns?.(); }catch{}
         document.getElementById('campaignSearch')?.dispatchEvent(new Event('input',{bubbles:true}));
+        window.dispatchEvent(new CustomEvent('allianceos:planning-month',{detail:{monthRef:ref}}));
         window.dispatchEvent(new Event('resize'));
 
         installUnifiedStrategyNav('campaigns');
@@ -778,6 +810,11 @@
     brand?.addEventListener('change',()=>{
       if(document.getElementById('planningView')?.classList.contains('active')){
         setTimeout(()=>{window.MapaMental?.recarregar?.();setTimeout(syncCampaignNodesIntoOpenMap,80)},40);
+      }
+    });
+    window.addEventListener('allianceos:planning-month-ready',()=>{
+      if(document.getElementById('planningView')?.classList.contains('active')){
+        setTimeout(syncCampaignNodesIntoOpenMap,60);
       }
     });
     document.getElementById('campaignForm')?.addEventListener('submit',()=>{
