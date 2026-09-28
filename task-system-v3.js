@@ -743,21 +743,31 @@
     });
     const explicitStatus=document.getElementById('statusFilter')?.value||'';
 
-    const renderBranch=(t,depth=0)=>{
-      const children=v4DirectChildren(t).filter(c=>!c.archivedAt&&branchMatches(c));
+    const renderBranch=(t,depth=0,includeWholeBranch=false)=>{
+      const selfMatched=matchedIds.has(String(t.id));
+      // When the filtered person owns/matches a parent task, expanding that
+      // parent must reveal its real subtasks even when those subtasks belong
+      // to other people. Previously the assignee filter removed the children
+      // before the tree renderer ran, so the chevron changed state but no row
+      // could ever appear.
+      const wholeBranch=includeWholeBranch||selfMatched;
+      const directChildren=v4DirectChildren(t).filter(c=>!c.archivedAt);
+      const children=wholeBranch
+        ? directChildren
+        : directChildren.filter(c=>branchMatches(c));
       const hasChildren=children.length>0;
-      const hasMatchedDescendant=children.some(c=>branchMatches(c));
-      const contextParent=!matchedIds.has(String(t.id))&&hasMatchedDescendant;
+      const hasMatchedDescendant=directChildren.some(c=>branchMatches(c));
+      const contextParent=!selfMatched&&!wholeBranch&&hasMatchedDescendant;
       const collapsed=hasChildren&&!v4ExpandedTaskIds.has(String(t.id))&&!contextParent;
       const row=renderListRow(t,{
         depth,
         hasChildren,
         collapsed,
-        contextOnly:!matchedIds.has(String(t.id)),
+        contextOnly:!selfMatched&&!wholeBranch,
         descendantCount:v4DescendantCount(t)
       });
       if(!hasChildren||collapsed)return row;
-      return row+children.map(child=>renderBranch(child,depth+1)).join('');
+      return row+children.map(child=>renderBranch(child,depth+1,wholeBranch)).join('');
     };
 
     const roots=[...rootMap.values()];
