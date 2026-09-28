@@ -521,25 +521,38 @@ function bindDelegates(){
      sempre abra a página canônica de Campanhas, sem depender do listener
      original do componente. */
   document.addEventListener('click',e=>{
-    const tab=e.target.closest?.('.plan-tab');
+    const tab=e.target.closest?.('.plan-tab,[data-strategy-tab]');
     if(!tab)return;
     const label=norm(tab.textContent||'');
     if(tab.dataset.planTab==='campaigns'||tab.dataset.strategyTab==='campaigns'||label==='campanhas'){
       e.preventDefault();
       e.stopImmediatePropagation();
 
-      /* A navegação unificada também é dona do estado visual dos quatro
-         botões. Ir direto para __centralShowCampaigns abria a tela correta,
-         mas deixava selecionada a aba anterior (ex.: Mês). */
-      if(typeof window.AllianceOSStrategy?.campanhas==='function'){
-        window.AllianceOSStrategy.campanhas();
-      }else if(typeof window.__centralShowCampaigns==='function'){
-        window.__centralShowCampaigns();
-        document.querySelectorAll('#campaignsView .ref-strategy-tabs [data-strategy-tab]')
-          .forEach(b=>b.classList.toggle('active',b.dataset.strategyTab==='campaigns'));
-      }else{
-        document.getElementById('campaignsNav')?.click();
+      // Do not delegate this back through another strategy button. Older
+      // layers could recurse or reopen the previous planning pane. Switch
+      // the canonical view directly and then ask the legacy renderer to draw.
+      try{window.__centralShowCampaigns?.()}catch{}
+      const planning=document.getElementById('planningView');
+      const campaigns=document.getElementById('campaignsView');
+      const home=document.getElementById('homeView');
+      const tasks=document.getElementById('tasksView');
+      const deliveries=document.getElementById('deliveriesView');
+      home?.classList.remove('active');
+      tasks?.classList.remove('active');
+      deliveries?.classList.remove('active');
+      planning?.classList.remove('active');
+      if(campaigns){
+        campaigns.hidden=false;
+        campaigns.style.removeProperty('display');
+        campaigns.classList.add('active');
       }
+      document.getElementById('campaignOverviewList')?.classList.remove('hidden');
+      document.getElementById('campaignWorkspace')?.classList.remove('active');
+      document.querySelectorAll('.ref-strategy-tabs [data-strategy-tab]')
+        .forEach(b=>b.classList.toggle('active',b.dataset.strategyTab==='campaigns'));
+      try{history.replaceState(null,'','#campaigns')}catch{}
+      try{window.__centralRenderCampaigns?.()}catch{}
+      schedule();
     }
   },true);
 
@@ -788,10 +801,13 @@ window.addEventListener('allianceos:planning-month',e=>{
   }
   schedule();
 });
+window.addEventListener('allianceos:planning-month-changing',schedule);
 window.addEventListener('allianceos:planning-month-ready',schedule);
 window.addEventListener('allianceos:planning-metrics',schedule);
 window.addEventListener('pageshow',schedule);
 window.addEventListener('focus',schedule);
-setInterval(schedule,1800);
+// No polling loop: month/campaign state is event-driven. The old 1.8s
+// interval repeatedly rebuilt large views and made the planning screen feel
+// stuck while the user was changing months.
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
 })();
