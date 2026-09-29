@@ -17,7 +17,23 @@ const pct=v=>Number.isFinite(Number(v))?Math.round(Number(v))+'%':'—';
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
 const parseDate=value=>{if(!value)return null;const s=String(value);if(/^\d{4}-\d{2}-\d{2}$/.test(s)){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}const d=new Date(s);if(Number.isNaN(d.getTime()))return null;d.setHours(0,0,0,0);return d};
 const dateLabel=v=>{const d=parseDate(v);return d?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(d).replace('.',''):'—'};
-const monthRef=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+const validMonthRef=v=>/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(v||''));
+const monthRef=()=>{
+  const api=window.AllianceOSMapSync?.month?.();
+  if(validMonthRef(api))return String(api);
+  const live=String(window.AlliancePlanningMonthRef||'');
+  if(validMonthRef(live))return live;
+  let saved='';
+  try{saved=sessionStorage.getItem('allianceos.planning.monthRef')||localStorage.getItem('allianceos.planning.monthRef')||''}catch{}
+  if(validMonthRef(saved))return saved;
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+};
+const monthParts=()=>{const [year,month]=monthRef().split('-').map(Number);return {year,month}};
+const monthLabel=()=>{
+  const {year,month}=monthParts();
+  return new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(new Date(year,month-1,1));
+};
 const done=t=>['feito','concluido','concluida','done','finalizado','finalizada'].includes(norm(t?.status));
 const blocked=t=>norm(t?.status).includes('bloque')||!!String(t?.blockedReason||t?.motivo_bloqueio||'').trim();
 const isOverdue=t=>{const d=parseDate(t?.dueAt||t?.due||t?.prazo);return !!d&&!done(t)&&d<today()};
@@ -58,13 +74,14 @@ async function loadRemote(brand){
   const client=window.AllianceOSAuth?.client;
   const bo=brandObject(brand);
   if(!client||!bo?.id)return {month:null,results:[],profiles:[],shopify:null,shopifyOrders:[]};
-  const d=today(),start=monthRef()+'-01T00:00:00-03:00',end=new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59,999).toISOString();
-  const monthQ=client.from('planning_months').select('id,brand_id,ano,mes,meta1,meta2,meta3,meta_ativa,ticket_medio_previsto').eq('brand_id',bo.id).eq('ano',d.getFullYear()).eq('mes',d.getMonth()+1).is('arquivado_em',null).maybeSingle();
+  const {year,month}=monthParts();
+  const start=monthRef()+'-01T00:00:00-03:00';
+  const end=new Date(year,month,0,23,59,59,999).toISOString();
+  const monthQ=client.from('planning_months').select('id,brand_id,ano,mes,meta1,meta2,meta3,meta_ativa,ticket_medio_previsto').eq('brand_id',bo.id).eq('ano',year).eq('mes',month).is('arquivado_em',null).maybeSingle();
   const resultQ=client.from('campaign_results').select('campaign_id,brand_id,data,faturamento,investimento,canal,fonte_receita').eq('brand_id',bo.id).gte('data',start).lte('data',end).is('arquivado_em',null);
   const profileQ=client.from('profiles').select('id,nome,foto_url,cargo,area_id,ativo').eq('ativo',true);
   const shopifyRpcQ=client.rpc('get_management_shopify_snapshot',{p_brand_id:bo.id});
-  const ordersQ=client.from('shopify_orders').select('total,refunded_amount,criado_em,financial_status').eq('brand_id',bo.id).gte('criado_em',start).lte('criado_em',end);
-  const [m,r,p,s,o]=await Promise.all([monthQ,resultQ,profileQ,shopifyRpcQ,ordersQ]);
+  const [m,r,p,s]=await Promise.all([monthQ,resultQ,profileQ,shopifyRpcQ]);
   const rpcShopify=!s.error&&s.data?{
     status:s.data.status||null,
     last_sync_at:s.data.last_sync_at||null,
@@ -80,17 +97,61 @@ async function loadRemote(brand){
     results:r.error?[]:(r.data||[]),
     profiles:p.error?[]:(p.data||[]),
     shopify:rpcShopify,
-    shopifyOrders:o.error?[]:(o.data||[])
+    shopifyOrders:[]
   };
 }
 
-function activeGoal(month,campaigns){
+function activeGoal(month,campaigns,realizedValue){
+  const realized=Math.max(0,Number(realizedValue||0));
   if(month){
-    const n=Number(month.meta_ativa||1);
-    const v=Number(month['meta'+n]||0);
-    if(v>0)return v;
+    const metas=[1,2,3]
+      .map(level=>({level,value:Number(month['meta'+level]||0)}))
+      .filter(x=>Number.isFinite(x.value)&&x.value>0);
+    if(metas.length){
+      let target=metas[0];
+      for(let i=0;i<metas.length-1;i++){
+        if(realized>=metas[i].value)target=metas[i+1];
+        else break;
+      }
+      if(realized>=metas[metas.length-1].value)target=metas[metas.length-1];
+      const previous=metas.filter(x=>x.level<target.level&&realized>=x.value).slice(-1)[0]||null;
+      return {
+        value:target.value,
+        level:target.level,
+        label:'Meta '+String(target.level).padStart(2,'0'),
+        previous,
+        all:metas,
+        topBeaten:realized>=metas[metas.length-1].value
+      };
+    }
   }
-  return campaigns.reduce((s,c)=>s+Number(c?.goal||c?.meta||c?.meta_faturamento||0),0);
+  const fallback=campaigns.reduce((s,c)=>s+Number(c?.goal||c?.meta||c?.meta_faturamento||0),0);
+  return {value:fallback,level:null,label:'Meta da marca',previous:null,all:[],topBeaten:false};
+}
+function goalTone(progress){
+  if(progress>=100)return'success';
+  if(progress>=80)return'warning';
+  return'neutral';
+}
+function goalCard(goal,realizedValue){
+  const value=Number(goal?.value||0);
+  const progress=value>0?(Number(realizedValue||0)/value*100):null;
+  const width=progress==null?0:Math.max(0,Math.min(100,progress));
+  const tone=goalTone(progress||0);
+  let note='Defina as metas do mês no planejamento';
+  if(value>0&&goal?.topBeaten){
+    note='Meta 03 batida · '+pct(progress)+' do maior alvo';
+  }else if(value>0&&goal?.previous){
+    note='Meta '+String(goal.previous.level).padStart(2,'0')+' batida · agora mirando '+goal.label;
+  }else if(value>0){
+    note=(progress==null?'0%':pct(progress))+' da '+goal.label;
+  }
+  return '<article class="mg-metric mg-goal-card '+tone+'">'+
+    '<div class="mg-metric-top"><span>Meta da marca</span><em class="mg-goal-badge">'+esc(goal?.label||'Meta')+' · '+esc(monthLabel())+'</em></div>'+
+    '<strong>'+esc(value>0?money(value):'Não definida')+'</strong>'+
+    (value>0?'<div class="mg-goal-progress"><i style="width:'+width+'%"></i></div>':'')+
+    '<small>'+esc(note)+'</small>'+
+  '</article>';
 }
 function realized(results){return results.reduce((s,r)=>s+Number(r?.faturamento||0),0)}
 function shopifyCommerce(remote){
@@ -140,8 +201,14 @@ function syncLabel(at){
 }
 function linearForecast(value,hasData){
   if(!hasData)return null;
-  const d=today(),elapsed=d.getDate(),days=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
-  return elapsed?value/elapsed*days:null;
+  const {year,month}=monthParts();
+  const now=today();
+  const selectedIndex=year*12+(month-1);
+  const currentIndex=now.getFullYear()*12+now.getMonth();
+  if(selectedIndex<currentIndex)return Number(value||0);
+  if(selectedIndex>currentIndex)return Number(value||0)>0?Number(value||0):null;
+  const elapsed=now.getDate(),days=new Date(year,month,0).getDate();
+  return elapsed?Number(value||0)/elapsed*days:null;
 }
 function topAttention(tasks){
   return tasks.filter(t=>!done(t)).map(t=>{
@@ -205,44 +272,47 @@ function empty(text){return '<div class="mg-empty">'+esc(text)+'</div>'}
 function renderShell({brand,tasks,campaigns,deliveries,remote}){
   const root=document.getElementById('homeView');if(!root)return;
   const user=firstName();
-  const goal=activeGoal(remote.month,campaigns);
   const commerce=shopifyCommerce(remote);
   const fallbackReal=realized(remote.results);
   const hasShopify=commerce.value!=null;
   const real=hasShopify?commerce.value:fallbackReal;
   const hasResults=hasShopify||remote.results.length>0;
+  const goal=activeGoal(remote.month,campaigns,real);
+  const goalValue=Number(goal.value||0);
   const forecast=linearForecast(real,hasResults);
-  const gap=goal>0&&forecast!=null?forecast-goal:null;
+  const gap=goalValue>0&&forecast!=null?forecast-goalValue:null;
   const attention=topAttention(tasks);
   const waiting=waitingForUser(tasks,deliveries,window.AllianceOSSession?.profile?.nome||user);
   const week=upcoming(tasks,campaigns);
   const people=capacity(tasks,remote.profiles);
   const sectors=sectorHealth(tasks);
   const monthCampaigns=campaigns.filter(campaignMonth).sort((a,b)=>String(a.startAt||a.start||'').localeCompare(String(b.startAt||b.start||''))).slice(0,5);
-  const completed=goal>0?real/goal*100:null;
+  const completed=goalValue>0?real/goalValue*100:null;
 
   root.classList.add('management-dashboard-active');
   root.innerHTML=
     '<div class="mg-dashboard" data-management-dashboard>'+
       '<header class="mg-header"><div><h1>Boa '+(new Date().getHours()<12?'dia':new Date().getHours()<18?'tarde':'noite')+', '+esc(user)+'.</h1><p>Visão gerencial da '+esc(brand||'marca')+'.</p></div><div class="mg-context"><span>'+new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'long'}).format(new Date())+'</span><b>'+esc(brand||'Selecione uma marca')+'</b></div></header>'+
       '<section class="mg-metrics">'+
-        metricCard('Meta da marca',goal>0?money(goal):'Não definida',goal>0?(completed!=null?pct(completed)+' atingida':'Meta mensal'):'Defina a meta no planejamento')+
+        goalCard(goal,real)+
         metricCard(
           'Realizado',
           hasResults?money(real):(commerce.connected?'Sem vendas no mês':'Shopify não conectada'),
           hasShopify
-            ? commerce.orders+' pedidos · ticket '+money(commerce.aov)+' · '+syncLabel(commerce.capturedAt)
-            : (remote.results.length?'Resultado registrado no AllianceOS':'Conecte a Shopify desta marca')
+            ? commerce.orders+' pedidos · ticket '+money(commerce.aov)+' · '+goal.label
+            : (remote.results.length?'Resultado do AllianceOS · '+goal.label:'Conecte a Shopify desta marca')
         )+
         metricCard(
           'Forecast',
           forecast!=null?money(forecast):'Não calculado',
-          forecast!=null?'Projeção pelo ritmo atual · Shopify':'Disponível após haver vendas no mês'
+          forecast!=null?'Projeção do mês contra '+goal.label:'Disponível após haver vendas no mês'
         )+
         metricCard(
           'GAP',
           gap!=null?money(gap):'—',
-          gap!=null?(gap<0?'Forecast abaixo da meta':'Forecast acima da meta'):(goal>0?'Sem realizado para comparar':'Meta ainda não definida'),
+          gap!=null
+            ? (gap<0?'Forecast '+money(Math.abs(gap))+' abaixo da '+goal.label:'Forecast '+money(gap)+' acima da '+goal.label)
+            : (goalValue>0?'Sem realizado para comparar com '+goal.label:'Meta ainda não definida'),
           gap!=null&&gap<0?'risk':''
         )+
       '</section>'+
@@ -292,7 +362,7 @@ async function render(){
   try{remote=await loadRemote(brand)}catch(e){console.warn('[AllianceOS Gestão] dados remotos indisponíveis',e)}
   if(seq!==refreshSeq)return;
   renderShell({brand,tasks,campaigns,deliveries,remote});
-  lastSignature=[brand,tasks.length,campaigns.length,deliveries.length,remote.results.length,remote.shopify?.last_sync_at||'',remote.shopifyOrders?.length||0].join('|');
+  lastSignature=[brand,monthRef(),tasks.length,campaigns.length,deliveries.length,remote.results.length,remote.shopify?.last_sync_at||''].join('|');
 }
 
 function nav(key){
@@ -305,6 +375,7 @@ function nav(key){
 }
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-mg-nav]');if(b){e.preventDefault();nav(b.dataset.mgNav)}});
 document.addEventListener('change',e=>{if(e.target?.id==='brandSelect')setTimeout(render,20)});
+addEventListener('allianceos:planning-month-change',()=>setTimeout(render,20));
 document.addEventListener('click',e=>{if(e.target.closest?.('[data-key="home"],#homeNav'))setTimeout(render,50)});
 addEventListener('allianceos:auth',()=>setTimeout(render,30));
 addEventListener('allianceos:state-ready',()=>setTimeout(render,30));
@@ -312,7 +383,7 @@ addEventListener('focus',()=>{if(document.getElementById('homeView'))render()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&document.getElementById('homeView'))render()});
 setInterval(()=>{
   if(!isManagement()||!document.getElementById('homeView'))return;
-  const brand=currentBrand(),sig=[brand,localStorage.getItem(TASK_KEY)?.length||0,localStorage.getItem(CAMPAIGN_KEY)?.length||0,localStorage.getItem(DELIVERY_KEY)?.length||0].join('|');
+  const brand=currentBrand(),sig=[brand,monthRef(),localStorage.getItem(TASK_KEY)?.length||0,localStorage.getItem(CAMPAIGN_KEY)?.length||0,localStorage.getItem(DELIVERY_KEY)?.length||0].join('|');
   if(sig!==lastSignature)setTimeout(render,0);
 },4000);
 setInterval(()=>{if(isManagement()&&document.getElementById('homeView')&&!document.hidden)render()},60000);
