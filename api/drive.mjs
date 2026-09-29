@@ -130,7 +130,17 @@ async function gerarContratoCreator(session,partnerBrandId,force=false){
   return{contract:contrato,created:true,warning:restantes.length?restantes:null}
 }
 
-export default async function handler(req,res){try{const session=await requireAllianceUser(req);const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
+export default async function handler(req,res){try{
+  const healthUrl=new URL(req.url,'http://x');
+  if(req.method==='GET'&&healthUrl.searchParams.get('contract_health')==='1'){
+    try{
+      if(!conta())return send(res,200,{ok:false,drive_configured:false,template_access:false,destination_access:false});
+      const template=await drive('files/1y7AbZPIcXW3y-foah2g-4qvT2zVl7A7z',{fields:'id,mimeType'});
+      const folder=await drive('files/1636aBPh9psEGqlw-2gj8v3pPWwQl_CZM',{fields:'id,mimeType,capabilities(canAddChildren)'});
+      return send(res,200,{ok:true,drive_configured:true,template_access:!!template?.id,destination_access:folder?.mimeType===PASTA&&folder?.capabilities?.canAddChildren!==false});
+    }catch(e){return send(res,200,{ok:false,drive_configured:!!conta(),template_access:false,destination_access:false,erro:String(e.message||e).slice(0,160)})}
+  }
+  const session=await requireAllianceUser(req);const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
   if(req.method==='POST'&&body.action==='copy_storage'){const arquivo=await copiarStorage(body,session);return send(res,200,{ok:true,arquivo})}
   if(req.method==='POST'&&body.action==='generate_creator_contract'){const id=String(body.partner_brand_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'partner_brand_id inválido'});const result=await gerarContratoCreator(session,id,body.force===true);return send(res,200,{ok:true,...result})}
   if(req.method==='POST'){const nome=String(body.marca||'Botanika'),raw=String(body.drive_pasta||body.pasta||'').trim(),limpo=raw.replace(/^https?:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//,'').split(/[?#]/)[0].trim();if(!/^[A-Za-z0-9_-]{10,}$/.test(limpo))return send(res,400,{erro:'esse id não parece um id de pasta do Drive'});await salvarPasta(nome,limpo);return send(res,200,{ok:true,ligado:true,marca:nome,raiz:limpo,pasta:limpo})}
