@@ -1,0 +1,232 @@
+(() => {
+  'use strict';
+  if (window.AllianceOSCreators) return;
+
+  const state = {open:false, tab:'overview', loading:false, rows:[], contracts:[], shipments:[], deliverables:[], commissions:[], rewards:[], perf:[], selected:null, search:'', status:'', type:''};
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0));
+  const date=v=>{if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('pt-BR')};
+  const dt=v=>{if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})};
+  const label={
+    novo_cadastro:'Novo cadastro',em_analise:'Em análise',aprovado:'Aprovado',contrato_enviado:'Contrato enviado',
+    aguardando_assinatura:'Aguardando assinatura',contrato_assinado:'Contrato assinado',envio_pendente:'Envio pendente',
+    ativacao_pendente:'Ativação pendente',ativo:'Ativo',sem_vendas:'Sem vendas',acompanhamento:'Acompanhamento',
+    inativo:'Inativo',reprovado:'Reprovado'
+  };
+  const stages=['novo_cadastro','em_analise','aprovado','contrato_enviado','aguardando_assinatura','contrato_assinado','envio_pendente','ativacao_pendente','ativo'];
+
+  async function client(){ await window.AllianceOSAuth?.ready; const c=window.AllianceOSAuth?.client; if(!c) throw new Error('Supabase indisponível'); return c; }
+  function brand(){
+    const s=$('#brandSelect'),o=s?.selectedOptions?.[0],id=o?.dataset?.brandId||'';
+    if(!id||id==='__all__') return {id:null,name:'Todas as marcas'};
+    return {id,name:String(o?.textContent||o?.value||'Marca').trim()};
+  }
+  function toast(msg){
+    if(typeof window.showToast==='function') return window.showToast(msg);
+    const n=document.createElement('div'); n.textContent=msg; Object.assign(n.style,{position:'fixed',right:'24px',bottom:'24px',zIndex:2147483647,padding:'11px 14px',borderRadius:'10px',background:'#111519',color:'#fff',font:'600 10px Inter'}); document.body.appendChild(n); setTimeout(()=>n.remove(),1800);
+  }
+  function root(){
+    let r=$('#creatorManagement');
+    if(r)return r;
+    r=document.createElement('section'); r.id='creatorManagement'; r.className='crm-page'; r.hidden=true;
+    $('.main')?.appendChild(r);
+    r.addEventListener('click',onClick);
+    r.addEventListener('input',onInput);
+    r.addEventListener('change',onChange);
+    $('#brandSelect')?.addEventListener('change',()=>state.open&&load());
+    return r;
+  }
+  async function open(){
+    const r=root(); if(!r)return;
+    state.open=true; document.body.classList.add('creator-management-open'); r.hidden=false;
+    window.dispatchEvent(new CustomEvent('allianceos:creators-open'));
+    await load();
+  }
+  function close(){
+    state.open=false; document.body.classList.remove('creator-management-open');
+    const r=$('#creatorManagement'); if(r)r.hidden=true;
+    closeModal();
+  }
+  async function load(){
+    const r=root(),b=brand();
+    state.loading=true; r.innerHTML='<div class="crm-loading">Carregando Gestão de Creators…</div>';
+    try{
+      const sb=await client();
+      let q=sb.from('creator_partner_brands').select('*,partner:creator_partners(*)').is('arquivado_em',null).order('criado_em',{ascending:false});
+      if(b.id)q=q.eq('brand_id',b.id);
+      const [links,contracts,shipments,deliverables,commissions,rewards,perf]=await Promise.all([
+        q,
+        b.id?sb.from('creator_contracts').select('*').is('arquivado_em',null).order('criado_em',{ascending:false}):Promise.resolve({data:[]}),
+        b.id?sb.from('creator_shipments').select('*').is('arquivado_em',null).order('criado_em',{ascending:false}):Promise.resolve({data:[]}),
+        b.id?sb.from('creator_deliverables').select('*').is('arquivado_em',null).order('criado_em',{ascending:false}):Promise.resolve({data:[]}),
+        b.id?sb.from('creator_commissions').select('*').is('arquivado_em',null).order('competencia',{ascending:false}):Promise.resolve({data:[]}),
+        b.id?sb.from('creator_rewards').select('*').is('arquivado_em',null).order('liberada_em',{ascending:false}):Promise.resolve({data:[]}),
+        b.id?sb.from('creator_partner_performance').select('*').eq('brand_id',b.id):Promise.resolve({data:[]})
+      ]);
+      if(links.error)throw links.error;
+      state.rows=links.data||[]; state.contracts=contracts.data||[]; state.shipments=shipments.data||[]; state.deliverables=deliverables.data||[];
+      state.commissions=commissions.data||[]; state.rewards=rewards.data||[]; state.perf=perf.data||[];
+      state.loading=false; render();
+    }catch(e){ state.loading=false; r.innerHTML='<div class="crm-error"><b>Não foi possível carregar a área.</b><span>'+esc(e.message||e)+'</span></div>'; }
+  }
+  function performance(id){return state.perf.find(x=>x.partner_brand_id===id)||{vendas_mes:0,vendas_total:0,pedidos_total:0,ticket_medio:0,ultima_venda_em:null}}
+  function contract(id){return state.contracts.find(x=>x.partner_brand_id===id)}
+  function shipment(id){return state.shipments.find(x=>x.partner_brand_id===id)}
+  function displayType(types){return (types||[]).map(x=>x==='ugc'?'UGC':x==='prescritor'?'Prescritor':'Creator').join(' · ')||'Creator'}
+  function filtered(){
+    const s=state.search.toLowerCase().trim();
+    return state.rows.filter(r=>{
+      const p=r.partner||{};
+      if(state.status&&r.status!==state.status)return false;
+      if(state.type&&!(r.tipos||[]).includes(state.type))return false;
+      if(s&&!([p.nome_completo,p.instagram,p.email,p.whatsapp,r.cupom].join(' ').toLowerCase().includes(s)))return false;
+      return true;
+    });
+  }
+  function kpis(){
+    const active=state.rows.filter(x=>x.status==='ativo').length;
+    const waiting=state.rows.filter(x=>['contrato_enviado','aguardando_assinatura'].includes(x.status)).length;
+    const pendingShip=state.shipments.filter(x=>['aguardando','separacao'].includes(x.status)).length+state.rows.filter(x=>x.status==='envio_pendente').length;
+    const sales=state.perf.reduce((n,x)=>n+Number(x.vendas_mes||0),0);
+    const comm=state.commissions.filter(x=>!['paga','retida'].includes(x.status)).reduce((n,x)=>n+Number(x.valor_disponivel||0),0);
+    return {active,waiting,pendingShip,sales,comm,total:state.rows.length};
+  }
+  function render(){
+    const r=root(),b=brand(),k=kpis();
+    const tabs=[
+      ['overview','Visão geral'],['pipeline','Pipeline'],['partners','Parceiros'],['hunter','Hunter'],['contracts','Contratos'],
+      ['shipments','Envios'],['ugc','UGC & Conteúdos'],['performance','Performance'],['commissions','Comissões'],['rewards','Recompensas']
+    ];
+    r.innerHTML='<div class="crm-shell">'+
+      '<header class="crm-head"><div><span>SETOR · ANA</span><h1>Gestão de Creators</h1><p>'+esc(b.name)+' · parceiros, contratos, envios, conteúdo e performance em uma única operação.</p></div>'+
+      '<div class="crm-head-actions"><button class="crm-secondary" data-action="reload">Atualizar</button><button class="crm-primary" data-action="new-partner">+ Novo parceiro</button></div></header>'+
+      '<div class="crm-kpis">'+[
+        ['Parceiros',k.total],['Ativos',k.active],['Contratos pendentes',k.waiting],['Envios pendentes',k.pendingShip],['Vendas no mês',money(k.sales)],['Comissão disponível',money(k.comm)]
+      ].map(x=>'<article><span>'+x[0]+'</span><b>'+x[1]+'</b></article>').join('')+'</div>'+
+      '<nav class="crm-tabs">'+tabs.map(t=>'<button class="'+(state.tab===t[0]?'active':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>').join('')+'</nav>'+
+      '<main class="crm-body">'+view()+'</main></div>';
+  }
+  function view(){
+    if(state.tab==='pipeline')return pipelineView();
+    if(state.tab==='partners')return partnersView();
+    if(state.tab==='hunter')return hunterView();
+    if(state.tab==='contracts')return contractsView();
+    if(state.tab==='shipments')return shipmentsView();
+    if(state.tab==='ugc')return ugcView();
+    if(state.tab==='performance')return performanceView();
+    if(state.tab==='commissions')return commissionsView();
+    if(state.tab==='rewards')return rewardsView();
+    return overviewView();
+  }
+  function overviewView(){
+    const attention=[];
+    state.rows.filter(x=>['contrato_enviado','aguardando_assinatura'].includes(x.status)).forEach(x=>attention.push(['Contrato',x.partner?.nome_completo,'Aguardando assinatura',x.id]));
+    state.rows.filter(x=>x.status==='envio_pendente').forEach(x=>attention.push(['Envio',x.partner?.nome_completo,'Aguardando envio',x.id]));
+    state.deliverables.filter(x=>x.prazo&&new Date(x.prazo)<new Date()&&!['aprovado','arquivado'].includes(x.status)).forEach(x=>{const pb=state.rows.find(r=>r.id===x.partner_brand_id);attention.push(['UGC',pb?.partner?.nome_completo,x.titulo+' atrasado',x.partner_brand_id])});
+    state.rows.forEach(x=>{const p=performance(x.id);if(x.status==='ativo'&&(!p.ultima_venda_em||Date.now()-new Date(p.ultima_venda_em).getTime()>30*864e5))attention.push(['Performance',x.partner?.nome_completo,'Sem venda há 30+ dias',x.id])});
+    const top=[...state.rows].sort((a,b)=>Number(performance(b.id).vendas_mes)-Number(performance(a.id).vendas_mes)).slice(0,5);
+    return '<div class="crm-grid2"><section class="crm-card"><header><div><span>PRIORIDADES</span><h2>Precisa da sua atenção</h2></div><b>'+attention.length+'</b></header><div class="crm-list">'+
+      (attention.length?attention.slice(0,12).map(a=>'<button data-open-partner="'+a[3]+'"><i>'+esc(a[0])+'</i><span><b>'+esc(a[1]||'Parceiro')+'</b><small>'+esc(a[2])+'</small></span><em>›</em></button>').join(''):'<div class="crm-empty">Nenhuma pendência crítica agora.</div>')+
+      '</div></section><section class="crm-card"><header><div><span>PERFORMANCE</span><h2>Destaques do mês</h2></div></header><div class="crm-rank">'+
+      (top.length?top.map((x,i)=>'<button data-open-partner="'+x.id+'"><strong>'+(i+1)+'</strong><span><b>'+esc(x.partner?.nome_completo)+'</b><small>'+esc(displayType(x.tipos))+'</small></span><em>'+money(performance(x.id).vendas_mes)+'</em></button>').join(''):'<div class="crm-empty">Cadastre parceiros com cupom para acompanhar vendas.</div>')+
+      '</div></section></div>'+pipelineCompact();
+  }
+  function pipelineCompact(){
+    const max=Math.max(1,...stages.map(s=>state.rows.filter(x=>x.status===s).length));
+    return '<section class="crm-card crm-pipe-summary"><header><div><span>FUNIL</span><h2>Jornada de onboarding</h2></div><button data-tab="pipeline">Abrir pipeline</button></header><div>'+stages.map(s=>{const n=state.rows.filter(x=>x.status===s).length;return '<div class="crm-pipe-row"><span>'+label[s]+'</span><i><b style="width:'+Math.max(4,n/max*100)+'%"></b></i><strong>'+n+'</strong></div>'}).join('')+'</div></section>';
+  }
+  function pipelineView(){
+    return '<div class="crm-kanban">'+stages.map(s=>{const rows=state.rows.filter(x=>x.status===s);return '<section><header><span>'+label[s]+'</span><b>'+rows.length+'</b></header><div>'+rows.map(x=>partnerCard(x)).join('')+(rows.length?'':'<small class="crm-kanban-empty">Sem parceiros</small>')+'</div></section>'}).join('')+'</div>';
+  }
+  function partnerCard(x){const p=x.partner||{},pf=performance(x.id);return '<button class="crm-partner-card" data-open-partner="'+x.id+'"><b>'+esc(p.nome_completo)+'</b><span>'+esc(displayType(x.tipos))+(p.instagram?' · '+esc(p.instagram):'')+'</span><small>'+money(pf.vendas_mes)+' no mês'+(x.cupom?' · '+esc(x.cupom):'')+'</small></button>'}
+  function toolbar(){
+    return '<div class="crm-toolbar"><input data-filter="search" placeholder="Buscar por nome, @, e-mail, WhatsApp ou cupom" value="'+esc(state.search)+'">'+
+      '<select data-filter="type"><option value="">Todos os tipos</option><option value="creator" '+(state.type==='creator'?'selected':'')+'>Creator</option><option value="prescritor" '+(state.type==='prescritor'?'selected':'')+'>Prescritor</option><option value="ugc" '+(state.type==='ugc'?'selected':'')+'>UGC</option></select>'+
+      '<select data-filter="status"><option value="">Todos os status</option>'+Object.entries(label).map(([k,v])=>'<option value="'+k+'" '+(state.status===k?'selected':'')+'>'+v+'</option>').join('')+'</select></div>';
+  }
+  function partnersView(){
+    const rows=filtered();
+    return toolbar()+'<div class="crm-table"><div class="crm-tr crm-th"><span>Parceiro</span><span>Tipo</span><span>Status</span><span>Cupom</span><span>Vendas mês</span><span>Última venda</span><span></span></div>'+
+      rows.map(x=>{const p=x.partner||{},pf=performance(x.id);return '<button class="crm-tr" data-open-partner="'+x.id+'"><span><b>'+esc(p.nome_completo)+'</b><small>'+esc(p.instagram||p.email||p.whatsapp||'')+'</small></span><span>'+esc(displayType(x.tipos))+'</span><span><i class="crm-status s-'+x.status+'">'+label[x.status]+'</i></span><span>'+esc(x.cupom||'—')+'</span><span>'+money(pf.vendas_mes)+'</span><span>'+date(pf.ultima_venda_em)+'</span><span>›</span></button>'}).join('')+
+      (rows.length?'':'<div class="crm-empty">Nenhum parceiro encontrado.</div>')+'</div>';
+  }
+  function hunterView(){
+    const rows=state.rows.filter(x=>['novo_cadastro','em_analise','aprovado'].includes(x.status));
+    return '<section class="crm-card"><header><div><span>HUNTER</span><h2>Fila de aquisição</h2><p>Novos cadastros até aprovação e passagem para contrato.</p></div><b>'+rows.length+'</b></header><div class="crm-table simple">'+rows.map(x=>{const p=x.partner||{};return '<button class="crm-tr" data-open-partner="'+x.id+'"><span><b>'+esc(p.nome_completo)+'</b><small>'+esc(p.instagram||p.whatsapp||'')+'</small></span><span>'+esc(displayType(x.tipos))+'</span><span><i class="crm-status s-'+x.status+'">'+label[x.status]+'</i></span><span>'+esc(x.proxima_acao||'Analisar cadastro')+'</span><span>›</span></button>'}).join('')+(rows.length?'':'<div class="crm-empty">Nenhum cadastro aguardando Hunter.</div>')+'</div></section>';
+  }
+  function contractsView(){
+    return '<section class="crm-card"><header><div><span>CONTRATOS</span><h2>Central de assinaturas</h2></div><b>'+state.contracts.length+'</b></header><div class="crm-table simple">'+state.contracts.map(c=>{const x=state.rows.find(r=>r.id===c.partner_brand_id);return '<button class="crm-tr" data-open-partner="'+c.partner_brand_id+'"><span><b>'+esc(x?.partner?.nome_completo||'Parceiro')+'</b><small>Enviado '+dt(c.enviado_em)+'</small></span><span><i class="crm-status">'+esc(c.status.replaceAll('_',' '))+'</i></span><span>Assinado: '+date(c.assinado_em)+'</span><span>Fim: '+date(c.fim_em)+'</span><span>›</span></button>'}).join('')+(state.contracts.length?'':'<div class="crm-empty">Nenhum contrato cadastrado.</div>')+'</div></section>';
+  }
+  function shipmentsView(){
+    return '<section class="crm-card"><header><div><span>LOGÍSTICA</span><h2>Envios de produtos</h2></div><b>'+state.shipments.length+'</b></header><div class="crm-table simple">'+state.shipments.map(s=>{const x=state.rows.find(r=>r.id===s.partner_brand_id);return '<button class="crm-tr" data-open-partner="'+s.partner_brand_id+'"><span><b>'+esc(x?.partner?.nome_completo||'Parceiro')+'</b><small>'+esc(s.tipo)+'</small></span><span><i class="crm-status">'+esc(s.status)+'</i></span><span>'+esc(s.codigo_rastreio||'Sem rastreio')+'</span><span>'+money(s.frete)+'</span><span>›</span></button>'}).join('')+(state.shipments.length?'':'<div class="crm-empty">Nenhum envio cadastrado.</div>')+'</div></section>';
+  }
+  function ugcView(){
+    return '<div class="crm-board">'+['briefing_pendente','producao','aguardando_entrega','revisao','ajustes','aprovado'].map(st=>'<section><header><span>'+st.replaceAll('_',' ')+'</span><b>'+state.deliverables.filter(x=>x.status===st).length+'</b></header>'+state.deliverables.filter(x=>x.status===st).map(d=>{const x=state.rows.find(r=>r.id===d.partner_brand_id);return '<button data-open-partner="'+d.partner_brand_id+'"><b>'+esc(d.titulo)+'</b><span>'+esc(x?.partner?.nome_completo||'Parceiro')+'</span><small>Prazo '+date(d.prazo)+' · revisão '+d.revisoes+'/'+d.revisoes_max+'</small></button>'}).join('')+'</section>').join('')+'</div>';
+  }
+  function performanceView(){
+    const rows=[...state.rows].sort((a,b)=>Number(performance(b.id).vendas_mes)-Number(performance(a.id).vendas_mes));
+    return '<section class="crm-card"><header><div><span>COMERCIAL</span><h2>Performance por parceiro</h2></div></header><div class="crm-table performance"><div class="crm-tr crm-th"><span>Parceiro</span><span>Vendas mês</span><span>Vendas total</span><span>Pedidos</span><span>Ticket</span><span>Última venda</span><span></span></div>'+rows.map(x=>{const p=performance(x.id);return '<button class="crm-tr" data-open-partner="'+x.id+'"><span><b>'+esc(x.partner?.nome_completo)+'</b><small>'+esc(x.cupom||'Sem cupom')+'</small></span><span>'+money(p.vendas_mes)+'</span><span>'+money(p.vendas_total)+'</span><span>'+p.pedidos_total+'</span><span>'+money(p.ticket_medio)+'</span><span>'+date(p.ultima_venda_em)+'</span><span>›</span></button>'}).join('')+'</div></section>';
+  }
+  function commissionsView(){
+    const due=state.commissions.reduce((n,x)=>n+Number(x.valor_disponivel||0),0),paid=state.commissions.reduce((n,x)=>n+Number(x.valor_pago||0),0);
+    return '<div class="crm-mini-kpis"><article><span>Disponível</span><b>'+money(due)+'</b></article><article><span>Pago</span><b>'+money(paid)+'</b></article><article><span>Lançamentos</span><b>'+state.commissions.length+'</b></article></div><section class="crm-card"><div class="crm-table simple">'+state.commissions.map(c=>{const x=state.rows.find(r=>r.id===c.partner_brand_id);return '<button class="crm-tr" data-open-partner="'+c.partner_brand_id+'"><span><b>'+esc(x?.partner?.nome_completo||'Parceiro')+'</b><small>'+date(c.competencia)+'</small></span><span>'+money(c.vendas_elegiveis)+'</span><span>'+money(c.valor_disponivel)+'</span><span><i class="crm-status">'+esc(c.status)+'</i></span><span>›</span></button>'}).join('')+(state.commissions.length?'':'<div class="crm-empty">Nenhuma comissão lançada.</div>')+'</div></section>';
+  }
+  function rewardsView(){
+    return '<section class="crm-card"><header><div><span>RECOMPENSAS</span><h2>Benefícios liberados</h2></div><b>'+state.rewards.length+'</b></header><div class="crm-list">'+state.rewards.map(r=>{const x=state.rows.find(z=>z.id===r.partner_brand_id);return '<button data-open-partner="'+r.partner_brand_id+'"><i>'+esc(r.status)+'</i><span><b>'+esc(x?.partner?.nome_completo||'Parceiro')+'</b><small>Referência '+money(r.valor_referencia)+'</small></span><em>›</em></button>'}).join('')+(state.rewards.length?'':'<div class="crm-empty">Nenhuma recompensa liberada.</div>')+'</div></section>';
+  }
+  function ensureModal(){
+    let m=$('#creatorModal');if(m)return m;
+    m=document.createElement('div');m.id='creatorModal';m.className='crm-modal-backdrop';m.hidden=true;document.body.appendChild(m);m.addEventListener('click',onModalClick);return m;
+  }
+  function closeModal(){const m=$('#creatorModal');if(m){m.hidden=true;m.innerHTML='';}}
+  function openNew(){
+    const b=brand(); if(!b.id){toast('Selecione uma marca antes de cadastrar.');return}
+    const m=ensureModal();m.hidden=false;m.innerHTML='<form class="crm-modal" data-form="new-partner"><header><div><span>NOVO PARCEIRO</span><h2>Cadastrar parceiro</h2></div><button type="button" data-close>×</button></header><div class="crm-form"><label class="wide">Nome completo<input name="nome" required></label><label>Tipo<select name="tipo"><option value="creator">Creator</option><option value="prescritor">Prescritor</option><option value="ugc">UGC</option></select></label><label>Origem<input name="origem" value="Formulário"></label><label>WhatsApp<input name="whatsapp"></label><label>E-mail<input name="email" type="email"></label><label>Instagram<input name="instagram" placeholder="@perfil"></label><label>Status<select name="status"><option value="novo_cadastro">Novo cadastro</option><option value="em_analise">Em análise</option><option value="aprovado">Aprovado</option></select></label></div><footer><button type="button" class="crm-secondary" data-close>Cancelar</button><button class="crm-primary">Cadastrar</button></footer></form>';
+    m.querySelector('form').addEventListener('submit',createPartner);
+  }
+  async function createPartner(e){
+    e.preventDefault();const b=brand(),f=new FormData(e.currentTarget),btn=e.currentTarget.querySelector('.crm-primary');btn.disabled=true;
+    try{
+      const sb=await client();const {data,error}=await sb.rpc('creator_create_partner',{p_brand_id:b.id,p_nome_completo:f.get('nome'),p_whatsapp:f.get('whatsapp')||null,p_email:f.get('email')||null,p_instagram:f.get('instagram')||null,p_tipo:f.get('tipo'),p_origem:f.get('origem')||'manual',p_status:f.get('status')||'novo_cadastro'});
+      if(error)throw error;closeModal();toast('Parceiro cadastrado.');await load();if(data)openPartner(data);
+    }catch(err){toast(err.message||String(err));btn.disabled=false}
+  }
+  function openPartner(id){
+    const x=state.rows.find(r=>r.id===id);if(!x)return;state.selected=id;const p=x.partner||{},pf=performance(id),c=contract(id),s=shipment(id),m=ensureModal();m.hidden=false;
+    m.innerHTML='<div class="crm-modal crm-detail"><header><div><span>'+esc(displayType(x.tipos))+'</span><h2>'+esc(p.nome_completo)+'</h2><p>'+esc(p.instagram||p.email||p.whatsapp||'')+'</p></div><button data-close>×</button></header>'+
+      '<div class="crm-detail-kpis"><article><span>Vendas mês</span><b>'+money(pf.vendas_mes)+'</b></article><article><span>Vendas total</span><b>'+money(pf.vendas_total)+'</b></article><article><span>Pedidos</span><b>'+pf.pedidos_total+'</b></article><article><span>Ticket</span><b>'+money(pf.ticket_medio)+'</b></article></div>'+
+      '<div class="crm-detail-grid"><section><h3>Relacionamento</h3><label>Status<select data-update-status="'+id+'">'+Object.entries(label).map(([k,v])=>'<option value="'+k+'" '+(x.status===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label><p><b>Cupom</b>'+esc(x.cupom||'—')+'</p><p><b>Última venda</b>'+date(pf.ultima_venda_em)+'</p><p><b>Grupo</b>'+(x.esta_no_grupo?'Sim':'Não')+'</p><p><b>WhatsApp etiquetado</b>'+(x.whatsapp_etiquetado?'Sim':'Não')+'</p></section>'+
+      '<section><h3>Cadastro</h3><p><b>WhatsApp</b>'+esc(p.whatsapp||'—')+'</p><p><b>E-mail</b>'+esc(p.email||'—')+'</p><p><b>Instagram</b>'+esc(p.instagram||'—')+'</p><p><b>Cidade</b>'+esc(p.cidade_uf||'—')+'</p><p><b>Nicho</b>'+esc(p.nicho||'—')+'</p></section>'+
+      '<section><h3>Contrato</h3><p><b>Status</b>'+esc(c?.status||'Não criado')+'</p><p><b>Enviado</b>'+dt(c?.enviado_em)+'</p><p><b>Assinado</b>'+dt(c?.assinado_em)+'</p><p><b>Vencimento</b>'+date(c?.fim_em)+'</p></section>'+
+      '<section><h3>Último envio</h3><p><b>Status</b>'+esc(s?.status||'Sem envio')+'</p><p><b>Rastreio</b>'+esc(s?.codigo_rastreio||'—')+'</p><p><b>Frete</b>'+money(s?.frete)+'</p><p><b>Enviado</b>'+dt(s?.enviado_em)+'</p></section></div>'+
+      '<footer><button class="crm-secondary" data-action="archive" data-id="'+id+'">Arquivar parceiro</button><button class="crm-primary" data-close>Fechar</button></footer></div>';
+  }
+  async function updateStatus(id,status){
+    try{const sb=await client();const {data:{user}}=await sb.auth.getUser();const {error}=await sb.from('creator_partner_brands').update({status,atualizado_em:new Date().toISOString(),atualizado_por:user?.id||null}).eq('id',id);if(error)throw error;await sb.from('creator_history').insert({partner_brand_id:id,evento:'status_alterado',descricao:'Status alterado para '+(label[status]||status),origem:'interface',actor_id:user?.id||null});toast('Status atualizado.');closeModal();await load();openPartner(id)}catch(e){toast(e.message||String(e))}
+  }
+  async function archive(id){
+    try{const sb=await client();const {data:{user}}=await sb.auth.getUser();const now=new Date().toISOString();const {error}=await sb.from('creator_partner_brands').update({arquivado_em:now,atualizado_em:now,atualizado_por:user?.id||null}).eq('id',id);if(error)throw error;await sb.from('creator_history').insert({partner_brand_id:id,evento:'parceiro_arquivado',descricao:'Vínculo com a marca arquivado',origem:'interface',actor_id:user?.id||null});closeModal();toast('Parceiro arquivado.');await load()}catch(e){toast(e.message||String(e))}
+  }
+  function onClick(e){
+    const tab=e.target.closest('[data-tab]');if(tab){state.tab=tab.dataset.tab;render();return}
+    const p=e.target.closest('[data-open-partner]');if(p){openPartner(p.dataset.openPartner);return}
+    const a=e.target.closest('[data-action]');if(!a)return;
+    if(a.dataset.action==='new-partner')openNew();
+    if(a.dataset.action==='reload')load();
+    if(a.dataset.action==='archive')archive(a.dataset.id);
+  }
+  function onInput(e){if(e.target.dataset.filter==='search'){state.search=e.target.value; if(state.tab==='partners')$('.crm-body').innerHTML=partnersView();}}
+  function onChange(e){
+    if(e.target.dataset.filter==='status'){state.status=e.target.value; $('.crm-body').innerHTML=partnersView();}
+    if(e.target.dataset.filter==='type'){state.type=e.target.value; $('.crm-body').innerHTML=partnersView();}
+  }
+  function onModalClick(e){
+    if(e.target.matches('[data-close]')||e.target===e.currentTarget){closeModal();return}
+    const s=e.target.closest('[data-update-status]');if(s)updateStatus(s.dataset.updateStatus,s.value);
+    const a=e.target.closest('[data-action="archive"]');if(a)archive(a.dataset.id);
+  }
+
+  window.AllianceOSCreators={open,close,refresh:load};
+})();
