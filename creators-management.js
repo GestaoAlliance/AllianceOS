@@ -180,9 +180,12 @@
     return '<section class="crm-card crm-pipe-summary"><header><div><span>FUNIL</span><h2>Jornada de onboarding</h2></div><button data-tab="pipeline">Abrir pipeline</button></header><div>'+stages.map(s=>{const n=state.rows.filter(x=>x.status===s).length;return '<div class="crm-pipe-row"><span>'+label[s]+'</span><i><b style="width:'+Math.max(4,n/max*100)+'%"></b></i><strong>'+n+'</strong></div>'}).join('')+'</div></section>';
   }
   function pipelineView(){
-    return '<div class="crm-kanban">'+stages.map(s=>{const rows=state.rows.filter(x=>x.status===s);return '<section><header><span>'+label[s]+'</span><b>'+rows.length+'</b></header><div>'+rows.map(x=>partnerCard(x)).join('')+(rows.length?'':'<small class="crm-kanban-empty">Sem parceiros</small>')+'</div></section>'}).join('')+'</div>';
+    return '<div class="crm-kanban">'+stages.map(s=>{const rows=state.rows.filter(x=>x.status===s);return '<section class="crm-kanban-stage" data-drop-status="'+s+'"><header><span>'+label[s]+'</span><b>'+rows.length+'</b></header><div>'+rows.map(x=>partnerCard(x)).join('')+(rows.length?'':'<small class="crm-kanban-empty">Sem parceiros</small>')+'</div></section>'}).join('')+'</div>';
   }
-  function partnerCard(x){const p=x.partner||{},pf=performance(x.id);return '<button class="crm-partner-card" draggable="true" data-drag-partner="'+x.id+'" data-open-partner="'+x.id+'"><b>'+esc(p.nome_completo)+'</b><span>'+esc(displayType(x.tipos))+(p.instagram?' · '+esc(p.instagram):'')+'</span><small>'+money(pf.vendas_mes)+' no mês'+(x.cupom?' · '+esc(x.cupom):'')+'</small></button>'}
+  function partnerCard(x){
+    const p=x.partner||{},pf=performance(x.id);
+    return '<div class="crm-partner-card" role="button" tabindex="0" draggable="true" data-drag-partner="'+x.id+'" data-open-partner="'+x.id+'"><b>'+esc(p.nome_completo)+'</b><span>'+esc(displayType(x.tipos))+(p.instagram?' · '+esc(p.instagram):'')+'</span><small>'+money(pf.vendas_mes)+' no mês'+(x.cupom?' · '+esc(x.cupom):'')+'</small></div>';
+  }
   function toolbar(){
     return '<div class="crm-toolbar"><input data-filter="search" placeholder="Buscar por nome, @, e-mail, WhatsApp ou cupom" value="'+esc(state.search)+'">'+
       '<select data-filter="type"><option value="">Todos os tipos</option><option value="creator" '+(state.type==='creator'?'selected':'')+'>Creator</option><option value="prescritor" '+(state.type==='prescritor'?'selected':'')+'>Prescritor</option><option value="ugc" '+(state.type==='ugc'?'selected':'')+'>UGC</option><option value="outro" '+(state.type==='outro'?'selected':'')+'>Outro</option></select>'+
@@ -245,27 +248,49 @@
       '<section><h3>Último envio</h3><p><b>Status</b>'+esc(s?.status||'Sem envio')+'</p><p><b>Rastreio</b>'+esc(s?.codigo_rastreio||'—')+'</p><p><b>Frete</b>'+money(s?.frete)+'</p><p><b>Enviado</b>'+dt(s?.enviado_em)+'</p></section></div>'+
       '<footer><button class="crm-secondary" data-action="archive" data-id="'+id+'">Arquivar parceiro</button>'+(x.status==='aprovado'?'<button class="crm-secondary" data-action="generate-contract" data-id="'+id+'" data-force="'+(c?.documento_url?'1':'0')+'">'+(c?.documento_url?'Gerar nova versão':'Gerar contrato')+'</button>':'')+'<button class="crm-primary" data-close>Fechar</button></footer></div>';
   }
-  async function updateStatus(id,status,{reopen=true}={}){
-    if(!id||!status)return;
+  async function updateStatus(id,status,{reopen=true,optimistic=false}={}){
+    if(!id||!status)return false;
+    const current=state.rows.find(r=>r.id===id),oldStatus=current?.status;
+    if(oldStatus===status){if(reopen)openPartner(id);return true}
+    if(optimistic&&current){
+      current.status=status;
+      if(state.tab==='pipeline')render();
+    }
     try{
-      const current=state.rows.find(r=>r.id===id);
-      if(current?.status===status){if(reopen)openPartner(id);return}
-      const sb=await client();const {data:{user}}=await sb.auth.getUser();
-      const {error}=await sb.from('creator_partner_brands').update({status,atualizado_em:new Date().toISOString(),atualizado_por:user?.id||null}).eq('id',id);if(error)throw error;
-      await sb.from('creator_history').insert({partner_brand_id:id,evento:'status_alterado',descricao:'Status alterado para '+(label[status]||status),origem:'interface',actor_id:user?.id||null});
+      const sb=await client();
+      const {data,error}=await sb.rpc('creator_move_partner',{
+        p_partner_brand_id:id,
+        p_status:status,
+        p_origin:'interface'
+      });
+      if(error)throw error;
+      if(!data?.ok)throw new Error('O AllianceOS não confirmou a movimentação.');
       if(status==='aprovado'){
         toast('Aprovado. Gerando contrato…');
         try{await generateContract(id,{silent:true})}catch(err){toast('Aprovado, mas o contrato precisa de atenção: '+(err.message||err))}
-      }else toast('Status atualizado.');
-      closeModal();await load();if(reopen)openPartner(id)
-    }catch(e){toast(e.message||String(e))}
+      }else{
+        toast('Movido para '+(label[status]||status)+'.');
+      }
+      closeModal();
+      await load();
+      if(reopen)openPartner(id);
+      return true;
+    }catch(e){
+      if(optimistic&&current){
+        current.status=oldStatus;
+        if(state.tab==='pipeline')render();
+      }
+      toast('Não foi possível mover: '+(e.message||String(e)));
+      return false;
+    }
   }
   async function archive(id){
     try{const sb=await client();const {data:{user}}=await sb.auth.getUser();const now=new Date().toISOString();const {error}=await sb.from('creator_partner_brands').update({arquivado_em:now,atualizado_em:now,atualizado_por:user?.id||null}).eq('id',id);if(error)throw error;await sb.from('creator_history').insert({partner_brand_id:id,evento:'parceiro_arquivado',descricao:'Vínculo com a marca arquivado',origem:'interface',actor_id:user?.id||null});closeModal();toast('Parceiro arquivado.');await load()}catch(e){toast(e.message||String(e))}
   }
+  let suppressCardClickUntil=0;
   function onClick(e){
     const tab=e.target.closest('[data-tab]');if(tab){state.tab=tab.dataset.tab;render();return}
-    const p=e.target.closest('[data-open-partner]');if(p){openPartner(p.dataset.openPartner);return}
+    const p=e.target.closest('[data-open-partner]');if(p){if(Date.now()<suppressCardClickUntil)return;openPartner(p.dataset.openPartner);return}
     const a=e.target.closest('[data-action]');if(!a)return;
     if(a.dataset.action==='new-partner')openNew();
     if(a.dataset.action==='form-link')copyFormLink();
@@ -300,18 +325,22 @@
     const card=e.target.closest('[data-drag-partner]');if(!card)return;
     draggingId=card.dataset.dragPartner;
     card.classList.add('dragging');
-    try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',draggingId)}catch{}
+    try{
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',draggingId);
+    }catch{}
   }
   function onDragEnd(e){
     e.target.closest('[data-drag-partner]')?.classList.remove('dragging');
-    $('.crm-kanban-stage.drag-over').forEach(x=>x.classList.remove('drag-over'));
+    $$('.crm-kanban-stage.drag-over').forEach(x=>x.classList.remove('drag-over'));
+    suppressCardClickUntil=Date.now()+300;
     draggingId=null;
   }
   function onDragOver(e){
     const stage=e.target.closest('[data-drop-status]');if(!stage||!draggingId)return;
     e.preventDefault();
     try{e.dataTransfer.dropEffect='move'}catch{}
-    $('.crm-kanban-stage.drag-over').forEach(x=>{if(x!==stage)x.classList.remove('drag-over')});
+    $$('.crm-kanban-stage.drag-over').forEach(x=>{if(x!==stage)x.classList.remove('drag-over')});
     stage.classList.add('drag-over');
   }
   function onDragLeave(e){
@@ -321,14 +350,16 @@
   }
   function onDrop(e){
     const stage=e.target.closest('[data-drop-status]');if(!stage)return;
-    e.preventDefault();stage.classList.remove('drag-over');
+    e.preventDefault();
+    stage.classList.remove('drag-over');
     const id=draggingId||(()=>{try{return e.dataTransfer.getData('text/plain')}catch{return null}})();
     draggingId=null;
+    suppressCardClickUntil=Date.now()+300;
     if(!id)return;
     const status=stage.dataset.dropStatus,current=state.rows.find(r=>r.id===id);
     if(!status||current?.status===status)return;
     toast('Movendo para '+(label[status]||status)+'…');
-    updateStatus(id,status,{reopen:false});
+    updateStatus(id,status,{reopen:false,optimistic:true});
   }
 
   window.AllianceOSCreators={open,close,refresh:load};
