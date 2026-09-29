@@ -403,7 +403,7 @@ async function autentiqueUpload(query,variables,pdfBuffer,filename){
 }
 async function autentiqueDocument(id){
   const safe=JSON.stringify(String(id));
-  const data=await autentiqueJson('query { document(id: '+safe+') { id name created_at files { original signed pades } signatures { public_id name email link { short_link } viewed { created_at } signed { created_at } rejected { created_at } } } }');
+  const data=await autentiqueJson('query { document(id: '+safe+') { id name created_at files { original signed pades } signatures { public_id name email delivery_method link { short_link } viewed { created_at } signed { created_at } rejected { created_at } } } }');
   return data.document;
 }
 async function sendContractAutentique(session,contractId){
@@ -422,9 +422,11 @@ async function sendContractAutentique(session,contractId){
   if(String(me.email).toLowerCase()!==String(partner.email).toLowerCase()){
     signers.push({name:me.name||'Alliance',email:me.email,delivery_method:'DELIVERY_METHOD_LINK',action:'SIGN'});
   }
-  signers.push({name:partner.nome_completo||partner.email,email:partner.email,delivery_method:'DELIVERY_METHOD_LINK',action:'SIGN'});
+  // For e-mail signers, Autentique sends the signature request automatically.
+  // Do not use DELIVERY_METHOD_LINK here: that mode only generates a link and does not send it.
+  signers.push({name:partner.nome_completo||partner.email,email:partner.email,action:'SIGN'});
 
-  const mutation='mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { createDocument(document:$document, signers:$signers, file:$file) { id name created_at signatures { public_id name email link { short_link } user { id name email } } } }';
+  const mutation='mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { createDocument(document:$document, signers:$signers, file:$file) { id name created_at signatures { public_id name email delivery_method link { short_link } user { id name email } } } }';
   const created=(await autentiqueUpload(mutation,{document:{name:'Contrato - '+(partner.nome_completo||'Parceiro'),sortable:true,refusable:true,locale:{country:'BR',language:'pt-BR',timezone:'America/Sao_Paulo'}},signers},pdfBuffer,'contrato-'+String(partner.nome_completo||'parceiro').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf')).createDocument;
   if(!created?.id)throw Error('A Autentique não retornou o ID do documento.');
 
@@ -444,10 +446,10 @@ async function sendContractAutentique(session,contractId){
   }
   if(!signatureUrl)throw Error('Não foi possível gerar o link de assinatura.');
 
-  const now=new Date().toISOString(),metadata={...(contract.metadata||{}),autentique:{...(contract.metadata?.autentique||{}),document_id:created.id,partner_signature_public_id:partnerSignature.public_id,signature_url:signatureUrl,owner_email:me.email,organization_id:me.organization?.id||null,organization_name:me.organization?.name||null,sent_at:now}};
+  const now=new Date().toISOString(),metadata={...(contract.metadata||{}),autentique:{...(contract.metadata?.autentique||{}),document_id:created.id,partner_signature_public_id:partnerSignature.public_id,signature_url:signatureUrl,delivery_method:partnerSignature.delivery_method||'DELIVERY_METHOD_EMAIL',delivery_email:partner.email,email_dispatched_by_autentique:true,owner_email:me.email,organization_id:me.organization?.id||null,organization_name:me.organization?.name||null,sent_at:now}};
   const updated=(await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contract.id),{method:'PATCH',prefer:'return=representation',body:{provider:'autentique',provider_document_id:created.id,status:'aguardando_assinatura',enviado_em:now,metadata,atualizado_em:now,atualizado_por:session.user.id}}))?.[0];
   await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(contract.partner_brand_id),{method:'PATCH',prefer:'return=minimal',body:{status:'aguardando_assinatura',proxima_acao:'Cobrar assinatura do contrato',proxima_acao_em:new Date(Date.now()+24*3600e3).toISOString(),atualizado_em:now,atualizado_por:session.user.id}});
-  await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:contract.partner_brand_id,evento:'contrato_enviado_autentique',descricao:'Contrato PDF enviado para a Autentique e link de assinatura gerado.',origem:'automacao',actor_id:session.user.id,dados:{contract_id:contract.id,autentique_document_id:created.id}}});
+  await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:contract.partner_brand_id,evento:'contrato_enviado_autentique',descricao:'Contrato PDF enviado para a Autentique. A solicitação de assinatura foi enviada por e-mail ao parceiro; o link foi mantido como backup interno.',origem:'automacao',actor_id:session.user.id,dados:{contract_id:contract.id,autentique_document_id:created.id}}});
   return{contract:updated||{...contract,provider_document_id:created.id,status:'aguardando_assinatura',enviado_em:now,metadata},signature_url:signatureUrl,created:true};
 }
 async function refreshContractAutentique(session,contractId){
