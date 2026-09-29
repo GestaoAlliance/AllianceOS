@@ -43,6 +43,10 @@
     {
       "source": "/cadastro",
       "destination": "/"
+    },
+    {
+      "source": "/parceiros/cadastro",
+      "destination": "/parceiros/cadastro.html"
     }
   ],
   "headers": [
@@ -86,6 +90,15 @@
         {
           "key": "Cache-Control",
           "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/parceiros/cadastro",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
         }
       ]
     }
