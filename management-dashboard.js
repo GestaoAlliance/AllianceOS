@@ -19,13 +19,9 @@ const parseDate=value=>{if(!value)return null;const s=String(value);if(/^\d{4}-\
 const dateLabel=v=>{const d=parseDate(v);return d?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(d).replace('.',''):'—'};
 const validMonthRef=v=>/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(v||''));
 const monthRef=()=>{
-  const api=window.AllianceOSMapSync?.month?.();
-  if(validMonthRef(api))return String(api);
-  const live=String(window.AlliancePlanningMonthRef||'');
-  if(validMonthRef(live))return live;
-  let saved='';
-  try{saved=sessionStorage.getItem('allianceos.planning.monthRef')||localStorage.getItem('allianceos.planning.monthRef')||''}catch{}
-  if(validMonthRef(saved))return saved;
+  // A Home gerencial representa sempre o mês corrente.
+  // O mês aberto no planejamento/mapa é contexto de edição e não deve
+  // contaminar os KPIs da Home.
   const d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 };
@@ -125,8 +121,10 @@ function activeGoal(month,campaigns,realizedValue){
       };
     }
   }
-  const fallback=campaigns.reduce((s,c)=>s+Number(c?.goal||c?.meta||c?.meta_faturamento||0),0);
-  return {value:fallback,level:null,label:'Meta da marca',previous:null,all:[],topBeaten:false};
+  // Meta da marca vem exclusivamente do planejamento mensal.
+  // Nunca somar metas de campanhas como fallback: campanhas são táticas,
+  // não a meta consolidada mensal da marca.
+  return {value:0,level:null,label:'Meta do mês',previous:null,all:[],topBeaten:false};
 }
 function goalTone(progress){
   if(progress>=100)return'success';
@@ -375,7 +373,6 @@ function nav(key){
 }
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-mg-nav]');if(b){e.preventDefault();nav(b.dataset.mgNav)}});
 document.addEventListener('change',e=>{if(e.target?.id==='brandSelect')setTimeout(render,20)});
-addEventListener('allianceos:planning-month-change',()=>setTimeout(render,20));
 document.addEventListener('click',e=>{if(e.target.closest?.('[data-key="home"],#homeNav'))setTimeout(render,50)});
 addEventListener('allianceos:auth',()=>setTimeout(render,30));
 addEventListener('allianceos:state-ready',()=>setTimeout(render,30));
