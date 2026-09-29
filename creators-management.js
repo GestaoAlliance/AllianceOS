@@ -51,11 +51,15 @@
       setTimeout(()=>URL.revokeObjectURL(url),120000);
     }catch(e){if(w)w.close();throw e}
   }
-  async function sendContractAutentique(contractId){
-    const token=await sessionToken();toast('Enviando PDF para a Autentique…');
-    const r=await fetch('/api/drive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'send_creator_contract_autentique',contract_id:contractId})});
+  async function sendContractAutentique(contractId,{forceEmail=false}={}){
+    const token=await sessionToken();toast(forceEmail?'Reenviando solicitação por e-mail…':'Enviando PDF para a Autentique…');
+    const r=await fetch('/api/drive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'send_creator_contract_autentique',contract_id:contractId,force_email:forceEmail})});
     const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.erro||'Não foi possível enviar o contrato para a Autentique.');
-    if(j.signature_url){try{await navigator.clipboard.writeText(j.signature_url);toast('Contrato criado na Autentique. Link de assinatura copiado.')}catch{toast('Contrato criado na Autentique.')}}else toast('Contrato criado na Autentique.');
+    if(j.email_dispatched||j.contract?.metadata?.autentique?.email_dispatched_by_autentique){
+      toast('Solicitação enviada por e-mail pela Autentique.');
+    }else{
+      toast('Contrato criado na Autentique.');
+    }
     return j;
   }
   async function refreshContractAutentique(contractId){
@@ -269,10 +273,12 @@
       '<div class="crm-detail-grid"><section><h3>Relacionamento</h3><label>Status<select data-update-status="'+id+'">'+Object.entries(label).map(([k,v])=>'<option value="'+k+'" '+(x.status===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label><p><b>Cupom</b>'+esc(x.cupom||'—')+'</p><p><b>Última venda</b>'+date(pf.ultima_venda_em)+'</p><p><b>Grupo</b>'+(x.esta_no_grupo?'Sim':'Não')+'</p><p><b>WhatsApp etiquetado</b>'+(x.whatsapp_etiquetado?'Sim':'Não')+'</p></section>'+
       '<section><h3>Cadastro</h3><p><b>WhatsApp</b>'+esc(p.whatsapp||'—')+'</p><p><b>E-mail</b>'+esc(p.email||'—')+'</p><p><b>Instagram</b>'+esc(p.instagram||'—')+'</p><p><b>Cidade</b>'+esc(p.cidade_uf||'—')+'</p><p><b>Nicho</b>'+esc(p.nicho||'—')+'</p></section>'+
       '<section><h3>Contrato</h3><p><b>Status</b>'+esc(c?.status==='assinado'?'Assinado':c?.provider_document_id?'Aguardando assinatura':c?.documento_url?'PDF gerado':(c?.status||'Não criado'))+'</p><p><b>Modelo</b>'+esc(c?.metadata?.template_name||'—')+'</p><p><b>Formato</b>'+(c?.metadata?.storage_path_pdf?'PDF final':'—')+'</p><p><b>Gerado</b>'+dt(c?.metadata?.generated_at)+'</p><p><b>Vencimento</b>'+date(c?.fim_em)+'</p>'+
+      (c?.provider_document_id?'<p><b>Envio</b>'+(c?.metadata?.autentique?.email_dispatched_by_autentique?'E-mail automático · '+esc(c?.metadata?.autentique?.delivery_email||p.email||''):'Link manual (legado)')+'</p>':'')+
       (c?.documento_url?'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px"><button type="button" class="crm-secondary" data-action="view-contract" data-contract-id="'+esc(c.id)+'">Abrir PDF</button>'+
-        (!c?.provider_document_id?'<button type="button" class="crm-primary" data-action="send-autentique" data-contract-id="'+esc(c.id)+'">Enviar para Autentique</button>':'')+
+        (!c?.provider_document_id?'<button type="button" class="crm-primary" data-action="send-autentique" data-contract-id="'+esc(c.id)+'">Enviar por e-mail</button>':'')+
+        (c?.provider_document_id&&!c?.metadata?.autentique?.email_dispatched_by_autentique?'<button type="button" class="crm-primary" data-action="resend-autentique-email" data-contract-id="'+esc(c.id)+'">Reenviar por e-mail</button>':'')+
         (c?.provider_document_id?'<button type="button" class="crm-secondary" data-action="refresh-autentique" data-contract-id="'+esc(c.id)+'">Atualizar assinatura</button>':'')+
-        (c?.metadata?.autentique?.signature_url?'<button type="button" class="crm-secondary" data-action="copy-signature-link" data-url="'+esc(c.metadata.autentique.signature_url)+'">Copiar link</button>':'')+
+        (c?.metadata?.autentique?.signature_url?'<button type="button" class="crm-secondary" data-action="copy-signature-link" data-url="'+esc(c.metadata.autentique.signature_url)+'">Copiar link backup</button>':'')+
         (c?.metadata?.autentique?.signed_file_url?'<a class="crm-secondary" href="'+esc(c.metadata.autentique.signed_file_url)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">PDF assinado ↗</a>':'')+
       '</div>':'')+'</section>'+
       '<section><h3>Último envio</h3><p><b>Status</b>'+esc(s?.status||'Sem envio')+'</p><p><b>Rastreio</b>'+esc(s?.codigo_rastreio||'—')+'</p><p><b>Frete</b>'+money(s?.frete)+'</p><p><b>Enviado</b>'+dt(s?.enviado_em)+'</p></section></div>'+
@@ -332,6 +338,7 @@
     }
     if(a.dataset.action==='view-contract')viewContract(a.dataset.contractId).catch(e=>toast(e.message||String(e)));
     if(a.dataset.action==='send-autentique')sendContractAutentique(a.dataset.contractId).then(async()=>{await load();if(state.selected)openPartner(state.selected)}).catch(e=>toast(e.message||String(e)));
+    if(a.dataset.action==='resend-autentique-email')sendContractAutentique(a.dataset.contractId,{forceEmail:true}).then(async()=>{await load();if(state.selected)openPartner(state.selected)}).catch(e=>toast(e.message||String(e)));
     if(a.dataset.action==='refresh-autentique')refreshContractAutentique(a.dataset.contractId).then(async()=>{await load();if(state.selected)openPartner(state.selected)}).catch(e=>toast(e.message||String(e)));
     if(a.dataset.action==='copy-signature-link')copySignatureLink(a.dataset.url).catch(e=>toast(e.message||String(e)));
   }
@@ -346,6 +353,7 @@
     const g=e.target.closest('[data-action="generate-contract"]');if(g){const id=g.dataset.id,force=g.dataset.force==='1';generateContract(id,{force}).then(async()=>{closeModal();await load();openPartner(id)}).catch(e=>toast(e.message||String(e)))}
     const v=e.target.closest('[data-action="view-contract"]');if(v)viewContract(v.dataset.contractId).catch(e=>toast(e.message||String(e)))
     const au=e.target.closest('[data-action="send-autentique"]');if(au)sendContractAutentique(au.dataset.contractId).then(async()=>{const id=state.selected;closeModal();await load();if(id)openPartner(id)}).catch(e=>toast(e.message||String(e)))
+    const re=e.target.closest('[data-action="resend-autentique-email"]');if(re)sendContractAutentique(re.dataset.contractId,{forceEmail:true}).then(async()=>{const id=state.selected;closeModal();await load();if(id)openPartner(id)}).catch(e=>toast(e.message||String(e)))
     const rf=e.target.closest('[data-action="refresh-autentique"]');if(rf)refreshContractAutentique(rf.dataset.contractId).then(async()=>{const id=state.selected;closeModal();await load();if(id)openPartner(id)}).catch(e=>toast(e.message||String(e)))
     const cp=e.target.closest('[data-action="copy-signature-link"]');if(cp)copySignatureLink(cp.dataset.url).catch(e=>toast(e.message||String(e)))
   }
