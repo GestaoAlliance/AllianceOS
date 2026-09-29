@@ -140,7 +140,7 @@ function goalCard(goal,realizedValue){
   const tone=goalTone(progress||0);
   let note='Defina as metas do mês no planejamento';
   if(value>0&&goal?.topBeaten){
-    note='Meta 03 batida · '+pct(progress)+' do maior alvo';
+    note=goal.label+' batida · '+pct(progress)+' do maior alvo';
   }else if(value>0&&goal?.previous){
     note='Meta '+String(goal.previous.level).padStart(2,'0')+' batida · agora mirando '+goal.label;
   }else if(value>0){
