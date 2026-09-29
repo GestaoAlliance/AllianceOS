@@ -62,14 +62,24 @@ async function loadRemote(brand){
   const monthQ=client.from('planning_months').select('id,brand_id,ano,mes,meta1,meta2,meta3,meta_ativa,ticket_medio_previsto').eq('brand_id',bo.id).eq('ano',d.getFullYear()).eq('mes',d.getMonth()+1).is('arquivado_em',null).maybeSingle();
   const resultQ=client.from('campaign_results').select('campaign_id,brand_id,data,faturamento,investimento,canal,fonte_receita').eq('brand_id',bo.id).gte('data',start).lte('data',end).is('arquivado_em',null);
   const profileQ=client.from('profiles').select('id,nome,foto_url,cargo,area_id,ativo').eq('ativo',true);
-  const shopifyQ=client.from('integration_sources').select('status,last_sync_at,last_success_at,last_error,meta').eq('brand_id',bo.id).eq('source','shopify').maybeSingle();
+  const shopifyRpcQ=client.rpc('get_management_shopify_snapshot',{p_brand_id:bo.id});
   const ordersQ=client.from('shopify_orders').select('total,refunded_amount,criado_em,financial_status').eq('brand_id',bo.id).gte('criado_em',start).lte('criado_em',end);
-  const [m,r,p,s,o]=await Promise.all([monthQ,resultQ,profileQ,shopifyQ,ordersQ]);
+  const [m,r,p,s,o]=await Promise.all([monthQ,resultQ,profileQ,shopifyRpcQ,ordersQ]);
+  const rpcShopify=!s.error&&s.data?{
+    status:s.data.status||null,
+    last_sync_at:s.data.last_sync_at||null,
+    last_success_at:s.data.last_success_at||null,
+    meta:{
+      connector_verified:!!s.data.connected,
+      sales_snapshot:s.data.snapshot||null
+    }
+  }:null;
+  if(s.error)console.warn('[AllianceOS Gestão] Shopify RPC indisponível',s.error);
   return {
     month:m.error?null:m.data,
     results:r.error?[]:(r.data||[]),
     profiles:p.error?[]:(p.data||[]),
-    shopify:s.error?null:s.data,
+    shopify:rpcShopify,
     shopifyOrders:o.error?[]:(o.data||[])
   };
 }
