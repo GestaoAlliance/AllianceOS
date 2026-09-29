@@ -45,6 +45,7 @@ const TRAFFIC_CREATIVE_LAB_JS = path.join(__dirname, 'traffic-creative-lab.js');
 const ORGANIZATION_CENTER_JS = path.join(__dirname, 'organization-center.js');
 const CREATORS_MANAGEMENT_JS = path.join(__dirname, 'creators-management.js');
 const CREATORS_MANAGEMENT_CSS = path.join(__dirname, 'creators-management.css');
+const CREATOR_PUBLIC_FORM_HTML = path.join(__dirname, 'creator-public-form.html');
 const TRAFFIC_CREATIVE_LAB_CSS = path.join(__dirname, 'traffic-creative-lab.css');
 const SOCIAL_PREVIEW_IMAGE = path.join(__dirname, 'assets', 'allianceos-whatsapp-preview-v6.jpg');
 const SB_URL_OLD = 'https://sjkuysdmixfzeerxuudn.supabase.co';
@@ -965,6 +966,8 @@ async function main() {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   fs.writeFileSync(path.join(out, 'index.html'), html);
+  fs.mkdirSync(path.join(out, 'parceiros'), { recursive: true });
+  fs.copyFileSync(CREATOR_PUBLIC_FORM_HTML, path.join(out, 'parceiros', 'cadastro.html'));
   fs.copyFileSync(SOCIAL_PREVIEW_IMAGE, path.join(out, 'allianceos-whatsapp-preview-v6.jpg'));
   const appleTouchIcon = Buffer.from(APPLE_TOUCH_ICON_B64, 'base64');
   fs.writeFileSync(path.join(out, 'apple-touch-icon.png'), appleTouchIcon);
