@@ -406,9 +406,11 @@ async function autentiqueDocument(id){
   const data=await autentiqueJson('query { document(id: '+safe+') { id name created_at files { original signed pades } signatures { public_id name email delivery_method link { short_link } viewed { created_at } signed { created_at } rejected { created_at } } } }');
   return data.document;
 }
-async function sendContractAutentique(session,contractId){
+async function sendContractAutentique(session,contractId,forceEmail=false){
   const {contract,pdfBuffer}=await contractPdfBuffer(session,contractId);
-  if(contract.provider_document_id&&contract.metadata?.autentique?.signature_url)return{contract,reused:true,signature_url:contract.metadata.autentique.signature_url};
+  const previousDelivery=String(contract.metadata?.autentique?.delivery_method||'');
+  const alreadyEmail=previousDelivery==='DELIVERY_METHOD_EMAIL'||contract.metadata?.autentique?.email_dispatched_by_autentique===true;
+  if(contract.provider_document_id&&alreadyEmail&&!forceEmail)return{contract,reused:true,signature_url:contract.metadata?.autentique?.signature_url||null,email_dispatched:true};
 
   const links=await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(contract.partner_brand_id)+'&arquivado_em=is.null&select=*,partner:creator_partners(*)&limit=1');
   const link=links?.[0],partner=link?.partner||{};
@@ -446,7 +448,7 @@ async function sendContractAutentique(session,contractId){
   }
   if(!signatureUrl)throw Error('Não foi possível gerar o link de assinatura.');
 
-  const now=new Date().toISOString(),metadata={...(contract.metadata||{}),autentique:{...(contract.metadata?.autentique||{}),document_id:created.id,partner_signature_public_id:partnerSignature.public_id,signature_url:signatureUrl,delivery_method:partnerSignature.delivery_method||'DELIVERY_METHOD_EMAIL',delivery_email:partner.email,email_dispatched_by_autentique:true,owner_email:me.email,organization_id:me.organization?.id||null,organization_name:me.organization?.name||null,sent_at:now}};
+  const now=new Date().toISOString(),metadata={...(contract.metadata||{}),autentique:{...(contract.metadata?.autentique||{}),previous_document_id:contract.provider_document_id||contract.metadata?.autentique?.document_id||null,document_id:created.id,partner_signature_public_id:partnerSignature.public_id,signature_url:signatureUrl,delivery_method:partnerSignature.delivery_method||'DELIVERY_METHOD_EMAIL',delivery_email:partner.email,email_dispatched_by_autentique:true,owner_email:me.email,organization_id:me.organization?.id||null,organization_name:me.organization?.name||null,sent_at:now}};
   const updated=(await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contract.id),{method:'PATCH',prefer:'return=representation',body:{provider:'autentique',provider_document_id:created.id,status:'aguardando_assinatura',enviado_em:now,metadata,atualizado_em:now,atualizado_por:session.user.id}}))?.[0];
   await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(contract.partner_brand_id),{method:'PATCH',prefer:'return=minimal',body:{status:'aguardando_assinatura',proxima_acao:'Cobrar assinatura do contrato',proxima_acao_em:new Date(Date.now()+24*3600e3).toISOString(),atualizado_em:now,atualizado_por:session.user.id}});
   await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:contract.partner_brand_id,evento:'contrato_enviado_autentique',descricao:'Contrato PDF enviado para a Autentique. A solicitação de assinatura foi enviada por e-mail ao parceiro; o link foi mantido como backup interno.',origem:'automacao',actor_id:session.user.id,dados:{contract_id:contract.id,autentique_document_id:created.id}}});
@@ -495,7 +497,7 @@ export default async function handler(req,res){try{
     const filename=String(contract?.metadata?.template_name||'contrato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf';
     res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition','inline; filename="'+filename+'"');return res.status(200).send(buffer);
   }
-  if(req.method==='POST'&&body.action==='send_creator_contract_autentique'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,...await sendContractAutentique(session,id)})}
+  if(req.method==='POST'&&body.action==='send_creator_contract_autentique'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,...await sendContractAutentique(session,id,body.force_email===true)})}
   if(req.method==='POST'&&body.action==='refresh_creator_contract_autentique'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,...await refreshContractAutentique(session,id)})}
   if(req.method==='POST'){const nome=String(body.marca||'Botanika'),raw=String(body.drive_pasta||body.pasta||'').trim(),limpo=raw.replace(/^https?:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//,'').split(/[?#]/)[0].trim();if(!/^[A-Za-z0-9_-]{10,}$/.test(limpo))return send(res,400,{erro:'esse id não parece um id de pasta do Drive'});await salvarPasta(nome,limpo);return send(res,200,{ok:true,ligado:true,marca:nome,raiz:limpo,pasta:limpo})}
   if(req.method!=='GET')return send(res,405,{erro:'método não permitido'});
