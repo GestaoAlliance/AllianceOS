@@ -257,8 +257,13 @@ async function downloadPrivateContract(session,path){
 }
 async function uploadPrivateContract(session,path,buffer,mime='application/pdf'){
   const conf=await cfg(),url=conf.url+'/storage/v1/object/creator-contracts/'+encodePath(path);
-  const r=await fetch(url,{method:'POST',headers:{apikey:conf.anon,Authorization:session.authorization,'Content-Type':mime,'x-upsert':'false'},body:buffer});
-  const txt=await r.text();if(!r.ok)throw Object.assign(Error('Falha ao salvar contrato: '+txt.slice(0,220)),{status:r.status});
+  const sendWith=type=>fetch(url,{method:'POST',headers:{apikey:conf.anon,Authorization:session.authorization,'Content-Type':type,'x-upsert':'false'},body:buffer});
+  let r=await sendWith(mime),txt=await r.text();
+  if(!r.ok&&mime==='application/pdf'&&/mime|type|not allowed|invalid/i.test(txt||'')){
+    r=await sendWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    txt=await r.text();
+  }
+  if(!r.ok)throw Object.assign(Error('Falha ao salvar contrato: '+String(txt||'').slice(0,220)),{status:r.status});
   return path;
 }
 async function signPrivateContract(session,path,expiresIn=3600){
@@ -307,19 +312,132 @@ async function contractUrl(session,contractId){
   return signPrivateContract(session,path,3600);
 }
 
+async function contractPdfBuffer(session,contractId){
+  let rows=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contractId)+'&arquivado_em=is.null&select=id,partner_brand_id,metadata&limit=1');
+  let contract=rows?.[0];if(!contract)throw Object.assign(Error('Contrato não encontrado.'),{status:404});
+  if(!contract.metadata?.storage_path_pdf){
+    const generated=await gerarContratoCreator(session,contract.partner_brand_id,true);
+    contract=generated.contract;
+  }
+  const path=contract?.metadata?.storage_path_pdf||contract?.metadata?.storage_path;
+  if(!path)throw Object.assign(Error('PDF do contrato não encontrado.'),{status:404});
+  return {contract,path,buffer:await downloadPrivateContract(session,path)};
+}
+function autentiqueToken(){
+  const token=String(process.env.AUTENTIQUE_API_TOKEN||'').trim();
+  if(!token)throw Object.assign(Error('A integração com a Autentique ainda não foi ativada no servidor.'),{status:503,code:'AUTENTIQUE_NOT_CONFIGURED'});
+  return token;
+}
+async function autentiqueJson(query,variables={}){
+  const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+autentiqueToken(),'Content-Type':'application/json'},body:JSON.stringify({query,variables})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.errors?.length)throw Object.assign(Error(j.errors?.map(x=>x.message).join(' · ')||('Autentique HTTP '+r.status)),{status:r.status||502});
+  return j.data||{};
+}
+async function autentiqueUpload(query,variables,pdfBuffer,filename){
+  const form=new FormData();
+  form.append('operations',JSON.stringify({query,variables:{...variables,file:null}}));
+  form.append('map',JSON.stringify({file:['variables.file']}));
+  form.append('file',new Blob([pdfBuffer],{type:'application/pdf'}),filename);
+  const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+autentiqueToken()},body:form});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.errors?.length)throw Object.assign(Error(j.errors?.map(x=>x.message).join(' · ')||('Autentique HTTP '+r.status)),{status:r.status||502});
+  return j.data||{};
+}
+async function autentiqueDocument(id){
+  const safe=JSON.stringify(String(id));
+  const data=await autentiqueJson('query { document(id: '+safe+') { id name created_at files { original signed pades } signatures { public_id name email link { short_link } viewed { created_at } signed { created_at } rejected { created_at } } } }');
+  return data.document;
+}
+async function sendContractAutentique(session,contractId){
+  const {contract,pdfBuffer}=await contractPdfBuffer(session,contractId);
+  if(contract.provider_document_id&&contract.metadata?.autentique?.signature_url)return{contract,reused:true,signature_url:contract.metadata.autentique.signature_url};
+
+  const links=await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(contract.partner_brand_id)+'&arquivado_em=is.null&select=*,partner:creator_partners(*)&limit=1');
+  const link=links?.[0],partner=link?.partner||{};
+  if(!link)throw Object.assign(Error('Parceiro do contrato não encontrado.'),{status:404});
+  if(!partner.email)throw Object.assign(Error('Preencha o e-mail do parceiro antes de enviar para assinatura.'),{status:409});
+
+  const me=(await autentiqueJson('query { me { id name email organization { id name } } }')).me;
+  if(!me?.email)throw Error('A conta da Autentique não retornou o e-mail do titular.');
+
+  const signers=[];
+  if(String(me.email).toLowerCase()!==String(partner.email).toLowerCase()){
+    signers.push({name:me.name||'Alliance',email:me.email,delivery_method:'DELIVERY_METHOD_LINK',action:'SIGN'});
+  }
+  signers.push({name:partner.nome_completo||partner.email,email:partner.email,delivery_method:'DELIVERY_METHOD_LINK',action:'SIGN'});
+
+  const mutation='mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { createDocument(document:$document, signers:$signers, file:$file) { id name created_at signatures { public_id name email link { short_link } user { id name email } } } }';
+  const created=(await autentiqueUpload(mutation,{document:{name:'Contrato - '+(partner.nome_completo||'Parceiro'),sortable:true,refusable:true,locale:{country:'BR',language:'pt-BR',timezone:'America/Sao_Paulo'}},signers},pdfBuffer,'contrato-'+String(partner.nome_completo||'parceiro').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf')).createDocument;
+  if(!created?.id)throw Error('A Autentique não retornou o ID do documento.');
+
+  if(signers.length>1){
+    try{await autentiqueJson('mutation { signDocument(id: '+JSON.stringify(created.id)+') }')}catch(e){console.warn('[autentique] assinatura do titular não concluída automaticamente',e?.message||e)}
+  }
+
+  let remote=await autentiqueDocument(created.id);
+  let partnerSignature=(remote?.signatures||[]).find(s=>String(s.email||'').toLowerCase()===String(partner.email).toLowerCase())
+    ||(remote?.signatures||[]).find(s=>String(s.name||'').trim().toLowerCase()===String(partner.nome_completo||'').trim().toLowerCase());
+  if(!partnerSignature)throw Error('A Autentique criou o documento, mas não retornou o signatário do parceiro.');
+
+  let signatureUrl=partnerSignature.link?.short_link||null;
+  if(!signatureUrl){
+    const linkData=await autentiqueJson('mutation { createLinkToSignature(public_id: '+JSON.stringify(partnerSignature.public_id)+') { short_link } }');
+    signatureUrl=linkData.createLinkToSignature?.short_link||null;
+  }
+  if(!signatureUrl)throw Error('Não foi possível gerar o link de assinatura.');
+
+  const now=new Date().toISOString(),metadata={...(contract.metadata||{}),autentique:{...(contract.metadata?.autentique||{}),document_id:created.id,partner_signature_public_id:partnerSignature.public_id,signature_url:signatureUrl,owner_email:me.email,organization_id:me.organization?.id||null,organization_name:me.organization?.name||null,sent_at:now}};
+  const updated=(await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contract.id),{method:'PATCH',prefer:'return=representation',body:{provider:'autentique',provider_document_id:created.id,status:'aguardando_assinatura',enviado_em:now,metadata,atualizado_em:now,atualizado_por:session.user.id}}))?.[0];
+  await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(contract.partner_brand_id),{method:'PATCH',prefer:'return=minimal',body:{status:'aguardando_assinatura',proxima_acao:'Cobrar assinatura do contrato',proxima_acao_em:new Date(Date.now()+24*3600e3).toISOString(),atualizado_em:now,atualizado_por:session.user.id}});
+  await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:contract.partner_brand_id,evento:'contrato_enviado_autentique',descricao:'Contrato PDF enviado para a Autentique e link de assinatura gerado.',origem:'automacao',actor_id:session.user.id,dados:{contract_id:contract.id,autentique_document_id:created.id}}});
+  return{contract:updated||{...contract,provider_document_id:created.id,status:'aguardando_assinatura',enviado_em:now,metadata},signature_url:signatureUrl,created:true};
+}
+async function refreshContractAutentique(session,contractId){
+  const rows=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contractId)+'&arquivado_em=is.null&select=*&limit=1');
+  const contract=rows?.[0];if(!contract)throw Object.assign(Error('Contrato não encontrado.'),{status:404});
+  if(!contract.provider_document_id)throw Object.assign(Error('Este contrato ainda não foi enviado para a Autentique.'),{status:409});
+  const remote=await autentiqueDocument(contract.provider_document_id);
+  if(!remote)throw Error('Documento não encontrado na Autentique.');
+
+  const sigId=contract.metadata?.autentique?.partner_signature_public_id;
+  const partnerSig=(remote.signatures||[]).find(s=>s.public_id===sigId)||(remote.signatures||[]).find(s=>s.link?.short_link===contract.metadata?.autentique?.signature_url);
+  const now=new Date().toISOString();
+  let status='aguardando_assinatura',partnerStatus='aguardando_assinatura',signedAt=null,nextAction='Cobrar assinatura do contrato';
+  if(partnerSig?.rejected?.created_at){status='recusado';partnerStatus='acompanhamento';nextAction='Revisar recusa do contrato'}
+  else if(partnerSig?.signed?.created_at){status='assinado';partnerStatus='contrato_assinado';signedAt=partnerSig.signed.created_at;nextAction='Preparar envio de produtos'}
+
+  const metadata={...(contract.metadata||{}),autentique:{...(contract.metadata?.autentique||{}),last_sync_at:now,viewed_at:partnerSig?.viewed?.created_at||null,signed_at:partnerSig?.signed?.created_at||null,rejected_at:partnerSig?.rejected?.created_at||null,signed_file_url:remote.files?.signed||null,pades_file_url:remote.files?.pades||null,original_file_url:remote.files?.original||null}};
+  const changed=status!==contract.status;
+  const updated=(await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contract.id),{method:'PATCH',prefer:'return=representation',body:{status,assinado_em:signedAt||contract.assinado_em||null,metadata,atualizado_em:now,atualizado_por:session.user.id}}))?.[0];
+  if(changed){
+    await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(contract.partner_brand_id),{method:'PATCH',prefer:'return=minimal',body:{status:partnerStatus,proxima_acao:nextAction,proxima_acao_em:null,atualizado_em:now,atualizado_por:session.user.id}});
+    await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:contract.partner_brand_id,evento:status==='assinado'?'contrato_assinado':status==='recusado'?'contrato_recusado':'contrato_atualizado',descricao:status==='assinado'?'Contrato assinado na Autentique.':status==='recusado'?'Contrato recusado na Autentique.':'Status do contrato atualizado.',origem:'automacao',actor_id:session.user.id,dados:{contract_id:contract.id,autentique_document_id:contract.provider_document_id,status}}});
+  }
+  return{contract:updated||{...contract,status,metadata},remote_status:status,signature_url:contract.metadata?.autentique?.signature_url||null,signed_file_url:remote.files?.signed||null};
+}
+
 export default async function handler(req,res){try{
   const healthUrl=new URL(req.url,'http://x');
   if(req.method==='GET'&&healthUrl.searchParams.get('contract_health')==='1'){
     try{
       const test=renderContractDocx('creator',{nome_completo:'Teste AllianceOS',cpf:'000.000.000-00',cnpj:'00.000.000/0000-00',razao_social:'Teste AllianceOS LTDA',endereco:'Endereço de teste'});
       const pdf=await renderContractPdf(test.buffer,{title:'Contrato teste AllianceOS'});
-      return send(res,200,{ok:true,mode:'private_storage_pdf',template_ready:test.buffer.length>10000,pdf_ready:pdf.subarray(0,5).toString()==='%PDF-',pdf_bytes:pdf.length,remaining_placeholders:test.remaining});
+      return send(res,200,{ok:true,mode:'private_storage_pdf',template_ready:test.buffer.length>10000,pdf_ready:pdf.subarray(0,5).toString()==='%PDF-',pdf_bytes:pdf.length,autentique_configured:!!String(process.env.AUTENTIQUE_API_TOKEN||'').trim(),remaining_placeholders:test.remaining});
     }catch(e){return send(res,200,{ok:false,mode:'private_storage',erro:String(e.message||e).slice(0,180)})}
   }
   const session=await requireAllianceUser(req);const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
   if(req.method==='POST'&&body.action==='copy_storage'){const arquivo=await copiarStorage(body,session);return send(res,200,{ok:true,arquivo})}
   if(req.method==='POST'&&body.action==='generate_creator_contract'){const id=String(body.partner_brand_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'partner_brand_id inválido'});const result=await gerarContratoCreator(session,id,body.force===true);return send(res,200,{ok:true,...result})}
   if(req.method==='POST'&&body.action==='get_creator_contract_url'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,url:await contractUrl(session,id)})}
+  if(req.method==='POST'&&body.action==='download_creator_contract'){
+    const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});
+    const {buffer,contract}=await contractPdfBuffer(session,id);
+    const filename=String(contract?.metadata?.template_name||'contrato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf';
+    res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition','inline; filename="'+filename+'"');return res.status(200).send(buffer);
+  }
+  if(req.method==='POST'&&body.action==='send_creator_contract_autentique'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,...await sendContractAutentique(session,id)})}
+  if(req.method==='POST'&&body.action==='refresh_creator_contract_autentique'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,...await refreshContractAutentique(session,id)})}
   if(req.method==='POST'){const nome=String(body.marca||'Botanika'),raw=String(body.drive_pasta||body.pasta||'').trim(),limpo=raw.replace(/^https?:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//,'').split(/[?#]/)[0].trim();if(!/^[A-Za-z0-9_-]{10,}$/.test(limpo))return send(res,400,{erro:'esse id não parece um id de pasta do Drive'});await salvarPasta(nome,limpo);return send(res,200,{ok:true,ligado:true,marca:nome,raiz:limpo,pasta:limpo})}
   if(req.method!=='GET')return send(res,405,{erro:'método não permitido'});
   const q=Object.fromEntries(new URL(req.url,'http://x').searchParams),nome=q.marca||'Botanika',m=await marca(nome);
