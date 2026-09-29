@@ -70,6 +70,11 @@
     r.addEventListener('click',onClick);
     r.addEventListener('input',onInput);
     r.addEventListener('change',onChange);
+    r.addEventListener('dragstart',onDragStart);
+    r.addEventListener('dragend',onDragEnd);
+    r.addEventListener('dragover',onDragOver);
+    r.addEventListener('dragleave',onDragLeave);
+    r.addEventListener('drop',onDrop);
     $('#brandSelect')?.addEventListener('change',()=>state.open&&load());
     return r;
   }
@@ -177,7 +182,7 @@
   function pipelineView(){
     return '<div class="crm-kanban">'+stages.map(s=>{const rows=state.rows.filter(x=>x.status===s);return '<section><header><span>'+label[s]+'</span><b>'+rows.length+'</b></header><div>'+rows.map(x=>partnerCard(x)).join('')+(rows.length?'':'<small class="crm-kanban-empty">Sem parceiros</small>')+'</div></section>'}).join('')+'</div>';
   }
-  function partnerCard(x){const p=x.partner||{},pf=performance(x.id);return '<button class="crm-partner-card" data-open-partner="'+x.id+'"><b>'+esc(p.nome_completo)+'</b><span>'+esc(displayType(x.tipos))+(p.instagram?' · '+esc(p.instagram):'')+'</span><small>'+money(pf.vendas_mes)+' no mês'+(x.cupom?' · '+esc(x.cupom):'')+'</small></button>'}
+  function partnerCard(x){const p=x.partner||{},pf=performance(x.id);return '<button class="crm-partner-card" draggable="true" data-drag-partner="'+x.id+'" data-open-partner="'+x.id+'"><b>'+esc(p.nome_completo)+'</b><span>'+esc(displayType(x.tipos))+(p.instagram?' · '+esc(p.instagram):'')+'</span><small>'+money(pf.vendas_mes)+' no mês'+(x.cupom?' · '+esc(x.cupom):'')+'</small></button>'}
   function toolbar(){
     return '<div class="crm-toolbar"><input data-filter="search" placeholder="Buscar por nome, @, e-mail, WhatsApp ou cupom" value="'+esc(state.search)+'">'+
       '<select data-filter="type"><option value="">Todos os tipos</option><option value="creator" '+(state.type==='creator'?'selected':'')+'>Creator</option><option value="prescritor" '+(state.type==='prescritor'?'selected':'')+'>Prescritor</option><option value="ugc" '+(state.type==='ugc'?'selected':'')+'>UGC</option><option value="outro" '+(state.type==='outro'?'selected':'')+'>Outro</option></select>'+
@@ -215,7 +220,7 @@
   }
   function ensureModal(){
     let m=$('#creatorModal');if(m)return m;
-    m=document.createElement('div');m.id='creatorModal';m.className='crm-modal-backdrop';m.hidden=true;document.body.appendChild(m);m.addEventListener('click',onModalClick);return m;
+    m=document.createElement('div');m.id='creatorModal';m.className='crm-modal-backdrop';m.hidden=true;document.body.appendChild(m);m.addEventListener('click',onModalClick);m.addEventListener('change',onModalChange);return m;
   }
   function closeModal(){const m=$('#creatorModal');if(m){m.hidden=true;m.innerHTML='';}}
   function openNew(){
@@ -240,8 +245,11 @@
       '<section><h3>Último envio</h3><p><b>Status</b>'+esc(s?.status||'Sem envio')+'</p><p><b>Rastreio</b>'+esc(s?.codigo_rastreio||'—')+'</p><p><b>Frete</b>'+money(s?.frete)+'</p><p><b>Enviado</b>'+dt(s?.enviado_em)+'</p></section></div>'+
       '<footer><button class="crm-secondary" data-action="archive" data-id="'+id+'">Arquivar parceiro</button>'+(x.status==='aprovado'?'<button class="crm-secondary" data-action="generate-contract" data-id="'+id+'" data-force="'+(c?.documento_url?'1':'0')+'">'+(c?.documento_url?'Gerar nova versão':'Gerar contrato')+'</button>':'')+'<button class="crm-primary" data-close>Fechar</button></footer></div>';
   }
-  async function updateStatus(id,status){
+  async function updateStatus(id,status,{reopen=true}={}){
+    if(!id||!status)return;
     try{
+      const current=state.rows.find(r=>r.id===id);
+      if(current?.status===status){if(reopen)openPartner(id);return}
       const sb=await client();const {data:{user}}=await sb.auth.getUser();
       const {error}=await sb.from('creator_partner_brands').update({status,atualizado_em:new Date().toISOString(),atualizado_por:user?.id||null}).eq('id',id);if(error)throw error;
       await sb.from('creator_history').insert({partner_brand_id:id,evento:'status_alterado',descricao:'Status alterado para '+(label[status]||status),origem:'interface',actor_id:user?.id||null});
@@ -249,7 +257,7 @@
         toast('Aprovado. Gerando contrato…');
         try{await generateContract(id,{silent:true})}catch(err){toast('Aprovado, mas o contrato precisa de atenção: '+(err.message||err))}
       }else toast('Status atualizado.');
-      closeModal();await load();openPartner(id)
+      closeModal();await load();if(reopen)openPartner(id)
     }catch(e){toast(e.message||String(e))}
   }
   async function archive(id){
@@ -276,10 +284,51 @@
   }
   function onModalClick(e){
     if(e.target.matches('[data-close]')||e.target===e.currentTarget){closeModal();return}
-    const s=e.target.closest('[data-update-status]');if(s)updateStatus(s.dataset.updateStatus,s.value);
     const a=e.target.closest('[data-action="archive"]');if(a)archive(a.dataset.id);
     const g=e.target.closest('[data-action="generate-contract"]');if(g){const id=g.dataset.id,force=g.dataset.force==='1';generateContract(id,{force}).then(async()=>{closeModal();await load();openPartner(id)}).catch(e=>toast(e.message||String(e)))}
     const v=e.target.closest('[data-action="view-contract"]');if(v)viewContract(v.dataset.contractId).catch(e=>toast(e.message||String(e)))
+  }
+  function onModalChange(e){
+    const s=e.target.closest('[data-update-status]');
+    if(!s)return;
+    const id=s.dataset.updateStatus,status=s.value;
+    s.disabled=true;
+    updateStatus(id,status).finally(()=>{if(document.body.contains(s))s.disabled=false});
+  }
+  let draggingId=null;
+  function onDragStart(e){
+    const card=e.target.closest('[data-drag-partner]');if(!card)return;
+    draggingId=card.dataset.dragPartner;
+    card.classList.add('dragging');
+    try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',draggingId)}catch{}
+  }
+  function onDragEnd(e){
+    e.target.closest('[data-drag-partner]')?.classList.remove('dragging');
+    $('.crm-kanban-stage.drag-over').forEach(x=>x.classList.remove('drag-over'));
+    draggingId=null;
+  }
+  function onDragOver(e){
+    const stage=e.target.closest('[data-drop-status]');if(!stage||!draggingId)return;
+    e.preventDefault();
+    try{e.dataTransfer.dropEffect='move'}catch{}
+    $('.crm-kanban-stage.drag-over').forEach(x=>{if(x!==stage)x.classList.remove('drag-over')});
+    stage.classList.add('drag-over');
+  }
+  function onDragLeave(e){
+    const stage=e.target.closest('[data-drop-status]');if(!stage)return;
+    if(e.relatedTarget&&stage.contains(e.relatedTarget))return;
+    stage.classList.remove('drag-over');
+  }
+  function onDrop(e){
+    const stage=e.target.closest('[data-drop-status]');if(!stage)return;
+    e.preventDefault();stage.classList.remove('drag-over');
+    const id=draggingId||(()=>{try{return e.dataTransfer.getData('text/plain')}catch{return null}})();
+    draggingId=null;
+    if(!id)return;
+    const status=stage.dataset.dropStatus,current=state.rows.find(r=>r.id===id);
+    if(!status||current?.status===status)return;
+    toast('Movendo para '+(label[status]||status)+'…');
+    updateStatus(id,status,{reopen:false});
   }
 
   window.AllianceOSCreators={open,close,refresh:load};
