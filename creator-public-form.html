@@ -25,7 +25,7 @@
     .step{display:none}.step.active{display:block}.message{display:none;margin-top:12px;padding:11px 13px;border-radius:9px;font-size:10px}.message.error{display:block;background:#fff0f0;border:1px solid #efd8d8;color:#944545}
     .finish{margin-top:12px;padding:16px 18px;background:#4b5fc0;color:#fff;font-size:12px;font-weight:720;line-height:1.45}
     .success{display:none;margin-top:12px;padding:24px;border:1px solid #d9e8de;border-radius:14px;background:#f2f8f4}.success.show{display:block}.success h2{margin:0;font-size:20px}.success p{margin:8px 0 0;color:#53705c;font-size:11px;line-height:1.5}
-    .loading{min-height:360px;display:grid;place-items:center;color:#818b92;font-size:11px}.trap{position:absolute!important;left:-9999px!important;opacity:0!important;pointer-events:none!important}
+    .loading{min-height:360px;display:grid;place-items:center;color:#818b92;font-size:11px}.loading[hidden],#app[hidden]{display:none!important}.trap{position:absolute!important;left:-9999px!important;opacity:0!important;pointer-events:none!important}
     @media(max-width:650px){.wrap{margin-top:18px}.top-inner{padding:19px}.top h1{font-size:24px}.question{padding:17px}.nav{flex-wrap:wrap}.progress{order:3;width:100%;margin-left:0}.bar{flex:1}.nav button{flex:1}}
 
     .brand-experience,.game-head{display:none}
@@ -62,17 +62,19 @@
       backdrop-filter:blur(16px);
     }
     .theme-botanika .brand-experience:before{
-      content:"";position:absolute;left:-110px;bottom:-120px;width:430px;height:430px;border-radius:42% 58% 63% 37%/45% 38% 62% 55%;
-      background:linear-gradient(145deg,#f8f1e5,#ede6d9);opacity:.98;transform:rotate(9deg);
+      content:"";position:absolute;left:-90px;bottom:-110px;width:380px;height:380px;border-radius:50%;
+      background:radial-gradient(circle,rgba(206,224,127,.18) 0%,rgba(126,151,214,.10) 42%,rgba(255,255,255,0) 72%);
+      filter:blur(14px);pointer-events:none;
     }
     .theme-botanika .brand-experience:after{
-      content:"";position:absolute;left:14%;bottom:3%;width:330px;height:180px;border-radius:50%;
-      background:radial-gradient(ellipse at center,rgba(188,209,111,.26),rgba(255,255,255,0) 68%);
-      filter:blur(6px);
+      content:"";position:absolute;right:-120px;top:-110px;width:330px;height:330px;border-radius:50%;
+      background:radial-gradient(circle,rgba(117,139,218,.18),rgba(255,255,255,0) 72%);
+      filter:blur(18px);pointer-events:none;
     }
-    .theme-botanika .botanika-mark{position:relative;z-index:2;display:flex;align-items:center;gap:12px}
-    .theme-botanika .botanika-mark img{max-width:210px;max-height:64px;object-fit:contain;object-position:left center;filter:brightness(0) invert(1)}
-    .theme-botanika .botanika-mark strong{font-size:26px;letter-spacing:-.035em;font-weight:720}
+    .theme-botanika .botanika-mark{position:relative;z-index:2;display:flex;align-items:center;gap:10px;color:#fff}
+    .theme-botanika .botanika-mark svg{width:34px;height:34px;flex:0 0 34px}
+    .theme-botanika .botanika-mark strong{font-size:31px;line-height:1;letter-spacing:-.055em;font-weight:650}
+    .theme-botanika .botanika-mark small{display:block;margin-top:7px;color:rgba(255,255,255,.72);font-size:8px;letter-spacing:.23em;font-weight:600;text-transform:uppercase}
     .theme-botanika .brand-kicker{position:relative;z-index:2;margin-top:72px;color:#dbe98e;font-size:10px;letter-spacing:.17em;font-weight:700}
     .theme-botanika .brand-experience h1{position:relative;z-index:2;margin:16px 0 0;max-width:480px;color:#fff;font-size:44px;line-height:1.02;letter-spacing:-.055em;font-weight:420}
     .theme-botanika .brand-experience h1 em{display:block;margin-top:6px;color:#e4ef9a;font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.04em}
@@ -162,7 +164,7 @@
       .theme-botanika .brand-experience{position:relative;top:auto;min-height:auto;padding:24px;border-radius:24px;margin-bottom:14px}
       .theme-botanika .brand-kicker{margin-top:30px}.theme-botanika .brand-experience h1{font-size:34px}
       .theme-botanika .journey-card{margin-top:28px;margin-bottom:0}.theme-botanika .brand-experience:before,.theme-botanika .brand-experience:after,.theme-botanika .brand-footer{display:none}
-      .theme-botanika .botanika-mark img{max-width:170px}
+      .theme-botanika .botanika-mark strong{font-size:27px}
     }
     @media(max-width:650px){
       body.theme-botanika{background:linear-gradient(160deg,#304293,#18255d 52%,#111a43)}
@@ -184,7 +186,16 @@
 <body>
 <main class="wrap">
   <aside class="brand-experience" id="brandExperience" aria-hidden="true">
-    <div class="botanika-mark"><img id="botanikaLogo" alt="Botanika"><strong id="botanikaLogoFallback">Botanika</strong></div>
+    <div class="botanika-mark" aria-label="Botanika">
+      <svg viewBox="0 0 36 36" aria-hidden="true">
+        <path d="M18 18C11 17.7 6.6 14 5.4 8.1c6.1-.9 10.4 1.7 12.6 7.2V18Z" fill="currentColor"/>
+        <path d="M18.1 18C18.4 11 22 6.7 27.9 5.4c.9 6.2-1.7 10.5-7.2 12.7h-2.6Z" fill="currentColor" opacity=".96"/>
+        <path d="M18 18.1c7 .3 11.4 3.9 12.6 9.9-6.1.9-10.4-1.7-12.6-7.2v-2.7Z" fill="currentColor" opacity=".9"/>
+        <path d="M17.9 18c-.3 7-3.9 11.4-9.9 12.6-.9-6.1 1.7-10.4 7.2-12.6h2.7Z" fill="currentColor" opacity=".82"/>
+        <circle cx="18" cy="18" r="2.35" fill="#dce98e"/>
+      </svg>
+      <div><strong>botanika</strong><small>suplementação inteligente</small></div>
+    </div>
     <div class="brand-kicker">SEU CUIDADO COMEÇA AQUI</div>
     <h1>Uma parceria com propósito, <em>resultados reais.</em></h1>
     <p>Faça parte de uma comunidade que transforma saúde, rotina e influência em cuidado todos os dias.</p>
@@ -323,7 +334,6 @@
   const bar=document.getElementById('progressBar'),progressText=document.getElementById('progressText'),message=document.getElementById('message');
   const success=document.getElementById('success'),otherType=document.getElementById('otherType');
   let step=1,brand='Alliance';
-  const BOTANIKA_LOGO='https://lpnyrzsdiyzjnhovpduk.supabase.co/storage/v1/object/public/profile-avatars/395ed61f-dde7-4fb6-a6da-ea5301304765/brands/91a66f9e-6dc8-40c8-b7ca-33b8b39676f4/1790102529618.webp';
   const stageCopy={
     1:['Vamos começar pelo básico','Só algumas informações para entendermos quem você é.'],
     2:['Agora, onde podemos falar com você?','Deixe seus principais canais para mantermos tudo simples e direto.'],
@@ -407,11 +417,9 @@
         document.body.classList.add('theme-botanika');
         document.documentElement.style.background='#111a43';
         const be=document.getElementById('brandExperience');if(be)be.setAttribute('aria-hidden','false');
-        const logo=document.getElementById('botanikaLogo'),fallback=document.getElementById('botanikaLogoFallback');
-        if(logo){logo.src=BOTANIKA_LOGO;logo.onload=()=>{if(fallback)fallback.style.display='none'};logo.onerror=()=>{logo.style.display='none'}}
       }
-      loading.hidden=true;app.hidden=false;showStep();
-    }catch{loading.textContent='Este formulário está indisponível no momento.'}
+      loading.hidden=true;loading.style.display='none';app.hidden=false;app.style.display='block';showStep();
+    }catch{app.hidden=true;app.style.display='none';loading.hidden=false;loading.style.display='grid';loading.textContent='Este formulário está indisponível no momento.'}
   }
   init();
 })();
