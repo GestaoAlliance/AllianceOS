@@ -4,165 +4,203 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1014">
-  <title>Cadastro de Parceiros · AllianceOS</title>
+  <title>Formulário creators · AllianceOS</title>
   <link rel="icon" type="image/svg+xml" href="/api/brand-icon?format=svg">
   <style>
-    :root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#20272b;background:#f5f7f8}
-    *{box-sizing:border-box}body{margin:0;background:#f5f7f8}button,input,textarea,select{font:inherit}
-    .wrap{width:min(760px,calc(100% - 28px));margin:36px auto 72px}
+    :root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#20272b;background:#f4f6f8}
+    *{box-sizing:border-box}body{margin:0;background:#f4f6f8}button,input,textarea,select{font:inherit}
+    .wrap{width:min(760px,calc(100% - 28px));margin:32px auto 72px}
     .brand{display:flex;align-items:center;gap:11px;margin:0 0 18px}.brand img{width:34px;height:34px}.brand b{font-size:14px}.brand span{display:block;margin-top:2px;color:#8a949a;font-size:10px}
-    .hero,.card{border:1px solid #e0e5e8;border-radius:16px;background:#fff}
-    .hero{padding:24px 26px}.eyebrow{font-size:9px;font-weight:760;letter-spacing:.1em;color:#929ba1;text-transform:uppercase}
-    h1{margin:7px 0 0;font-size:27px;line-height:1.08;letter-spacing:-.035em}.hero p{margin:10px 0 0;max-width:610px;color:#6f7a82;font-size:12px;line-height:1.55}
-    .card{margin-top:12px;padding:21px 22px}.card h2{margin:0;font-size:14px}.card>p{margin:5px 0 15px;color:#8b959c;font-size:10px;line-height:1.45}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}
-    label{display:block;color:#626d74;font-size:10px;font-weight:680}.req:after{content:" *";color:#9e3f3f}
-    input,textarea,select{width:100%;margin-top:6px;border:1px solid #dce2e5;border-radius:10px;background:#fff;color:#2b3338;outline:none}
-    input,select{height:43px;padding:0 11px}textarea{min-height:96px;padding:11px;resize:vertical;line-height:1.5}
-    input:focus,textarea:focus,select:focus{border-color:#8f9aa1;box-shadow:0 0 0 3px rgba(50,60,68,.06)}
-    .hint{display:block;margin-top:5px;color:#9aa2a7;font-size:8px;font-weight:500;line-height:1.35}
-    .actions{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:14px}.actions small{margin-right:auto;color:#8d969c;font-size:9px}
-    .submit{height:43px;padding:0 18px;border:0;border-radius:10px;background:#151a1d;color:#fff;font-size:10px;font-weight:700;cursor:pointer}.submit:disabled{opacity:.5;cursor:default}
-    .msg{display:none;margin-top:12px;padding:12px 14px;border-radius:10px;font-size:10px;line-height:1.45}.msg.error{display:block;background:#fff0f0;color:#944545;border:1px solid #efd8d8}.msg.ok{display:block;background:#f0f7f2;color:#3c6c4a;border:1px solid #d9e9de}
-    .success{display:none}.success.show{display:block}.success h2{font-size:22px;letter-spacing:-.03em}.success p{color:#6f7a82;font-size:12px;line-height:1.55}
-    .loading{min-height:360px;display:grid;place-items:center;color:#818b92;font-size:11px}
-    .trap{position:absolute!important;left:-9999px!important;opacity:0!important;pointer-events:none!important}
-    @media(max-width:650px){.wrap{margin-top:20px}.hero{padding:20px}.card{padding:18px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.actions{align-items:stretch;flex-direction:column}.actions small{margin:0}.submit{width:100%}}
+    .top,.panel,.question,.finish{border:1px solid #dfe4e7;border-radius:14px;background:#fff;overflow:hidden}
+    .top{border-top:8px solid #4b5fc0}.top-inner{padding:23px 24px 21px}.top h1{margin:0;font-size:28px;letter-spacing:-.035em}.top h2{margin:13px 0 8px;font-size:13px}.top p{margin:0 0 12px;color:#4f5960;font-size:12px;line-height:1.5}.top ul{padding:0;margin:10px 0 0;list-style:none}.top li{margin:5px 0;color:#4f5960;font-size:12px}
+    .required-note{padding:13px 24px;border-top:1px solid #e7ebed;color:#bd3434;font-size:9px}
+    .panel{margin-top:12px}.section-title{padding:13px 18px;background:#4b5fc0;color:#fff;font-weight:760;font-size:12px;letter-spacing:.01em}
+    .question{margin-top:12px;padding:19px 20px}.question label,.question legend{display:block;color:#2c3337;font-size:11px;font-weight:700;line-height:1.4}.question fieldset{border:0;padding:0;margin:0}.req:after{content:" *";color:#c53939}
+    input[type=text],input[type=email],textarea{width:100%;margin-top:12px;border:0;border-bottom:1px solid #cfd6da;background:transparent;padding:9px 2px;color:#273036;outline:none;font-size:11px}
+    input[type=text]:focus,input[type=email]:focus,textarea:focus{border-bottom-color:#4b5fc0}
+    textarea{min-height:76px;resize:vertical;line-height:1.45}
+    .radios{display:grid;gap:12px;margin-top:14px}.radio{display:flex;align-items:center;gap:10px;font-size:11px;color:#333b40}.radio input{width:18px;height:18px;margin:0}.other{margin-top:10px;display:none}.other.show{display:block}
+    .nav{display:flex;align-items:center;gap:10px;margin-top:14px}.nav button{height:38px;padding:0 15px;border-radius:8px;font-size:10px;font-weight:650;cursor:pointer}.secondary{border:1px solid #d7dde0;background:#fff;color:#4450ae}.primary{border:1px solid #4b5fc0;background:#4b5fc0;color:#fff}.primary:disabled{opacity:.55;cursor:default}
+    .progress{display:flex;align-items:center;gap:10px;margin-left:auto}.bar{width:185px;height:8px;background:#70777c;border-radius:99px;overflow:hidden}.bar span{display:block;height:100%;background:#75a9ff;border-radius:99px;transition:width .2s}.progress small{font-size:9px;color:#495158;white-space:nowrap}
+    .step{display:none}.step.active{display:block}.message{display:none;margin-top:12px;padding:11px 13px;border-radius:9px;font-size:10px}.message.error{display:block;background:#fff0f0;border:1px solid #efd8d8;color:#944545}
+    .finish{margin-top:12px;padding:16px 18px;background:#4b5fc0;color:#fff;font-size:12px;font-weight:720;line-height:1.45}
+    .success{display:none;margin-top:12px;padding:24px;border:1px solid #d9e8de;border-radius:14px;background:#f2f8f4}.success.show{display:block}.success h2{margin:0;font-size:20px}.success p{margin:8px 0 0;color:#53705c;font-size:11px;line-height:1.5}
+    .loading{min-height:360px;display:grid;place-items:center;color:#818b92;font-size:11px}.trap{position:absolute!important;left:-9999px!important;opacity:0!important;pointer-events:none!important}
+    @media(max-width:650px){.wrap{margin-top:18px}.top-inner{padding:19px}.top h1{font-size:24px}.question{padding:17px}.nav{flex-wrap:wrap}.progress{order:3;width:100%;margin-left:0}.bar{flex:1}.nav button{flex:1}}
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <div class="brand"><img src="/api/brand-icon?format=svg" alt=""><div><b>AllianceOS</b><span>Programa de Parceiros</span></div></div>
-    <div id="loading" class="loading">Carregando formulário…</div>
-    <div id="app" hidden>
-      <section class="hero">
-        <div class="eyebrow" id="brandName">Cadastro de parceiros</div>
-        <h1>Queremos conhecer você melhor.</h1>
-        <p>Preencha seus dados com atenção. Eles serão enviados diretamente para nossa equipe responsável por creators, prescritores e UGC.</p>
-      </section>
+<main class="wrap">
+  <div class="brand"><img src="/api/brand-icon?format=svg" alt=""><div><b>AllianceOS</b><span>Programa de Parceiros</span></div></div>
+  <div id="loading" class="loading">Carregando formulário…</div>
+  <div id="app" hidden>
+    <section class="top" id="intro">
+      <div class="top-inner">
+        <h1>Formulário creators</h1>
+        <h2>Faça parte do movimento <span data-brand></span>®</h2>
+        <p>Se você é PRESCRITOR (MÉDICO, NUTRICIONISTA, ENTRE OUTROS) ou INFLUENCER e sabe que cuidar da saúde é uma escolha diária, esse convite é pra você.</p>
+        <p>A <span data-brand></span> busca criadores que queiram inspirar pessoas a cuidarem de si, compartilhando uma rotina de mais saúde, equilíbrio e bem-estar.</p>
+        <p>Ao caminhar com a gente, você vai:</p>
+        <ul>
+          <li>Ter acesso aos produtos <span data-brand></span></li>
+          <li>Compartilhar sua rotina e experiência com sua audiência</li>
+          <li>Levar informação e incentivar escolhas mais conscientes</li>
+          <li>Fazer parte de uma comunidade que valoriza saúde e qualidade de vida</li>
+          <li>Evoluir como criador com o suporte do nosso time</li>
+        </ul>
+        <p style="margin-top:14px">Se você se identifica com esse propósito, preencha o formulário e venha crescer com a <span data-brand></span>.</p>
+      </div>
+      <div class="required-note">* Indica uma pergunta obrigatória</div>
+    </section>
 
-      <form id="partnerForm">
-        <section class="card">
-          <h2>Seus dados</h2>
-          <p>Informações de contato e cadastro.</p>
-          <div class="grid">
-            <label class="wide req">Seu nome completo<input name="nome_completo" autocomplete="name" required></label>
-            <label class="req">Cidade/Estado que mora atualmente<input name="cidade_uf" required placeholder="Ex.: Belo Horizonte / MG"></label>
-            <label class="req">Seu WhatsApp com DDD<input name="whatsapp" inputmode="tel" autocomplete="tel" required></label>
-            <label class="req">@ do seu Instagram<input name="instagram" required placeholder="@seuperfil"></label>
-            <label class="req">E-mail<input name="email" type="email" autocomplete="email" required></label>
-            <label class="wide req">Endereço para entrega dos suplementos
-              <textarea name="endereco" required placeholder="Rua/Av, bairro, número, cidade, Estado, CEP e ponto de referência"></textarea>
-            </label>
-            <label>Sugestão de nome de cupom<input name="cupom_sugerido" placeholder="Ex.: MARIA10"></label>
-            <label class="req">CPF<input name="cpf" inputmode="numeric" required></label>
-            <label>CNPJ<input name="cnpj" inputmode="numeric"><span class="hint">Se possuir empresa.</span></label>
-            <label>Razão social<input name="razao_social"><span class="hint">Se possuir CNPJ.</span></label>
-            <label class="wide">PIX para pagamento<input name="pix"><span class="hint">Preferencialmente da conta CNPJ, quando aplicável.</span></label>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>Seu perfil</h2>
-          <p>Conte um pouco sobre sua audiência e o conteúdo que produz.</p>
-          <div class="grid">
-            <label class="req">Quantidade de seguidores no Instagram<input name="seguidores" required placeholder="Ex.: 35 mil"></label>
-            <label class="req">Quantas visualizações têm seus stories?<input name="visualizacoes_stories" required placeholder="Ex.: média de 1.500"></label>
-            <label class="wide req">Qual seu nicho ou sua área de atuação?<input name="nicho" required></label>
-            <label class="wide req">O que você normalmente compartilha nos seus stories e feed?
-              <textarea name="conteudo" required placeholder="Fale um pouco sobre o seu conteúdo"></textarea>
-            </label>
-            <label class="wide req">Você já trabalhou de forma comissionada para outras marcas?
-              <textarea name="experiencia_comissao" required></textarea>
-            </label>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>Sobre a parceria</h2>
-          <p>Essas respostas ajudam nosso time a entender o melhor formato de parceria.</p>
-          <div class="grid">
-            <label class="wide req">Você já conhece a <span data-brand-inline>marca</span>?
-              <textarea name="conhece_marca" required></textarea>
-            </label>
-            <label class="wide req">Por que você acredita que faz sentido divulgar a <span data-brand-inline>marca</span> para a sua audiência?
-              <textarea name="motivo_parceria" required></textarea>
-            </label>
-            <label class="wide req">Você aceita receber os produtos e compartilhar sua experiência com seu público, postando no feed e stories?
-              <select name="aceita_receber_divulgar" required>
-                <option value="">Selecione</option>
-                <option>Sim</option>
-                <option>Não</option>
-              </select>
-            </label>
-            <label class="wide req">Sou:
-              <select name="tipo" required>
-                <option value="">Selecione</option>
-                <option value="Creator">Creator / Influenciador</option>
-                <option value="Prescritor">Prescritor (nutricionista, médico ou profissional da saúde)</option>
-                <option value="UGC">UGC Creator</option>
-              </select>
-            </label>
-            <label class="wide req">Tem interesse em fazer Collabs com o perfil da <span data-brand-inline>marca</span> para divulgar seu cupom?
-              <select name="interesse_collab" required>
-                <option value="">Selecione</option>
-                <option>Sim</option>
-                <option>Não</option>
-              </select>
-            </label>
-          </div>
-        </section>
-
-        <input class="trap" tabindex="-1" autocomplete="off" name="website" aria-hidden="true">
-        <div id="message" class="msg"></div>
-        <div class="actions">
-          <small>Ao enviar, seus dados serão encaminhados diretamente para a equipe responsável.</small>
-          <button class="submit" id="submitBtn" type="submit">Enviar cadastro</button>
+    <form id="partnerForm" novalidate>
+      <section class="step active" data-step="1">
+        <div class="panel"><div class="section-title">INFORMAÇÕES INICIAIS</div></div>
+        <div class="question">
+          <label class="req">Seu nome completo:</label>
+          <input type="text" name="nome_completo" required>
         </div>
-      </form>
-
-      <section id="success" class="card success">
-        <div class="eyebrow">CADASTRO RECEBIDO</div>
-        <h2>Obrigada! Seus dados foram enviados.</h2>
-        <p>Nossa equipe recebeu seu cadastro e dará continuidade ao processo de parceria.</p>
+        <div class="question">
+          <fieldset>
+            <legend class="req">Sou:</legend>
+            <div class="radios">
+              <label class="radio"><input type="radio" name="tipo" value="Prescritor" required> Prescritor (nutricionista, médico, profissional da área da saúde)</label>
+              <label class="radio"><input type="radio" name="tipo" value="Influencer" required> Influencer</label>
+              <label class="radio"><input type="radio" name="tipo" value="Outro" required> Outro</label>
+            </div>
+            <div class="other" id="otherType"><input type="text" name="tipo_outro" placeholder="Especifique"></div>
+          </fieldset>
+        </div>
       </section>
-    </div>
-  </main>
+
+      <section class="step" data-step="2">
+        <div class="panel"><div class="section-title">CONTATO</div></div>
+        <div class="question"><label class="req">Seu WhatsApp com DDD:</label><input type="text" name="whatsapp" required inputmode="tel"></div>
+        <div class="question"><label>EMAIL:</label><input type="email" name="email"></div>
+        <div class="question"><label class="req">@ do seu Instagram:</label><input type="text" name="instagram" required></div>
+        <div class="question"><label class="req">Quantidade de seguidores no Instagram</label><input type="text" name="seguidores" required></div>
+      </section>
+
+      <section class="step" data-step="3">
+        <div class="panel"><div class="section-title">PERFIL</div></div>
+        <div class="question"><label class="req">Qual seu nicho ou sua área de atuação?</label><input type="text" name="nicho" required></div>
+      </section>
+
+      <section class="step" data-step="4">
+        <div class="panel"><div class="section-title">DÚVIDAS RELACIONADAS A <span data-brand-upper></span></div></div>
+        <div class="question">
+          <fieldset><legend class="req">Você já conhece a <span data-brand></span>?</legend>
+            <div class="radios">
+              <label class="radio"><input type="radio" name="conhece_marca" value="Sim" required> Sim</label>
+              <label class="radio"><input type="radio" name="conhece_marca" value="Não" required> Não</label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="question">
+          <fieldset><legend class="req">Você aceita receber os produtos e compartilhar sua experiência com seu público, postando no feed e stories?</legend>
+            <div class="radios">
+              <label class="radio"><input type="radio" name="aceita_receber_divulgar" value="Sim" required> Sim</label>
+              <label class="radio"><input type="radio" name="aceita_receber_divulgar" value="Não" required> Não</label>
+            </div>
+          </fieldset>
+        </div>
+      </section>
+
+      <section class="step" data-step="5">
+        <div class="panel"><div class="section-title">PREENCHA SEUS DADOS ABAIXO:</div></div>
+        <div class="question"><label class="req">ENDEREÇO PARA ENTREGA DOS SUPLEMENTOS (Endereço completo com: Rua/Av, bairro, número, cidade, Estado, CEP, ponto de referência)</label><textarea name="endereco" required></textarea></div>
+        <div class="question"><label class="req">SUGESTÃO DE NOME DE CUPOM:</label><input type="text" name="cupom_sugerido" required></div>
+        <div class="question"><label class="req">CPF:</label><input type="text" name="cpf" required inputmode="numeric"></div>
+        <div class="question"><label class="req">CNPJ:</label><input type="text" name="cnpj" required inputmode="numeric"></div>
+        <div class="question"><label class="req">RAZÃO SOCIAL:</label><input type="text" name="razao_social" required></div>
+        <div class="question"><label class="req">PIX PARA PAGAMENTO (pix da conta CNPJ)</label><input type="text" name="pix" required></div>
+      </section>
+
+      <section class="step" data-step="6">
+        <div class="finish">Muito obrigado pelo seu tempo. Entraremos em contato para formalizar o contrato em breve.</div>
+      </section>
+
+      <input class="trap" tabindex="-1" autocomplete="off" name="website" aria-hidden="true">
+      <div id="message" class="message"></div>
+      <div class="nav">
+        <button type="button" id="backBtn" class="secondary" hidden>Voltar</button>
+        <button type="button" id="nextBtn" class="secondary">Avançar</button>
+        <button type="submit" id="submitBtn" class="primary" hidden>Enviar</button>
+        <div class="progress"><div class="bar"><span id="progressBar"></span></div><small id="progressText">Página 1 de 6</small></div>
+      </div>
+    </form>
+
+    <section id="success" class="success">
+      <h2>Cadastro enviado.</h2>
+      <p>Seus dados foram recebidos e já entraram na Gestão de Creators da nossa equipe.</p>
+    </section>
+  </div>
+</main>
 <script>
 (() => {
   const params=new URLSearchParams(location.search),token=params.get('s')||'';
   const app=document.getElementById('app'),loading=document.getElementById('loading'),form=document.getElementById('partnerForm');
-  const message=document.getElementById('message'),btn=document.getElementById('submitBtn'),success=document.getElementById('success');
-  let brand='Alliance';
+  const next=document.getElementById('nextBtn'),back=document.getElementById('backBtn'),submit=document.getElementById('submitBtn');
+  const bar=document.getElementById('progressBar'),progressText=document.getElementById('progressText'),message=document.getElementById('message');
+  const success=document.getElementById('success'),otherType=document.getElementById('otherType');
+  let step=1,brand='Alliance';
   const submissionKey='alliance_creator_submission_'+token;
   let submissionId=sessionStorage.getItem(submissionKey);
   if(!submissionId){submissionId=crypto.randomUUID();sessionStorage.setItem(submissionKey,submissionId)}
-  function msg(text,type){message.textContent=text;message.className='msg '+type}
+
+  function setMessage(text=''){message.textContent=text;message.className=text?'message error':'message'}
+  function showStep(){
+    document.querySelectorAll('.step').forEach(x=>x.classList.toggle('active',Number(x.dataset.step)===step));
+    back.hidden=step===1;next.hidden=step===6;submit.hidden=step!==6;
+    bar.style.width=((step/6)*100)+'%';progressText.textContent='Página '+step+' de 6';setMessage('');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function validateStep(){
+    const s=document.querySelector('.step[data-step="'+step+'"]');
+    const fields=[...s.querySelectorAll('input,textarea,select')].filter(x=>x.required);
+    for(const field of fields){
+      if(field.type==='radio'){
+        const checked=s.querySelector('input[name="'+field.name+'"]:checked');
+        if(!checked){setMessage('Preencha todas as perguntas obrigatórias antes de avançar.');return false}
+      }else if(!String(field.value||'').trim()){
+        setMessage('Preencha todas as perguntas obrigatórias antes de avançar.');field.focus();return false
+      }
+    }
+    const tipo=form.querySelector('input[name="tipo"]:checked')?.value;
+    if(step===1&&tipo==='Outro'&&!form.tipo_outro.value.trim()){setMessage('Especifique a opção “Outro”.');form.tipo_outro.focus();return false}
+    return true;
+  }
+  form.addEventListener('change',e=>{
+    if(e.target.name==='tipo'){
+      const isOther=e.target.value==='Outro'&&e.target.checked;
+      otherType.classList.toggle('show',isOther);
+      form.tipo_outro.required=isOther;
+      if(!isOther)form.tipo_outro.value='';
+    }
+  });
+  next.addEventListener('click',()=>{if(validateStep()){step++;showStep()}});
+  back.addEventListener('click',()=>{if(step>1){step--;showStep()}});
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();if(step!==6)return;
+    submit.disabled=true;submit.textContent='Enviando…';setMessage('');
+    const fields=Object.fromEntries(new FormData(form).entries());
+    try{
+      const r=await fetch('/api/creator-intake?s='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_token:token,submission_id:submissionId,fields})});
+      const data=await r.json();if(!r.ok)throw new Error(data.erro||'Não foi possível enviar.');
+      form.style.display='none';document.getElementById('intro').style.display='none';success.classList.add('show');window.scrollTo({top:0,behavior:'smooth'});
+    }catch(err){setMessage(err.message||'Não foi possível enviar agora. Tente novamente.');submit.disabled=false;submit.textContent='Enviar'}
+  });
   async function init(){
     if(!token){loading.textContent='Este link de formulário não é válido.';return}
     try{
       const r=await fetch('/api/creator-intake?s='+encodeURIComponent(token),{cache:'no-store'});
-      const data=await r.json();
-      if(!r.ok)throw new Error(data.erro||'Formulário indisponível');
+      const data=await r.json();if(!r.ok)throw new Error(data.erro||'Formulário indisponível');
       brand=data.brand_name||'Alliance';
-      document.getElementById('brandName').textContent='PARCERIA · '+brand.toUpperCase();
-      document.querySelectorAll('[data-brand-inline]').forEach(x=>x.textContent=brand);
-      loading.hidden=true;app.hidden=false;
-    }catch(e){loading.textContent='Este formulário está indisponível no momento.'}
+      document.querySelectorAll('[data-brand]').forEach(x=>x.textContent=brand);
+      document.querySelectorAll('[data-brand-upper]').forEach(x=>x.textContent=brand.toUpperCase());
+      loading.hidden=true;app.hidden=false;showStep();
+    }catch{loading.textContent='Este formulário está indisponível no momento.'}
   }
-  form.addEventListener('submit',async e=>{
-    e.preventDefault();message.className='msg';btn.disabled=true;btn.textContent='Enviando…';
-    const fields=Object.fromEntries(new FormData(form).entries());
-    try{
-      const r=await fetch('/api/creator-intake?s='+encodeURIComponent(token),{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({source_token:token,submission_id:submissionId,fields})
-      });
-      const data=await r.json();
-      if(!r.ok)throw new Error(data.erro||'Não foi possível enviar.');
-      form.style.display='none';success.classList.add('show');window.scrollTo({top:0,behavior:'smooth'});
-    }catch(e){msg(e.message||'Não foi possível enviar agora. Tente novamente.','error');btn.disabled=false;btn.textContent='Enviar cadastro'}
-  });
   init();
 })();
 </script>
