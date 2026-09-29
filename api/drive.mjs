@@ -340,7 +340,7 @@ async function gerarContratoCreator(session,partnerBrandId,force=false){
   const modelo=modelos?.[0];if(!modelo)throw Object.assign(Error('Não existe modelo de contrato ativo para este tipo e marca.'),{status:409});
   const rows=await authRest(session,'/rest/v1/creator_contracts?partner_brand_id=eq.'+encodeURIComponent(partnerBrandId)+'&arquivado_em=is.null&select=*&order=criado_em.desc&limit=1');
   let contrato=rows?.[0]||null;
-  if(contrato?.metadata?.storage_path_pdf&&!force)return{contract:contrato,reused:true};
+  if(contrato?.metadata?.storage_path_pdf&&Number(contrato?.metadata?.pdf_renderer_version||0)>=2&&!force)return{contract:contrato,reused:true};
 
   const rendered=renderContractDocx(tipo,p),geradoEm=new Date().toISOString(),data=dataContrato();
   const pdfBuffer=await renderContractPdf(rendered.buffer,{title:modelo.name+' - '+p.nome_completo,party:p,tipo});
@@ -349,7 +349,7 @@ async function gerarContratoCreator(session,partnerBrandId,force=false){
   const docxPath=base+'.docx',pdfPath=base+'.pdf';
   await uploadPrivateContract(session,docxPath,rendered.buffer,'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   await uploadPrivateContract(session,pdfPath,pdfBuffer,'application/pdf');
-  const metadata={...(contrato?.metadata||{}),generation_state:rendered.remaining.length?'generated_with_warning':'generated',storage_bucket:'creator-contracts',storage_path:pdfPath,storage_path_pdf:pdfPath,storage_path_docx:docxPath,pdf_bytes:pdfBuffer.length,template_drive_id:modelo.drive_template_id,template_name:modelo.name,model_type:tipo,generated_at:geradoEm,remaining_placeholders:rendered.remaining,versions:[...((contrato?.metadata?.versions)||[]),{storage_path_pdf:pdfPath,storage_path_docx:docxPath,generated_at:geradoEm}]};
+  const metadata={...(contrato?.metadata||{}),generation_state:rendered.remaining.length?'generated_with_warning':'generated',storage_bucket:'creator-contracts',storage_path:pdfPath,storage_path_pdf:pdfPath,storage_path_docx:docxPath,pdf_bytes:pdfBuffer.length,pdf_renderer_version:2,template_drive_id:modelo.drive_template_id,template_name:modelo.name,model_type:tipo,generated_at:geradoEm,remaining_placeholders:rendered.remaining,versions:[...((contrato?.metadata?.versions)||[]),{storage_path_pdf:pdfPath,storage_path_docx:docxPath,generated_at:geradoEm}]};
   const payload={documento_url:'storage://creator-contracts/'+pdfPath,inicio_em:data.iso,fim_em:somarMeses(data.iso,modelo.duration_months),metadata,atualizado_em:geradoEm,atualizado_por:session.user.id};
   if(contrato){const up=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contrato.id),{method:'PATCH',prefer:'return=representation',body:payload});contrato=up?.[0]||{...contrato,...payload}}
   else{const up=await authRest(session,'/rest/v1/creator_contracts',{method:'POST',prefer:'return=representation',body:{partner_brand_id:partnerBrandId,status:'rascunho',provider:'autentique',...payload,criado_por:session.user.id}});contrato=up?.[0]}
@@ -360,7 +360,7 @@ async function gerarContratoCreator(session,partnerBrandId,force=false){
 async function contractUrl(session,contractId){
   let rows=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contractId)+'&arquivado_em=is.null&select=id,partner_brand_id,metadata&limit=1');
   let contract=rows?.[0];if(!contract)throw Object.assign(Error('Contrato gerado não encontrado.'),{status:404});
-  if(!contract.metadata?.storage_path_pdf){
+  if(!contract.metadata?.storage_path_pdf||Number(contract.metadata?.pdf_renderer_version||0)<2){
     const generated=await gerarContratoCreator(session,contract.partner_brand_id,true);
     contract=generated.contract;
   }
