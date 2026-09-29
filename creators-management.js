@@ -88,7 +88,7 @@
   function performance(id){return state.perf.find(x=>x.partner_brand_id===id)||{vendas_mes:0,vendas_total:0,pedidos_total:0,ticket_medio:0,ultima_venda_em:null}}
   function contract(id){return state.contracts.find(x=>x.partner_brand_id===id)}
   function shipment(id){return state.shipments.find(x=>x.partner_brand_id===id)}
-  function displayType(types){return (types||[]).map(x=>x==='ugc'?'UGC':x==='prescritor'?'Prescritor':'Creator').join(' · ')||'Creator'}
+  function displayType(types){return (types||[]).map(x=>x==='ugc'?'UGC':x==='prescritor'?'Prescritor':x==='outro'?'Outro':'Creator').join(' · ')||'Creator'}
   function filtered(){
     const s=state.search.toLowerCase().trim();
     return state.rows.filter(r=>{
@@ -157,7 +157,7 @@
   function partnerCard(x){const p=x.partner||{},pf=performance(x.id);return '<button class="crm-partner-card" data-open-partner="'+x.id+'"><b>'+esc(p.nome_completo)+'</b><span>'+esc(displayType(x.tipos))+(p.instagram?' · '+esc(p.instagram):'')+'</span><small>'+money(pf.vendas_mes)+' no mês'+(x.cupom?' · '+esc(x.cupom):'')+'</small></button>'}
   function toolbar(){
     return '<div class="crm-toolbar"><input data-filter="search" placeholder="Buscar por nome, @, e-mail, WhatsApp ou cupom" value="'+esc(state.search)+'">'+
-      '<select data-filter="type"><option value="">Todos os tipos</option><option value="creator" '+(state.type==='creator'?'selected':'')+'>Creator</option><option value="prescritor" '+(state.type==='prescritor'?'selected':'')+'>Prescritor</option><option value="ugc" '+(state.type==='ugc'?'selected':'')+'>UGC</option></select>'+
+      '<select data-filter="type"><option value="">Todos os tipos</option><option value="creator" '+(state.type==='creator'?'selected':'')+'>Creator</option><option value="prescritor" '+(state.type==='prescritor'?'selected':'')+'>Prescritor</option><option value="ugc" '+(state.type==='ugc'?'selected':'')+'>UGC</option><option value="outro" '+(state.type==='outro'?'selected':'')+'>Outro</option></select>'+
       '<select data-filter="status"><option value="">Todos os status</option>'+Object.entries(label).map(([k,v])=>'<option value="'+k+'" '+(state.status===k?'selected':'')+'>'+v+'</option>').join('')+'</select></div>';
   }
   function partnersView(){
