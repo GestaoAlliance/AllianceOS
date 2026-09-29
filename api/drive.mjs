@@ -130,15 +130,25 @@ function renderContractDocx(tipo,p){
   return {buffer:zip.generate({type:'nodebuffer',compression:'DEFLATE'}),remaining};
 }
 
+function cleanWordText(value){
+  let s=xmlDecode(String(value||''));
+  s=s.replace(/<w:tab\s*\/>/gi,'\t').replace(/<w:br(?:\s+[^>]*)?\s*\/>/gi,'\n');
+  s=s.replace(/<[^>]+>/g,'');
+  s=s.replace(/\b(?:w|xml):[A-Za-z][\w:.-]*="[^"]*"/g,'');
+  s=s.replace(/\s*\/>/g,' ');
+  s=s.replace(/[ \t]+\n/g,'\n').replace(/\n[ \t]+/g,'\n');
+  return s;
+}
 function docxRuns(paragraph){
   const runs=[];
   for(const m of paragraph.matchAll(/<w:r\b[\s\S]*?<\/w:r>/g)){
-    const xml=m[0],texts=[...xml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>xmlDecode(x[1]));
+    const xml=m[0],texts=[...xml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>cleanWordText(x[1]));
     const tabs=(xml.match(/<w:tab\s*\/>/g)||[]).length;
     const breaks=(xml.match(/<w:br(?:\s+[^>]*)?\s*\/>/g)||[]).length;
-    let text=texts.join('');
+    let text=cleanWordText(texts.join(''));
     if(tabs)text+=Array(tabs).fill('\t').join('');
     if(breaks)text+=Array(breaks).fill('\n').join('');
+    text=cleanWordText(text);
     if(!text)continue;
     const sizeMatch=xml.match(/<w:sz\s+w:val="(\d+)"/);
     runs.push({
@@ -150,7 +160,7 @@ function docxRuns(paragraph){
     });
   }
   if(!runs.length){
-    const text=[...paragraph.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>xmlDecode(x[1])).join('');
+    const text=cleanWordText([...paragraph.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>x[1]).join(''));
     if(text)runs.push({text,bold:false,italic:false,underline:false,size:null});
   }
   return runs;
@@ -182,7 +192,7 @@ function docxPdfBlocks(docxBuffer){
       for(const rm of raw.matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)){
         const cells=[];
         for(const cm of rm[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)){
-          const text=[...cm[0].matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>xmlDecode(x[1])).join(' ').replace(/\s+/g,' ').trim();
+          const text=cleanWordText([...cm[0].matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>x[1]).join(' ')).replace(/\s+/g,' ').trim();
           cells.push(text);
         }
         if(cells.length)rows.push(cells);
@@ -190,8 +200,8 @@ function docxPdfBlocks(docxBuffer){
       if(rows.length)blocks.push({type:'table',rows});
       continue;
     }
-    const runs=docxRuns(raw),text=runs.map(r=>r.text).join('');
-    blocks.push({type:'p',runs,text,meta:paragraphPdfMeta(raw,text)});
+    const runs=docxRuns(raw),text=cleanWordText(runs.map(r=>r.text).join(''));
+    blocks.push({type:'p',runs:runs.map(r=>({...r,text:cleanWordText(r.text)})).filter(r=>r.text),text,meta:paragraphPdfMeta(raw,text)});
   }
   return blocks;
 }
@@ -202,16 +212,48 @@ function pdfFont(run,heading){
   if(i)return'Times-Italic';
   return'Times-Roman';
 }
-function renderContractPdf(docxBuffer,{title='Contrato'}={}){
+function renderContractSignature(doc,{party={},tipo='creator',contentWidth,ensure}){
+  ensure(205);
+  const x=58,gap=24,cw=(contentWidth-gap)/2,y=doc.y+8,right=x+cw+gap;
+  const partnerEntity=tipo==='creator'?(party.razao_social||party.nome_completo||'CONTRATADA'):(party.nome_completo||'CONTRATADA');
+  const partnerDoc=tipo==='creator'?(party.cnpj?('CNPJ: '+party.cnpj):''):(party.cpf?('CPF: '+party.cpf):'');
+  doc.fillColor('#111').font('Times-Bold').fontSize(10.2).text('CONTRATANTE',x,y,{width:cw});
+  doc.text('CONTRATADA',right,y,{width:cw});
+  let ly=y+20,ry=y+20;
+  doc.font('Times-Roman').fontSize(9.8).text('BOTANIKA SAUDE NATURAL LTDA',x,ly,{width:cw});ly=doc.y+2;
+  doc.text(partnerEntity,right,ry,{width:cw});ry=doc.y+2;
+  doc.text('CNPJ: 65.100.830/0001-36',x,ly,{width:cw});ly=doc.y+2;
+  if(partnerDoc){doc.text(partnerDoc,right,ry,{width:cw});ry=doc.y+2}
+  doc.text('Representante legal:',x,ly,{width:cw});ly=doc.y+18;
+  doc.text('Representante legal: '+(party.nome_completo||''),right,ry,{width:cw});ry=doc.y+18;
+  doc.moveTo(x,ly).lineTo(x+cw-10,ly).lineWidth(.6).strokeColor('#555').stroke();
+  doc.moveTo(right,ry).lineTo(right+cw-10,ry).stroke();
+  const signBottom=Math.max(ly,ry)+32;
+  doc.y=signBottom;
+  doc.font('Times-Bold').fontSize(9.8).text('TESTEMUNHA 1',x,doc.y,{width:cw});
+  const wy=doc.y;
+  doc.text('TESTEMUNHA 2',right,wy,{width:cw});
+  const nameY=wy+22;
+  doc.font('Times-Roman').fontSize(9.5).text('Nome: ____________________________',x,nameY,{width:cw});
+  doc.text('Nome: ____________________________',right,nameY,{width:cw});
+  const cpfY=nameY+24;
+  doc.text('CPF: _____________________________',x,cpfY,{width:cw});
+  doc.text('CPF: _____________________________',right,cpfY,{width:cw});
+  doc.y=cpfY+42;
+}
+function renderContractPdf(docxBuffer,{title='Contrato',party={},tipo='creator'}={}){
   return new Promise((resolve,reject)=>{
     try{
       const chunks=[];
       const doc=new PDFDocument({size:'A4',margins:{top:54,right:58,bottom:58,left:58},bufferPages:true,info:{Title:title,Author:'AllianceOS',Creator:'AllianceOS'}});
       doc.on('data',x=>chunks.push(x));doc.on('error',reject);doc.on('end',()=>resolve(Buffer.concat(chunks)));
       const blocks=docxPdfBlocks(docxBuffer),pageWidth=595.28,contentWidth=pageWidth-116;
-      const ensure=h=>{if(doc.y+h>doc.page.height-62)doc.addPage()};
+      const ensure=h=>{if(doc.y+h>doc.page.height-66)doc.addPage()};
+      let blankStreak=0,skippingSignatureTail=false;
       for(const block of blocks){
         if(block.type==='table'){
+          blankStreak=0;
+          if(skippingSignatureTail)continue;
           const cols=Math.max(1,...block.rows.map(r=>r.length)),cw=contentWidth/cols;
           for(const row of block.rows){
             const heights=row.map(cell=>doc.font('Times-Roman').fontSize(9.5).heightOfString(cell||' ',{width:cw-12,lineGap:1}));
@@ -221,29 +263,44 @@ function renderContractPdf(docxBuffer,{title='Contrato'}={}){
           }
           doc.moveDown(.6);continue;
         }
-        const {runs,text,meta}=block;
-        if(meta.pageBreak&&doc.y>70)doc.addPage();
-        if(meta.before)doc.y+=meta.before;
-        if(!String(text||'').trim()){doc.moveDown(.45);continue}
+        const {runs,text,meta}=block,trimmed=String(text||'').trim();
+        if(skippingSignatureTail){
+          if(/^(TERMO|ANEXO|CLÁUSULA|CLAUSULA)\b/i.test(trimmed))skippingSignatureTail=false;
+          else continue;
+        }
+        if(/^CONTRATANTE\b/i.test(trimmed)&&/CONTRATADA/i.test(trimmed)){
+          renderContractSignature(doc,{party,tipo,contentWidth,ensure});
+          skippingSignatureTail=true;blankStreak=0;continue;
+        }
+        if(meta.pageBreak&&doc.y>85&&trimmed)doc.addPage();
+        if(meta.before&&trimmed)doc.y+=meta.before;
+        if(!trimmed){
+          blankStreak++;
+          if(blankStreak===1)doc.moveDown(.28);
+          continue;
+        }
+        blankStreak=0;
         const heading=meta.heading,baseSize=heading?11.5:10.2;
-        const estimated=doc.font(heading?'Times-Bold':'Times-Roman').fontSize(baseSize).heightOfString(text.replace(/\t/g,'    '),{width:contentWidth-meta.left,lineGap:1.5,align:meta.align});
+        const estimated=doc.font(heading?'Times-Bold':'Times-Roman').fontSize(baseSize).heightOfString(trimmed.replace(/\t/g,'    '),{width:contentWidth-meta.left,lineGap:1.5,align:meta.align});
         ensure(Math.min(estimated+meta.after+6,220));
         const startX=58+meta.left,width=contentWidth-meta.left;
         let first=true;
         for(let i=0;i<runs.length;i++){
-          const run=runs[i],last=i===runs.length-1,size=run.size||baseSize;
+          const run=runs[i],last=i===runs.length-1,size=run.size||baseSize,runText=cleanWordText(run.text).replace(/\t/g,'    ');
+          if(!runText)continue;
           doc.fillColor('#111').font(pdfFont(run,heading)).fontSize(size);
           const opts={continued:!last,width,align:meta.align,lineGap:1.4,paragraphGap:last?Math.max(3,meta.after||4):0,indent:first?meta.first:0};
           if(run.underline)opts.underline=true;
-          doc.text(run.text.replace(/\t/g,'    '),first?startX:undefined,undefined,opts);
+          doc.text(runText,first?startX:undefined,undefined,opts);
           first=false;
         }
-        if(!runs.length)doc.font(heading?'Times-Bold':'Times-Roman').fontSize(baseSize).text(text,startX,undefined,{width,align:meta.align,lineGap:1.4,paragraphGap:Math.max(3,meta.after||4)});
+        if(first)doc.font(heading?'Times-Bold':'Times-Roman').fontSize(baseSize).text(trimmed,startX,undefined,{width,align:meta.align,lineGap:1.4,paragraphGap:Math.max(3,meta.after||4)});
       }
-      const range=doc.bufferedPageRange();
-      for(let i=range.start;i<range.start+range.count;i++){
+      const range=doc.bufferedPageRange(),total=range.count;
+      for(let i=range.start;i<range.start+total;i++){
         doc.switchToPage(i);
-        doc.fillColor('#777').font('Helvetica').fontSize(7.5).text('Página '+(i-range.start+1)+' de '+range.count,58,doc.page.height-34,{width:contentWidth,align:'center',lineBreak:false});
+        const footerY=doc.page.height-doc.page.margins.bottom-15;
+        doc.fillColor('#777').font('Helvetica').fontSize(7.5).text('Página '+(i-range.start+1)+' de '+total,58,footerY,{width:contentWidth,align:'center',lineBreak:false});
       }
       doc.end();
     }catch(e){reject(e)}
@@ -286,7 +343,7 @@ async function gerarContratoCreator(session,partnerBrandId,force=false){
   if(contrato?.metadata?.storage_path_pdf&&!force)return{contract:contrato,reused:true};
 
   const rendered=renderContractDocx(tipo,p),geradoEm=new Date().toISOString(),data=dataContrato();
-  const pdfBuffer=await renderContractPdf(rendered.buffer,{title:modelo.name+' - '+p.nome_completo});
+  const pdfBuffer=await renderContractPdf(rendered.buffer,{title:modelo.name+' - '+p.nome_completo,party:p,tipo});
   const safe=String(p.nome_completo||'parceiro').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'parceiro';
   const base=vinculo.brand_id+'/'+partnerBrandId+'/'+Date.now()+'-'+safe+'-'+tipo;
   const docxPath=base+'.docx',pdfPath=base+'.pdf';
@@ -422,7 +479,7 @@ export default async function handler(req,res){try{
   if(req.method==='GET'&&healthUrl.searchParams.get('contract_health')==='1'){
     try{
       const test=renderContractDocx('creator',{nome_completo:'Teste AllianceOS',cpf:'000.000.000-00',cnpj:'00.000.000/0000-00',razao_social:'Teste AllianceOS LTDA',endereco:'Endereço de teste'});
-      const pdf=await renderContractPdf(test.buffer,{title:'Contrato teste AllianceOS'});
+      const pdf=await renderContractPdf(test.buffer,{title:'Contrato teste AllianceOS',party:{nome_completo:'Teste AllianceOS',cpf:'000.000.000-00',cnpj:'00.000.000/0000-00',razao_social:'Teste AllianceOS LTDA'},tipo:'creator'});
       return send(res,200,{ok:true,mode:'private_storage_pdf',template_ready:test.buffer.length>10000,pdf_ready:pdf.subarray(0,5).toString()==='%PDF-',pdf_bytes:pdf.length,autentique_configured:!!String(process.env.AUTENTIQUE_API_TOKEN||'').trim(),remaining_placeholders:test.remaining});
     }catch(e){return send(res,200,{ok:false,mode:'private_storage',erro:String(e.message||e).slice(0,180)})}
   }
