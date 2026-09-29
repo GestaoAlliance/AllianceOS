@@ -476,6 +476,12 @@ async function refreshContractAutentique(session,contractId){
 
 export default async function handler(req,res){try{
   const healthUrl=new URL(req.url,'http://x');
+  if(req.method==='GET'&&healthUrl.searchParams.get('contract_health_pdf')==='1'){
+    const testParty={nome_completo:'Teste AllianceOS',cpf:'000.000.000-00',cnpj:'00.000.000/0000-00',razao_social:'Teste AllianceOS LTDA',endereco:'Rua de Teste, 123, Belo Horizonte/MG'};
+    const test=renderContractDocx('creator',testParty);
+    const pdf=await renderContractPdf(test.buffer,{title:'Contrato teste AllianceOS',party:testParty,tipo:'creator'});
+    res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition','inline; filename="contract-health-v2.pdf"');return res.status(200).send(pdf);
+  }
   if(req.method==='GET'&&healthUrl.searchParams.get('contract_health')==='1'){
     try{
       const test=renderContractDocx('creator',{nome_completo:'Teste AllianceOS',cpf:'000.000.000-00',cnpj:'00.000.000/0000-00',razao_social:'Teste AllianceOS LTDA',endereco:'Endereço de teste'});
