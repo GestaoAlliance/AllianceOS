@@ -27,13 +27,191 @@
     .success{display:none;margin-top:12px;padding:24px;border:1px solid #d9e8de;border-radius:14px;background:#f2f8f4}.success.show{display:block}.success h2{margin:0;font-size:20px}.success p{margin:8px 0 0;color:#53705c;font-size:11px;line-height:1.5}
     .loading{min-height:360px;display:grid;place-items:center;color:#818b92;font-size:11px}.trap{position:absolute!important;left:-9999px!important;opacity:0!important;pointer-events:none!important}
     @media(max-width:650px){.wrap{margin-top:18px}.top-inner{padding:19px}.top h1{font-size:24px}.question{padding:17px}.nav{flex-wrap:wrap}.progress{order:3;width:100%;margin-left:0}.bar{flex:1}.nav button{flex:1}}
+
+    .brand-experience,.game-head{display:none}
+
+    /* Botanika public experience — only affects the Botanika form */
+    body.theme-botanika{
+      min-height:100vh;
+      color:#f7f7f1;
+      background:
+        radial-gradient(circle at 18% 18%,rgba(73,92,176,.55),transparent 31%),
+        radial-gradient(circle at 92% 78%,rgba(156,174,126,.16),transparent 30%),
+        linear-gradient(120deg,#314393 0%,#19265f 46%,#111a43 100%);
+    }
+    body.theme-botanika:before{
+      content:"";position:fixed;inset:0;pointer-events:none;opacity:.22;
+      background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);
+      background-size:42px 42px;
+      -webkit-mask-image:linear-gradient(to bottom,black,transparent 82%);
+      mask-image:linear-gradient(to bottom,black,transparent 82%);
+    }
+    .theme-botanika .wrap{
+      position:relative;z-index:1;width:min(1460px,calc(100% - 44px));min-height:100vh;
+      margin:0 auto;padding:34px 0 46px;display:grid;grid-template-columns:minmax(360px,.88fr) minmax(560px,1.12fr);
+      gap:34px;align-items:stretch;
+    }
+    .theme-botanika .form-column{min-width:0;display:flex;flex-direction:column;justify-content:center}
+    .theme-botanika .brand{display:none}
+    .theme-botanika .loading{color:rgba(255,255,255,.72)}
+    .theme-botanika .brand-experience{
+      display:flex;min-height:calc(100vh - 80px);position:sticky;top:40px;align-self:start;flex-direction:column;
+      padding:38px 38px 30px;border:1px solid rgba(255,255,255,.12);border-radius:34px;overflow:hidden;
+      background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.035));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 30px 80px rgba(7,12,35,.16);
+      backdrop-filter:blur(16px);
+    }
+    .theme-botanika .brand-experience:before{
+      content:"";position:absolute;left:-110px;bottom:-120px;width:430px;height:430px;border-radius:42% 58% 63% 37%/45% 38% 62% 55%;
+      background:linear-gradient(145deg,#f8f1e5,#ede6d9);opacity:.98;transform:rotate(9deg);
+    }
+    .theme-botanika .brand-experience:after{
+      content:"";position:absolute;left:14%;bottom:3%;width:330px;height:180px;border-radius:50%;
+      background:radial-gradient(ellipse at center,rgba(188,209,111,.26),rgba(255,255,255,0) 68%);
+      filter:blur(6px);
+    }
+    .theme-botanika .botanika-mark{position:relative;z-index:2;display:flex;align-items:center;gap:12px}
+    .theme-botanika .botanika-mark img{max-width:210px;max-height:64px;object-fit:contain;object-position:left center;filter:brightness(0) invert(1)}
+    .theme-botanika .botanika-mark strong{font-size:26px;letter-spacing:-.035em;font-weight:720}
+    .theme-botanika .brand-kicker{position:relative;z-index:2;margin-top:72px;color:#dbe98e;font-size:10px;letter-spacing:.17em;font-weight:700}
+    .theme-botanika .brand-experience h1{position:relative;z-index:2;margin:16px 0 0;max-width:480px;color:#fff;font-size:44px;line-height:1.02;letter-spacing:-.055em;font-weight:420}
+    .theme-botanika .brand-experience h1 em{display:block;margin-top:6px;color:#e4ef9a;font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.04em}
+    .theme-botanika .brand-experience>p{position:relative;z-index:2;max-width:460px;margin:22px 0 0;color:rgba(255,255,255,.78);font-size:13px;line-height:1.55}
+    .theme-botanika .journey-card{position:relative;z-index:3;margin-top:auto;margin-bottom:108px;padding:18px;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(11,20,66,.28);backdrop-filter:blur(12px)}
+    .theme-botanika .journey-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .theme-botanika .journey-head span{font-size:9px;color:rgba(255,255,255,.68);letter-spacing:.08em;text-transform:uppercase}
+    .theme-botanika .journey-head strong{font-size:11px;color:#e4ef9a}
+    .theme-botanika .journey-track{height:6px;margin-top:12px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden}
+    .theme-botanika .journey-track i{display:block;width:16.667%;height:100%;border-radius:99px;background:linear-gradient(90deg,#c9dc7c,#e4ef9a);transition:width .35s ease}
+    .theme-botanika .journey-steps{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:13px}
+    .theme-botanika .journey-step{display:grid;gap:6px;justify-items:center;color:rgba(255,255,255,.42);font-size:7px;text-align:center;transition:.25s}
+    .theme-botanika .journey-step b{display:grid;place-items:center;width:22px;height:22px;border:1px solid rgba(255,255,255,.18);border-radius:50%;font-size:8px;font-weight:650}
+    .theme-botanika .journey-step.active,.theme-botanika .journey-step.done{color:#fff}
+    .theme-botanika .journey-step.active b{border-color:#dce98e;background:#dce98e;color:#172254;box-shadow:0 0 0 5px rgba(220,233,142,.08)}
+    .theme-botanika .journey-step.done b{border-color:rgba(220,233,142,.65);color:#dce98e}
+    .theme-botanika .brand-footer{position:absolute;z-index:3;left:38px;bottom:26px;color:rgba(255,255,255,.68);font-size:8px;letter-spacing:.2em}
+
+    .theme-botanika #app{
+      width:100%;padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:30px;
+      background:linear-gradient(160deg,rgba(15,26,76,.76),rgba(16,25,61,.58));backdrop-filter:blur(18px);
+      box-shadow:0 30px 90px rgba(4,9,33,.22),inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .theme-botanika .game-head{display:block;padding:5px 4px 20px}
+    .theme-botanika .game-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .theme-botanika .game-chip{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border:1px solid rgba(220,233,142,.35);border-radius:99px;background:rgba(220,233,142,.08);color:#e4ef9a;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    .theme-botanika .game-percent{color:rgba(255,255,255,.58);font-size:8px}
+    .theme-botanika .game-head h2{margin:12px 0 0;color:#fff;font-size:25px;line-height:1.06;letter-spacing:-.035em}
+    .theme-botanika .game-head p{margin:7px 0 0;color:rgba(255,255,255,.64);font-size:10px;line-height:1.45}
+    .theme-botanika .game-line{height:5px;margin-top:14px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+    .theme-botanika .game-line span{display:block;width:16.667%;height:100%;border-radius:99px;background:linear-gradient(90deg,#c7da78,#e7f19a);transition:width .35s ease}
+
+    .theme-botanika .top,.theme-botanika .panel,.theme-botanika .question,.theme-botanika .finish{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.055)}
+    .theme-botanika .top{border-top:0;border-radius:20px;margin-bottom:14px}
+    .theme-botanika .top-inner{padding:20px 20px 17px}
+    .theme-botanika .top h1{color:#fff;font-size:18px}
+    .theme-botanika .top h2{color:#e4ef9a}
+    .theme-botanika .top p,.theme-botanika .top li{color:rgba(255,255,255,.68)}
+    .theme-botanika .top ul{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+    .theme-botanika .top li{position:relative;padding-left:14px;font-size:9px}
+    .theme-botanika .top li:before{content:"";position:absolute;left:0;top:5px;width:5px;height:5px;border-radius:50%;background:#dce98e}
+    .theme-botanika .required-note{border-top-color:rgba(255,255,255,.09);color:rgba(255,255,255,.48)}
+
+    .theme-botanika .panel{border:0;background:transparent;margin-top:0}
+    .theme-botanika .section-title{padding:0 2px 12px;background:transparent;color:#dce98e;font-size:8px;letter-spacing:.15em}
+    .theme-botanika .question{
+      position:relative;margin-top:9px;padding:17px 18px;border-radius:18px;
+      background:linear-gradient(150deg,rgba(255,255,255,.075),rgba(255,255,255,.035));
+      transition:transform .18s ease,border-color .18s ease,background .18s ease;
+    }
+    .theme-botanika .question:focus-within{transform:translateY(-1px);border-color:rgba(220,233,142,.38);background:rgba(255,255,255,.085)}
+    .theme-botanika .question label,.theme-botanika .question legend{color:#fff;font-size:10px}
+    .theme-botanika .req:after{color:#dce98e}
+    .theme-botanika input[type=text],.theme-botanika input[type=email],.theme-botanika textarea{
+      margin-top:10px;border:1px solid rgba(255,255,255,.13);border-radius:12px;background:rgba(255,255,255,.96);
+      padding:0 12px;color:#16204f;font-size:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.6);
+    }
+    .theme-botanika input[type=text],.theme-botanika input[type=email]{height:42px}
+    .theme-botanika textarea{min-height:92px;padding-top:12px}
+    .theme-botanika input[type=text]:focus,.theme-botanika input[type=email]:focus,.theme-botanika textarea:focus{border-color:#dce98e;box-shadow:0 0 0 3px rgba(220,233,142,.12)}
+    .theme-botanika .radios{grid-template-columns:1fr 1fr;gap:8px}
+    .theme-botanika .radio{
+      min-height:48px;padding:11px 12px;border:1px solid rgba(255,255,255,.13);border-radius:14px;background:rgba(255,255,255,.04);
+      color:rgba(255,255,255,.8);font-size:9px;cursor:pointer;transition:.18s ease;
+    }
+    .theme-botanika .radio:hover{border-color:rgba(220,233,142,.32);background:rgba(255,255,255,.07)}
+    .theme-botanika .radio:has(input:checked){border-color:#dce98e;background:rgba(220,233,142,.11);color:#fff;box-shadow:inset 0 0 0 1px rgba(220,233,142,.14)}
+    .theme-botanika .radio input{appearance:none;width:18px;height:18px;flex:0 0 18px;border:1px solid rgba(255,255,255,.36);border-radius:50%;background:transparent;display:grid;place-items:center}
+    .theme-botanika .radio input:checked{border-color:#dce98e;background:#dce98e;box-shadow:inset 0 0 0 5px #1a265b}
+    .theme-botanika .other input{background:#fff}
+
+    .theme-botanika .nav{position:sticky;bottom:14px;z-index:10;margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.11);border-radius:16px;background:rgba(13,22,63,.76);backdrop-filter:blur(14px)}
+    .theme-botanika .nav button{height:42px;border-radius:11px;font-size:9px}
+    .theme-botanika .secondary{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#fff}
+    .theme-botanika .primary{border-color:#dce98e;background:#dce98e;color:#16204f;padding-left:22px;padding-right:22px}
+    .theme-botanika .progress{display:none}
+    .theme-botanika .message.error{background:rgba(190,58,58,.12);border-color:rgba(255,126,126,.28);color:#ffd2d2}
+    .theme-botanika .finish{padding:24px;border-radius:18px;background:linear-gradient(135deg,#dce98e,#c8d978);color:#152050;font-size:14px;line-height:1.45}
+    .theme-botanika .success{margin-top:0;padding:28px;border-color:rgba(220,233,142,.34);border-radius:20px;background:rgba(220,233,142,.11)}
+    .theme-botanika .success h2{color:#fff}.theme-botanika .success p{color:rgba(255,255,255,.68)}
+    .theme-botanika .step.active{animation:botanikaStepIn .32s cubic-bezier(.2,.75,.2,1)}
+    .theme-botanika.step-celebrate .game-line span,.theme-botanika.step-celebrate .journey-track i{filter:drop-shadow(0 0 8px rgba(220,233,142,.65))}
+    @keyframes botanikaStepIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    @media(max-width:1040px){
+      .theme-botanika .wrap{width:min(860px,calc(100% - 28px));display:block;padding-top:18px}
+      .theme-botanika .brand-experience{position:relative;top:auto;min-height:auto;padding:24px;border-radius:24px;margin-bottom:14px}
+      .theme-botanika .brand-kicker{margin-top:30px}.theme-botanika .brand-experience h1{font-size:34px}
+      .theme-botanika .journey-card{margin-top:28px;margin-bottom:0}.theme-botanika .brand-experience:before,.theme-botanika .brand-experience:after,.theme-botanika .brand-footer{display:none}
+      .theme-botanika .botanika-mark img{max-width:170px}
+    }
+    @media(max-width:650px){
+      body.theme-botanika{background:linear-gradient(160deg,#304293,#18255d 52%,#111a43)}
+      .theme-botanika .wrap{width:100%;padding:0}
+      .theme-botanika .brand-experience{margin:0;border:0;border-radius:0;padding:24px 18px 20px;background:transparent;box-shadow:none}
+      .theme-botanika .brand-kicker{margin-top:22px}
+      .theme-botanika .brand-experience h1{font-size:31px}
+      .theme-botanika .brand-experience>p{font-size:11px;margin-top:14px}
+      .theme-botanika .journey-card{margin-top:22px;padding:14px}.theme-botanika .journey-step span{display:none}
+      .theme-botanika #app{padding:16px 14px 24px;border-radius:24px 24px 0 0;border-left:0;border-right:0;border-bottom:0}
+      .theme-botanika .top ul{grid-template-columns:1fr}
+      .theme-botanika .radios{grid-template-columns:1fr}
+      .theme-botanika .question{padding:15px}
+      .theme-botanika .nav{bottom:8px}
+    }
+
   </style>
 </head>
 <body>
 <main class="wrap">
-  <div class="brand"><img src="/api/brand-icon?format=svg" alt=""><div><b>AllianceOS</b><span>Programa de Parceiros</span></div></div>
-  <div id="loading" class="loading">Carregando formulário…</div>
-  <div id="app" hidden>
+  <aside class="brand-experience" id="brandExperience" aria-hidden="true">
+    <div class="botanika-mark"><img id="botanikaLogo" alt="Botanika"><strong id="botanikaLogoFallback">Botanika</strong></div>
+    <div class="brand-kicker">SEU CUIDADO COMEÇA AQUI</div>
+    <h1>Uma parceria com propósito, <em>resultados reais.</em></h1>
+    <p>Faça parte de uma comunidade que transforma saúde, rotina e influência em cuidado todos os dias.</p>
+    <div class="journey-card">
+      <div class="journey-head"><span>Seu caminho</span><strong id="journeyPercent">17%</strong></div>
+      <div class="journey-track"><i id="journeyFill"></i></div>
+      <div class="journey-steps" id="journeySteps">
+        <div class="journey-step active" data-journey="1"><b>1</b><span>Início</span></div>
+        <div class="journey-step" data-journey="2"><b>2</b><span>Contato</span></div>
+        <div class="journey-step" data-journey="3"><b>3</b><span>Perfil</span></div>
+        <div class="journey-step" data-journey="4"><b>4</b><span>Fit</span></div>
+        <div class="journey-step" data-journey="5"><b>5</b><span>Dados</span></div>
+        <div class="journey-step" data-journey="6"><b>6</b><span>Final</span></div>
+      </div>
+    </div>
+    <div class="brand-footer">BOTANIKA · TODOS OS DIAS</div>
+  </aside>
+  <section class="form-column">
+    <div class="brand"><img src="/api/brand-icon?format=svg" alt=""><div><b>AllianceOS</b><span>Programa de Parceiros</span></div></div>
+    <div id="loading" class="loading">Carregando formulário…</div>
+    <div id="app" hidden>
+      <div class="game-head" id="gameHead">
+        <div class="game-meta"><span class="game-chip">Etapa <b id="stageNumber">1</b> de 6</span><span class="game-percent" id="gamePercent">17% concluído</span></div>
+        <h2 id="stageTitle">Vamos começar pelo básico</h2>
+        <p id="stageCaption">Só algumas informações para entendermos quem você é.</p>
+        <div class="game-line"><span id="gameFill"></span></div>
+      </div>
     <section class="top" id="intro">
       <div class="top-inner">
         <h1>Formulário creators</h1>
@@ -130,11 +308,12 @@
       </div>
     </form>
 
-    <section id="success" class="success">
-      <h2>Cadastro enviado.</h2>
-      <p>Seus dados foram recebidos e já entraram na Gestão de Creators da nossa equipe.</p>
-    </section>
-  </div>
+      <section id="success" class="success">
+        <h2>Cadastro enviado.</h2>
+        <p>Seus dados foram recebidos e já entraram na Gestão de Creators da nossa equipe.</p>
+      </section>
+    </div>
+  </section>
 </main>
 <script>
 (() => {
@@ -144,6 +323,15 @@
   const bar=document.getElementById('progressBar'),progressText=document.getElementById('progressText'),message=document.getElementById('message');
   const success=document.getElementById('success'),otherType=document.getElementById('otherType');
   let step=1,brand='Alliance';
+  const BOTANIKA_LOGO='https://lpnyrzsdiyzjnhovpduk.supabase.co/storage/v1/object/public/profile-avatars/395ed61f-dde7-4fb6-a6da-ea5301304765/brands/91a66f9e-6dc8-40c8-b7ca-33b8b39676f4/1790102529618.webp';
+  const stageCopy={
+    1:['Vamos começar pelo básico','Só algumas informações para entendermos quem você é.'],
+    2:['Agora, onde podemos falar com você?','Deixe seus principais canais para mantermos tudo simples e direto.'],
+    3:['Conte o que você faz de melhor','Queremos entender seu universo e como você conversa com sua audiência.'],
+    4:['Seu fit com a marca','Duas respostas rápidas para entendermos sua relação com a Botanika.'],
+    5:['Hora de formalizar','Últimos dados para conseguirmos preparar parceria, envio e pagamentos.'],
+    6:['Tudo pronto','Revise mentalmente seus dados e finalize seu cadastro.']
+  };
   const submissionKey='alliance_creator_submission_'+token;
   let submissionId=sessionStorage.getItem(submissionKey);
   if(!submissionId){submissionId=crypto.randomUUID();sessionStorage.setItem(submissionKey,submissionId)}
@@ -152,7 +340,24 @@
   function showStep(){
     document.querySelectorAll('.step').forEach(x=>x.classList.toggle('active',Number(x.dataset.step)===step));
     back.hidden=step===1;next.hidden=step===6;submit.hidden=step!==6;
-    bar.style.width=((step/6)*100)+'%';progressText.textContent='Página '+step+' de 6';setMessage('');
+    const pct=Math.round((step/6)*100);
+    bar.style.width=pct+'%';progressText.textContent='Página '+step+' de 6';setMessage('');
+    const stageNumber=document.getElementById('stageNumber'),stageTitle=document.getElementById('stageTitle'),stageCaption=document.getElementById('stageCaption');
+    const gamePercent=document.getElementById('gamePercent'),gameFill=document.getElementById('gameFill'),journeyPercent=document.getElementById('journeyPercent'),journeyFill=document.getElementById('journeyFill');
+    if(stageNumber)stageNumber.textContent=String(step);
+    if(stageTitle)stageTitle.textContent=(stageCopy[step]||[])[0]||'';
+    if(stageCaption)stageCaption.textContent=(stageCopy[step]||[])[1]||'';
+    if(gamePercent)gamePercent.textContent=pct+'% concluído';
+    if(gameFill)gameFill.style.width=pct+'%';
+    if(journeyPercent)journeyPercent.textContent=pct+'%';
+    if(journeyFill)journeyFill.style.width=pct+'%';
+    document.querySelectorAll('[data-journey]').forEach(x=>{
+      const n=Number(x.dataset.journey);x.classList.toggle('active',n===step);x.classList.toggle('done',n<step);
+      const b=x.querySelector('b');if(b)b.textContent=n<step?'✓':String(n);
+    });
+    if(document.body.classList.contains('theme-botanika')){
+      document.body.classList.remove('step-celebrate');requestAnimationFrame(()=>{document.body.classList.add('step-celebrate');setTimeout(()=>document.body.classList.remove('step-celebrate'),420)});
+    }
     window.scrollTo({top:0,behavior:'smooth'});
   }
   function validateStep(){
@@ -198,6 +403,13 @@
       brand=data.brand_name||'Alliance';
       document.querySelectorAll('[data-brand]').forEach(x=>x.textContent=brand);
       document.querySelectorAll('[data-brand-upper]').forEach(x=>x.textContent=brand.toUpperCase());
+      if(brand.toLowerCase()==='botanika'){
+        document.body.classList.add('theme-botanika');
+        document.documentElement.style.background='#111a43';
+        const be=document.getElementById('brandExperience');if(be)be.setAttribute('aria-hidden','false');
+        const logo=document.getElementById('botanikaLogo'),fallback=document.getElementById('botanikaLogoFallback');
+        if(logo){logo.src=BOTANIKA_LOGO;logo.onload=()=>{if(fallback)fallback.style.display='none'};logo.onerror=()=>{logo.style.display='none'}}
+      }
       loading.hidden=true;app.hidden=false;showStep();
     }catch{loading.textContent='Este formulário está indisponível no momento.'}
   }
