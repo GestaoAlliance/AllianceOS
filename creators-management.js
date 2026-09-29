@@ -16,12 +16,26 @@
     inativo:'Inativo',reprovado:'Reprovado'
   };
   const stages=['novo_cadastro','em_analise','aprovado','contrato_enviado','aguardando_assinatura','contrato_assinado','envio_pendente','ativacao_pendente','ativo'];
+  const formTokens={
+    '91a66f9e-6dc8-40c8-b7ca-33b8b39676f4':'b86EtGqZWRyhJJYYlNBfQP5a',
+    '11258793-c09f-48eb-8d70-465399a36f63':'xj4nriG_y4iXqIqZAfwzrKXt',
+    'f684a2b4-8d77-4f53-a46d-11f028d71680':'noj_5Jd5aWbsKAZh1-iTJiFA',
+    '771d59ab-5c2c-4594-b09c-20f7e68073d3':'4f4zIS30aagiUF7UN8LmBA2U'
+  };
 
   async function client(){ await window.AllianceOSAuth?.ready; const c=window.AllianceOSAuth?.client; if(!c) throw new Error('Supabase indisponível'); return c; }
   function brand(){
     const s=$('#brandSelect'),o=s?.selectedOptions?.[0],id=o?.dataset?.brandId||'';
     if(!id||id==='__all__') return {id:null,name:'Todas as marcas'};
     return {id,name:String(o?.textContent||o?.value||'Marca').trim()};
+  }
+  async function copyFormLink(){
+    const b=brand();
+    if(!b.id){toast('Selecione uma marca para gerar o link do formulário.');return}
+    const token=formTokens[b.id];
+    if(!token){toast('Esta marca ainda não possui formulário público configurado.');return}
+    const url=location.origin+'/parceiros/cadastro?s='+encodeURIComponent(token);
+    try{await navigator.clipboard.writeText(url);toast('Link do formulário copiado.')}catch{prompt('Copie o link do formulário:',url)}
   }
   function toast(msg){
     if(typeof window.showToast==='function') return window.showToast(msg);
@@ -101,7 +115,7 @@
     ];
     r.innerHTML='<div class="crm-shell">'+
       '<header class="crm-head"><div><span>SETOR · ANA</span><h1>Gestão de Creators</h1><p>'+esc(b.name)+' · parceiros, contratos, envios, conteúdo e performance em uma única operação.</p></div>'+
-      '<div class="crm-head-actions"><button class="crm-secondary" data-action="reload">Atualizar</button><button class="crm-primary" data-action="new-partner">+ Novo parceiro</button></div></header>'+
+      '<div class="crm-head-actions"><button class="crm-secondary" data-action="form-link">Copiar link do formulário</button><button class="crm-secondary" data-action="reload">Atualizar</button><button class="crm-primary" data-action="new-partner">+ Novo parceiro</button></div></header>'+
       '<div class="crm-kpis">'+[
         ['Parceiros',k.total],['Ativos',k.active],['Contratos pendentes',k.waiting],['Envios pendentes',k.pendingShip],['Vendas no mês',money(k.sales)],['Comissão disponível',money(k.comm)]
       ].map(x=>'<article><span>'+x[0]+'</span><b>'+x[1]+'</b></article>').join('')+'</div>'+
@@ -214,6 +228,7 @@
     const p=e.target.closest('[data-open-partner]');if(p){openPartner(p.dataset.openPartner);return}
     const a=e.target.closest('[data-action]');if(!a)return;
     if(a.dataset.action==='new-partner')openNew();
+    if(a.dataset.action==='form-link')copyFormLink();
     if(a.dataset.action==='reload')load();
     if(a.dataset.action==='archive')archive(a.dataset.id);
   }
