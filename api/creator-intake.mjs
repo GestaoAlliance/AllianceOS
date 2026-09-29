@@ -1,4 +1,4 @@
-const ENDPOINT='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/creator-intake';
+const ENDPOINT='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/creator-intake-v2';
 function send(res,status,body,contentType='application/json; charset=utf-8'){
   res.setHeader('Cache-Control','no-store');
   res.setHeader('Content-Type',contentType);
