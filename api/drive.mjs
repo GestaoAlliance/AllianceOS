@@ -1,5 +1,9 @@
 import {requireAllianceUser,authError} from './_lib/auth.mjs';
 import {createSign} from 'node:crypto';
+import PizZip from 'pizzip';
+import creatorTemplateB64 from './_lib/botanika-creator-template.mjs';
+import prescritorTemplateB64 from './_lib/botanika-prescritor-template.mjs';
+import ugcTemplateB64 from './_lib/botanika-ugc-template.mjs';
 
 const BRAND='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-brand';
 const CONFIG='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
@@ -96,6 +100,47 @@ async function placeholdersRestantes(id,tipo){
   const txt=textoDoc(j).join(''),tokens=tipo==='prescritor'?['NOME CONTRATADO','ENDEREÇO','Belo Horizonte/MG, data']:tipo==='ugc'?['NOME COMPLETO','XXXXXXXXX','xxxxxx']:['[RAZÃO SOCIAL]','XXXXXXXXX','xxxxxxxxxxx','[Nome completo]','[Número do CPF]','[Endereço Completo]'];
   return tokens.filter(x=>txt.includes(x));
 }
+function contractTemplateB64(tipo){if(tipo==='prescritor')return prescritorTemplateB64;if(tipo==='ugc')return ugcTemplateB64;return creatorTemplateB64}
+function xmlDecode(s){return String(s||'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&')}
+function xmlEscape(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
+function replaceInParagraph(paragraph,replacements){
+  const nodes=[...paragraph.matchAll(/<w:t([^>]*)>([\s\S]*?)<\/w:t>/g)];if(!nodes.length)return paragraph;
+  const plain=nodes.map(m=>xmlDecode(m[2])).join('');let next=plain;
+  for(const [from,to] of replacements)next=next.split(String(from)).join(String(to));
+  if(next===plain)return paragraph;
+  let first=true;
+  return paragraph.replace(/<w:t([^>]*)>[\s\S]*?<\/w:t>/g,(m,attrs)=>{
+    if(!first)return '<w:t'+attrs+'></w:t>';
+    first=false;const a=/xml:space=/.test(attrs)?attrs:(attrs+' xml:space="preserve"');
+    return '<w:t'+a+'>'+xmlEscape(next)+'</w:t>';
+  });
+}
+function renderContractDocx(tipo,p){
+  const zip=new PizZip(Buffer.from(contractTemplateB64(tipo),'base64')),replacements=substituicoesContrato(tipo,p);
+  const xmlFiles=Object.keys(zip.files).filter(n=>/^word\/(document|header\d+|footer\d+)\.xml$/.test(n));
+  let combined='';
+  for(const name of xmlFiles){
+    const file=zip.file(name);if(!file)continue;let xml=file.asText();
+    xml=xml.replace(/<w:p\b[\s\S]*?<\/w:p>/g,para=>replaceInParagraph(para,replacements));
+    zip.file(name,xml);combined+='\n'+xmlDecode(xml.replace(/<[^>]+>/g,''));
+  }
+  const tokens=tipo==='prescritor'?['NOME CONTRATADO','Belo Horizonte/MG, data','residente no endereço: ENDEREÇO']:tipo==='ugc'?['NOME COMPLETO','CPF sob o nº XXXXXXXXX','residente no endereço: xxxxx']:['[RAZÃO SOCIAL]','CNPJ sob nº XXXXXXXXX','CPF nº xxxxxxxxxxx','[Nome completo]','[Número do CPF]','[Endereço Completo]'];
+  const remaining=tokens.filter(t=>combined.includes(t));
+  return {buffer:zip.generate({type:'nodebuffer',compression:'DEFLATE'}),remaining};
+}
+async function uploadPrivateContract(session,path,buffer){
+  const conf=await cfg(),url=conf.url+'/storage/v1/object/creator-contracts/'+encodePath(path);
+  const r=await fetch(url,{method:'POST',headers:{apikey:conf.anon,Authorization:session.authorization,'Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','x-upsert':'false'},body:buffer});
+  const txt=await r.text();if(!r.ok)throw Object.assign(Error('Falha ao salvar contrato: '+txt.slice(0,220)),{status:r.status});
+  return path;
+}
+async function signPrivateContract(session,path,expiresIn=3600){
+  const conf=await cfg(),url=conf.url+'/storage/v1/object/sign/creator-contracts/'+encodePath(path);
+  const r=await fetch(url,{method:'POST',headers:{apikey:conf.anon,Authorization:session.authorization,'Content-Type':'application/json'},body:JSON.stringify({expiresIn})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(Error(j?.message||j?.error||'Falha ao abrir contrato.'),{status:r.status});
+  const signed=j.signedURL||j.signedUrl;if(!signed)throw Error('Storage não retornou link assinado.');
+  return /^https?:/.test(signed)?signed:conf.url+(signed.startsWith('/storage/v1')?'': '/storage/v1')+signed;
+}
 async function gerarContratoCreator(session,partnerBrandId,force=false){
   const links=await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(partnerBrandId)+'&arquivado_em=is.null&select=*,partner:creator_partners(*)');
   const vinculo=links?.[0];if(!vinculo)throw Object.assign(Error('Parceiro não encontrado.'),{status:404});
@@ -105,44 +150,39 @@ async function gerarContratoCreator(session,partnerBrandId,force=false){
   const modelos=await authRest(session,'/rest/v1/creator_contract_templates?brand_id=eq.'+encodeURIComponent(vinculo.brand_id)+'&partner_type=eq.'+encodeURIComponent(tipo)+'&active=eq.true&select=*&limit=1');
   const modelo=modelos?.[0];if(!modelo)throw Object.assign(Error('Não existe modelo de contrato ativo para este tipo e marca.'),{status:409});
   const rows=await authRest(session,'/rest/v1/creator_contracts?partner_brand_id=eq.'+encodeURIComponent(partnerBrandId)+'&arquivado_em=is.null&select=*&order=criado_em.desc&limit=1');
-  let contrato=rows?.[0]||null;if(contrato?.documento_url&&!force)return{contract:contrato,reused:true};
-  if(!force){
-    const achado=await contratoExistenteNoDrive(modelo.drive_destination_folder_id,partnerBrandId);
-    if(achado){
-      const metadata={...(contrato?.metadata||{}),generation_state:'generated',drive_document_id:achado.id,template_drive_id:modelo.drive_template_id,template_name:modelo.name,model_type:tipo,recovered_existing:true};
-      const body={documento_url:achado.webViewLink||('https://docs.google.com/document/d/'+achado.id+'/edit'),metadata,atualizado_em:new Date().toISOString(),atualizado_por:session.user.id};
-      if(contrato){const up=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contrato.id),{method:'PATCH',prefer:'return=representation',body});contrato=up?.[0]||{...contrato,...body}}
-      else{const up=await authRest(session,'/rest/v1/creator_contracts',{method:'POST',prefer:'return=representation',body:{partner_brand_id:partnerBrandId,status:'rascunho',provider:'autentique',...body,criado_por:session.user.id}});contrato=up?.[0]}
-      return{contract:contrato,recovered:true}
-    }
-  }
-  const bytes=await baixarArquivoDrive(modelo.drive_template_id);
-  const nomeArquivo=(tipo==='ugc'?'Contrato UGC - '+p.nome_completo:p.nome_completo+' - '+(tipo==='prescritor'?'Prescritores':'Contrato influenciadores botanika')).replace(/[\\/:*?"<>|]/g,'-');
-  const arquivo=await importarModeloComoDoc(bytes,{nome:nomeArquivo,pasta:modelo.drive_destination_folder_id,partnerBrandId,templateId:modelo.drive_template_id});
-  await preencherGoogleDoc(arquivo.id,substituicoesContrato(tipo,p));
-  const restantes=await placeholdersRestantes(arquivo.id,tipo),geradoEm=new Date().toISOString(),data=dataContrato();
-  const metadata={...(contrato?.metadata||{}),generation_state:restantes.length?'generated_with_warning':'generated',drive_document_id:arquivo.id,drive_file_name:arquivo.name,template_drive_id:modelo.drive_template_id,template_name:modelo.name,model_type:tipo,generated_at:geradoEm,remaining_placeholders:restantes,versions:[...((contrato?.metadata?.versions)||[]),{drive_document_id:arquivo.id,documento_url:arquivo.webViewLink||('https://docs.google.com/document/d/'+arquivo.id+'/edit'),generated_at:geradoEm}]};
-  const payload={documento_url:arquivo.webViewLink||('https://docs.google.com/document/d/'+arquivo.id+'/edit'),inicio_em:data.iso,fim_em:somarMeses(data.iso,modelo.duration_months),metadata,atualizado_em:geradoEm,atualizado_por:session.user.id};
+  let contrato=rows?.[0]||null;
+  if(contrato?.metadata?.storage_path&&!force)return{contract:contrato,reused:true};
+
+  const {buffer,remaining}=renderContractDocx(tipo,p),geradoEm=new Date().toISOString(),data=dataContrato();
+  const safe=String(p.nome_completo||'parceiro').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'parceiro';
+  const path=vinculo.brand_id+'/'+partnerBrandId+'/'+Date.now()+'-'+safe+'-'+tipo+'.docx';
+  await uploadPrivateContract(session,path,buffer);
+  const metadata={...(contrato?.metadata||{}),generation_state:remaining.length?'generated_with_warning':'generated',storage_bucket:'creator-contracts',storage_path:path,template_drive_id:modelo.drive_template_id,template_name:modelo.name,model_type:tipo,generated_at:geradoEm,remaining_placeholders:remaining,versions:[...((contrato?.metadata?.versions)||[]),{storage_path:path,generated_at:geradoEm}]};
+  const payload={documento_url:'storage://creator-contracts/'+path,inicio_em:data.iso,fim_em:somarMeses(data.iso,modelo.duration_months),metadata,atualizado_em:geradoEm,atualizado_por:session.user.id};
   if(contrato){const up=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contrato.id),{method:'PATCH',prefer:'return=representation',body:payload});contrato=up?.[0]||{...contrato,...payload}}
   else{const up=await authRest(session,'/rest/v1/creator_contracts',{method:'POST',prefer:'return=representation',body:{partner_brand_id:partnerBrandId,status:'rascunho',provider:'autentique',...payload,criado_por:session.user.id}});contrato=up?.[0]}
   await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(partnerBrandId),{method:'PATCH',prefer:'return=minimal',body:{proxima_acao:'Enviar contrato para assinatura',proxima_acao_em:null,atualizado_em:geradoEm,atualizado_por:session.user.id}});
-  await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:partnerBrandId,evento:'contrato_gerado',descricao:'Contrato gerado automaticamente a partir do modelo '+modelo.name,origem:'automacao',actor_id:session.user.id,dados:{contract_id:contrato?.id,drive_document_id:arquivo.id,template_drive_id:modelo.drive_template_id,model_type:tipo,remaining_placeholders:restantes}}});
-  return{contract:contrato,created:true,warning:restantes.length?restantes:null}
+  await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:partnerBrandId,evento:'contrato_gerado',descricao:'Contrato gerado automaticamente a partir do modelo '+modelo.name,origem:'automacao',actor_id:session.user.id,dados:{contract_id:contrato?.id,storage_path:path,template_drive_id:modelo.drive_template_id,model_type:tipo,remaining_placeholders:remaining}}});
+  return{contract:contrato,created:true,warning:remaining.length?remaining:null}
+}
+async function contractUrl(session,contractId){
+  const rows=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contractId)+'&arquivado_em=is.null&select=id,metadata&limit=1');
+  const c=rows?.[0],path=c?.metadata?.storage_path;if(!c||!path)throw Object.assign(Error('Contrato gerado não encontrado.'),{status:404});
+  return signPrivateContract(session,path,3600);
 }
 
 export default async function handler(req,res){try{
   const healthUrl=new URL(req.url,'http://x');
   if(req.method==='GET'&&healthUrl.searchParams.get('contract_health')==='1'){
     try{
-      if(!conta())return send(res,200,{ok:false,drive_configured:false,template_access:false,destination_access:false});
-      const template=await drive('files/1y7AbZPIcXW3y-foah2g-4qvT2zVl7A7z',{fields:'id,mimeType'});
-      const folder=await drive('files/1636aBPh9psEGqlw-2gj8v3pPWwQl_CZM',{fields:'id,mimeType,capabilities(canAddChildren)'});
-      return send(res,200,{ok:true,drive_configured:true,template_access:!!template?.id,destination_access:folder?.mimeType===PASTA&&folder?.capabilities?.canAddChildren!==false});
-    }catch(e){return send(res,200,{ok:false,drive_configured:!!conta(),template_access:false,destination_access:false,erro:String(e.message||e).slice(0,160)})}
+      const test=renderContractDocx('creator',{nome_completo:'Teste AllianceOS',cpf:'000.000.000-00',cnpj:'00.000.000/0000-00',razao_social:'Teste AllianceOS LTDA',endereco:'Endereço de teste'});
+      return send(res,200,{ok:true,mode:'private_storage',template_ready:test.buffer.length>10000,remaining_placeholders:test.remaining});
+    }catch(e){return send(res,200,{ok:false,mode:'private_storage',erro:String(e.message||e).slice(0,180)})}
   }
   const session=await requireAllianceUser(req);const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
   if(req.method==='POST'&&body.action==='copy_storage'){const arquivo=await copiarStorage(body,session);return send(res,200,{ok:true,arquivo})}
   if(req.method==='POST'&&body.action==='generate_creator_contract'){const id=String(body.partner_brand_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'partner_brand_id inválido'});const result=await gerarContratoCreator(session,id,body.force===true);return send(res,200,{ok:true,...result})}
+  if(req.method==='POST'&&body.action==='get_creator_contract_url'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,url:await contractUrl(session,id)})}
   if(req.method==='POST'){const nome=String(body.marca||'Botanika'),raw=String(body.drive_pasta||body.pasta||'').trim(),limpo=raw.replace(/^https?:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//,'').split(/[?#]/)[0].trim();if(!/^[A-Za-z0-9_-]{10,}$/.test(limpo))return send(res,400,{erro:'esse id não parece um id de pasta do Drive'});await salvarPasta(nome,limpo);return send(res,200,{ok:true,ligado:true,marca:nome,raiz:limpo,pasta:limpo})}
   if(req.method!=='GET')return send(res,405,{erro:'método não permitido'});
   const q=Object.fromEntries(new URL(req.url,'http://x').searchParams),nome=q.marca||'Botanika',m=await marca(nome);
