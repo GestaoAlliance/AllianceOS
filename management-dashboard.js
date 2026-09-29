@@ -57,13 +57,21 @@ const avatarHtml=(name,photo)=>{
 async function loadRemote(brand){
   const client=window.AllianceOSAuth?.client;
   const bo=brandObject(brand);
-  if(!client||!bo?.id)return {month:null,results:[],profiles:[]};
-  const d=today(),start=monthRef()+'-01',end=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10);
+  if(!client||!bo?.id)return {month:null,results:[],profiles:[],shopify:null,shopifyOrders:[]};
+  const d=today(),start=monthRef()+'-01T00:00:00-03:00',end=new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59,999).toISOString();
   const monthQ=client.from('planning_months').select('id,brand_id,ano,mes,meta1,meta2,meta3,meta_ativa,ticket_medio_previsto').eq('brand_id',bo.id).eq('ano',d.getFullYear()).eq('mes',d.getMonth()+1).is('arquivado_em',null).maybeSingle();
   const resultQ=client.from('campaign_results').select('campaign_id,brand_id,data,faturamento,investimento,canal,fonte_receita').eq('brand_id',bo.id).gte('data',start).lte('data',end).is('arquivado_em',null);
   const profileQ=client.from('profiles').select('id,nome,foto_url,cargo,area_id,ativo').eq('ativo',true);
-  const [m,r,p]=await Promise.all([monthQ,resultQ,profileQ]);
-  return {month:m.error?null:m.data,results:r.error?[]:(r.data||[]),profiles:p.error?[]:(p.data||[])};
+  const shopifyQ=client.from('integration_sources').select('status,last_sync_at,last_success_at,last_error,meta').eq('brand_id',bo.id).eq('source','shopify').maybeSingle();
+  const ordersQ=client.from('shopify_orders').select('total,refunded_amount,criado_em,financial_status').eq('brand_id',bo.id).gte('criado_em',start).lte('criado_em',end);
+  const [m,r,p,s,o]=await Promise.all([monthQ,resultQ,profileQ,shopifyQ,ordersQ]);
+  return {
+    month:m.error?null:m.data,
+    results:r.error?[]:(r.data||[]),
+    profiles:p.error?[]:(p.data||[]),
+    shopify:s.error?null:s.data,
+    shopifyOrders:o.error?[]:(o.data||[])
+  };
 }
 
 function activeGoal(month,campaigns){
@@ -75,6 +83,51 @@ function activeGoal(month,campaigns){
   return campaigns.reduce((s,c)=>s+Number(c?.goal||c?.meta||c?.meta_faturamento||0),0);
 }
 function realized(results){return results.reduce((s,r)=>s+Number(r?.faturamento||0),0)}
+function shopifyCommerce(remote){
+  const integration=remote?.shopify||null;
+  const snap=integration?.meta?.sales_snapshot||null;
+  const snapCurrent=snap&&String(snap.month||'')===monthRef();
+  if(snapCurrent&&Number.isFinite(Number(snap.total_sales_month))){
+    return {
+      connected:integration?.meta?.connector_verified!==false,
+      source:'Shopify',
+      value:Number(snap.total_sales_month||0),
+      net:Number(snap.net_sales_month||0),
+      orders:Number(snap.orders_month||0),
+      aov:Number(snap.average_order_value_month||0),
+      sessions:Number(snap.sessions_month||0),
+      conversion:Number(snap.conversion_rate_month||0),
+      capturedAt:snap.captured_at||integration.last_success_at||integration.last_sync_at||null,
+      mode:String(snap.source||'shopify')
+    };
+  }
+  const rows=Array.isArray(remote?.shopifyOrders)?remote.shopifyOrders:[];
+  if(rows.length){
+    const value=rows.reduce((sum,o)=>{
+      const status=norm(o?.financial_status);
+      if(status==='voided'||status==='cancelled'||status==='cancelado')return sum;
+      return sum+Math.max(0,Number(o?.total||0)-Number(o?.refunded_amount||0));
+    },0);
+    return {
+      connected:true,source:'Shopify',value,net:value,orders:rows.length,
+      aov:rows.length?value/rows.length:0,sessions:0,conversion:0,
+      capturedAt:integration?.last_success_at||integration?.last_sync_at||null,
+      mode:'shopify_orders'
+    };
+  }
+  return {
+    connected:!!integration?.meta?.connector_verified,
+    source:'Shopify',value:null,net:null,orders:0,aov:0,sessions:0,conversion:0,
+    capturedAt:integration?.last_success_at||integration?.last_sync_at||null,
+    mode:null
+  };
+}
+function syncLabel(at){
+  if(!at)return'';
+  const d=new Date(at);
+  if(Number.isNaN(d.getTime()))return'';
+  return 'Atualizado '+new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(d);
+}
 function linearForecast(value,hasData){
   if(!hasData)return null;
   const d=today(),elapsed=d.getDate(),days=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
@@ -143,8 +196,11 @@ function renderShell({brand,tasks,campaigns,deliveries,remote}){
   const root=document.getElementById('homeView');if(!root)return;
   const user=firstName();
   const goal=activeGoal(remote.month,campaigns);
-  const real=realized(remote.results);
-  const hasResults=remote.results.length>0;
+  const commerce=shopifyCommerce(remote);
+  const fallbackReal=realized(remote.results);
+  const hasShopify=commerce.value!=null;
+  const real=hasShopify?commerce.value:fallbackReal;
+  const hasResults=hasShopify||remote.results.length>0;
   const forecast=linearForecast(real,hasResults);
   const gap=goal>0&&forecast!=null?forecast-goal:null;
   const attention=topAttention(tasks);
@@ -161,9 +217,24 @@ function renderShell({brand,tasks,campaigns,deliveries,remote}){
       '<header class="mg-header"><div><h1>Boa '+(new Date().getHours()<12?'dia':new Date().getHours()<18?'tarde':'noite')+', '+esc(user)+'.</h1><p>Visão gerencial da '+esc(brand||'marca')+'.</p></div><div class="mg-context"><span>'+new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'long'}).format(new Date())+'</span><b>'+esc(brand||'Selecione uma marca')+'</b></div></header>'+
       '<section class="mg-metrics">'+
         metricCard('Meta da marca',goal>0?money(goal):'Não definida',goal>0?(completed!=null?pct(completed)+' atingida':'Meta mensal'):'Defina a meta no planejamento')+
-        metricCard('Realizado',hasResults?money(real):'Sem dados',hasResults?'Receita registrada no mês':'Nenhum resultado registrado')+
-        metricCard('Forecast',forecast!=null?money(forecast):'Não calculado',forecast!=null?'Projeção linear pelo realizado':'Disponível após registrar resultados')+
-        metricCard('GAP',gap!=null?money(gap):'—',gap!=null?(gap<0?'Abaixo da meta projetada':'Acima da meta projetada'):'Sem forecast para comparar',gap!=null&&gap<0?'risk':'')+
+        metricCard(
+          'Realizado',
+          hasResults?money(real):(commerce.connected?'Sem vendas no mês':'Shopify não conectada'),
+          hasShopify
+            ? commerce.orders+' pedidos · ticket '+money(commerce.aov)+' · '+syncLabel(commerce.capturedAt)
+            : (remote.results.length?'Resultado registrado no AllianceOS':'Conecte a Shopify desta marca')
+        )+
+        metricCard(
+          'Forecast',
+          forecast!=null?money(forecast):'Não calculado',
+          forecast!=null?'Projeção pelo ritmo atual · Shopify':'Disponível após haver vendas no mês'
+        )+
+        metricCard(
+          'GAP',
+          gap!=null?money(gap):'—',
+          gap!=null?(gap<0?'Forecast abaixo da meta':'Forecast acima da meta'):(goal>0?'Sem realizado para comparar':'Meta ainda não definida'),
+          gap!=null&&gap<0?'risk':''
+        )+
       '</section>'+
       '<section class="mg-panel mg-attention"><div class="mg-panel-head"><div><h2>Precisa da sua atenção <span>'+attention.length+'</span></h2><p>Só o que pode impactar a operação desta marca.</p></div><button type="button" data-mg-nav="tasks">Ver todas as tarefas →</button></div>'+
         (attention.length?'<div class="mg-list">'+attention.map(x=>{
@@ -207,11 +278,11 @@ async function render(){
   const tasks=read(TASK_KEY).filter(t=>!t?.archivedAt&&matchesBrand(t,brand));
   const campaigns=read(CAMPAIGN_KEY).filter(c=>!c?.archivedAt&&norm(c?.brand)===norm(brand));
   const deliveries=read(DELIVERY_KEY).filter(d=>!d?.archivedAt&&!d?.arquivado_em&&(!d?.brand||norm(d.brand)===norm(brand)));
-  let remote={month:null,results:[],profiles:[]};
+  let remote={month:null,results:[],profiles:[],shopify:null,shopifyOrders:[]};
   try{remote=await loadRemote(brand)}catch(e){console.warn('[AllianceOS Gestão] dados remotos indisponíveis',e)}
   if(seq!==refreshSeq)return;
   renderShell({brand,tasks,campaigns,deliveries,remote});
-  lastSignature=[brand,tasks.length,campaigns.length,deliveries.length,remote.results.length].join('|');
+  lastSignature=[brand,tasks.length,campaigns.length,deliveries.length,remote.results.length,remote.shopify?.last_sync_at||'',remote.shopifyOrders?.length||0].join('|');
 }
 
 function nav(key){
@@ -234,6 +305,7 @@ setInterval(()=>{
   const brand=currentBrand(),sig=[brand,localStorage.getItem(TASK_KEY)?.length||0,localStorage.getItem(CAMPAIGN_KEY)?.length||0,localStorage.getItem(DELIVERY_KEY)?.length||0].join('|');
   if(sig!==lastSignature)setTimeout(render,0);
 },4000);
+setInterval(()=>{if(isManagement()&&document.getElementById('homeView')&&!document.hidden)render()},60000);
 
 (async()=>{try{await window.AllianceOSAuth?.ready}catch{};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(render,40),{once:true});else setTimeout(render,40)})();
 })();
