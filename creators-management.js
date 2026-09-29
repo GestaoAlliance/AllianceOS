@@ -35,6 +35,16 @@
     if(!silent)toast(j.reused?'Contrato já estava gerado.':'Contrato gerado automaticamente.');
     return j;
   }
+  async function viewContract(contractId){
+    const sb=await client();const {data:{session}}=await sb.auth.getSession();
+    if(!session?.access_token)throw new Error('Sua sessão expirou. Entre novamente no AllianceOS.');
+    const w=window.open('about:blank','_blank');
+    try{
+      const r=await fetch('/api/drive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({action:'get_creator_contract_url',contract_id:contractId})});
+      const j=await r.json().catch(()=>({}));if(!r.ok||!j.url)throw new Error(j.erro||'Não foi possível abrir o contrato.');
+      if(w)w.location=j.url;else window.location.href=j.url;
+    }catch(e){if(w)w.close();throw e}
+  }
   function brand(){
     const s=$('#brandSelect'),o=s?.selectedOptions?.[0],id=o?.dataset?.brandId||'';
     if(!id||id==='__all__') return {id:null,name:'Todas as marcas'};
@@ -226,7 +236,7 @@
       '<div class="crm-detail-kpis"><article><span>Vendas mês</span><b>'+money(pf.vendas_mes)+'</b></article><article><span>Vendas total</span><b>'+money(pf.vendas_total)+'</b></article><article><span>Pedidos</span><b>'+pf.pedidos_total+'</b></article><article><span>Ticket</span><b>'+money(pf.ticket_medio)+'</b></article></div>'+
       '<div class="crm-detail-grid"><section><h3>Relacionamento</h3><label>Status<select data-update-status="'+id+'">'+Object.entries(label).map(([k,v])=>'<option value="'+k+'" '+(x.status===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label><p><b>Cupom</b>'+esc(x.cupom||'—')+'</p><p><b>Última venda</b>'+date(pf.ultima_venda_em)+'</p><p><b>Grupo</b>'+(x.esta_no_grupo?'Sim':'Não')+'</p><p><b>WhatsApp etiquetado</b>'+(x.whatsapp_etiquetado?'Sim':'Não')+'</p></section>'+
       '<section><h3>Cadastro</h3><p><b>WhatsApp</b>'+esc(p.whatsapp||'—')+'</p><p><b>E-mail</b>'+esc(p.email||'—')+'</p><p><b>Instagram</b>'+esc(p.instagram||'—')+'</p><p><b>Cidade</b>'+esc(p.cidade_uf||'—')+'</p><p><b>Nicho</b>'+esc(p.nicho||'—')+'</p></section>'+
-      '<section><h3>Contrato</h3><p><b>Status</b>'+esc(c?.documento_url?'Gerado automaticamente':(c?.status||'Não criado'))+'</p><p><b>Modelo</b>'+esc(c?.metadata?.template_name||'—')+'</p><p><b>Gerado</b>'+dt(c?.metadata?.generated_at)+'</p><p><b>Vencimento</b>'+date(c?.fim_em)+'</p>'+(c?.documento_url?'<p><a href="'+esc(c.documento_url)+'" target="_blank" rel="noopener" style="color:#30373c;font-weight:700;text-decoration:underline">Visualizar contrato ↗</a></p>':'')+'</section>'+
+      '<section><h3>Contrato</h3><p><b>Status</b>'+esc(c?.documento_url?'Gerado automaticamente':(c?.status||'Não criado'))+'</p><p><b>Modelo</b>'+esc(c?.metadata?.template_name||'—')+'</p><p><b>Gerado</b>'+dt(c?.metadata?.generated_at)+'</p><p><b>Vencimento</b>'+date(c?.fim_em)+'</p>'+(c?.documento_url?'<p><button type="button" data-action="view-contract" data-contract-id="'+esc(c.id)+'" style="border:0;background:transparent;padding:0;color:#30373c;font:700 8px Inter;text-decoration:underline;cursor:pointer">Abrir contrato ↗</button></p>':'')+'</section>'+
       '<section><h3>Último envio</h3><p><b>Status</b>'+esc(s?.status||'Sem envio')+'</p><p><b>Rastreio</b>'+esc(s?.codigo_rastreio||'—')+'</p><p><b>Frete</b>'+money(s?.frete)+'</p><p><b>Enviado</b>'+dt(s?.enviado_em)+'</p></section></div>'+
       '<footer><button class="crm-secondary" data-action="archive" data-id="'+id+'">Arquivar parceiro</button>'+(x.status==='aprovado'?'<button class="crm-secondary" data-action="generate-contract" data-id="'+id+'" data-force="'+(c?.documento_url?'1':'0')+'">'+(c?.documento_url?'Gerar nova versão':'Gerar contrato')+'</button>':'')+'<button class="crm-primary" data-close>Fechar</button></footer></div>';
   }
@@ -257,6 +267,7 @@
       const id=a.dataset.id,force=a.dataset.force==='1';
       generateContract(id,{force}).then(async()=>{closeModal();await load();openPartner(id)}).catch(e=>toast(e.message||String(e)));
     }
+    if(a.dataset.action==='view-contract')viewContract(a.dataset.contractId).catch(e=>toast(e.message||String(e)));
   }
   function onInput(e){if(e.target.dataset.filter==='search'){state.search=e.target.value; if(state.tab==='partners')$('.crm-body').innerHTML=partnersView();}}
   function onChange(e){
@@ -268,6 +279,7 @@
     const s=e.target.closest('[data-update-status]');if(s)updateStatus(s.dataset.updateStatus,s.value);
     const a=e.target.closest('[data-action="archive"]');if(a)archive(a.dataset.id);
     const g=e.target.closest('[data-action="generate-contract"]');if(g){const id=g.dataset.id,force=g.dataset.force==='1';generateContract(id,{force}).then(async()=>{closeModal();await load();openPartner(id)}).catch(e=>toast(e.message||String(e)))}
+    const v=e.target.closest('[data-action="view-contract"]');if(v)viewContract(v.dataset.contractId).catch(e=>toast(e.message||String(e)))
   }
 
   window.AllianceOSCreators={open,close,refresh:load};
