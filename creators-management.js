@@ -29,7 +29,7 @@
     const {data:{session}}=await sb.auth.getSession();
     if(!session?.access_token)throw new Error('Sua sessão expirou. Entre novamente no AllianceOS.');
     if(!silent)toast('Gerando contrato…');
-    const r=await fetch('/api/creator-contract',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({partner_brand_id:id,force})});
+    const r=await fetch('/api/drive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({action:'generate_creator_contract',partner_brand_id:id,force})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.erro||'Não foi possível gerar o contrato.');
     if(!silent)toast(j.reused?'Contrato já estava gerado.':'Contrato gerado automaticamente.');
