@@ -1,6 +1,7 @@
 import {requireAllianceUser,authError} from './_lib/auth.mjs';
 import {createSign} from 'node:crypto';
 import PizZip from 'pizzip';
+import PDFDocument from 'pdfkit';
 import creatorTemplateB64 from './_lib/botanika-creator-template.mjs';
 import prescritorTemplateB64 from './_lib/botanika-prescritor-template.mjs';
 import ugcTemplateB64 from './_lib/botanika-ugc-template.mjs';
@@ -128,9 +129,135 @@ function renderContractDocx(tipo,p){
   const remaining=tokens.filter(t=>combined.includes(t));
   return {buffer:zip.generate({type:'nodebuffer',compression:'DEFLATE'}),remaining};
 }
-async function uploadPrivateContract(session,path,buffer){
+
+function docxRuns(paragraph){
+  const runs=[];
+  for(const m of paragraph.matchAll(/<w:r\b[\s\S]*?<\/w:r>/g)){
+    const xml=m[0],texts=[...xml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>xmlDecode(x[1]));
+    const tabs=(xml.match(/<w:tab\s*\/>/g)||[]).length;
+    const breaks=(xml.match(/<w:br(?:\s+[^>]*)?\s*\/>/g)||[]).length;
+    let text=texts.join('');
+    if(tabs)text+=Array(tabs).fill('\t').join('');
+    if(breaks)text+=Array(breaks).fill('\n').join('');
+    if(!text)continue;
+    const sizeMatch=xml.match(/<w:sz\s+w:val="(\d+)"/);
+    runs.push({
+      text,
+      bold:/<w:b(?:\s+w:val="(?:1|true)")?\s*\/>|<w:b>/.test(xml),
+      italic:/<w:i(?:\s+w:val="(?:1|true)")?\s*\/>|<w:i>/.test(xml),
+      underline:/<w:u\s+w:val="(?!none)[^"]+"/.test(xml),
+      size:sizeMatch?Math.max(8,Math.min(18,Number(sizeMatch[1])/2)):null
+    });
+  }
+  if(!runs.length){
+    const text=[...paragraph.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>xmlDecode(x[1])).join('');
+    if(text)runs.push({text,bold:false,italic:false,underline:false,size:null});
+  }
+  return runs;
+}
+function paragraphPdfMeta(paragraph,text){
+  const jc=paragraph.match(/<w:jc\s+w:val="([^"]+)"/)?.[1]||'left';
+  const align=jc==='center'?'center':jc==='right'?'right':(jc==='both'||jc==='distribute')?'justify':'left';
+  const after=Number(paragraph.match(/<w:spacing[^>]*w:after="(\d+)"/)?.[1]||0)/20;
+  const before=Number(paragraph.match(/<w:spacing[^>]*w:before="(\d+)"/)?.[1]||0)/20;
+  const left=Number(paragraph.match(/<w:ind[^>]*w:left="(\d+)"/)?.[1]||0)/20;
+  const first=Number(paragraph.match(/<w:ind[^>]*w:firstLine="(\d+)"/)?.[1]||0)/20;
+  const style=paragraph.match(/<w:pStyle\s+w:val="([^"]+)"/)?.[1]||'';
+  const normalized=String(text||'').trim();
+  const heading=/^(CONTRATO|TERMO|ANEXO|CLÁUSULA|CLAUSULA)\b/i.test(normalized)
+    ||(/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9 .,:;()\-/]{8,}$/.test(normalized)&&normalized.length<=120)
+    ||/title|heading|titulo|título/i.test(style);
+  const pageBreak=/<w:br\s+w:type="page"\s*\/>/.test(paragraph)||/<w:pageBreakBefore\s*\/>/.test(paragraph);
+  return {align,after:Math.max(0,Math.min(12,after)),before:Math.max(0,Math.min(12,before)),left:Math.max(0,Math.min(72,left)),first:Math.max(0,Math.min(36,first)),heading,pageBreak};
+}
+function docxPdfBlocks(docxBuffer){
+  const zip=new PizZip(docxBuffer),file=zip.file('word/document.xml');
+  if(!file)throw Error('O modelo não contém document.xml.');
+  const xml=file.asText(),body=xml.match(/<w:body\b[\s\S]*?<\/w:body>/)?.[0]||xml;
+  const blocks=[];
+  for(const m of body.matchAll(/<w:p\b[\s\S]*?<\/w:p>|<w:tbl\b[\s\S]*?<\/w:tbl>/g)){
+    const raw=m[0];
+    if(raw.startsWith('<w:tbl')){
+      const rows=[];
+      for(const rm of raw.matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)){
+        const cells=[];
+        for(const cm of rm[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)){
+          const text=[...cm[0].matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(x=>xmlDecode(x[1])).join(' ').replace(/\s+/g,' ').trim();
+          cells.push(text);
+        }
+        if(cells.length)rows.push(cells);
+      }
+      if(rows.length)blocks.push({type:'table',rows});
+      continue;
+    }
+    const runs=docxRuns(raw),text=runs.map(r=>r.text).join('');
+    blocks.push({type:'p',runs,text,meta:paragraphPdfMeta(raw,text)});
+  }
+  return blocks;
+}
+function pdfFont(run,heading){
+  const b=heading||run?.bold,i=run?.italic;
+  if(b&&i)return'Times-BoldItalic';
+  if(b)return'Times-Bold';
+  if(i)return'Times-Italic';
+  return'Times-Roman';
+}
+function renderContractPdf(docxBuffer,{title='Contrato'}={}){
+  return new Promise((resolve,reject)=>{
+    try{
+      const chunks=[];
+      const doc=new PDFDocument({size:'A4',margins:{top:54,right:58,bottom:58,left:58},bufferPages:true,info:{Title:title,Author:'AllianceOS',Creator:'AllianceOS'}});
+      doc.on('data',x=>chunks.push(x));doc.on('error',reject);doc.on('end',()=>resolve(Buffer.concat(chunks)));
+      const blocks=docxPdfBlocks(docxBuffer),pageWidth=595.28,contentWidth=pageWidth-116;
+      const ensure=h=>{if(doc.y+h>doc.page.height-62)doc.addPage()};
+      for(const block of blocks){
+        if(block.type==='table'){
+          const cols=Math.max(1,...block.rows.map(r=>r.length)),cw=contentWidth/cols;
+          for(const row of block.rows){
+            const heights=row.map(cell=>doc.font('Times-Roman').fontSize(9.5).heightOfString(cell||' ',{width:cw-12,lineGap:1}));
+            const rh=Math.max(24,...heights.map(h=>h+12));ensure(rh+4);const y=doc.y;
+            row.forEach((cell,i)=>{const x=58+i*cw;doc.lineWidth(.45).strokeColor('#b9b9b9').rect(x,y,cw,rh).stroke();doc.fillColor('#111').font('Times-Roman').fontSize(9.5).text(cell||'',x+6,y+6,{width:cw-12,height:rh-12,lineGap:1});});
+            doc.y=y+rh;
+          }
+          doc.moveDown(.6);continue;
+        }
+        const {runs,text,meta}=block;
+        if(meta.pageBreak&&doc.y>70)doc.addPage();
+        if(meta.before)doc.y+=meta.before;
+        if(!String(text||'').trim()){doc.moveDown(.45);continue}
+        const heading=meta.heading,baseSize=heading?11.5:10.2;
+        const estimated=doc.font(heading?'Times-Bold':'Times-Roman').fontSize(baseSize).heightOfString(text.replace(/\t/g,'    '),{width:contentWidth-meta.left,lineGap:1.5,align:meta.align});
+        ensure(Math.min(estimated+meta.after+6,220));
+        const startX=58+meta.left,width=contentWidth-meta.left;
+        let first=true;
+        for(let i=0;i<runs.length;i++){
+          const run=runs[i],last=i===runs.length-1,size=run.size||baseSize;
+          doc.fillColor('#111').font(pdfFont(run,heading)).fontSize(size);
+          const opts={continued:!last,width,align:meta.align,lineGap:1.4,paragraphGap:last?Math.max(3,meta.after||4):0,indent:first?meta.first:0};
+          if(run.underline)opts.underline=true;
+          doc.text(run.text.replace(/\t/g,'    '),first?startX:undefined,undefined,opts);
+          first=false;
+        }
+        if(!runs.length)doc.font(heading?'Times-Bold':'Times-Roman').fontSize(baseSize).text(text,startX,undefined,{width,align:meta.align,lineGap:1.4,paragraphGap:Math.max(3,meta.after||4)});
+      }
+      const range=doc.bufferedPageRange();
+      for(let i=range.start;i<range.start+range.count;i++){
+        doc.switchToPage(i);
+        doc.fillColor('#777').font('Helvetica').fontSize(7.5).text('Página '+(i-range.start+1)+' de '+range.count,58,doc.page.height-34,{width:contentWidth,align:'center',lineBreak:false});
+      }
+      doc.end();
+    }catch(e){reject(e)}
+  });
+}
+async function downloadPrivateContract(session,path){
+  const conf=await cfg(),url=conf.url+'/storage/v1/object/authenticated/creator-contracts/'+encodePath(path);
+  const r=await fetch(url,{headers:{apikey:conf.anon,Authorization:session.authorization},cache:'no-store'});
+  if(!r.ok){const txt=await r.text().catch(()=>(''));throw Object.assign(Error('Falha ao ler contrato: '+txt.slice(0,180)),{status:r.status})}
+  return Buffer.from(await r.arrayBuffer());
+}
+async function uploadPrivateContract(session,path,buffer,mime='application/pdf'){
   const conf=await cfg(),url=conf.url+'/storage/v1/object/creator-contracts/'+encodePath(path);
-  const r=await fetch(url,{method:'POST',headers:{apikey:conf.anon,Authorization:session.authorization,'Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','x-upsert':'false'},body:buffer});
+  const r=await fetch(url,{method:'POST',headers:{apikey:conf.anon,Authorization:session.authorization,'Content-Type':mime,'x-upsert':'false'},body:buffer});
   const txt=await r.text();if(!r.ok)throw Object.assign(Error('Falha ao salvar contrato: '+txt.slice(0,220)),{status:r.status});
   return path;
 }
@@ -151,23 +278,32 @@ async function gerarContratoCreator(session,partnerBrandId,force=false){
   const modelo=modelos?.[0];if(!modelo)throw Object.assign(Error('Não existe modelo de contrato ativo para este tipo e marca.'),{status:409});
   const rows=await authRest(session,'/rest/v1/creator_contracts?partner_brand_id=eq.'+encodeURIComponent(partnerBrandId)+'&arquivado_em=is.null&select=*&order=criado_em.desc&limit=1');
   let contrato=rows?.[0]||null;
-  if(contrato?.metadata?.storage_path&&!force)return{contract:contrato,reused:true};
+  if(contrato?.metadata?.storage_path_pdf&&!force)return{contract:contrato,reused:true};
 
-  const {buffer,remaining}=renderContractDocx(tipo,p),geradoEm=new Date().toISOString(),data=dataContrato();
+  const rendered=renderContractDocx(tipo,p),geradoEm=new Date().toISOString(),data=dataContrato();
+  const pdfBuffer=await renderContractPdf(rendered.buffer,{title:modelo.name+' - '+p.nome_completo});
   const safe=String(p.nome_completo||'parceiro').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'parceiro';
-  const path=vinculo.brand_id+'/'+partnerBrandId+'/'+Date.now()+'-'+safe+'-'+tipo+'.docx';
-  await uploadPrivateContract(session,path,buffer);
-  const metadata={...(contrato?.metadata||{}),generation_state:remaining.length?'generated_with_warning':'generated',storage_bucket:'creator-contracts',storage_path:path,template_drive_id:modelo.drive_template_id,template_name:modelo.name,model_type:tipo,generated_at:geradoEm,remaining_placeholders:remaining,versions:[...((contrato?.metadata?.versions)||[]),{storage_path:path,generated_at:geradoEm}]};
-  const payload={documento_url:'storage://creator-contracts/'+path,inicio_em:data.iso,fim_em:somarMeses(data.iso,modelo.duration_months),metadata,atualizado_em:geradoEm,atualizado_por:session.user.id};
+  const base=vinculo.brand_id+'/'+partnerBrandId+'/'+Date.now()+'-'+safe+'-'+tipo;
+  const docxPath=base+'.docx',pdfPath=base+'.pdf';
+  await uploadPrivateContract(session,docxPath,rendered.buffer,'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  await uploadPrivateContract(session,pdfPath,pdfBuffer,'application/pdf');
+  const metadata={...(contrato?.metadata||{}),generation_state:rendered.remaining.length?'generated_with_warning':'generated',storage_bucket:'creator-contracts',storage_path:pdfPath,storage_path_pdf:pdfPath,storage_path_docx:docxPath,pdf_bytes:pdfBuffer.length,template_drive_id:modelo.drive_template_id,template_name:modelo.name,model_type:tipo,generated_at:geradoEm,remaining_placeholders:rendered.remaining,versions:[...((contrato?.metadata?.versions)||[]),{storage_path_pdf:pdfPath,storage_path_docx:docxPath,generated_at:geradoEm}]};
+  const payload={documento_url:'storage://creator-contracts/'+pdfPath,inicio_em:data.iso,fim_em:somarMeses(data.iso,modelo.duration_months),metadata,atualizado_em:geradoEm,atualizado_por:session.user.id};
   if(contrato){const up=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contrato.id),{method:'PATCH',prefer:'return=representation',body:payload});contrato=up?.[0]||{...contrato,...payload}}
   else{const up=await authRest(session,'/rest/v1/creator_contracts',{method:'POST',prefer:'return=representation',body:{partner_brand_id:partnerBrandId,status:'rascunho',provider:'autentique',...payload,criado_por:session.user.id}});contrato=up?.[0]}
   await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(partnerBrandId),{method:'PATCH',prefer:'return=minimal',body:{proxima_acao:'Enviar contrato para assinatura',proxima_acao_em:null,atualizado_em:geradoEm,atualizado_por:session.user.id}});
-  await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:partnerBrandId,evento:'contrato_gerado',descricao:'Contrato gerado automaticamente a partir do modelo '+modelo.name,origem:'automacao',actor_id:session.user.id,dados:{contract_id:contrato?.id,storage_path:path,template_drive_id:modelo.drive_template_id,model_type:tipo,remaining_placeholders:remaining}}});
-  return{contract:contrato,created:true,warning:remaining.length?remaining:null}
+  await authRest(session,'/rest/v1/creator_history',{method:'POST',prefer:'return=minimal',body:{partner_brand_id:partnerBrandId,evento:'contrato_gerado',descricao:'Contrato PDF gerado automaticamente a partir do modelo '+modelo.name,origem:'automacao',actor_id:session.user.id,dados:{contract_id:contrato?.id,storage_path_pdf:pdfPath,storage_path_docx:docxPath,template_drive_id:modelo.drive_template_id,model_type:tipo,remaining_placeholders:rendered.remaining}}});
+  return{contract:contrato,created:true,format:'pdf',warning:rendered.remaining.length?rendered.remaining:null}
 }
 async function contractUrl(session,contractId){
-  const rows=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contractId)+'&arquivado_em=is.null&select=id,metadata&limit=1');
-  const c=rows?.[0],path=c?.metadata?.storage_path;if(!c||!path)throw Object.assign(Error('Contrato gerado não encontrado.'),{status:404});
+  let rows=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contractId)+'&arquivado_em=is.null&select=id,partner_brand_id,metadata&limit=1');
+  let contract=rows?.[0];if(!contract)throw Object.assign(Error('Contrato gerado não encontrado.'),{status:404});
+  if(!contract.metadata?.storage_path_pdf){
+    const generated=await gerarContratoCreator(session,contract.partner_brand_id,true);
+    contract=generated.contract;
+  }
+  const path=contract?.metadata?.storage_path_pdf||contract?.metadata?.storage_path;
+  if(!path)throw Object.assign(Error('PDF do contrato não encontrado.'),{status:404});
   return signPrivateContract(session,path,3600);
 }
 
@@ -176,7 +312,8 @@ export default async function handler(req,res){try{
   if(req.method==='GET'&&healthUrl.searchParams.get('contract_health')==='1'){
     try{
       const test=renderContractDocx('creator',{nome_completo:'Teste AllianceOS',cpf:'000.000.000-00',cnpj:'00.000.000/0000-00',razao_social:'Teste AllianceOS LTDA',endereco:'Endereço de teste'});
-      return send(res,200,{ok:true,mode:'private_storage',template_ready:test.buffer.length>10000,remaining_placeholders:test.remaining});
+      const pdf=await renderContractPdf(test.buffer,{title:'Contrato teste AllianceOS'});
+      return send(res,200,{ok:true,mode:'private_storage_pdf',template_ready:test.buffer.length>10000,pdf_ready:pdf.subarray(0,5).toString()==='%PDF-',pdf_bytes:pdf.length,remaining_placeholders:test.remaining});
     }catch(e){return send(res,200,{ok:false,mode:'private_storage',erro:String(e.message||e).slice(0,180)})}
   }
   const session=await requireAllianceUser(req);const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
