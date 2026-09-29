@@ -1603,3 +1603,29 @@
   v3RebuildNewTaskForm();
   v3MigrateLegacySubtasks();
 }
+
+
+/* alliance-task-deeplink-v1 */
+{
+  const v3DeepTaskId=(()=>{
+    try{return new URLSearchParams(window.location.search).get('task')}catch{return null}
+  })();
+  if(v3DeepTaskId){
+    const v3OpenDeepTask=()=>{
+      let attempts=0;
+      const timer=setInterval(()=>{
+        attempts++;
+        const task=typeof v3Task==='function'?v3Task(v3DeepTaskId):taskData?.find?.(x=>String(x.id)===String(v3DeepTaskId));
+        if(task){
+          clearInterval(timer);
+          document.getElementById('tasksNav')?.click();
+          setTimeout(()=>openTaskDetail(v3DeepTaskId),80);
+          return;
+        }
+        if(attempts>=40)clearInterval(timer);
+      },150);
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',v3OpenDeepTask,{once:true});
+    else setTimeout(v3OpenDeepTask,0);
+  }
+}
