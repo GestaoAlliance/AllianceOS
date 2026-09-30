@@ -1352,17 +1352,31 @@ textarea.tap-cell-editor{padding:7px;resize:vertical}
 }
 #campaignKpis .camp-kpi-goal.active-goal,
 #planContext .plan-kpi-goal.active-goal{
-  border-color:#cbd1d5!important;
-  box-shadow:0 2px 8px rgba(20,25,29,.06)!important;
+  background:#d85f4a!important;
+  border-color:#d85f4a!important;
+  color:#fff!important;
+  box-shadow:0 8px 22px rgba(216,95,74,.18)!important;
+}
+#campaignKpis .camp-kpi-goal.active-goal:before,
+#planContext .plan-kpi-goal.active-goal:before{
+  background:rgba(255,255,255,.58)!important;
+}
+#campaignKpis .camp-kpi-goal.active-goal small,
+#campaignKpis .camp-kpi-goal.active-goal b,
+#campaignKpis .camp-kpi-goal.active-goal span,
+#planContext .plan-kpi-goal.active-goal small,
+#planContext .plan-kpi-goal.active-goal b,
+#planContext .plan-kpi-goal.active-goal span{
+  color:#fff!important;
 }
 #campaignKpis .camp-kpi-goal b,
 #planContext .plan-kpi-goal b{
   font-variant-numeric:tabular-nums;
 }
-@media(max-width:1500px){
+@media(max-width:1100px){
   #campaignKpis,#planContext{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 }
-@media(max-width:900px){
+@media(max-width:760px){
   #campaignKpis,#planContext{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 @media(max-width:620px){
