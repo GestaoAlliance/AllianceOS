@@ -706,6 +706,68 @@ async function main() {
 
   console.log('[AllianceOS build] câmera do mapa preservada ao abrir e fechar ramos');
 
+  // BOTANIKA_OCT_INVESTMENT_HIERARCHY_V1
+  // Meta 1 deve ter somente Distribuição por canal + Distribuição por campanha.
+  // O investimento de mídia pertence ao Perpétuo e não pode voltar para a raiz
+  // mesmo quando um cliente antigo salva cache/localStorage.
+  const hierarchyAnchor = "  function lado(n) { return 1 }";
+  const hierarchyHelper = `  function normalizarHierarquiaBotanikaOutubro() {
+    if (!M?.nos?.length) return false;
+    if (textoNormal(marcaAtual()) !== textoNormal('Botanika') || mesMapa() !== '2026-10') return false;
+
+    const meta1 = M.nos.find(n => /^meta\\s*1\\b/i.test(String(n?.t || '').trim()));
+    const perpetuo = M.nos.find(n => textoNormal(String(n?.t || '')).startsWith(textoNormal('Perpétuo — R$ 315.000')));
+    const investimento = M.nos.find(n => textoNormal(String(n?.t || '')) === textoNormal('Investimento de mídia — R$ 115.500'));
+    if (!meta1 || !perpetuo || !investimento) return false;
+
+    let mudou = false;
+    if (investimento.pai !== perpetuo.id) {
+      investimento.pai = perpetuo.id;
+      mudou = true;
+    }
+
+    // A Meta 1 fica conceitualmente limpa: apenas as duas dimensões principais.
+    // O investimento é detalhamento do Perpétuo.
+    return mudou;
+  }
+`;
+  if (html.includes(hierarchyAnchor) && !html.includes('function normalizarHierarquiaBotanikaOutubro()')) {
+    html = html.replace(hierarchyAnchor,hierarchyHelper + hierarchyAnchor);
+  }
+
+  const openNormOld = `    M = carregar();
+    sel = { t: 'no', id: raiz()?.id ?? null };`;
+  const openNormNew = `    M = carregar();
+    const hierarquiaMudou = normalizarHierarquiaBotanikaOutubro();
+    sel = { t: 'no', id: raiz()?.id ?? null };`;
+  if (html.includes(openNormOld)) html = html.replace(openNormOld,openNormNew);
+
+  const openSaveOld = `    organizar({ enquadrar: !cam });
+  }`;
+  const openSaveNew = `    organizar({ enquadrar: !cam });
+    if (hierarquiaMudou) setTimeout(() => salvar(), 0);
+  }`;
+  if (html.includes(openSaveOld)) html = html.replace(openSaveOld,openSaveNew);
+
+  const remoteNormOld = `      M = carregar();
+      if (atual && acharNo(atual)) sel = { t:'no', id:atual };`;
+  const remoteNormNew = `      M = carregar();
+      const hierarquiaMudou = normalizarHierarquiaBotanikaOutubro();
+      if (atual && acharNo(atual)) sel = { t:'no', id:atual };`;
+  if (html.includes(remoteNormOld)) html = html.replace(remoteNormOld,remoteNormNew);
+
+  const remoteSaveOld = `      organizar({ enquadrar:false });
+      transformar();
+    });`;
+  const remoteSaveNew = `      organizar({ enquadrar:false });
+      transformar();
+      if (hierarquiaMudou) setTimeout(() => salvar(), 0);
+    });`;
+  if (html.includes(remoteSaveOld)) html = html.replace(remoteSaveOld,remoteSaveNew);
+
+  console.log('[AllianceOS build] investimento de mídia normalizado dentro do Perpétuo');
+
+
   // CAMPAIGN_TAP_BADGE_V1 — nós que representam uma campanha preservam o
   // vínculo mesmo quando o texto do mapa inclui valor/% e abrem direto no TAP.
   const campaignMatchOld = `        const a = textoNormal(n.t), b = textoNormal(camp.name || camp.nome || '');
