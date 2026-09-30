@@ -31,6 +31,24 @@ const brand=()=>{
   const v=String(document.getElementById('brandSelect')?.value||'').trim();
   return !v||norm(v)==='todas as marcas'?'':v;
 };
+const planningMetrics=()=>{
+  const m=window.AlliancePlanningMonthMetrics;
+  if(!m||m.ref!==monthRef())return null;
+  const b=brand();
+  if(b&&m.brand&&norm(m.brand)!==norm(b))return null;
+  return m;
+};
+const monthlyMeta=(m,level,fallback=0)=>{
+  if(!m)return Number(fallback||0);
+  const direct=Number(m['meta'+level]||0);
+  if(direct>0)return direct;
+  const overall=Number(m['overall'+level]||0);
+  if(overall>0)return overall;
+  const arr=Array.isArray(m.metas)?Number(m.metas[level-1]||0):0;
+  if(arr>0)return arr;
+  if(Number(m.active||0)===level&&Number(m.goal||0)>0)return Number(m.goal||0);
+  return Number(fallback||0);
+};
 const mapIds=(b,ref)=>{
   const ids=new Set();
   if(!b)return ids;
@@ -109,16 +127,32 @@ function render(){
 
   const data=campaigns();
   const perpetual=data.filter(isPerpetual),punctual=data.filter(c=>!isPerpetual(c));
-  const totalGoal=perpetual.reduce((s,c)=>s+goal(c),0);
-  const totalBudget=perpetual.reduce((s,c)=>s+budget(c),0);
+  const fallbackGoal=perpetual.reduce((s,c)=>s+goal(c),0);
+  const fallbackBudget=perpetual.reduce((s,c)=>s+budget(c),0);
+  const monthly=planningMetrics();
+  const monthlyReady=!!(monthly?.hasPlan&&(
+    Number(monthly.channelCount||0)>0||
+    Number(monthly.goal||0)>0||
+    Number(monthly.meta1||0)>0||
+    Number(monthly.meta2||0)>0||
+    Number(monthly.meta3||0)>0
+  ));
+  const meta1=monthlyReady?monthlyMeta(monthly,1,fallbackGoal):fallbackGoal;
+  const meta2=monthlyReady?monthlyMeta(monthly,2,0):0;
+  const meta3=monthlyReady?monthlyMeta(monthly,3,0):0;
+  const activeGoal=monthlyReady?monthlyMeta(monthly,Number(monthly.active||1),fallbackGoal):fallbackGoal;
+  const totalBudget=monthlyReady?Number(monthly.budget||0):fallbackBudget;
   const avg=data.length?Math.round(data.reduce((s,c)=>s+progress(c),0)/data.length):0;
   const active=data.filter(c=>norm(c.status).includes('exec')).length;
+  const metaCard=(level,value)=>'<div class="camp-kpi camp-kpi-goal '+(Number(monthly?.active||1)===level?'active-goal':'')+'"><small>Meta '+level+'</small><b>'+(value>0?money(value):'—')+'</b><span>'+(
+    Number(monthly?.active||1)===level?'meta ativa do mês':'escada de meta mensal'
+  )+'</span></div>';
 
   const kpis=document.getElementById('campaignKpis');
   if(kpis)kpis.innerHTML=
     '<div class="camp-kpi"><small>Campanhas no mês</small><b>'+data.length+'</b><span>'+perpetual.length+' perpétua'+(perpetual.length===1?'':'s')+' · '+punctual.length+' pontual'+(punctual.length===1?'':'is')+'</span></div>'+
-    '<div class="camp-kpi"><small>Meta dos canais</small><b>'+money(totalGoal)+'</b><span>frentes perpétuas do mês</span></div>'+
-    '<div class="camp-kpi"><small>Verba dos canais</small><b>'+money(totalBudget)+'</b><span>'+(totalBudget&&totalGoal?'ROAS alvo '+(totalGoal/totalBudget).toFixed(1).replace('.',','):'sem verba atribuída')+'</span></div>'+
+    metaCard(1,meta1)+metaCard(2,meta2)+metaCard(3,meta3)+
+    '<div class="camp-kpi"><small>Verba dos canais</small><b>'+money(totalBudget)+'</b><span>'+(totalBudget&&activeGoal?'ROAS sobre meta ativa '+(activeGoal/totalBudget).toFixed(1).replace('.',','):'sem verba atribuída')+'</span></div>'+
     '<div class="camp-kpi"><small>Execução operacional</small><b>'+avg+'%</b><span>'+active+' campanha'+(active===1?'':'s')+' em execução</span></div>';
 
   const ref=monthRef();
@@ -190,6 +224,7 @@ document.addEventListener('click',e=>{
 
 window.addEventListener('allianceos:planning-month',()=>setTimeout(forceDirectory,0));
 window.addEventListener('allianceos:planning-month-ready',()=>setTimeout(forceDirectory,0));
+window.addEventListener('allianceos:planning-metrics',()=>setTimeout(forceDirectory,0));
 window.addEventListener('allianceos:state-updated',e=>{
   const key=String(e?.detail?.key||'');
   if(key===CAMP_KEY||key.startsWith('central.planning.map.'))setTimeout(forceDirectory,0);
