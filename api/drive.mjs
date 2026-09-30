@@ -380,30 +380,39 @@ async function contractPdfBuffer(session,contractId){
   if(!path)throw Object.assign(Error('PDF do contrato não encontrado.'),{status:404});
   return {contract,path,buffer:await downloadPrivateContract(session,path)};
 }
-function autentiqueToken(){
-  const token=String(process.env.AUTENTIQUE_API_TOKEN||'').trim();
-  if(!token)throw Object.assign(Error('A integração com a Autentique ainda não foi ativada no servidor.'),{status:503,code:'AUTENTIQUE_NOT_CONFIGURED'});
+async function autentiqueToken(session,brandId){
+  const env=String(process.env.AUTENTIQUE_API_TOKEN||'').trim();
+  if(env)return env;
+  if(!brandId)throw Object.assign(Error('Selecione uma marca para usar a Autentique.'),{status:400,code:'AUTENTIQUE_BRAND_REQUIRED'});
+  const entries=await authRest(session,'/rest/v1/rpc/access_center_list',{method:'POST',body:{p_brand_id:brandId}});
+  const list=Array.isArray(entries)?entries:(Array.isArray(entries?.entries)?entries.entries:[]);
+  const entry=list.find(e=>/autentique/i.test(String(e?.name||'')));
+  const secret=(entry?.secrets||[]).find(s=>/api\\s*token|api\\s*key|token|chave/i.test(String(s?.label||'')+' '+String(s?.kind||'')));
+  if(!secret?.id)throw Object.assign(Error('Cadastre a credencial “API Token” no acesso Autentique da Central de Acessos.'),{status:503,code:'AUTENTIQUE_NOT_CONFIGURED'});
+  const value=await authRest(session,'/rest/v1/rpc/access_center_reveal_secret',{method:'POST',body:{p_secret_id:secret.id}});
+  const token=String(value??'').replace(/^"|"$/g,'').trim();
+  if(!token)throw Object.assign(Error('A credencial “API Token” da Autentique está vazia.'),{status:503,code:'AUTENTIQUE_NOT_CONFIGURED'});
   return token;
 }
-async function autentiqueJson(query,variables={}){
-  const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+autentiqueToken(),'Content-Type':'application/json'},body:JSON.stringify({query,variables})});
+async function autentiqueJson(token,query,variables={}){
+  const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})});
   const j=await r.json().catch(()=>({}));
   if(!r.ok||j.errors?.length)throw Object.assign(Error(j.errors?.map(x=>x.message).join(' · ')||('Autentique HTTP '+r.status)),{status:r.status||502});
   return j.data||{};
 }
-async function autentiqueUpload(query,variables,pdfBuffer,filename){
+async function autentiqueUpload(token,query,variables,pdfBuffer,filename){
   const form=new FormData();
   form.append('operations',JSON.stringify({query,variables:{...variables,file:null}}));
   form.append('map',JSON.stringify({file:['variables.file']}));
   form.append('file',new Blob([pdfBuffer],{type:'application/pdf'}),filename);
-  const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+autentiqueToken()},body:form});
+  const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+token},body:form});
   const j=await r.json().catch(()=>({}));
   if(!r.ok||j.errors?.length)throw Object.assign(Error(j.errors?.map(x=>x.message).join(' · ')||('Autentique HTTP '+r.status)),{status:r.status||502});
   return j.data||{};
 }
-async function autentiqueDocument(id){
+async function autentiqueDocument(token,id){
   const safe=JSON.stringify(String(id));
-  const data=await autentiqueJson('query { document(id: '+safe+') { id name created_at files { original signed pades } signatures { public_id name email delivery_method link { short_link } viewed { created_at } signed { created_at } rejected { created_at } } } }');
+  const data=await autentiqueJson(token,'query { document(id: '+safe+') { id name created_at files { original signed pades } signatures { public_id name email delivery_method link { short_link } viewed { created_at } signed { created_at } rejected { created_at } } } }');
   return data.document;
 }
 async function sendContractAutentique(session,contractId,forceEmail=false){
@@ -417,7 +426,8 @@ async function sendContractAutentique(session,contractId,forceEmail=false){
   if(!link)throw Object.assign(Error('Parceiro do contrato não encontrado.'),{status:404});
   if(!partner.email)throw Object.assign(Error('Preencha o e-mail do parceiro antes de enviar para assinatura.'),{status:409});
 
-  const me=(await autentiqueJson('query { me { id name email organization { id name } } }')).me;
+  const token=await autentiqueToken(session,link.brand_id);
+  const me=(await autentiqueJson(token,'query { me { id name email organization { id name } } }')).me;
   if(!me?.email)throw Error('A conta da Autentique não retornou o e-mail do titular.');
 
   const signers=[];
@@ -429,21 +439,21 @@ async function sendContractAutentique(session,contractId,forceEmail=false){
   signers.push({name:partner.nome_completo||partner.email,email:partner.email,action:'SIGN'});
 
   const mutation='mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { createDocument(document:$document, signers:$signers, file:$file) { id name created_at signatures { public_id name email delivery_method link { short_link } user { id name email } } } }';
-  const created=(await autentiqueUpload(mutation,{document:{name:'Contrato - '+(partner.nome_completo||'Parceiro'),sortable:true,refusable:true,locale:{country:'BR',language:'pt-BR',timezone:'America/Sao_Paulo'}},signers},pdfBuffer,'contrato-'+String(partner.nome_completo||'parceiro').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf')).createDocument;
+  const created=(await autentiqueUpload(token,mutation,{document:{name:'Contrato - '+(partner.nome_completo||'Parceiro'),sortable:true,refusable:true,locale:{country:'BR',language:'pt-BR',timezone:'America/Sao_Paulo'}},signers},pdfBuffer,'contrato-'+String(partner.nome_completo||'parceiro').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf')).createDocument;
   if(!created?.id)throw Error('A Autentique não retornou o ID do documento.');
 
   if(signers.length>1){
-    try{await autentiqueJson('mutation { signDocument(id: '+JSON.stringify(created.id)+') }')}catch(e){console.warn('[autentique] assinatura do titular não concluída automaticamente',e?.message||e)}
+    try{await autentiqueJson(token,'mutation { signDocument(id: '+JSON.stringify(created.id)+') }')}catch(e){console.warn('[autentique] assinatura do titular não concluída automaticamente',e?.message||e)}
   }
 
-  let remote=await autentiqueDocument(created.id);
+  let remote=await autentiqueDocument(token,created.id);
   let partnerSignature=(remote?.signatures||[]).find(s=>String(s.email||'').toLowerCase()===String(partner.email).toLowerCase())
     ||(remote?.signatures||[]).find(s=>String(s.name||'').trim().toLowerCase()===String(partner.nome_completo||'').trim().toLowerCase());
   if(!partnerSignature)throw Error('A Autentique criou o documento, mas não retornou o signatário do parceiro.');
 
   let signatureUrl=partnerSignature.link?.short_link||null;
   if(!signatureUrl){
-    const linkData=await autentiqueJson('mutation { createLinkToSignature(public_id: '+JSON.stringify(partnerSignature.public_id)+') { short_link } }');
+    const linkData=await autentiqueJson(token,'mutation { createLinkToSignature(public_id: '+JSON.stringify(partnerSignature.public_id)+') { short_link } }');
     signatureUrl=linkData.createLinkToSignature?.short_link||null;
   }
   if(!signatureUrl)throw Error('Não foi possível gerar o link de assinatura.');
@@ -458,7 +468,10 @@ async function refreshContractAutentique(session,contractId){
   const rows=await authRest(session,'/rest/v1/creator_contracts?id=eq.'+encodeURIComponent(contractId)+'&arquivado_em=is.null&select=*&limit=1');
   const contract=rows?.[0];if(!contract)throw Object.assign(Error('Contrato não encontrado.'),{status:404});
   if(!contract.provider_document_id)throw Object.assign(Error('Este contrato ainda não foi enviado para a Autentique.'),{status:409});
-  const remote=await autentiqueDocument(contract.provider_document_id);
+  const links=await authRest(session,'/rest/v1/creator_partner_brands?id=eq.'+encodeURIComponent(contract.partner_brand_id)+'&arquivado_em=is.null&select=brand_id&limit=1');
+  const brandId=links?.[0]?.brand_id;if(!brandId)throw Object.assign(Error('Marca do parceiro não encontrada.'),{status:404});
+  const token=await autentiqueToken(session,brandId);
+  const remote=await autentiqueDocument(token,contract.provider_document_id);
   if(!remote)throw Error('Documento não encontrado na Autentique.');
 
   const sigId=contract.metadata?.autentique?.partner_signature_public_id;
@@ -496,6 +509,13 @@ export default async function handler(req,res){try{
     const {buffer,contract}=await contractPdfBuffer(session,id);
     const filename=String(contract?.metadata?.template_name||'contrato').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf';
     res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition','inline; filename="'+filename+'"');return res.status(200).send(buffer);
+  }
+  if(req.method==='POST'&&body.action==='test_autentique'){
+    const brandId=String(body.brand_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(brandId))return send(res,400,{erro:'brand_id inválido'});
+    const token=await autentiqueToken(session,brandId);
+    const me=(await autentiqueJson(token,'query { me { id name email organization { id name } } }')).me;
+    if(!me?.id)throw Object.assign(Error('A Autentique não retornou a conta conectada.'),{status:502});
+    return send(res,200,{ok:true,configured:true,account:{name:me.name||null,email:me.email||null,organization:me.organization?.name||null}});
   }
   if(req.method==='POST'&&body.action==='send_creator_contract_autentique'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,...await sendContractAutentique(session,id,body.force_email===true)})}
   if(req.method==='POST'&&body.action==='refresh_creator_contract_autentique'){const id=String(body.contract_id||'').trim();if(!/^[0-9a-f-]{36}$/i.test(id))return send(res,400,{erro:'contract_id inválido'});return send(res,200,{ok:true,...await refreshContractAutentique(session,id)})}
