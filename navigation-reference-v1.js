@@ -843,32 +843,38 @@
     // Campaign links from the map always resolve by ID inside the selected month.
     // Optional workspaceTab lets badges deep-link directly to TAP without changing
     // the normal campaign-opening behavior used elsewhere.
-    window.AbrirCampanha=function(campId,workspaceTab){
+    window.AbrirCampanha=function(campId,workspaceTab,labelHint){
       const id=String(campId||'');
-      const target=campaigns().find(c=>String(c?.id||'')===id&&!c?.archivedAt&&campaignInSelectedMonth(c));
-      if(!target){
-        openCampaignDirectory();
-        window.showToast?.('Não encontrei esta campanha no mês selecionado.');
-        return;
-      }
+      if(!id)return;
+      const cleanHint=String(labelHint||'').replace(/\s*\[\[[^\]]+\]\]\s*$/,'').split(' — ')[0].trim();
+
+      // O mapa já é uma fonte válida de pertencimento ao mês. Não bloquear o
+      // clique só porque o cache local de campanhas ainda não hidratou.
       openCampaignDirectory();
 
       const abrirTap=()=>{
         if(workspaceTab!=='tap')return;
         const tryTap=attempt=>{
           const ws=document.querySelector('#campaignWorkspace.active')||document.getElementById('campaignWorkspace');
-          const byData=ws?.querySelector('[data-cw-tab="tap"]');
-          const byText=[...(ws?.querySelectorAll('.cw-tab,button')||[])]
-            .find(el=>String(el.textContent||'').trim().toLowerCase()==='tap');
-          const tap=byData||byText;
-          if(tap){tap.click();return}
-          if(attempt<16)setTimeout(()=>tryTap(attempt+1),70);
-          else window.showToast?.('Campanha aberta. A aba TAP ainda não ficou disponível.');
+          const tap=ws?.querySelector('[data-cw-tab="tap"]')
+            ||[...(ws?.querySelectorAll('.cw-tab,button')||[])]
+              .find(el=>String(el.textContent||'').trim().toLowerCase()==='tap');
+          if(tap){
+            tap.click();
+            return;
+          }
+          if(attempt<24)setTimeout(()=>tryTap(attempt+1),60);
+          else window.showToast?.('A campanha abriu, mas não consegui selecionar o TAP automaticamente.');
         };
-        setTimeout(()=>tryTap(0),80);
+        setTimeout(()=>tryTap(0),50);
       };
 
       const abrirWorkspace=attempt=>{
+        try{ window.__centralRenderCampaigns?.(); }catch{}
+        const all=campaigns();
+        const target=all.find(c=>String(c?.id||'')===id&&!c?.archivedAt&&!c?.archived_at);
+        const nameHint=String(target?.name||target?.nome||cleanHint||'');
+
         const openerById=window.openCampaignWorkspaceById;
         if(typeof openerById==='function'){
           const opened=openerById(id);
@@ -878,9 +884,8 @@
           }
         }
 
-        const opener=window.openCampaignWorkspaceByName;
-        if(typeof opener==='function'){
-          const opened=opener(target.name||target.nome||id);
+        if(nameHint&&typeof window.openCampaignWorkspaceByName==='function'){
+          const opened=window.openCampaignWorkspaceByName(nameHint);
           if(opened!==false){
             abrirTap();
             return;
@@ -889,21 +894,22 @@
 
         const row=document.querySelector('#campaignsView [data-campaign-id="'+CSS.escape(id)+'"]')
           ||[...document.querySelectorAll('#campaignsView [data-live-campaign]')]
-            .find(el=>normalize(el.dataset.liveCampaign)===normalize(target.name||target.nome||''));
+            .find(el=>nameHint&&normalize(el.dataset.liveCampaign)===normalize(nameHint));
         if(row){
           row.click();
           abrirTap();
           return;
         }
 
-        if(attempt<16)setTimeout(()=>abrirWorkspace(attempt+1),70);
-        else window.showToast?.('Não consegui abrir a campanha.');
+        if(attempt<24){
+          setTimeout(()=>abrirWorkspace(attempt+1),70);
+          return;
+        }
+        window.showToast?.('Não consegui abrir esta campanha agora. Atualize a página e tente novamente.');
       };
 
-      // openCampaignDirectory termina a transição de tela de forma assíncrona.
-      // Aguarde essa troca antes de abrir a campanha para que o próprio
-      // renderizador do diretório não feche o workspace logo em seguida.
-      setTimeout(()=>abrirWorkspace(0),180);
+      // Aguarda a tela de Campanhas terminar a transição antes de abrir o workspace.
+      setTimeout(()=>abrirWorkspace(0),140);
     };
 
     // Expose the root flow for any future breadcrumb/back buttons.
