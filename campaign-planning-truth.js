@@ -171,9 +171,23 @@ const currentTasks=()=>{
   });
 };
 const currentPlanningMetrics=()=>{
-  const m=window.AlliancePlanningMonthMetrics;
-  if(!m||m.ref!==selectedMonthRef())return null;
-  const b=brand();
+  const ref=selectedMonthRef(),b=brand();
+  let m=window.AlliancePlanningMonthMetrics;
+  if(!m||m.ref!==ref||(b&&m.brand&&norm(m.brand)!==norm(b))){
+    try{
+      const keys=[
+        'allianceos.planning.metrics.'+b+'.'+ref,
+        ...Object.keys(localStorage).filter(k=>k.startsWith('allianceos.planning.metrics.')&&k.endsWith('.'+ref))
+      ];
+      for(const key of keys){
+        const x=JSON.parse(localStorage.getItem(key)||'null');
+        if(!x||x.ref!==ref)continue;
+        if(b&&x.brand&&norm(x.brand)!==norm(b))continue;
+        m=x;break;
+      }
+    }catch{}
+  }
+  if(!m||m.ref!==ref)return null;
   if(b&&m.brand&&norm(m.brand)!==norm(b))return null;
   return m;
 };
@@ -443,7 +457,7 @@ function planContext(){
   const pct=tasks.length?Math.round(done/tasks.length*100):0;
   const w=weekInfo();
   const sig=[brand(),data.length,tasks.length,meta1,meta2,meta3,goal,open,pct,iso(w.monday),iso(w.sunday)].join('|');
-  const planMetaCard=(level,value)=>'<div class="plan-kpi plan-kpi-goal '+(Number(monthly?.active||1)===level?'active-goal':'')+'"><small>Meta '+level+'</small><b>'+(value>0?money(value):'—')+'</b><span>'+(
+  const planMetaCard=(level,value)=>'<div class="plan-kpi plan-kpi-goal '+(Number(monthly?.active||1)===level?'active-goal':'')+'"><small>Meta 0'+level+'</small><b>'+(value>0?money(value):'—')+'</b><span>'+(
     Number(monthly?.active||1)===level?'meta ativa do mês':'escada de meta mensal'
   )+'</span></div>';
   const desired=
@@ -456,6 +470,8 @@ function planContext(){
   planSignature=sig;
   correctLegacyGoalWarning(fallbackGoal);
 }
+
+window.AllianceOSRenderPlanningKpis=planContext;
 
 function planningWeek(){
   const root=document.getElementById('planWeekGrid');
@@ -944,7 +960,10 @@ window.addEventListener('allianceos:planning-month-changing',()=>{
   schedule();
 });
 window.addEventListener('allianceos:planning-month-ready',schedule);
-window.addEventListener('allianceos:planning-metrics',schedule);
+window.addEventListener('allianceos:planning-metrics',()=>{
+  try{planContext()}catch{}
+  schedule();
+});
 window.addEventListener('allianceos:state-updated',e=>{
   const key=String(e?.detail?.key||'');
   if(key===CAMP_KEY||key===TASK_KEY||key.startsWith('central.planning.map.'))schedule();
