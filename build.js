@@ -729,8 +729,9 @@ async function main() {
 
   console.log('[AllianceOS build] selo preto TAP ligado às campanhas do mapa');
 
-  // MAP_ACTIVE_BLACK_AND_RESILIENT_TAP_V1
-  // Meta ativa usa preto; selo TAP é resolvido por campId ou pelo nome-base da campanha.
+  // MAP_ACTIVE_CORAL_AND_RESILIENT_TAP_V2
+  // No mapa mental a meta ativa preserva a cor coral do ramo.
+  // O preto é reservado aos cards de meta no topo da página.
   const mapActiveBlackOld = `      if (metaAtiva) {
         const corAtiva = ramoCor(n);
         d.style.background = corAtiva;
@@ -738,7 +739,7 @@ async function main() {
         d.style.color = '#fff';
       }`;
   const mapActiveBlackNew = `      if (metaAtiva) {
-        const corAtiva = '#111315';
+        const corAtiva = ramoCor(n);
         d.style.background = corAtiva;
         d.style.borderColor = corAtiva;
         d.style.color = '#fff';
@@ -746,7 +747,7 @@ async function main() {
   if (html.includes(mapActiveBlackOld)) html = html.replace(mapActiveBlackOld,mapActiveBlackNew);
 
   const mapActiveShadowOld = ".mp-no.mp-meta-ativa{\\n  font-weight:700;\\n  color:#fff;\\n  box-shadow:0 5px 16px rgba(194,90,74,.22);";
-  const mapActiveShadowNew = ".mp-no.mp-meta-ativa{\\n  font-weight:700;\\n  color:#fff;\\n  box-shadow:0 5px 16px rgba(17,19,21,.18);";
+  const mapActiveShadowNew = ".mp-no.mp-meta-ativa{\\n  font-weight:700;\\n  color:#fff;\\n  box-shadow:0 5px 16px rgba(194,90,74,.22);";
   if (html.includes(mapActiveShadowOld)) html = html.replace(mapActiveShadowOld,mapActiveShadowNew);
 
   const mapCampResolveAnchor = "  function lado(n) { return 1 }";
@@ -805,7 +806,7 @@ async function main() {
     html = html.replace(mapCampBadgeStyleAnchor,mapCampBadgeStyle + mapCampBadgeStyleAnchor);
   }
 
-  console.log('[AllianceOS build] Meta ativa preta e TAP resiliente no mapa');
+  console.log('[AllianceOS build] Meta ativa coral no mapa e TAP resiliente');
 
 
 
