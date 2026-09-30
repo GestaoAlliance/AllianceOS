@@ -390,6 +390,34 @@ async function main() {
   };`;
   if (!html.includes(mapKeyOld)) throw new Error('Não encontrei a chave do mapa mental para separar os planejamentos por mês');
   html = html.replace(mapKeyOld,mapKeyNew);
+
+  // MAP_RIGHT_ONLY_V1 — Planejamento usa a árvore horizontal padrão do AllianceOS.
+  // A raiz fica à esquerda e todo nível seguinte cresce somente para a direita.
+  const mapLayoutLoadOld = "    cru.layout = cru.layout || 'direita';";
+  const mapLayoutLoadNew = "    cru.layout = 'direita';";
+  if (html.includes(mapLayoutLoadOld)) html = html.replace(mapLayoutLoadOld,mapLayoutLoadNew);
+  else console.warn('[AllianceOS build] mapa: normalização de layout não encontrada');
+
+  const mapSideOld = "  function lado(n) { const r = raiz(); if (!r || n.id === r.id) return 1; let a = n, g = 0; while (a.pai && a.pai !== r.id && g++ < 80) a = acharNo(a.pai) || a; return (a.x ?? 0) < (r.x ?? 0) ? -1 : 1 }";
+  const mapSideNew = "  function lado(n) { return 1 }";
+  if (html.includes(mapSideOld)) html = html.replace(mapSideOld,mapSideNew);
+  else console.warn('[AllianceOS build] mapa: função de lado não encontrada');
+
+  const mapCalcOld = `    if (M.layout === 'radial') {
+      espalhar(r, n1.filter((_, i) => i % 2 === 0), 1);
+      espalhar(r, n1.filter((_, i) => i % 2 === 1), -1);
+    } else espalhar(r, n1, 1);`;
+  const mapCalcNew = `    M.layout = 'direita';
+    espalhar(r, n1, 1);`;
+  if (html.includes(mapCalcOld)) html = html.replace(mapCalcOld,mapCalcNew);
+  else console.warn('[AllianceOS build] mapa: cálculo radial não encontrado');
+
+  const mapToggleMenuOld = "        menu.appendChild(item('Alternar layout', '', trocarLayout));\n";
+  if (html.includes(mapToggleMenuOld)) html = html.replace(mapToggleMenuOld,'');
+  const mapToggleFnOld = "  function trocarLayout() { guardar(); M.layout = M.layout === 'radial' ? 'direita' : 'radial'; organizar(); salvar() }";
+  const mapToggleFnNew = "  function trocarLayout() { guardar(); M.layout = 'direita'; organizar(); salvar() }";
+  if (html.includes(mapToggleFnOld)) html = html.replace(mapToggleFnOld,mapToggleFnNew);
+  console.log('[AllianceOS build] mapa mental fixado em árvore horizontal para a direita');
   // AllianceOS is a shared workspace: campaign data must use the canonical workspace collection, not the auth UUID.
   html = html.replaceAll('central.campaigns.${user.id}', 'central.campaigns.vitor-gutierrez');
   // LEGACY_CAMPAIGN_RENDERER_PATCH_V2: replace hardcoded legacy functions without aborting the deployment.
