@@ -581,105 +581,65 @@ async function main() {
 
   console.log('[AllianceOS build] tags percentuais dos canais ativadas no mapa');
 
-  // INFLUENCER_KPI_CARDS_V1 — melhora somente a apresentação dos detalhes
-  // do canal Influenciadores, sem alterar conteúdo ou estrutura do mapa.
-  const influencerKpiCssAnchor = ".mp-no.mp-raiz{";
-  const influencerKpiCss = `.mp-no.mp-influencer-kpi-card{
-  box-sizing:border-box!important;
-  width:252px!important;
-  max-width:252px!important;
-  min-width:252px!important;
-  min-height:0!important;
-  padding:9px 12px 9px 14px!important;
-  border:1px solid #e7e2d8!important;
-  border-left:3px solid var(--mp-kpi-accent,#c9902f)!important;
-  border-radius:12px!important;
-  background:#fffdfa!important;
-  box-shadow:0 2px 7px rgba(37,31,20,.055)!important;
-  color:#373a3c!important;
-  align-items:center!important;
-  transition:box-shadow .14s ease,transform .14s ease,border-color .14s ease!important;
+  // INFLUENCER_DETAIL_TAGS_V1 — mantém os nós no visual original e adiciona
+  // apenas tags pequenas para dar hierarquia aos detalhes de Influenciadores.
+  const influencerDetailCssAnchor = ".mp-no.mp-raiz{";
+  const influencerDetailCss = `.mp-detail-tag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:17px;
+  padding:0 6px;
+  margin-left:7px;
+  border-radius:999px;
+  font-size:8px;
+  font-weight:760;
+  line-height:1;
+  letter-spacing:.035em;
+  white-space:nowrap;
+  flex:0 0 auto;
+  border:1px solid transparent;
 }
-.mp-no.mp-influencer-kpi-card:hover{
-  transform:translateY(-1px);
-  box-shadow:0 5px 14px rgba(37,31,20,.085)!important;
-  border-color:#ddd5c7!important;
-  border-left-color:var(--mp-kpi-accent,#c9902f)!important;
-}
-.mp-no.mp-influencer-kpi-card .mp-txt{
-  width:100%!important;
-  max-width:none!important;
-  color:#3f4245!important;
-  font-size:10.2px!important;
-  line-height:1.36!important;
-  font-weight:520!important;
-  letter-spacing:-.005em!important;
-  white-space:normal!important;
-}
-.mp-no.mp-influencer-kpi-owner{
-  background:#fff8e8!important;
-  border-color:#ead9b5!important;
-}
-.mp-no.mp-influencer-kpi-owner .mp-txt{
-  font-weight:720!important;
-  color:#59451e!important;
-}
-.mp-no.mp-influencer-kpi-meta{
-  background:#fffaf0!important;
-}
-.mp-no.mp-influencer-kpi-meta .mp-txt,
-.mp-no.mp-influencer-kpi-kpi .mp-txt{
-  font-weight:650!important;
-}
-.mp-no.mp-influencer-kpi-flow{
-  background:#fbfbfa!important;
-}
-.mp-no.mp-influencer-kpi-capacity{
-  background:#faf9f7!important;
-}
+.mp-detail-tag[data-kind="owner"]{background:#f3f4f6;color:#374151;border-color:#e5e7eb}
+.mp-detail-tag[data-kind="base"]{background:#faf7f0;color:#7a6540;border-color:#eee4d3}
+.mp-detail-tag[data-kind="meta"]{background:#f3efff;color:#6d4cc2;border-color:#e4dafb}
+.mp-detail-tag[data-kind="kpi"]{background:#eef6ff;color:#2767a7;border-color:#d8e9fb}
+.mp-detail-tag[data-kind="flow"]{background:#f5f6f7;color:#65717a;border-color:#e6e9eb}
+.mp-detail-tag[data-kind="capacity"]{background:#edf8f1;color:#2f7a4d;border-color:#d7eedf}
 `;
-  if (html.includes(influencerKpiCssAnchor) && !html.includes('.mp-no.mp-influencer-kpi-card{')) {
-    html = html.replace(influencerKpiCssAnchor,influencerKpiCss + influencerKpiCssAnchor);
+  if (html.includes(influencerDetailCssAnchor) && !html.includes('.mp-detail-tag{')) {
+    html = html.replace(influencerDetailCssAnchor,influencerDetailCss + influencerDetailCssAnchor);
   }
 
-  const influencerKpiHelperAnchor = "  function lado(n) { return 1 }";
-  const influencerKpiHelpers = `  function ehDetalheInfluenciadores(n) {
+  const influencerDetailHelperAnchor = "  function lado(n) { return 1 }";
+  const influencerDetailHelpers = `  function ehDetalheInfluenciadores(n) {
     const detalhe = acharNo(n?.pai);
     if (!detalhe || textoNormal(detalhe.t) !== textoNormal('Detalhes + KPIs')) return false;
     const canal = acharNo(detalhe.pai);
     return !!canal && textoNormal(String(canal.t || '')).startsWith(textoNormal('Influenciadores'));
   }
-  function classeDetalheInfluenciadores(txt) {
+  function tagDetalheInfluenciadores(txt) {
     const s = textoNormal(String(txt || ''));
-    if (s.startsWith('responsavel:')) return ' mp-influencer-kpi-owner';
-    if (s.startsWith('meta operacional:')) return ' mp-influencer-kpi-meta';
-    if (s.startsWith('kpis hunter:')) return ' mp-influencer-kpi-kpi';
-    if (s.startsWith('funil:')) return ' mp-influencer-kpi-flow';
-    if (s.startsWith('capacidade madura:')) return ' mp-influencer-kpi-capacity';
-    return ' mp-influencer-kpi-base';
+    if (s.startsWith('responsavel:')) return {label:'RESPONSÁVEL',kind:'owner'};
+    if (s.startsWith('base atual:')) return {label:'BASE ATUAL',kind:'base'};
+    if (s.startsWith('meta operacional:')) return {label:'META',kind:'meta'};
+    if (s.startsWith('kpis hunter:')) return {label:'KPI',kind:'kpi'};
+    if (s.startsWith('funil:')) return {label:'FUNIL',kind:'flow'};
+    if (s.startsWith('capacidade madura:')) return {label:'CAPACIDADE',kind:'capacity'};
+    return null;
   }
 `;
-  if (html.includes(influencerKpiHelperAnchor) && !html.includes('function ehDetalheInfluenciadores(n)')) {
-    html = html.replace(influencerKpiHelperAnchor,influencerKpiHelpers + influencerKpiHelperAnchor);
+  if (html.includes(influencerDetailHelperAnchor) && !html.includes('function ehDetalheInfluenciadores(n)')) {
+    html = html.replace(influencerDetailHelperAnchor,influencerDetailHelpers + influencerDetailHelperAnchor);
   }
 
-  const influencerKpiRenderAnchor = "      const pctInfo = extrairPctTag(n.t);";
-  if (html.includes(influencerKpiRenderAnchor) && !html.includes("      const detalheInfluenciadores = ehDetalheInfluenciadores(n);")) {
-    html = html.replace(influencerKpiRenderAnchor,influencerKpiRenderAnchor + "\n      const detalheInfluenciadores = ehDetalheInfluenciadores(n);");
+  const influencerDetailRenderAnchor = "      const pctInfo = extrairPctTag(n.t);";
+  if (html.includes(influencerDetailRenderAnchor) && !html.includes("      const detalheInfluenciadores = ehDetalheInfluenciadores(n);")) {
+    html = html.replace(influencerDetailRenderAnchor,influencerDetailRenderAnchor + "\n      const detalheInfluenciadores = ehDetalheInfluenciadores(n);");
   }
 
-  const influencerKpiPaintAnchor = "      if (n.fundo) d.style.background = n.fundo;";
-  const influencerKpiPaintNew = `      if (n.fundo) d.style.background = n.fundo;
-      if (detalheInfluenciadores) {
-        d.classList.add('mp-influencer-kpi-card');
-        classeDetalheInfluenciadores(n.t).trim().split(/\\s+/).filter(Boolean).forEach(cls => d.classList.add(cls));
-        d.style.setProperty('--mp-kpi-accent', ramoCor(n));
-      }`;
-  if (html.includes(influencerKpiPaintAnchor) && !html.includes("d.classList.add('mp-influencer-kpi-card')")) {
-    html = html.replace(influencerKpiPaintAnchor,influencerKpiPaintNew);
-  }
 
-  console.log('[AllianceOS build] detalhes de Influenciadores refinados visualmente');
+
 
 
   // META_DIMENSION_GROUPS_V1 — diferencia visualmente as duas leituras da meta.
@@ -1049,6 +1009,22 @@ async function main() {
         badgeRow.appendChild(b);
       }`;
   if (html.includes(badgeRenderOld)) html = html.replace(badgeRenderOld,badgeRenderNew);
+  const influencerDetailTagAnchor = "      let badgeRow = null;";
+  const influencerDetailTagNew = `      if (detalheInfluenciadores) {
+        const infoTag = tagDetalheInfluenciadores(n.t);
+        if (infoTag) {
+          const detailTag = document.createElement('span');
+          detailTag.className = 'mp-detail-tag';
+          detailTag.dataset.kind = infoTag.kind;
+          detailTag.textContent = infoTag.label;
+          d.appendChild(detailTag);
+        }
+      }
+      let badgeRow = null;`;
+  if (html.includes(influencerDetailTagAnchor) && !html.includes("detailTag.className = 'mp-detail-tag';")) {
+    html = html.replace(influencerDetailTagAnchor,influencerDetailTagNew);
+  }
+
   else console.warn('[AllianceOS build] mapa: bloco de badges não encontrado');
 
   const botaoOld = `  function botao(cls, txt, titulo, aoClicar) {
