@@ -265,6 +265,33 @@ function sectorHealth(tasks){
 function metricCard(label,value,note,kind=''){
   return '<article class="mg-metric '+kind+'"><div class="mg-metric-top"><span>'+esc(label)+'</span></div><strong>'+esc(value)+'</strong><small>'+esc(note||'')+'</small></article>';
 }
+function progressMetricCard(label,value,note,progressValue,kind=''){
+  const progress=Number.isFinite(Number(progressValue))?Number(progressValue):null;
+  const width=progress==null?0:Math.max(0,Math.min(100,progress));
+  const tone=progress==null?'neutral':goalTone(progress);
+  const badge=progress==null?'':pct(progress);
+  return '<article class="mg-metric mg-kpi-progress '+kind+' '+tone+'">'+
+    '<div class="mg-metric-top"><span>'+esc(label)+'</span>'+(badge?'<em class="mg-kpi-badge">'+esc(badge)+'</em>':'')+'</div>'+
+    '<strong>'+esc(value)+'</strong>'+
+    (progress!=null?'<div class="mg-kpi-track"><i style="width:'+width+'%"></i></div>':'')+
+    '<small>'+esc(note||'')+'</small>'+
+  '</article>';
+}
+function gapMetricCard(gap,goalValue,goalLabel){
+  if(gap==null||!Number.isFinite(Number(gap))||!Number.isFinite(Number(goalValue))||Number(goalValue)<=0){
+    return metricCard('GAP','—','Sem realizado para comparar com '+(goalLabel||'a meta'));
+  }
+  const value=Number(gap);
+  const deltaPct=value/Number(goalValue)*100;
+  const magnitude=Math.min(50,Math.abs(deltaPct));
+  const positive=value>=0;
+  return '<article class="mg-metric mg-gap-card '+(positive?'positive':'negative')+'">'+
+    '<div class="mg-metric-top"><span>GAP</span><em class="mg-gap-badge">'+esc((positive?'+':'')+pct(deltaPct))+'</em></div>'+
+    '<strong>'+esc(money(value))+'</strong>'+
+    '<div class="mg-gap-track"><span class="mg-gap-center"></span><i class="'+(positive?'positive':'negative')+'" style="'+(positive?'left:50%;':'right:50%;')+'width:'+magnitude+'%"></i></div>'+
+    '<small>'+esc(positive?'Forecast acima da '+goalLabel:'Forecast abaixo da '+goalLabel)+'</small>'+
+  '</article>';
+}
 function empty(text){return '<div class="mg-empty">'+esc(text)+'</div>'}
 
 function renderShell({brand,tasks,campaigns,deliveries,remote}){
@@ -293,26 +320,22 @@ function renderShell({brand,tasks,campaigns,deliveries,remote}){
       '<header class="mg-header"><div><h1>Boa '+(new Date().getHours()<12?'dia':new Date().getHours()<18?'tarde':'noite')+', '+esc(user)+'.</h1><p>Visão gerencial da '+esc(brand||'marca')+'.</p></div><div class="mg-context"><span>'+new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'long'}).format(new Date())+'</span><b>'+esc(brand||'Selecione uma marca')+'</b></div></header>'+
       '<section class="mg-metrics">'+
         goalCard(goal,real)+
-        metricCard(
+        progressMetricCard(
           'Realizado',
           hasResults?money(real):(commerce.connected?'Sem vendas no mês':'Shopify não conectada'),
           hasShopify
-            ? commerce.orders+' pedidos · ticket '+money(commerce.aov)+' · '+goal.label
-            : (remote.results.length?'Resultado do AllianceOS · '+goal.label:'Conecte a Shopify desta marca')
+            ? commerce.orders+' pedidos · ticket '+money(commerce.aov)+' · avanço da '+goal.label
+            : (remote.results.length?'Resultado do AllianceOS · avanço da '+goal.label:'Conecte a Shopify desta marca'),
+          goalValue>0&&hasResults?(real/goalValue*100):null
         )+
-        metricCard(
+        progressMetricCard(
           'Forecast',
           forecast!=null?money(forecast):'Não calculado',
-          forecast!=null?'Projeção do mês contra '+goal.label:'Disponível após haver vendas no mês'
+          forecast!=null?'Projeção de fechamento contra '+goal.label:'Disponível após haver vendas no mês',
+          goalValue>0&&forecast!=null?(forecast/goalValue*100):null,
+          forecast!=null&&goalValue>0&&forecast<goalValue?'risk':''
         )+
-        metricCard(
-          'GAP',
-          gap!=null?money(gap):'—',
-          gap!=null
-            ? (gap<0?'Forecast '+money(Math.abs(gap))+' abaixo da '+goal.label:'Forecast '+money(gap)+' acima da '+goal.label)
-            : (goalValue>0?'Sem realizado para comparar com '+goal.label:'Meta ainda não definida'),
-          gap!=null&&gap<0?'risk':''
-        )+
+        gapMetricCard(gap,goalValue,goal.label)+
       '</section>'+
       '<section class="mg-panel mg-attention"><div class="mg-panel-head"><div><h2>Precisa da sua atenção <span>'+attention.length+'</span></h2><p>Só o que pode impactar a operação desta marca.</p></div><button type="button" data-mg-nav="tasks">Ver todas as tarefas →</button></div>'+
         (attention.length?'<div class="mg-list">'+attention.map(x=>{
