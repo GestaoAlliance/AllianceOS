@@ -469,7 +469,7 @@ async function autentiqueDocument(token,id){
   return data.document;
 }
 async function sendContractAutentique(session,contractId,forceEmail=false){
-  const {contract,pdfBuffer}=await contractPdfBuffer(session,contractId);
+  const {contract,buffer:pdfBuffer}=await contractPdfBuffer(session,contractId);
   const previousDelivery=String(contract.metadata?.autentique?.delivery_method||'');
   const alreadyEmail=previousDelivery==='DELIVERY_METHOD_EMAIL'||contract.metadata?.autentique?.email_dispatched_by_autentique===true;
   if(contract.provider_document_id&&alreadyEmail&&!forceEmail)return{contract,reused:true,signature_url:contract.metadata?.autentique?.signature_url||null,email_dispatched:true};
