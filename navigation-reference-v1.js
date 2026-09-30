@@ -585,7 +585,17 @@
       const v=brand?.value||'';
       return !v||/todas/i.test(v)?'':v;
     };
-    const campaigns=()=>readList('central.campaigns.'+uid());
+    const campaigns=()=>{
+      const merged=new Map();
+      const add=list=>(Array.isArray(list)?list:[]).forEach(c=>{
+        const id=String(c?.id||'');
+        if(id)merged.set(id,c);
+      });
+      add(readList('central.campaigns.vitor-gutierrez'));
+      add(readList('central.campaigns.'+uid()));
+      try{add(window.__centralGetCampaigns?.())}catch{}
+      return [...merged.values()];
+    };
     const tasks=()=>readList('central.tasks.'+uid());
     const validMonthRef=v=>/^20\d{2}-(0[1-9]|1[0-2])$/.test(String(v||''));
     const selectedMonthRef=()=>{
@@ -838,25 +848,51 @@
       const target=campaigns().find(c=>String(c?.id||'')===id&&!c?.archivedAt&&campaignInSelectedMonth(c));
       if(!target){
         openCampaignDirectory();
-        window.showToast?.('Esta campanha não pertence ao mês selecionado.');
+        window.showToast?.('Não encontrei esta campanha no mês selecionado.');
         return;
       }
       openCampaignDirectory();
-      const abrirAba=()=>{
+
+      const abrirTap=()=>{
         if(workspaceTab!=='tap')return;
         const tryTap=attempt=>{
-          const tap=document.querySelector('#campaignWorkspace [data-cw-tab="tap"]');
+          const ws=document.querySelector('#campaignWorkspace.active')||document.getElementById('campaignWorkspace');
+          const byData=ws?.querySelector('[data-cw-tab="tap"]');
+          const byText=[...(ws?.querySelectorAll('.cw-tab,button')||[])]
+            .find(el=>String(el.textContent||'').trim().toLowerCase()==='tap');
+          const tap=byData||byText;
           if(tap){tap.click();return}
-          if(attempt<10)setTimeout(()=>tryTap(attempt+1),60);
+          if(attempt<16)setTimeout(()=>tryTap(attempt+1),70);
+          else window.showToast?.('Campanha aberta. A aba TAP ainda não ficou disponível.');
         };
-        setTimeout(()=>tryTap(0),40);
+        setTimeout(()=>tryTap(0),80);
       };
-      const tryOpen=attempt=>{
-        const row=document.querySelector('#campaignsView [data-campaign-id="'+CSS.escape(id)+'"]');
-        if(row){row.click();abrirAba();return}
-        if(attempt<8)setTimeout(()=>tryOpen(attempt+1),60);
+
+      const abrirWorkspace=attempt=>{
+        const opener=window.openCampaignWorkspaceByName;
+        if(typeof opener==='function'){
+          opener(target.name||target.nome||id);
+          abrirTap();
+          return;
+        }
+
+        const row=document.querySelector('#campaignsView [data-campaign-id="'+CSS.escape(id)+'"]')
+          ||[...document.querySelectorAll('#campaignsView [data-live-campaign]')]
+            .find(el=>normalize(el.dataset.liveCampaign)===normalize(target.name||target.nome||''));
+        if(row){
+          row.click();
+          abrirTap();
+          return;
+        }
+
+        if(attempt<16)setTimeout(()=>abrirWorkspace(attempt+1),70);
+        else window.showToast?.('Não consegui abrir a campanha.');
       };
-      setTimeout(()=>tryOpen(0),80);
+
+      // openCampaignDirectory termina a transição de tela de forma assíncrona.
+      // Aguarde essa troca antes de abrir a campanha para que o próprio
+      // renderizador do diretório não feche o workspace logo em seguida.
+      setTimeout(()=>abrirWorkspace(0),180);
     };
 
     // Expose the root flow for any future breadcrumb/back buttons.
