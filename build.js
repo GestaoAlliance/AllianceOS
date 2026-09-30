@@ -423,6 +423,76 @@ async function main() {
   const mapToggleFnNew = "  function trocarLayout() { guardar(); M.layout = 'direita'; organizar(); salvar() }";
   if (html.includes(mapToggleFnOld)) html = html.replace(mapToggleFnOld,mapToggleFnNew);
   console.log('[AllianceOS build] mapa mental fixado em árvore horizontal para a direita');
+
+  // ACTIVE_MONTHLY_GOAL_PILL_V1 — a Meta ativa fica preenchida com a cor do ramo.
+  // As demais metas continuam no visual outline já usado pelo mapa.
+  const activeGoalCssAnchor = ".mp-no.mp-raiz{";
+  const activeGoalCss = `.mp-no.mp-meta-ativa{
+  font-weight:700;
+  color:#fff;
+  box-shadow:0 5px 16px rgba(194,90,74,.22);
+}
+.mp-no.mp-meta-ativa .mp-txt{color:inherit}
+.mp-no.mp-meta-ativa:hover{filter:brightness(.97)}
+`;
+  if (html.includes(activeGoalCssAnchor) && !html.includes('.mp-no.mp-meta-ativa{')) {
+    html = html.replace(activeGoalCssAnchor, activeGoalCss + activeGoalCssAnchor);
+  }
+
+  const activeGoalTreeAnchor = "  function lado(n) { return 1 }";
+  const activeGoalHelpers = `  function metaAtivaNivel() {
+    const m = window.AlliancePlanningMonthMetrics;
+    const refOk = !m?.ref || m.ref === mesMapa();
+    const marcaOk = !m?.brand || textoNormal(m.brand) === textoNormal(marcaAtual());
+    if (m && refOk && marcaOk && Number(m.active || 0) > 0) return Number(m.active);
+    return Number(M?.planejamentoExecutivo?.metaAtiva || M?.planejamentoExecutivo?.meta_ativa || 1);
+  }
+  function ehMetaAtiva(n) {
+    if (!n?.pai) return false;
+    const p = acharNo(n.pai);
+    if (!p || textoNormal(p.t) !== textoNormal('1. METAS DO MÊS')) return false;
+    const mt = String(n.t || '').match(/^Meta\\s+([123])\\b/i);
+    return !!mt && Number(mt[1]) === metaAtivaNivel();
+  }
+`;
+  if (html.includes(activeGoalTreeAnchor) && !html.includes('function ehMetaAtiva(n)')) {
+    html = html.replace(activeGoalTreeAnchor, activeGoalHelpers + activeGoalTreeAnchor);
+  }
+
+  const activeGoalRenderAnchor = "      const temSelo = !!(n.nota || n.feito || n.campId);";
+  if (html.includes(activeGoalRenderAnchor) && !html.includes("      const metaAtiva = ehMetaAtiva(n);")) {
+    html = html.replace(activeGoalRenderAnchor, activeGoalRenderAnchor + "\n      const metaAtiva = ehMetaAtiva(n);");
+  }
+
+  const activeGoalClassOld = "        + (n.feito ? ' mp-feito' : '') + (temSelo ? ' mp-comselo' : '')\n        + (sel.t === 'no' && sel.id === n.id ? ' mp-sel' : '');";
+  const activeGoalClassNew = "        + (n.feito ? ' mp-feito' : '') + (temSelo ? ' mp-comselo' : '')\n        + (metaAtiva ? ' mp-meta-ativa' : '')\n        + (sel.t === 'no' && sel.id === n.id ? ' mp-sel' : '');";
+  if (html.includes(activeGoalClassOld)) html = html.replace(activeGoalClassOld,activeGoalClassNew);
+
+  const activeGoalPaintOld = "      if (n.fundo) d.style.background = n.fundo;";
+  const activeGoalPaintNew = `      if (n.fundo) d.style.background = n.fundo;
+      if (metaAtiva) {
+        const corAtiva = ramoCor(n);
+        d.style.background = corAtiva;
+        d.style.borderColor = corAtiva;
+        d.style.color = '#fff';
+      }`;
+  if (html.includes(activeGoalPaintOld) && !html.includes('const corAtiva = ramoCor(n);')) {
+    html = html.replace(activeGoalPaintOld,activeGoalPaintNew);
+  }
+
+  const activeGoalBootOld = `  if (document.readyState === 'loading')
+    addEventListener('DOMContentLoaded', vigiar, { once: true });
+  else vigiar();`;
+  const activeGoalBootNew = activeGoalBootOld + `
+
+  addEventListener('allianceos:planning-metrics', () => {
+    if (cerca?.isConnected && M) desenhar();
+  });`;
+  if (html.includes(activeGoalBootOld) && !html.includes("addEventListener('allianceos:planning-metrics', () => {\n    if (cerca?.isConnected && M) desenhar();")) {
+    html = html.replace(activeGoalBootOld,activeGoalBootNew);
+  }
+  console.log('[AllianceOS build] meta ativa destacada com pílula preenchida');
+
   // AllianceOS is a shared workspace: campaign data must use the canonical workspace collection, not the auth UUID.
   html = html.replaceAll('central.campaigns.${user.id}', 'central.campaigns.vitor-gutierrez');
   // LEGACY_CAMPAIGN_RENDERER_PATCH_V2: replace hardcoded legacy functions without aborting the deployment.
