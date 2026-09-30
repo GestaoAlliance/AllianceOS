@@ -205,6 +205,8 @@
   const MONTH_NAMES=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
   let mapHydrateSeq=0;
   const mapSaveTimers=new Map();
+  const mapCanonicalSeenAt=new Map();
+  const mapSyncKey=(brand,ref)=>norm(brand)+'|'+String(ref||'');
 
   const mapLocalKey=(brand,ref=planningMonthRef())=>'central.planning.map.'+uid()+(brand?'.'+brand:'')+'.'+ref;
   const legacyMapLocalKey=brand=>'central.planning.map.'+uid()+(brand?'.'+brand:'');
@@ -295,6 +297,11 @@
         .eq('map_id',ctx.map.id).is('arquivado_em',null).order('criado_em',{ascending:true});
       if(error)throw error;
       if(!nodes?.length)return null;
+      const seenAt=Math.max(
+        Date.parse(ctx.map?.atualizado_em||0)||0,
+        ...(nodes||[]).map(n=>Date.parse(n?.atualizado_em||n?.criado_em||0)||0)
+      );
+      mapCanonicalSeenAt.set(mapSyncKey(ctx.brand.nome,ref),seenAt||Date.now());
       const map=normalizeMap(canonicalPayload(ctx.map,nodes));
       const visual=ctx.map.estado&&typeof ctx.map.estado==='object'?ctx.map.estado:{};
       map.nome=ctx.map.nome||map.nome;
@@ -354,18 +361,31 @@
     const up=await s.from('planning_map_nodes').upsert(live,{onConflict:'map_id,node_key'});
     if(up.error)throw up.error;
 
-    const {data:existing,error:ee}=await s.from('planning_map_nodes').select('node_key')
+    const {data:existing,error:ee}=await s.from('planning_map_nodes')
+      .select('node_key,origem,criado_em,atualizado_em')
       .eq('map_id',row.id).is('arquivado_em',null);
     if(ee)throw ee;
     const keys=new Set(live.map(n=>n.node_key));
-    const missing=(existing||[]).map(n=>String(n.node_key)).filter(k=>!keys.has(k));
-    if(missing.length){
+    const baseSeen=mapCanonicalSeenAt.get(mapSyncKey(ctx.brand.nome,ref))||0;
+    const missingRows=(existing||[]).filter(n=>!keys.has(String(n.node_key)));
+    const freshRemote=missingRows.filter(n=>{
+      const ts=Date.parse(n?.atualizado_em||n?.criado_em||0)||0;
+      return !baseSeen||ts>baseSeen;
+    });
+    const deletable=missingRows.filter(n=>!freshRemote.includes(n)).map(n=>String(n.node_key));
+    if(deletable.length){
       const ar=await s.from('planning_map_nodes').update({arquivado_em:now,atualizado_em:now})
-        .eq('map_id',row.id).in('node_key',missing).is('arquivado_em',null);
+        .eq('map_id',row.id).in('node_key',deletable).is('arquivado_em',null);
       if(ar.error)throw ar.error;
     }
+    if(freshRemote.length){
+      console.info('[AllianceOS mapa] alterações remotas preservadas',freshRemote.map(n=>n.node_key));
+      await hydrateCanonicalMap({silent:true,monthRef:ref});
+    }else{
+      mapCanonicalSeenAt.set(mapSyncKey(ctx.brand.nome,ref),Date.now());
+    }
     const state=document.getElementById('mindSaveState');
-    if(state)state.textContent='Salvo no AllianceOS';
+    if(state)state.textContent=freshRemote.length?'Sincronizado com alterações remotas':'Salvo no AllianceOS';
   }
 
   function queueCanonicalMapSave(map,brandName){
