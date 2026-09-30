@@ -537,6 +537,10 @@ async function main() {
     if (s.startsWith('tiktok')) return '#111827';
     if (s.startsWith('atendimento')) return '#0891b2';
     if (s.startsWith('reserva')) return '#64748b';
+    if (s.startsWith('perpetuo')) return '#c2412d';
+    if (s.startsWith('campanhas pontuais')) return '#dc5a43';
+    if (s.startsWith('dia d')) return '#e05f49';
+    if (s.startsWith('semana rosa')) return '#db4d79';
     return '#475569';
   }
 `;
@@ -572,6 +576,40 @@ async function main() {
   if (html.includes(pctSaveOld)) html = html.replace(pctSaveOld,pctSaveNew);
 
   console.log('[AllianceOS build] tags percentuais dos canais ativadas no mapa');
+
+  // META_DIMENSION_GROUPS_V1 — diferencia visualmente as duas leituras da meta.
+  const dimGroupCssAnchor = ".mp-no.mp-raiz{";
+  const dimGroupCss = `.mp-no.mp-grupo-origem{
+  background:#eef6ff;
+  border-color:#7aaee8!important;
+  color:#224b75;
+  font-weight:700;
+}
+.mp-no.mp-grupo-distrib{
+  background:#fff1ed;
+  border-color:#d96852!important;
+  color:#8d3829;
+  font-weight:700;
+}
+`;
+  if (html.includes(dimGroupCssAnchor) && !html.includes('.mp-no.mp-grupo-origem{')) {
+    html = html.replace(dimGroupCssAnchor,dimGroupCss + dimGroupCssAnchor);
+  }
+
+  const dimGroupRenderAnchor = "      const pctInfo = extrairPctTag(n.t);";
+  if (html.includes(dimGroupRenderAnchor) && !html.includes("      const grupoMeta = textoNormal(pctInfo.base)")) {
+    html = html.replace(dimGroupRenderAnchor,dimGroupRenderAnchor + `
+      const grupoMeta = textoNormal(pctInfo.base) === textoNormal('Origem da receita')
+        ? 'origem'
+        : (textoNormal(pctInfo.base) === textoNormal('Distribuição comercial') ? 'distrib' : '');`);
+  }
+
+  const dimGroupClassOld = "        + (metaAtiva ? ' mp-meta-ativa' : '')\n        + (sel.t === 'no' && sel.id === n.id ? ' mp-sel' : '');";
+  const dimGroupClassNew = "        + (metaAtiva ? ' mp-meta-ativa' : '')\n        + (grupoMeta === 'origem' ? ' mp-grupo-origem' : (grupoMeta === 'distrib' ? ' mp-grupo-distrib' : ''))\n        + (sel.t === 'no' && sel.id === n.id ? ' mp-sel' : '');";
+  if (html.includes(dimGroupClassOld)) html = html.replace(dimGroupClassOld,dimGroupClassNew);
+
+  console.log('[AllianceOS build] dimensões Origem e Distribuição diferenciadas visualmente');
+
 
 
   // AllianceOS is a shared workspace: campaign data must use the canonical workspace collection, not the auth UUID.
