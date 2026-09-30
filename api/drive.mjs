@@ -1,5 +1,5 @@
 import {requireAllianceUser,authError} from './_lib/auth.mjs';
-import {createSign} from 'node:crypto';
+import {createSign,randomUUID} from 'node:crypto';
 import PizZip from 'pizzip';
 import PDFDocument from 'pdfkit';
 import creatorTemplateB64 from './_lib/botanika-creator-template.mjs';
@@ -417,11 +417,47 @@ async function autentiqueJson(token,query,variables={}){
   return j.data||{};
 }
 async function autentiqueUpload(token,query,variables,pdfBuffer,filename){
-  const form=new FormData();
-  form.append('operations',JSON.stringify({query,variables:{...variables,file:null}}));
-  form.append('map',JSON.stringify({file:['variables.file']}));
-  form.append('file',new Blob([pdfBuffer],{type:'application/pdf'}),filename);
-  const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+token},body:form});
+  const fileBuffer=Buffer.isBuffer(pdfBuffer)?pdfBuffer:Buffer.from(pdfBuffer);
+  if(fileBuffer.length<5||fileBuffer.subarray(0,5).toString('ascii')!=='%PDF-'){
+    throw Object.assign(Error('O contrato gerado não é um PDF válido.'),{status:422});
+  }
+
+  const safeFilename=(String(filename||'contrato.pdf')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9._-]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .replace(/\.pdf$/i,'')||'contrato')+'.pdf';
+
+  const boundary='----AllianceOSAutentique'+randomUUID().replace(/-/g,'');
+  const operations=JSON.stringify({query,variables:{...variables,file:null}});
+  const map=JSON.stringify({file:['variables.file']});
+  const textPart=(name,value)=>Buffer.from(
+    '--'+boundary+'\r\n'+
+    'Content-Disposition: form-data; name="'+name+'"\r\n\r\n'+
+    value+'\r\n'
+  );
+  const fileHead=Buffer.from(
+    '--'+boundary+'\r\n'+
+    'Content-Disposition: form-data; name="file"; filename="'+safeFilename+'"\r\n'+
+    'Content-Type: application/pdf\r\n\r\n'
+  );
+  const body=Buffer.concat([
+    textPart('operations',operations),
+    textPart('map',map),
+    fileHead,
+    fileBuffer,
+    Buffer.from('\r\n--'+boundary+'--\r\n')
+  ]);
+
+  const r=await fetch('https://api.autentique.com.br/v2/graphql',{
+    method:'POST',
+    headers:{
+      Authorization:'Bearer '+token,
+      'Content-Type':'multipart/form-data; boundary='+boundary,
+      'Content-Length':String(body.length)
+    },
+    body
+  });
   const j=await r.json().catch(()=>({}));
   if(!r.ok)throw Object.assign(Error(autentiqueErrorMessage(j,'Autentique HTTP '+r.status)),{status:r.status||502});
   if(j.errors?.length)throw Object.assign(Error(autentiqueErrorMessage(j,'A Autentique recusou o documento.')),{status:422});
