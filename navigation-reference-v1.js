@@ -869,11 +869,22 @@
       };
 
       const abrirWorkspace=attempt=>{
+        const openerById=window.openCampaignWorkspaceById;
+        if(typeof openerById==='function'){
+          const opened=openerById(id);
+          if(opened!==false){
+            abrirTap();
+            return;
+          }
+        }
+
         const opener=window.openCampaignWorkspaceByName;
         if(typeof opener==='function'){
-          opener(target.name||target.nome||id);
-          abrirTap();
-          return;
+          const opened=opener(target.name||target.nome||id);
+          if(opened!==false){
+            abrirTap();
+            return;
+          }
         }
 
         const row=document.querySelector('#campaignsView [data-campaign-id="'+CSS.escape(id)+'"]')
