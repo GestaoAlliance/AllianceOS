@@ -830,9 +830,10 @@
       setTimeout(syncTaskCampaignIds,120);
     });
 
-    // The map's "campanha ↗" button must open only the campaign that belongs
-    // to the month currently being viewed. Never resolve by an old same-name campaign.
-    window.AbrirCampanha=function(campId){
+    // Campaign links from the map always resolve by ID inside the selected month.
+    // Optional workspaceTab lets badges deep-link directly to TAP without changing
+    // the normal campaign-opening behavior used elsewhere.
+    window.AbrirCampanha=function(campId,workspaceTab){
       const id=String(campId||'');
       const target=campaigns().find(c=>String(c?.id||'')===id&&!c?.archivedAt&&campaignInSelectedMonth(c));
       if(!target){
@@ -841,10 +842,19 @@
         return;
       }
       openCampaignDirectory();
+      const abrirAba=()=>{
+        if(workspaceTab!=='tap')return;
+        const tryTap=attempt=>{
+          const tap=document.querySelector('#campaignWorkspace [data-cw-tab="tap"]');
+          if(tap){tap.click();return}
+          if(attempt<10)setTimeout(()=>tryTap(attempt+1),60);
+        };
+        setTimeout(()=>tryTap(0),40);
+      };
       const tryOpen=attempt=>{
         const row=document.querySelector('#campaignsView [data-campaign-id="'+CSS.escape(id)+'"]');
-        if(row){row.click();return}
-        if(attempt<6)setTimeout(()=>tryOpen(attempt+1),60);
+        if(row){row.click();abrirAba();return}
+        if(attempt<8)setTimeout(()=>tryOpen(attempt+1),60);
       };
       setTimeout(()=>tryOpen(0),80);
     };
