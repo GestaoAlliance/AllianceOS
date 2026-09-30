@@ -110,12 +110,24 @@
         .select('channel_slug,meta1,meta2,meta3,investimento_previsto')
         .eq('month_id',ctx.month.id).is('arquivado_em',null);
       if(error)throw error;
-      const perChannel=(rows||[]).reduce((sum,row)=>sum+Number(row['meta'+active]||0),0);
-      const overall=Number(ctx.month['meta'+active]||0);
+      const perChannel1=(rows||[]).reduce((sum,row)=>sum+Number(row.meta1||0),0);
+      const perChannel2=(rows||[]).reduce((sum,row)=>sum+Number(row.meta2||0),0);
+      const perChannel3=(rows||[]).reduce((sum,row)=>sum+Number(row.meta3||0),0);
+      const overall1=Number(ctx.month.meta1||0);
+      const overall2=Number(ctx.month.meta2||0);
+      const overall3=Number(ctx.month.meta3||0);
+      const meta1=perChannel1||overall1;
+      const meta2=perChannel2||overall2;
+      const meta3=perChannel3||overall3;
+      const metas=[meta1,meta2,meta3];
+      const goal=metas[active-1]||0;
       const budget=(rows||[]).reduce((sum,row)=>sum+Number(row.investimento_previsto||0),0);
       return publish({
-        ref,brand:ctx.brand.nome,goal:perChannel||overall,budget,active,
-        overall,perChannel,hasPlan:true,channelCount:(rows||[]).length
+        ref,brand:ctx.brand.nome,goal,budget,active,
+        meta1,meta2,meta3,metas,
+        overall:goal,overall1,overall2,overall3,
+        perChannel:goal,perChannel1,perChannel2,perChannel3,
+        hasPlan:true,channelCount:(rows||[]).length
       });
     }catch(e){
       console.warn('[AllianceOS métricas mensais]',e);
