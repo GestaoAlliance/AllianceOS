@@ -1046,6 +1046,13 @@
     refreshConsistency();refreshPlanningMonthMetrics();installMapImport();installPlanningMapControls();installMapNamePersistence();wireGlobalPlanningMonthControls();installNameGuards();
     if(document.getElementById('planningView')?.classList.contains('active'))setTimeout(()=>hydrateCanonicalMap(),180);
     window.addEventListener('allianceos:auth',()=>setTimeout(()=>hydrateCanonicalMap({silent:true}),500));
+    const refreshOpenPlanningMap=()=>{
+      if(document.getElementById('planningView')?.classList.contains('active')){
+        setTimeout(()=>hydrateCanonicalMap({silent:true}),80);
+      }
+    };
+    window.addEventListener('focus',refreshOpenPlanningMap);
+    window.addEventListener('pageshow',refreshOpenPlanningMap);
   }
   window.AllianceOSMapSync={hydrate:hydrateCanonicalMap,queue:queueCanonicalMapSave,save:saveCanonicalMapNow,month:planningMonthRef,switchMonth:switchPlanningMonth,createMonth:createPlanningMapForSelectedMonth,goals:openPlanningGoalsDialog};
   window.AllianceFullSystem={refreshConsistency,refreshPlanningMonthMetrics,switchPlanningMonth,planningMonthRef,enhanceReports,importMap,hydrateCanonicalMap,openClients,openAutomations};
