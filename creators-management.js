@@ -73,6 +73,66 @@
     if(!url)throw new Error('O link de assinatura ainda não foi gerado.');
     try{await navigator.clipboard.writeText(url);toast('Link de assinatura copiado.')}catch{prompt('Copie o link de assinatura:',url)}
   }
+  async function autentiqueAccess(){
+    const b=brand();if(!b.id)throw new Error('Selecione uma marca antes de configurar a Autentique.');
+    const sb=await client();
+    const {data,error}=await sb.rpc('access_center_list',{p_brand_id:b.id});
+    if(error)throw error;
+    const list=Array.isArray(data)?data:(Array.isArray(data?.entries)?data.entries:[]);
+    const entry=list.find(x=>/autentique/i.test(String(x?.name||'')));
+    if(!entry)throw new Error('Esta marca ainda não possui um acesso “Autentique” na Central de Acessos.');
+    const secret=(entry.secrets||[]).find(s=>/api\s*token|api\s*key|token|chave/i.test(String(s?.label||'')+' '+String(s?.kind||'')));
+    return {brand:b,entry,secret};
+  }
+  async function testAutentiqueConnection({silent=false}={}){
+    const b=brand();if(!b.id)throw new Error('Selecione uma marca.');
+    const token=await sessionToken();
+    if(!silent)toast('Testando conexão com a Autentique…');
+    const r=await fetch('/api/drive',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'test_autentique',brand_id:b.id})});
+    const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw new Error(j.erro||'Não foi possível validar a Autentique.');
+    if(!silent)toast('Autentique conectada'+(j.account?.email?' · '+j.account.email:'')+'.');
+    return j;
+  }
+  async function openAutentiqueSetup(){
+    try{
+      const {brand:b,entry,secret}=await autentiqueAccess(),m=ensureModal();
+      m.hidden=false;
+      m.innerHTML='<form class="crm-modal" data-form="autentique-setup"><header><div><span>INTEGRAÇÃO</span><h2>Configurar Autentique</h2><p>'+esc(b.name)+' · token salvo com segurança no Vault do AllianceOS.</p></div><button type="button" data-close>×</button></header>'+
+        '<div class="crm-form"><label class="wide">API Token<input name="token" type="password" autocomplete="new-password" placeholder="'+(secret?'Token já cadastrado — cole somente para substituir':'Cole o API Token da Autentique')+'"></label>'+
+        '<div class="wide" style="padding:12px;border:1px solid #e3e6e8;border-radius:10px;background:#fafbfb"><b style="display:block;font-size:10px;margin-bottom:5px">Status da credencial</b><span style="font-size:10px;color:#687178">'+(secret?'Token cadastrado no Vault. O valor nunca é exibido na tela.':'Token ainda não cadastrado.')+'</span></div>'+
+        '<div class="wide" data-autentique-test-result style="display:none;padding:12px;border-radius:10px;background:#f4f7f5;font-size:10px"></div></div>'+
+        '<footer><button type="button" class="crm-secondary" data-action="test-autentique">Testar conexão</button><button type="button" class="crm-secondary" data-close>Cancelar</button><button class="crm-primary">'+(secret?'Salvar novo token e testar':'Salvar e testar')+'</button></footer></form>';
+      const form=m.querySelector('form');
+      form.dataset.entryId=entry.id;
+      form.dataset.secretId=secret?.id||'';
+      form.addEventListener('submit',saveAutentiqueSetup);
+    }catch(e){toast(e.message||String(e))}
+  }
+  async function saveAutentiqueSetup(e){
+    e.preventDefault();
+    const form=e.currentTarget,btn=form.querySelector('.crm-primary'),value=String(new FormData(form).get('token')||'').trim();
+    if(!value){toast(form.dataset.secretId?'Cole um novo token para substituir o atual ou use “Testar conexão”.':'Cole o API Token da Autentique.');return}
+    btn.disabled=true;
+    try{
+      const sb=await client();
+      const {error}=await sb.rpc('access_center_set_secret',{
+        p_entry_id:form.dataset.entryId,
+        p_secret_id:form.dataset.secretId||null,
+        p_label:'API Token',
+        p_kind:'api_token',
+        p_value:value
+      });
+      form.querySelector('[name="token"]').value='';
+      if(error)throw error;
+      toast('Token salvo com segurança. Testando conexão…');
+      const result=await testAutentiqueConnection({silent:true});
+      const box=form.querySelector('[data-autentique-test-result]');
+      if(box){box.style.display='block';box.innerHTML='<b>Conectado com sucesso</b><br>'+esc(result.account?.name||'Conta Autentique')+(result.account?.email?' · '+esc(result.account.email):'')+(result.account?.organization?'<br>'+esc(result.account.organization):'');}
+      form.dataset.secretId='saved';
+      toast('Autentique conectada e pronta para uso.');
+    }catch(err){toast(err.message||String(err))}
+    finally{btn.disabled=false}
+  }
   function brand(){
     const s=$('#brandSelect'),o=s?.selectedOptions?.[0],id=o?.dataset?.brandId||'';
     if(!id||id==='__all__') return {id:null,name:'Todas as marcas'};
@@ -171,7 +231,7 @@
     ];
     r.innerHTML='<div class="crm-shell">'+
       '<header class="crm-head"><div><span>SETOR · ANA</span><h1>Gestão de Creators</h1><p>'+esc(b.name)+' · parceiros, contratos, envios, conteúdo e performance em uma única operação.</p></div>'+
-      '<div class="crm-head-actions"><button class="crm-secondary" data-action="form-link">Copiar link do formulário</button><button class="crm-secondary" data-action="reload">Atualizar</button><button class="crm-primary" data-action="new-partner">+ Novo parceiro</button></div></header>'+
+      '<div class="crm-head-actions"><button class="crm-secondary" data-action="autentique-setup">Configurar Autentique</button><button class="crm-secondary" data-action="form-link">Copiar link do formulário</button><button class="crm-secondary" data-action="reload">Atualizar</button><button class="crm-primary" data-action="new-partner">+ Novo parceiro</button></div></header>'+
       '<div class="crm-kpis">'+[
         ['Parceiros',k.total],['Ativos',k.active],['Contratos pendentes',k.waiting],['Envios pendentes',k.pendingShip],['Vendas no mês',money(k.sales)],['Comissão disponível',money(k.comm)]
       ].map(x=>'<article><span>'+x[0]+'</span><b>'+x[1]+'</b></article>').join('')+'</div>'+
@@ -329,6 +389,7 @@
     const p=e.target.closest('[data-open-partner]');if(p){if(Date.now()<suppressCardClickUntil)return;openPartner(p.dataset.openPartner);return}
     const a=e.target.closest('[data-action]');if(!a)return;
     if(a.dataset.action==='new-partner')openNew();
+    if(a.dataset.action==='autentique-setup')openAutentiqueSetup();
     if(a.dataset.action==='form-link')copyFormLink();
     if(a.dataset.action==='reload')load();
     if(a.dataset.action==='archive')archive(a.dataset.id);
@@ -356,6 +417,10 @@
     const re=e.target.closest('[data-action="resend-autentique-email"]');if(re)sendContractAutentique(re.dataset.contractId,{forceEmail:true}).then(async()=>{const id=state.selected;closeModal();await load();if(id)openPartner(id)}).catch(e=>toast(e.message||String(e)))
     const rf=e.target.closest('[data-action="refresh-autentique"]');if(rf)refreshContractAutentique(rf.dataset.contractId).then(async()=>{const id=state.selected;closeModal();await load();if(id)openPartner(id)}).catch(e=>toast(e.message||String(e)))
     const cp=e.target.closest('[data-action="copy-signature-link"]');if(cp)copySignatureLink(cp.dataset.url).catch(e=>toast(e.message||String(e)))
+    const ta=e.target.closest('[data-action="test-autentique"]');if(ta){
+      const box=e.currentTarget.querySelector('[data-autentique-test-result]');
+      testAutentiqueConnection({silent:true}).then(j=>{if(box){box.style.display='block';box.innerHTML='<b>Conectado com sucesso</b><br>'+esc(j.account?.name||'Conta Autentique')+(j.account?.email?' · '+esc(j.account.email):'')+(j.account?.organization?'<br>'+esc(j.account.organization):'')}}).catch(err=>{if(box){box.style.display='block';box.innerHTML='<b>Falha na conexão</b><br>'+esc(err.message||String(err))}toast(err.message||String(err))});
+    }
   }
   function onModalChange(e){
     const s=e.target.closest('[data-update-status]');
