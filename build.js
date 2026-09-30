@@ -493,6 +493,87 @@ async function main() {
   }
   console.log('[AllianceOS build] meta ativa destacada com pílula preenchida');
 
+  // CHANNEL_PERCENT_TAGS_V1 — canais filhos das metas exibem a participação
+  // em uma tag colorida, sem poluir o texto salvo do nó na interface.
+  const pctTagCssAnchor = ".mp-no.mp-raiz{";
+  const pctTagCss = `.mp-pct-tag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:18px;
+  padding:0 7px;
+  margin-left:7px;
+  border-radius:999px;
+  color:#fff;
+  font-size:9px;
+  font-weight:750;
+  line-height:1;
+  letter-spacing:.01em;
+  white-space:nowrap;
+  box-shadow:0 1px 3px rgba(20,24,28,.10);
+}
+`;
+  if (html.includes(pctTagCssAnchor) && !html.includes('.mp-pct-tag{')) {
+    html = html.replace(pctTagCssAnchor,pctTagCss + pctTagCssAnchor);
+  }
+
+  const pctHelperAnchor = "  function lado(n) { return 1 }";
+  const pctHelpers = `  function extrairPctTag(txt) {
+    const bruto = String(txt || '');
+    const m = bruto.match(/\\s*\\[\\[([0-9]+(?:[.,][0-9]+)?)%\\]\\]\\s*$/);
+    if (!m) return { base: bruto, label: '', raw: '' };
+    return {
+      base: bruto.slice(0, m.index).trim(),
+      label: m[1] + '%',
+      raw: ' [[' + m[1] + '%]]'
+    };
+  }
+  function corPctTag(txt) {
+    const s = textoNormal(extrairPctTag(txt).base);
+    if (s.startsWith('performance') || s.startsWith('trafego')) return '#2563eb';
+    if (s.startsWith('influenciadores')) return '#7c3aed';
+    if (s.startsWith('organico')) return '#059669';
+    if (s.startsWith('crm')) return '#ea580c';
+    if (s.startsWith('tiktok')) return '#111827';
+    if (s.startsWith('atendimento')) return '#0891b2';
+    if (s.startsWith('reserva')) return '#64748b';
+    return '#475569';
+  }
+`;
+  if (html.includes(pctHelperAnchor) && !html.includes('function extrairPctTag(txt)')) {
+    html = html.replace(pctHelperAnchor,pctHelpers + pctHelperAnchor);
+  }
+
+  const pctRenderAnchor = "      const metaAtiva = ehMetaAtiva(n);";
+  if (html.includes(pctRenderAnchor) && !html.includes("      const pctInfo = extrairPctTag(n.t);")) {
+    html = html.replace(pctRenderAnchor,pctRenderAnchor + "\n      const pctInfo = extrairPctTag(n.t);");
+  }
+
+  const pctTextOld = "      const t = document.createElement('span'); t.className = 'mp-txt'; t.textContent = n.t; d.appendChild(t);";
+  const pctTextNew = `      const t = document.createElement('span'); t.className = 'mp-txt'; t.textContent = pctInfo.base; d.appendChild(t);
+      if (pctInfo.label) {
+        const tag = document.createElement('span');
+        tag.className = 'mp-pct-tag';
+        tag.textContent = pctInfo.label;
+        tag.style.background = corPctTag(n.t);
+        d.appendChild(tag);
+      }`;
+  if (html.includes(pctTextOld) && !html.includes("tag.className = 'mp-pct-tag';")) {
+    html = html.replace(pctTextOld,pctTextNew);
+  }
+
+  const pctEditAnchor = "    const obj = alvoSel(), c = el.querySelector('.mp-txt');";
+  if (html.includes(pctEditAnchor) && !html.includes("    const pctEdit = obj ? extrairPctTag(obj.t) : { raw: '' };")) {
+    html = html.replace(pctEditAnchor,pctEditAnchor + "\n    const pctEdit = obj ? extrairPctTag(obj.t) : { raw: '' };");
+  }
+
+  const pctSaveOld = "      obj.t = c.textContent.trim() || (sel.t === 'no' ? 'sem título' : '');";
+  const pctSaveNew = "      obj.t = (c.textContent.trim() || (sel.t === 'no' ? 'sem título' : '')) + (pctEdit.raw || '');";
+  if (html.includes(pctSaveOld)) html = html.replace(pctSaveOld,pctSaveNew);
+
+  console.log('[AllianceOS build] tags percentuais dos canais ativadas no mapa');
+
+
   // AllianceOS is a shared workspace: campaign data must use the canonical workspace collection, not the auth UUID.
   html = html.replaceAll('central.campaigns.${user.id}', 'central.campaigns.vitor-gutierrez');
   // LEGACY_CAMPAIGN_RENDERER_PATCH_V2: replace hardcoded legacy functions without aborting the deployment.
