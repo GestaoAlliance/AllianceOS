@@ -193,7 +193,7 @@
       return{id:ids.get(k),pai:p==null?null:(ids.get(String(p))||null),t:text,x:Number.isFinite(Number(n.x))?Number(n.x):520,y:Number.isFinite(Number(n.y))?Number(n.y):320,cor:n.cor??n.color??0,fech:n.aberto!==undefined?!n.aberto:!!n.fech,campId};
     });
     const roots=nodes.filter(n=>!n.pai);if(!roots.length)nodes[0].pai=null;else roots.slice(1).forEach(n=>n.pai=roots[0].id);
-    return{v:2,layout:raw?.layout||'direita',prox:nodes.length+1,proxItem:1,nome:raw?.nome||raw?.name||'',itens:Array.isArray(raw?.itens)?raw.itens:[],nos:nodes,avisos:warnings};
+    return{v:2,layout:'direita',prox:nodes.length+1,proxItem:1,nome:raw?.nome||raw?.name||'',itens:Array.isArray(raw?.itens)?raw.itens:[],nos:nodes,avisos:warnings};
   }
 
   const MONTH_NAMES=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
@@ -257,7 +257,7 @@
     const visual=mapRow?.estado&&typeof mapRow.estado==='object'?mapRow.estado:{};
     return{
       nome:mapRow?.nome||'Planejamento',
-      layout:mapRow?.layout||visual.layout||'direita',
+      layout:'direita',
       itens:Array.isArray(visual.itens)?visual.itens:[],
       proxItem:Number(visual.proxItem||1),
       nos:(nodeRows||[]).map(n=>({
@@ -292,7 +292,7 @@
       const map=normalizeMap(canonicalPayload(ctx.map,nodes));
       const visual=ctx.map.estado&&typeof ctx.map.estado==='object'?ctx.map.estado:{};
       map.nome=ctx.map.nome||map.nome;
-      map.layout=ctx.map.layout||map.layout;
+      map.layout='direita';
       map.itens=Array.isArray(visual.itens)?visual.itens:map.itens;
       map.proxItem=Number(visual.proxItem||map.proxItem||1);
       map.prox=Math.max(Number(visual.prox||0),map.prox||2);
@@ -321,12 +321,12 @@
     if(!row){
       const ins=await s.from('planning_maps').insert({
         brand_id:ctx.brand.id,month_id:ctx.month.id,nome:wantedName,
-        layout:String(map.layout||'direita'),estado,origem:'interface'
+        layout:'direita',estado,origem:'interface'
       }).select('*').single();
       if(ins.error)throw ins.error;row=ins.data;
     }else{
       const upd=await s.from('planning_maps').update({
-        nome:wantedName,layout:String(map.layout||'direita'),estado,
+        nome:wantedName,layout:'direita',estado,
         atualizado_em:now,origem:'interface'
       }).eq('id',row.id).select('*').single();
       if(upd.error)throw upd.error;row=upd.data;
