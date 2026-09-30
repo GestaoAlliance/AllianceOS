@@ -299,7 +299,7 @@ function correctLegacyGoalWarning(channelGoal){
 function renderRow(c,tasks){
   const pct=progressFor(c,tasks);
   const owner=String(c.owner||c.responsavel||'Sem responsável');
-  return '<article class="camp-row alliance-live-campaign-row" data-live-campaign="'+esc(c.name||c.id)+'" style="--cc:'+
+  return '<article class="camp-row alliance-live-campaign-row" data-campaign-id="'+esc(c.id||'')+'" data-live-campaign="'+esc(c.name||c.id)+'" style="--cc:'+
     esc(c.color||'#121415')+'">'+
     '<div class="camp-name"><i class="camp-color"></i><div class="camp-name-text"><b>'+esc(c.name||'Campanha')+'</b>'+
     '<small>'+esc(typeLabel(c))+' · '+esc(c.offer||c.objective||'Sem descrição comercial')+'</small></div></div>'+
