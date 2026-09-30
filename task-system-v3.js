@@ -474,13 +474,22 @@
     const allowed=v3AllowedBrandSet();
     const meus=v3CurrentNames();
     const meuId=window.AllianceOSSession?.user?.id||window.user?.id||null;
+    const assMember=ass
+      ? (window.AllianceOSDirectory?.members||[]).find(m=>String(m?.nome||'')===String(ass))
+      : null;
+    const assId=assMember?.id||null;
+    const assName=v3Short(ass);
     return taskData.filter(t=>{
       v3NormalizeTask(t);
       if(t.archivedAt&&!q)return false;
       if(allowed.size&&t.brand&&!allowed.has(String(t.brand)))return false;
       if(brand&&t.brand!==brand)return false;
       if(taskState.onlyMe&&!((meuId&&(t.assigneeIds||[]).some(id=>String(id)===String(meuId)))||t.assignees.some(a=>meus.some(m=>v3Short(a)===v3Short(m)))))return false;
-      if(ass&&!t.assignees.includes(ass))return false;
+      if(ass){
+        const byId=!!assId&&(t.assigneeIds||[]).some(id=>String(id)===String(assId));
+        const byName=(t.assignees||[]).some(name=>String(name||'')===String(ass)||v3Short(name)===assName);
+        if(!byId&&!byName)return false;
+      }
       if(st&&t.status!==st)return false;
       if(pr&&t.priority!==v3PriorityCanon(pr))return false;
       if(proj&&t.project!==proj)return false;
