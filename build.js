@@ -581,66 +581,86 @@ async function main() {
 
   console.log('[AllianceOS build] tags percentuais dos canais ativadas no mapa');
 
-  // INFLUENCER_DETAIL_TAGS_V1 — mantém os nós no visual original e adiciona
-  // apenas tags pequenas para dar hierarquia aos detalhes de Influenciadores.
-  const influencerDetailCssAnchor = ".mp-no.mp-raiz{";
-  const influencerDetailCss = `.mp-detail-tag{
+  // CHANNEL_DETAIL_TAGS_V2 — usa tags discretas nos detalhes de todos os canais.
+  // Investimento recebe pílula preenchida; os demais tipos ficam em outline.
+  const channelDetailCssAnchor = ".mp-no.mp-raiz{";
+  const channelDetailCss = `.mp-detail-tag{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   height:17px;
-  padding:0 6px;
+  padding:0 7px;
   margin-left:7px;
   border-radius:999px;
   font-size:8px;
-  font-weight:760;
+  font-weight:780;
   line-height:1;
   letter-spacing:.035em;
   white-space:nowrap;
   flex:0 0 auto;
-  border:1px solid transparent;
+  background:#fff;
+  color:#667078;
+  border:1px solid #dfe4e7;
 }
-.mp-detail-tag[data-kind="owner"]{background:#f3f4f6;color:#374151;border-color:#e5e7eb}
-.mp-detail-tag[data-kind="base"]{background:#faf7f0;color:#7a6540;border-color:#eee4d3}
-.mp-detail-tag[data-kind="meta"]{background:#f3efff;color:#6d4cc2;border-color:#e4dafb}
-.mp-detail-tag[data-kind="kpi"]{background:#eef6ff;color:#2767a7;border-color:#d8e9fb}
-.mp-detail-tag[data-kind="flow"]{background:#f5f6f7;color:#65717a;border-color:#e6e9eb}
-.mp-detail-tag[data-kind="capacity"]{background:#edf8f1;color:#2f7a4d;border-color:#d7eedf}
+.mp-detail-tag[data-kind="investment"]{
+  background:#111827;
+  color:#fff;
+  border-color:#111827;
+  box-shadow:0 1px 3px rgba(17,24,39,.14);
+}
+.mp-detail-tag[data-kind="owner"]{color:#49535b;border-color:#dfe3e6}
+.mp-detail-tag[data-kind="kpi"]{color:#2767a7;border-color:#cfe3f7}
+.mp-detail-tag[data-kind="meta"]{color:#6d4cc2;border-color:#ddd1f7}
+.mp-detail-tag[data-kind="revenue"]{color:#2f7a4d;border-color:#cfe8d8}
+.mp-detail-tag[data-kind="flow"]{color:#68727a;border-color:#dce1e4}
+.mp-detail-tag[data-kind="rule"]{color:#9a5b1f;border-color:#ecd7bd}
+.mp-detail-tag[data-kind="history"]{color:#7b5c97;border-color:#dfd3e9}
+.mp-detail-tag[data-kind="base"]{color:#7a6540;border-color:#e6dccb}
+.mp-detail-tag[data-kind="capacity"]{color:#2f7a4d;border-color:#d1e8d9}
+.mp-detail-tag[data-kind="analysis"]{color:#7b5d2c;border-color:#e6d8bf}
 `;
-  if (html.includes(influencerDetailCssAnchor) && !html.includes('.mp-detail-tag{')) {
-    html = html.replace(influencerDetailCssAnchor,influencerDetailCss + influencerDetailCssAnchor);
+  if (html.includes(channelDetailCssAnchor) && !html.includes('.mp-detail-tag[data-kind="investment"]')) {
+    html = html.replace(channelDetailCssAnchor,channelDetailCss + channelDetailCssAnchor);
   }
 
-  const influencerDetailHelperAnchor = "  function lado(n) { return 1 }";
-  const influencerDetailHelpers = `  function ehDetalheInfluenciadores(n) {
+  const channelDetailHelperAnchor = "  function lado(n) { return 1 }";
+  const channelDetailHelpers = `  function ehDetalheCanal(n) {
     const detalhe = acharNo(n?.pai);
-    if (!detalhe || textoNormal(detalhe.t) !== textoNormal('Detalhes + KPIs')) return false;
+    if (!detalhe) return false;
+    const titulo = textoNormal(String(detalhe.t || ''));
+    if (titulo !== textoNormal('Detalhes + KPIs') && titulo !== textoNormal('Detalhes + controle')) return false;
     const canal = acharNo(detalhe.pai);
-    return !!canal && textoNormal(String(canal.t || '')).startsWith(textoNormal('Influenciadores'));
+    if (!canal) return false;
+    const s = textoNormal(String(canal.t || ''));
+    return ['trafego','influenciadores','organico','crm / lifecycle','tiktok shop','atendimento','reserva / outras origens']
+      .some(prefix => s.startsWith(textoNormal(prefix)));
   }
-  function tagDetalheInfluenciadores(txt) {
+  function tagDetalheCanal(txt) {
     const s = textoNormal(String(txt || ''));
-    if (s.startsWith('responsavel:')) return {label:'RESPONSÁVEL',kind:'owner'};
+    if (s.startsWith('investimento')) return {label:'INVESTIMENTO',kind:'investment'};
+    if (s.startsWith('responsavel:') || s.startsWith('sem responsavel')) return {label:'RESPONSÁVEL',kind:'owner'};
+    if (s.startsWith('kpi') || s.startsWith('kpis')) return {label:'KPI',kind:'kpi'};
+    if (s.startsWith('meta ')) return {label:'META',kind:'meta'};
+    if (s.startsWith('receita:') || s.startsWith('divisao:')) return {label:'RECEITA',kind:'revenue'};
+    if (s.startsWith('funil:') || s.startsWith('ciclo:')) return {label:'FLUXO',kind:'flow'};
+    if (s.startsWith('regra:')) return {label:'REGRA',kind:'rule'};
+    if (s.startsWith('historico:')) return {label:'HISTÓRICO',kind:'history'};
     if (s.startsWith('base atual:')) return {label:'BASE ATUAL',kind:'base'};
-    if (s.startsWith('meta operacional:')) return {label:'META',kind:'meta'};
-    if (s.startsWith('kpis hunter:')) return {label:'KPI',kind:'kpi'};
-    if (s.startsWith('funil:')) return {label:'FUNIL',kind:'flow'};
     if (s.startsWith('capacidade madura:')) return {label:'CAPACIDADE',kind:'capacity'};
+    if (s.startsWith('analisar vencedoras:')) return {label:'ANÁLISE',kind:'analysis'};
+    if (s.startsWith('inclui:')) return {label:'COMPOSIÇÃO',kind:'flow'};
+    if (s.startsWith('canal comercial')) return {label:'OPERAÇÃO',kind:'flow'};
     return null;
   }
 `;
-  if (html.includes(influencerDetailHelperAnchor) && !html.includes('function ehDetalheInfluenciadores(n)')) {
-    html = html.replace(influencerDetailHelperAnchor,influencerDetailHelpers + influencerDetailHelperAnchor);
+  if (html.includes(channelDetailHelperAnchor) && !html.includes('function ehDetalheCanal(n)')) {
+    html = html.replace(channelDetailHelperAnchor,channelDetailHelpers + channelDetailHelperAnchor);
   }
 
-  const influencerDetailRenderAnchor = "      const pctInfo = extrairPctTag(n.t);";
-  if (html.includes(influencerDetailRenderAnchor) && !html.includes("      const detalheInfluenciadores = ehDetalheInfluenciadores(n);")) {
-    html = html.replace(influencerDetailRenderAnchor,influencerDetailRenderAnchor + "\n      const detalheInfluenciadores = ehDetalheInfluenciadores(n);");
+  const channelDetailRenderAnchor = "      const pctInfo = extrairPctTag(n.t);";
+  if (html.includes(channelDetailRenderAnchor) && !html.includes("      const detalheCanal = ehDetalheCanal(n);")) {
+    html = html.replace(channelDetailRenderAnchor,channelDetailRenderAnchor + "\n      const detalheCanal = ehDetalheCanal(n);");
   }
-
-
-
-
 
   // META_DIMENSION_GROUPS_V1 — diferencia visualmente as duas leituras da meta.
   const dimGroupCssAnchor = ".mp-no.mp-raiz{";
@@ -1010,8 +1030,8 @@ async function main() {
       }`;
   if (html.includes(badgeRenderOld)) html = html.replace(badgeRenderOld,badgeRenderNew);
   const influencerDetailTagAnchor = "      let badgeRow = null;";
-  const influencerDetailTagNew = `      if (detalheInfluenciadores) {
-        const infoTag = tagDetalheInfluenciadores(n.t);
+  const influencerDetailTagNew = `      if (detalheCanal) {
+        const infoTag = tagDetalheCanal(n.t);
         if (infoTag) {
           const detailTag = document.createElement('span');
           detailTag.className = 'mp-detail-tag';
