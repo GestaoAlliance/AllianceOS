@@ -1338,28 +1338,15 @@ textarea.tap-cell-editor{padding:7px;resize:vertical}
 }
 #campaignKpis .camp-kpi-goal:before,
 #planContext .plan-kpi-goal:before{
-  content:"";
-  position:absolute;
-  left:0;
-  right:0;
-  top:0;
-  height:3px;
-  background:#d9dee1;
-}
-#campaignKpis .camp-kpi-goal.active-goal:before,
-#planContext .plan-kpi-goal.active-goal:before{
-  background:#171b1e;
+  content:none!important;
+  display:none!important;
 }
 #campaignKpis .camp-kpi-goal.active-goal,
 #planContext .plan-kpi-goal.active-goal{
-  background:#d85f4a!important;
-  border-color:#d85f4a!important;
+  background:#111315!important;
+  border-color:#111315!important;
   color:#fff!important;
-  box-shadow:0 8px 22px rgba(216,95,74,.18)!important;
-}
-#campaignKpis .camp-kpi-goal.active-goal:before,
-#planContext .plan-kpi-goal.active-goal:before{
-  background:rgba(255,255,255,.58)!important;
+  box-shadow:0 8px 22px rgba(17,19,21,.16)!important;
 }
 #campaignKpis .camp-kpi-goal.active-goal small,
 #campaignKpis .camp-kpi-goal.active-goal b,
