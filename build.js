@@ -702,6 +702,34 @@ async function main() {
 
   console.log('[AllianceOS build] câmera do mapa preservada ao abrir e fechar ramos');
 
+  // CAMPAIGN_TAP_BADGE_V1 — nós que representam uma campanha preservam o
+  // vínculo mesmo quando o texto do mapa inclui valor/% e abrem direto no TAP.
+  const campaignMatchOld = `        const a = textoNormal(n.t), b = textoNormal(camp.name || camp.nome || '');
+        const corresponde = a && b && (a === b || a.includes(b) || b.includes(a));
+        if (!corresponde) { delete n.campId; mudou = true; }`;
+  const campaignMatchNew = `        const a = textoNormal(n.t), b = textoNormal(camp.name || camp.nome || '');
+        const base = (s) => String(s || '')
+          .replace(/\\s*\\[\\[[0-9]+(?:[.,][0-9]+)?%\\]\\]\\s*$/, '')
+          .split(' — ')[0].trim();
+        const ab = base(a), bb = base(b);
+        const corresponde = a && b && (
+          a === b || a.includes(b) || b.includes(a) ||
+          (ab && bb && (ab === bb || ab.includes(bb) || bb.includes(ab)))
+        );
+        if (!corresponde) { delete n.campId; mudou = true; }`;
+  if (html.includes(campaignMatchOld)) html = html.replace(campaignMatchOld,campaignMatchNew);
+  else console.warn('[AllianceOS build] mapa: comparação de campanha não encontrada');
+
+  const campaignBadgeOld = `        const b = botao('mp-selo mp-camp', 'campanha ↗', 'Abrir esta campanha',
+          () => window.AbrirCampanha?.(n.campId));`;
+  const campaignBadgeNew = `        const b = botao('mp-selo mp-camp', 'TAP', 'Abrir TAP da campanha',
+          () => window.AbrirCampanha?.(n.campId, 'tap'));`;
+  if (html.includes(campaignBadgeOld)) html = html.replace(campaignBadgeOld,campaignBadgeNew);
+  else console.warn('[AllianceOS build] mapa: selo de campanha não encontrado');
+
+  console.log('[AllianceOS build] selo preto TAP ligado às campanhas do mapa');
+
+
 
 
 
