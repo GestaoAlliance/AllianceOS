@@ -98,6 +98,12 @@
     const brand=window.MapaMental?.marca?.()||activeBrand();
     const publish=metrics=>{
       window.AlliancePlanningMonthMetrics=metrics;
+      try{
+        if(metrics){
+          const key='allianceos.planning.metrics.'+String(metrics.brand||brand||'').trim()+'.'+ref;
+          localStorage.setItem(key,JSON.stringify(metrics));
+        }
+      }catch{}
       window.dispatchEvent(new CustomEvent('allianceos:planning-metrics',{detail:metrics||{ref,brand}}));
       return metrics;
     };
