@@ -117,6 +117,7 @@ const selectedMapCampaignIds=()=>{
 };
 const currentCampaigns=()=>{
   const b=brand();
+  const ref=selectedMonthRef();
   const q=String(document.getElementById('campaignSearch')?.value||'').trim().toLowerCase();
   const st=String(document.getElementById('campaignStatusFilter')?.value||'').trim();
   const mapIds=selectedMapCampaignIds();
@@ -124,13 +125,14 @@ const currentCampaigns=()=>{
     if(c?.archivedAt)return false;
     if(b&&c.brand&&c.brand!==b)return false;
 
-    // When the selected month has an actual planning map, that map is the
-    // authoritative membership list for the month. This keeps October from
-    // inheriting September's perpetuals and also includes campaigns created
-    // from the map even when legacy dates were copied from an older month.
-    if(mapIds.size){
-      if(!mapIds.has(String(c?.id||'')))return false;
-    }else if(!overlapsMonth(c))return false;
+    // Month membership is a UNION of the canonical monthRef, the planning-map
+    // link and the date overlap. The map must never hide a valid campaign that
+    // already belongs to the selected month in the canonical campaign store.
+    const explicit=String(c?.monthRef||c?.month_ref||'').slice(0,7);
+    const byRef=validMonthRef(explicit)&&explicit===ref;
+    const byMap=mapIds.has(String(c?.id||''));
+    const byDate=overlapsMonth(c);
+    if(!(byRef||byMap||byDate))return false;
 
     if(st&&statusNorm(c.status)!==statusNorm(st))return false;
     if(q){
@@ -174,6 +176,17 @@ const currentPlanningMetrics=()=>{
   const b=brand();
   if(b&&m.brand&&norm(m.brand)!==norm(b))return null;
   return m;
+};
+const monthlyMeta=(m,level,fallback=0)=>{
+  if(!m)return Number(fallback||0);
+  const direct=Number(m['meta'+level]||0);
+  if(direct>0)return direct;
+  const overall=Number(m['overall'+level]||0);
+  if(overall>0)return overall;
+  const arr=Array.isArray(m.metas)?Number(m.metas[level-1]||0):0;
+  if(arr>0)return arr;
+  if(Number(m.active||0)===level&&Number(m.goal||0)>0)return Number(m.goal||0);
+  return Number(fallback||0);
 };
 const sourceGoals=c=>{
   const rows=Array.isArray(c?.tapStructured?.metas_por_fonte)?c.tapStructured.metas_por_fonte:[];
@@ -309,16 +322,22 @@ function campaignList(){
     Number(monthly.goal||0)>0||
     Number(monthly.budget||0)>0
   ));
-  const channelGoal=monthlyReady?Number(monthly.goal||0):fallbackGoal;
+  const meta1=monthlyReady?monthlyMeta(monthly,1,fallbackGoal):fallbackGoal;
+  const meta2=monthlyReady?monthlyMeta(monthly,2,0):0;
+  const meta3=monthlyReady?monthlyMeta(monthly,3,0):0;
+  const channelGoal=monthlyReady?monthlyMeta(monthly,Number(monthly.active||1),fallbackGoal):fallbackGoal;
   const channelBudget=monthlyReady?Number(monthly.budget||0):fallbackBudget;
   const active=data.filter(c=>statusNorm(c.status).includes('exec')).length;
   const avg=data.length?Math.round(data.reduce((s,c)=>s+progressFor(c,tasks),0)/data.length):0;
+  const metaCard=(level,value)=>'<div class="camp-kpi camp-kpi-goal '+(Number(monthly?.active||1)===level?'active-goal':'')+'"><small>Meta '+level+'</small><b>'+(value>0?money(value):'—')+'</b><span>'+(
+    Number(monthly?.active||1)===level?'meta ativa do mês':'escada de meta mensal'
+  )+'</span></div>';
   const kpiHtml=
     '<div class="camp-kpi"><small>Campanhas no mês</small><b>'+data.length+'</b><span>'+
       perpetual.length+' perpétua'+(perpetual.length===1?'':'s')+' · '+punctual.length+' pontual'+(punctual.length===1?'':'is')+'</span></div>'+
-    '<div class="camp-kpi"><small>Meta dos canais</small><b>'+money(channelGoal)+'</b><span>'+(monthlyReady?'meta ativa do planejamento mensal':'frentes perpétuas do mês')+'</span></div>'+
+    metaCard(1,meta1)+metaCard(2,meta2)+metaCard(3,meta3)+
     '<div class="camp-kpi"><small>Verba dos canais</small><b>'+money(channelBudget)+'</b><span>'+
-      (channelBudget&&channelGoal?'ROAS alvo '+(channelGoal/channelBudget).toFixed(1).replace('.',','):(monthlyReady?'investimento previsto do mês':'sem verba atribuída'))+'</span></div>'+
+      (channelBudget&&channelGoal?'ROAS sobre meta ativa '+(channelGoal/channelBudget).toFixed(1).replace('.',','):(monthlyReady?'investimento previsto do mês':'sem verba atribuída'))+'</span></div>'+
     '<div class="camp-kpi"><small>Execução operacional</small><b>'+avg+'%</b><span>'+active+' campanha'+(active===1?'':'s')+' em execução</span></div>';
 
   const kpis=document.getElementById('campaignKpis');
@@ -344,7 +363,7 @@ function campaignList(){
     group('Campanhas','Ações pontuais com começo e fim: Dia D, semana temática, lançamento e similares.',punctual,'punctual');
 
   if(root.innerHTML!==desired)root.innerHTML=desired;
-  listSignature=JSON.stringify([selectedMonthRef(),data.length,perpetual.length,punctual.length,channelGoal,channelBudget,monthly?.active]);
+  listSignature=JSON.stringify([selectedMonthRef(),data.length,perpetual.length,punctual.length,meta1,meta2,meta3,channelGoal,channelBudget,monthly?.active]);
 }
 
 function mondayOf(d){
@@ -415,15 +434,21 @@ function planContext(){
     Number(monthly.goal||0)>0||
     Number(monthly.budget||0)>0
   ));
-  const goal=monthlyReady?Number(monthly.goal||0):fallbackGoal;
+  const meta1=monthlyReady?monthlyMeta(monthly,1,fallbackGoal):fallbackGoal;
+  const meta2=monthlyReady?monthlyMeta(monthly,2,0):0;
+  const meta3=monthlyReady?monthlyMeta(monthly,3,0):0;
+  const goal=monthlyReady?monthlyMeta(monthly,Number(monthly.active||1),fallbackGoal):fallbackGoal;
   const open=tasks.filter(t=>!isDone(t)).length;
   const done=tasks.filter(isDone).length;
   const pct=tasks.length?Math.round(done/tasks.length*100):0;
   const w=weekInfo();
-  const sig=[brand(),data.length,tasks.length,goal,open,pct,iso(w.monday),iso(w.sunday)].join('|');
+  const sig=[brand(),data.length,tasks.length,meta1,meta2,meta3,goal,open,pct,iso(w.monday),iso(w.sunday)].join('|');
+  const planMetaCard=(level,value)=>'<div class="plan-kpi plan-kpi-goal '+(Number(monthly?.active||1)===level?'active-goal':'')+'"><small>Meta '+level+'</small><b>'+(value>0?money(value):'—')+'</b><span>'+(
+    Number(monthly?.active||1)===level?'meta ativa do mês':'escada de meta mensal'
+  )+'</span></div>';
   const desired=
     '<div class="plan-kpi"><small>Campanhas no mês</small><b>'+data.length+'</b><span>'+perpetual.length+' perpétuas · '+punctual.length+' pontuais</span></div>'+
-    '<div class="plan-kpi"><small>Meta dos canais</small><b>'+((monthlyReady||goal)?money(goal):'—')+'</b><span>'+(monthlyReady?'meta ativa do planejamento mensal':'frentes perpétuas do mês')+'</span></div>'+
+    planMetaCard(1,meta1)+planMetaCard(2,meta2)+planMetaCard(3,meta3)+
     '<div class="plan-kpi"><small>Tarefas abertas</small><b>'+open+'</b><span>'+pct+'% concluídas</span></div>'+
     '<div class="plan-kpi"><small>Semana atual</small><b>'+String(w.monday.getDate()).padStart(2,'0')+' — '+String(w.sunday.getDate()).padStart(2,'0')+
     '</b><span>'+monthName(w.sunday).toLowerCase()+' de '+w.sunday.getFullYear()+'</span></div>';
