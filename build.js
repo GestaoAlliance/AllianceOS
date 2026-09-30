@@ -808,6 +808,104 @@ async function main() {
 
   console.log('[AllianceOS build] Meta ativa coral no mapa e TAP resiliente');
 
+  // MAP_BADGE_LAYOUT_V3 — % e TAP ficam em uma área própria e nunca disputam
+  // largura com o texto da pílula nem entre si.
+  const badgeCssAnchor = ".mp-no .mp-selo{";
+  const badgeCss = `.mp-no.mp-comselo .mp-txt{
+  flex:1 1 auto!important;
+  min-width:0!important;
+}
+.mp-no.mp-comselo{
+  flex-wrap:nowrap!important;
+}
+.mp-no .mp-badge-row{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  margin-left:auto;
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+.mp-no .mp-badge-row .mp-pct-tag{
+  margin-left:0!important;
+}
+.mp-no .mp-badge-row .mp-selo{
+  margin:0!important;
+}
+`;
+  if (html.includes(badgeCssAnchor) && !html.includes('.mp-no .mp-badge-row{')) {
+    html = html.replace(badgeCssAnchor,badgeCss + badgeCssAnchor);
+  }
+
+  const badgeTextRuleOld = ".mp-no.mp-raiz .mp-txt,.mp-no.mp-comselo .mp-txt{flex:1 0 100%}";
+  const badgeTextRuleNew = ".mp-no.mp-raiz .mp-txt{flex:1 0 100%}";
+  if (html.includes(badgeTextRuleOld)) html = html.replace(badgeTextRuleOld,badgeTextRuleNew);
+
+  const badgeRenderOld = `      const t = document.createElement('span'); t.className = 'mp-txt'; t.textContent = pctInfo.base; d.appendChild(t);
+      if (pctInfo.label) {
+        const tag = document.createElement('span');
+        tag.className = 'mp-pct-tag';
+        tag.textContent = pctInfo.label;
+        tag.style.background = corPctTag(n.t);
+        d.appendChild(tag);
+      }
+      if (n.nota) { const b = document.createElement('span'); b.className = 'mp-selo'; b.textContent = 'nota'; b.title = n.nota; d.appendChild(b) }
+      if (campIdVisual) {
+        const b = botao('mp-selo mp-camp', 'TAP', 'Abrir TAP da campanha',
+          () => window.AbrirCampanha?.(campIdVisual, 'tap'));
+        d.appendChild(b);
+      }`;
+  const badgeRenderNew = `      const t = document.createElement('span'); t.className = 'mp-txt'; t.textContent = pctInfo.base; d.appendChild(t);
+      let badgeRow = null;
+      if (pctInfo.label || n.nota || campIdVisual) {
+        badgeRow = document.createElement('span');
+        badgeRow.className = 'mp-badge-row';
+        d.appendChild(badgeRow);
+      }
+      if (pctInfo.label) {
+        const tag = document.createElement('span');
+        tag.className = 'mp-pct-tag';
+        tag.textContent = pctInfo.label;
+        tag.style.background = corPctTag(n.t);
+        badgeRow.appendChild(tag);
+      }
+      if (n.nota) {
+        const b = document.createElement('span');
+        b.className = 'mp-selo';
+        b.textContent = 'nota';
+        b.title = n.nota;
+        badgeRow.appendChild(b);
+      }
+      if (campIdVisual) {
+        const b = botao('mp-selo mp-camp', 'TAP', 'Abrir TAP da campanha',
+          () => window.AbrirCampanha?.(campIdVisual, 'tap', pctInfo.base));
+        badgeRow.appendChild(b);
+      }`;
+  if (html.includes(badgeRenderOld)) html = html.replace(badgeRenderOld,badgeRenderNew);
+  else console.warn('[AllianceOS build] mapa: bloco de badges não encontrado');
+
+  const botaoOld = `  function botao(cls, txt, titulo, aoClicar) {
+    const b = document.createElement('button');
+    b.className = cls; b.textContent = txt; if (titulo) b.title = titulo;
+    b.onpointerdown = (e) => e.stopPropagation();
+    b.onclick = (e) => { e.stopPropagation(); aoClicar() };
+    return b;
+  }`;
+  const botaoNew = `  function botao(cls, txt, titulo, aoClicar) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls; b.textContent = txt; if (titulo) b.title = titulo;
+    b.onpointerdown = (e) => { e.preventDefault(); e.stopPropagation(); };
+    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); aoClicar() };
+    b.ondblclick = (e) => { e.preventDefault(); e.stopPropagation(); };
+    return b;
+  }`;
+  if (html.includes(botaoOld)) html = html.replace(botaoOld,botaoNew);
+  else console.warn('[AllianceOS build] mapa: helper botao não encontrado');
+
+  console.log('[AllianceOS build] badges % e TAP isoladas e estáveis');
+
+
 
 
 
