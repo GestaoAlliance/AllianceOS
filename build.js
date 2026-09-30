@@ -398,6 +398,11 @@ async function main() {
   if (html.includes(mapLayoutLoadOld)) html = html.replace(mapLayoutLoadOld,mapLayoutLoadNew);
   else console.warn('[AllianceOS build] mapa: normalização de layout não encontrada');
 
+  const mapChildrenOld = "  const filhos = (id) => M.nos.filter((n) => n.pai === id);";
+  const mapChildrenNew = "  const filhos = (id) => M.nos.filter((n) => n.pai === id).sort((a,b)=>(Number(a.y)||0)-(Number(b.y)||0));";
+  if (html.includes(mapChildrenOld)) html = html.replace(mapChildrenOld,mapChildrenNew);
+  else console.warn('[AllianceOS build] mapa: ordenação de filhos não encontrada');
+
   const mapSideOld = "  function lado(n) { const r = raiz(); if (!r || n.id === r.id) return 1; let a = n, g = 0; while (a.pai && a.pai !== r.id && g++ < 80) a = acharNo(a.pai) || a; return (a.x ?? 0) < (r.x ?? 0) ? -1 : 1 }";
   const mapSideNew = "  function lado(n) { return 1 }";
   if (html.includes(mapSideOld)) html = html.replace(mapSideOld,mapSideNew);
