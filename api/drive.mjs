@@ -394,10 +394,26 @@ async function autentiqueToken(session,brandId){
   if(!token)throw Object.assign(Error('A credencial “API Token” da Autentique está vazia.'),{status:503,code:'AUTENTIQUE_NOT_CONFIGURED'});
   return token;
 }
+function autentiqueErrorMessage(j,fallback='Erro na Autentique'){
+  const errors=Array.isArray(j?.errors)?j.errors:[];
+  const parts=[];
+  for(const e of errors){
+    if(e?.message)parts.push(String(e.message));
+    const validation=e?.extensions?.validation;
+    if(validation&&typeof validation==='object'){
+      for(const [field,value] of Object.entries(validation)){
+        const messages=Array.isArray(value)?value:[value];
+        for(const message of messages)if(message)parts.push(field+': '+String(message));
+      }
+    }
+  }
+  return [...new Set(parts)].join(' · ')||fallback;
+}
 async function autentiqueJson(token,query,variables={}){
   const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query,variables})});
   const j=await r.json().catch(()=>({}));
-  if(!r.ok||j.errors?.length)throw Object.assign(Error(j.errors?.map(x=>x.message).join(' · ')||('Autentique HTTP '+r.status)),{status:r.status||502});
+  if(!r.ok)throw Object.assign(Error(autentiqueErrorMessage(j,'Autentique HTTP '+r.status)),{status:r.status||502});
+  if(j.errors?.length)throw Object.assign(Error(autentiqueErrorMessage(j,'A Autentique recusou a operação.')),{status:422});
   return j.data||{};
 }
 async function autentiqueUpload(token,query,variables,pdfBuffer,filename){
@@ -407,7 +423,8 @@ async function autentiqueUpload(token,query,variables,pdfBuffer,filename){
   form.append('file',new Blob([pdfBuffer],{type:'application/pdf'}),filename);
   const r=await fetch('https://api.autentique.com.br/v2/graphql',{method:'POST',headers:{Authorization:'Bearer '+token},body:form});
   const j=await r.json().catch(()=>({}));
-  if(!r.ok||j.errors?.length)throw Object.assign(Error(j.errors?.map(x=>x.message).join(' · ')||('Autentique HTTP '+r.status)),{status:r.status||502});
+  if(!r.ok)throw Object.assign(Error(autentiqueErrorMessage(j,'Autentique HTTP '+r.status)),{status:r.status||502});
+  if(j.errors?.length)throw Object.assign(Error(autentiqueErrorMessage(j,'A Autentique recusou o documento.')),{status:422});
   return j.data||{};
 }
 async function autentiqueDocument(token,id){
@@ -436,7 +453,10 @@ async function sendContractAutentique(session,contractId,forceEmail=false){
   }
   // For e-mail signers, Autentique sends the signature request automatically.
   // Do not use DELIVERY_METHOD_LINK here: that mode only generates a link and does not send it.
-  signers.push({name:partner.nome_completo||partner.email,email:partner.email,action:'SIGN'});
+  // Para entrega por e-mail, a Autentique espera o signatário identificado pelo e-mail.
+  // O nome é resolvido pela própria Autentique/conta e não deve ser enviado junto
+  // no modo padrão de DELIVERY_METHOD_EMAIL.
+  signers.push({email:partner.email,action:'SIGN'});
 
   const mutation='mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) { createDocument(document:$document, signers:$signers, file:$file) { id name created_at signatures { public_id name email delivery_method link { short_link } user { id name email } } } }';
   const created=(await autentiqueUpload(token,mutation,{document:{name:'Contrato - '+(partner.nome_completo||'Parceiro'),sortable:true,refusable:true,locale:{country:'BR',language:'pt-BR',timezone:'America/Sao_Paulo'}},signers},pdfBuffer,'contrato-'+String(partner.nome_completo||'parceiro').replace(/[^a-zA-Z0-9._-]+/g,'-')+'.pdf')).createDocument;
