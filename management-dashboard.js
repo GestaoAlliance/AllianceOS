@@ -136,6 +136,7 @@ function goalCard(goal,realizedValue){
   const progress=value>0?(Number(realizedValue||0)/value*100):null;
   const width=progress==null?0:Math.max(0,Math.min(100,progress));
   const tone=goalTone(progress||0);
+  const all=Array.isArray(goal?.all)?goal.all.filter(x=>Number(x?.value||0)>0):[];
   let note='Defina as metas do mês no planejamento';
   if(value>0&&goal?.topBeaten){
     note=goal.label+' batida · '+pct(progress)+' do maior alvo';
@@ -144,9 +145,13 @@ function goalCard(goal,realizedValue){
   }else if(value>0){
     note=(progress==null?'0%':pct(progress))+' da '+goal.label;
   }
+  const ladder=all.length?'<div class="mg-goal-ladder">'+all.map(x=>
+    '<div class="'+(Number(x.level)===Number(goal?.level)?'active':'')+'"><span>Meta '+x.level+'</span><b>'+esc(money(x.value))+'</b></div>'
+  ).join('')+'</div>':'';
   return '<article class="mg-metric mg-goal-card '+tone+'">'+
-    '<div class="mg-metric-top"><span>Meta da marca</span><em class="mg-goal-badge">'+esc(goal?.label||'Meta')+' · '+esc(monthLabel())+'</em></div>'+
+    '<div class="mg-metric-top"><span>Metas da marca</span><em class="mg-goal-badge">'+esc(goal?.label||'Meta')+' · '+esc(monthLabel())+'</em></div>'+
     '<strong>'+esc(value>0?money(value):'Não definida')+'</strong>'+
+    ladder+
     (value>0?'<div class="mg-goal-progress"><i style="width:'+width+'%"></i></div>':'')+
     '<small>'+esc(note)+'</small>'+
   '</article>';
