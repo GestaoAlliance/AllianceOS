@@ -610,6 +610,99 @@ async function main() {
 
   console.log('[AllianceOS build] dimensões Origem e Distribuição diferenciadas visualmente');
 
+  // MAP_CAMERA_STABLE_V1 — abrir/fechar ramos nunca muda zoom nem câmera.
+  // A câmera escolhida pela pessoa é preservada por marca + mês nesta sessão.
+  const cameraStateAnchor = "  let marcaAberta = null;";
+  const cameraStateNew = `  let marcaAberta = null;
+  const cameraKey = () => 'ui.alliance.map.camera.' + (marcaAtual() || 'geral') + '.' + mesMapa();
+  function lerCamera() {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(cameraKey()) || 'null');
+      if (!c || !Number.isFinite(+c.z) || !Number.isFinite(+c.px) || !Number.isFinite(+c.py)) return null;
+      return { z:+c.z, px:+c.px, py:+c.py };
+    } catch { return null }
+  }
+  function guardarCamera() {
+    try { sessionStorage.setItem(cameraKey(), JSON.stringify({ z:Z, px:PX, py:PY })) } catch {}
+  }`;
+  if (html.includes(cameraStateAnchor) && !html.includes('function guardarCamera()')) {
+    html = html.replace(cameraStateAnchor,cameraStateNew);
+  }
+
+  const transformOld = "    porPaleta();\n  }\n  /* O ponto embaixo do cursor não pode se mexer";
+  const transformNew = "    porPaleta();\n    guardarCamera();\n  }\n  /* O ponto embaixo do cursor não pode se mexer";
+  if (html.includes(transformOld) && !html.includes("    guardarCamera();\n  }\n  /* O ponto embaixo do cursor")) {
+    html = html.replace(transformOld,transformNew);
+  }
+
+  const openOld = `  function abrir(hospedeiro) {
+    marcaAberta = marcaAtual();
+    M = carregar();
+    sel = { t: 'no', id: raiz()?.id ?? null };
+    Z = 1; PX = 0; PY = 0; pilha = []; pilhaR = []; medidas = {}; termo = '';
+    jaEnquadrou = false;
+    montar(hospedeiro);
+    transformar();     // garante que existe transform desde o primeiro quadro
+    organizar();
+  }`;
+  const openNew = `  function abrir(hospedeiro) {
+    marcaAberta = marcaAtual();
+    M = carregar();
+    sel = { t: 'no', id: raiz()?.id ?? null };
+    const cam = lerCamera();
+    Z = cam?.z ?? 1; PX = cam?.px ?? 0; PY = cam?.py ?? 0;
+    pilha = []; pilhaR = []; medidas = {}; termo = '';
+    jaEnquadrou = !!cam;
+    montar(hospedeiro);
+    transformar();
+    organizar({ enquadrar: !cam });
+  }`;
+  if (html.includes(openOld)) html = html.replace(openOld,openNew);
+  else console.warn('[AllianceOS build] mapa: função abrir não encontrada para preservar câmera');
+
+  const remoteOld = `    addEventListener('allianceos:state-updated', (e) => {
+      const k = e?.detail?.key || '';
+      if (!k || k !== chave() || !cerca?.isConnected) return;
+      abrir(cerca.parentElement);
+    });`;
+  const remoteNew = `    addEventListener('allianceos:state-updated', (e) => {
+      const k = e?.detail?.key || '';
+      if (!k || k !== chave() || !cerca?.isConnected) return;
+      const atual = sel?.id;
+      M = carregar();
+      if (atual && acharNo(atual)) sel = { t:'no', id:atual };
+      else if (!alvoSel()) sel = { t:'no', id:raiz()?.id ?? null };
+      organizar({ enquadrar:false });
+      transformar();
+    });`;
+  if (html.includes(remoteOld)) html = html.replace(remoteOld,remoteNew);
+  else console.warn('[AllianceOS build] mapa: listener remoto não encontrado');
+
+  const closeAllOld = "    organizar(); salvar();\n  }\n  function trocarLayout() { guardar(); M.layout = 'direita'; organizar(); salvar() }";
+  const closeAllNew = "    organizar({ enquadrar: false }); salvar();\n  }\n  function trocarLayout() { guardar(); M.layout = 'direita'; organizar({ enquadrar: false }); salvar() }";
+  if (html.includes(closeAllOld)) html = html.replace(closeAllOld,closeAllNew);
+
+  const reorganizeOld = "        menu.appendChild(item('Reorganizar', '', () => organizar()));";
+  const reorganizeNew = "        menu.appendChild(item('Reorganizar', '', () => organizar({ enquadrar: false })));";
+  if (html.includes(reorganizeOld)) html = html.replace(reorganizeOld,reorganizeNew);
+
+  const fullscreenOld = `  function telaCheia() {
+    cerca.classList.toggle('mp-cheio');
+    setTimeout(enquadrarTudo, 60);
+  }`;
+  const fullscreenNew = `  function telaCheia() {
+    cerca.classList.toggle('mp-cheio');
+    setTimeout(transformar, 60);
+  }`;
+  if (html.includes(fullscreenOld)) html = html.replace(fullscreenOld,fullscreenNew);
+
+  const resizeOld = "      addEventListener('resize', () => { if (cerca?.isConnected) enquadrarTudo() });";
+  const resizeNew = "      addEventListener('resize', () => { if (cerca?.isConnected) transformar() });";
+  if (html.includes(resizeOld)) html = html.replace(resizeOld,resizeNew);
+
+  console.log('[AllianceOS build] câmera do mapa preservada ao abrir e fechar ramos');
+
+
 
 
   // AllianceOS is a shared workspace: campaign data must use the canonical workspace collection, not the auth UUID.
