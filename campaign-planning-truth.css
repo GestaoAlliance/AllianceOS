@@ -1317,3 +1317,54 @@ textarea.tap-cell-editor{padding:7px;resize:vertical}
   .tap-editor-toolbar>div:last-child{width:100%;justify-content:space-between}
   .tap-title-editor{width:100%}
 }
+
+
+/* OCTOBER_MONTHLY_GOALS_EVERYWHERE_2026_09_30 */
+#campaignKpis,
+#planContext{
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:14px!important;
+  align-items:stretch!important;
+}
+#campaignKpis .camp-kpi,
+#planContext .plan-kpi{
+  min-width:0!important;
+}
+#campaignKpis .camp-kpi-goal,
+#planContext .plan-kpi-goal{
+  position:relative;
+  overflow:hidden;
+}
+#campaignKpis .camp-kpi-goal:before,
+#planContext .plan-kpi-goal:before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:0;
+  height:3px;
+  background:#d9dee1;
+}
+#campaignKpis .camp-kpi-goal.active-goal:before,
+#planContext .plan-kpi-goal.active-goal:before{
+  background:#171b1e;
+}
+#campaignKpis .camp-kpi-goal.active-goal,
+#planContext .plan-kpi-goal.active-goal{
+  border-color:#cbd1d5!important;
+  box-shadow:0 2px 8px rgba(20,25,29,.06)!important;
+}
+#campaignKpis .camp-kpi-goal b,
+#planContext .plan-kpi-goal b{
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:1500px){
+  #campaignKpis,#planContext{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:900px){
+  #campaignKpis,#planContext{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:620px){
+  #campaignKpis,#planContext{grid-template-columns:1fr!important}
+}
