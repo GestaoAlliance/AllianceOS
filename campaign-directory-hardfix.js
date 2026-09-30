@@ -83,10 +83,11 @@ const campaigns=()=>{
     if(!c||c.archivedAt||c.archived_at)return false;
     if(b&&String(c.brand||c.marca||'')!==b)return false;
     const explicit=String(c.monthRef||c.month_ref||'').slice(0,7);
-    if(validRef(explicit))return explicit===ref;
-    if(ids.size&&ids.has(String(c.id||'')))return true;
+    const byRef=validRef(explicit)&&explicit===ref;
+    const byMap=ids.has(String(c.id||''));
     const s=dateOnly(c.startAt||c.start),e=dateOnly(c.endAt||c.end)||s;
-    return !!s&&!!e&&s<=last&&e>=first;
+    const byDate=!!s&&!!e&&s<=last&&e>=first;
+    return byRef||byMap||byDate;
   });
 };
 const statusClass=s=>{
