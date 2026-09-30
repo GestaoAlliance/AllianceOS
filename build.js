@@ -536,6 +536,8 @@ async function main() {
     if (s.startsWith('influenciadores')) return '#7c3aed';
     if (s.startsWith('organico')) return '#059669';
     if (s.startsWith('crm')) return '#ea580c';
+    if (s.startsWith('api')) return '#f97316';
+    if (s.startsWith('investimento')) return '#2f8f74';
     if (s.startsWith('tiktok')) return '#111827';
     if (s.startsWith('atendimento')) return '#0891b2';
     if (s.startsWith('reserva')) return '#64748b';
