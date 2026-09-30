@@ -1297,6 +1297,83 @@ async function main() {
     console.warn("[AllianceOS build] showCampaigns not found for month-state reset");
   }
 
+  // PLANNING_KPI_GOALS_CANONICAL_V1 — the legacy planning renderer can repaint
+  // the KPI strip after the canonical layer. Make both renderers agree so Meta
+  // 01/02/03 never disappear and the active goal remains visually marked.
+  {
+    const start=html.indexOf("  function renderContext(){");
+    const end=start>=0?html.indexOf("\n  function visibleNodes()",start):-1;
+    if(start>=0&&end>start){
+      const fn=String.raw`  function renderContext(){
+    const realNow=new Date();realNow.setHours(0,0,0,0);
+    let ref=String(window.AlliancePlanningMonthRef||'');
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(ref)){try{ref=sessionStorage.getItem('allianceos.planning.monthRef')||localStorage.getItem('allianceos.planning.monthRef')||''}catch{}}
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(ref))ref=realNow.getFullYear()+'-'+String(realNow.getMonth()+1).padStart(2,'0');
+    const [yy,mm]=ref.split('-').map(Number),first=new Date(yy,mm-1,1),last=new Date(yy,mm,0);
+    let now=(realNow.getFullYear()===yy&&realNow.getMonth()===mm-1)?new Date(realNow):new Date(yy,mm-1,1);
+    const cs=filteredCampaigns().filter(c=>{
+      if(c?.archivedAt)return false;
+      const s=c.start?new Date(c.start+'T00:00:00'):null,e=c.end?new Date(c.end+'T00:00:00'):s;
+      return !s||!e||(s<=last&&e>=first);
+    });
+    const ts=filteredTasks().filter(t=>!t?.archivedAt);
+    const perp=cs.filter(c=>String(c.type||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('perpet'));
+    const channelGoal=perp.reduce((a,c)=>{
+      const rows=Array.isArray(c?.tapStructured?.metas_por_fonte)?c.tapStructured.metas_por_fonte:[];
+      const n=rows.reduce((s,x)=>s+(+x.meta_faturamento||0),0);
+      return a+(n||(+c.goal||0));
+    },0);
+    const brandNow=String(selectedBrand()||'').trim();
+    const brandNorm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    let metrics=window.AlliancePlanningMonthMetrics;
+    const metricsOk=m=>!!m&&String(m.ref||'')===ref&&(!brandNow||/todas/i.test(brandNow)||!m.brand||brandNorm(m.brand)===brandNorm(brandNow));
+    if(!metricsOk(metrics)){
+      metrics=null;
+      try{
+        const keys=Object.keys(localStorage).filter(k=>k.startsWith('allianceos.planning.metrics.')&&k.endsWith('.'+ref));
+        for(const key of keys){
+          const x=JSON.parse(localStorage.getItem(key)||'null');
+          if(metricsOk(x)){metrics=x;break}
+        }
+      }catch{}
+    }
+    const active=Math.max(1,Math.min(3,Number(metrics?.active||1)));
+    const meta=(level,fallback=0)=>{
+      if(!metrics)return Number(fallback||0);
+      const direct=Number(metrics['meta'+level]||0);
+      if(direct>0)return direct;
+      const overall=Number(metrics['overall'+level]||0);
+      if(overall>0)return overall;
+      const arr=Array.isArray(metrics.metas)?Number(metrics.metas[level-1]||0):0;
+      if(arr>0)return arr;
+      if(active===level&&Number(metrics.goal||0)>0)return Number(metrics.goal||0);
+      return Number(fallback||0);
+    };
+    const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+    const metaCard=(level,value)=>'<div class="plan-kpi plan-kpi-goal '+(active===level?'active-goal':'')+'"><small>Meta 0'+level+'</small><b>'+(value>0?money(value):'—')+'</b><span>'+(active===level?'meta ativa do mês':'escada de meta mensal')+'</span></div>';
+    const open=ts.filter(t=>t.status!=='feito').length,done=ts.filter(t=>t.status==='feito').length,total=ts.length,pct=total?Math.round(done/total*100):0;
+    const monday=new Date(now),wd=now.getDay();monday.setDate(now.getDate()+(wd===0?-6:1-wd));
+    const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
+    document.getElementById('planContext').innerHTML=
+      '<div class="plan-kpi"><small>Campanhas no mês</small><b>'+cs.length+'</b><span>'+perp.length+' perpétuas · '+(cs.length-perp.length)+' pontuais</span></div>'+
+      metaCard(1,meta(1,channelGoal))+metaCard(2,meta(2,0))+metaCard(3,meta(3,0))+
+      '<div class="plan-kpi"><small>Tarefas abertas</small><b>'+open+'</b><span>'+pct+'% concluídas</span></div>'+
+      '<div class="plan-kpi"><small>Semana atual</small><b>'+String(monday.getDate()).padStart(2,'0')+' — '+String(sunday.getDate()).padStart(2,'0')+'</b><span>'+sunday.toLocaleDateString('pt-BR',{month:'long'})+' de '+sunday.getFullYear()+'</span></div>';
+    [...document.querySelectorAll('body *')].forEach(el=>{
+      if(el.children.length===0&&/As campanhas somam/i.test(el.textContent||'')&&/meta ativa/i.test(el.textContent||'')){
+        const box=el.closest('div');if(box)box.remove();
+      }
+    });
+  }
+  window.addEventListener('allianceos:planning-metrics',()=>{try{renderContext()}catch{}});
+`;
+      html=html.slice(0,start)+fn+html.slice(end);
+      console.log('[AllianceOS build] legacy planning KPI renderer aligned to Meta 01/02/03');
+    }else{
+      console.warn('[AllianceOS build] legacy renderContext not found for monthly-goal alignment');
+    }
+  }
+
   html = html.replace('<html lang="pt-BR">','<html lang="pt-BR" class="alliance-auth-pending">');
   const mobileViewportMeta = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">';
   if (/<meta\s+name=["']viewport["'][^>]*>/i.test(html)) html = html.replace(/<meta\s+name=["']viewport["'][^>]*>/i, mobileViewportMeta);
