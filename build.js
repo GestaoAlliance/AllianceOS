@@ -531,6 +531,8 @@ async function main() {
   function corPctTag(txt) {
     const s = textoNormal(extrairPctTag(txt).base);
     if (s.startsWith('performance') || s.startsWith('trafego')) return '#2563eb';
+    if (s.startsWith('midia paga')) return '#3b82f6';
+    if (s.startsWith('lives')) return '#1d4ed8';
     if (s.startsWith('influenciadores')) return '#7c3aed';
     if (s.startsWith('organico')) return '#059669';
     if (s.startsWith('crm')) return '#ea580c';
