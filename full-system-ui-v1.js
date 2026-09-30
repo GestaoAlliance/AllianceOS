@@ -158,12 +158,15 @@
       const p=await snapshot(),ids=p.campaigns.map(c=>String(c.id));let rows=[];
       if(ids.length){const {data,error}=await p.s.from('campaign_results').select('*').in('campaign_id',ids).is('arquivado_em',null);if(error)throw error;rows=data||[]}
       const fat=rows.reduce((n,r)=>n+Number(r.faturamento||0),0),inv=rows.reduce((n,r)=>n+Number(r.investimento||0),0);
+      const meta1=(p.months||[]).reduce((n,m)=>n+Number(m.meta1||0),0);
+      const meta2=(p.months||[]).reduce((n,m)=>n+Number(m.meta2||0),0);
+      const meta3=(p.months||[]).reduce((n,m)=>n+Number(m.meta3||0),0);
       let card=document.getElementById('alliance-plan-real-card');
       if(!card){card=document.createElement('section');card.id='alliance-plan-real-card';host.prepend(card)}
       card.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div><b style="font-size:13px">Planejado × realizado</b><div style="font-size:9px;color:#8b949b;margin-top:3px">'+esc(p.ref)+(p.brand?' · '+esc(p.brand):'')+'</div></div></div>'
         +(p.warnings.length?'<div style="margin-top:9px;padding:8px 9px;border-radius:8px;background:#fff9e8;color:#725c22;font:600 9px/1.4 Inter,system-ui">⚠ '+esc(p.warnings.join(' '))+'</div>':'')
-        +'<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px">'
-        +[['Meta das campanhas',brl(p.sum)],['Faturamento realizado',brl(fat)],['Investimento realizado',brl(inv)],['ROAS realizado',inv?(fat/inv).toFixed(2).replace('.',','):'—']]
+        +'<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:10px">'
+        +[['Meta 1',meta1?brl(meta1):'—'],['Meta 2',meta2?brl(meta2):'—'],['Meta 3',meta3?brl(meta3):'—'],['Faturamento realizado',brl(fat)],['Investimento realizado',brl(inv)],['ROAS realizado',inv?(fat/inv).toFixed(2).replace('.',','):'—']]
           .map(x=>'<div style="padding:10px;border:1px solid #e5e9ec;border-radius:10px;background:#fff"><small style="display:block;color:#8a949b;font-size:8px">'+esc(x[0])+'</small><b style="display:block;margin-top:5px;font-size:14px">'+esc(x[1])+'</b></div>').join('')
         +'</div>';
       Object.assign(card.style,{margin:'0 0 14px',padding:'13px',border:'1px solid #e0e5e8',borderRadius:'14px',background:'#fff',fontFamily:'Inter,system-ui,sans-serif'});
