@@ -729,6 +729,85 @@ async function main() {
 
   console.log('[AllianceOS build] selo preto TAP ligado às campanhas do mapa');
 
+  // MAP_ACTIVE_BLACK_AND_RESILIENT_TAP_V1
+  // Meta ativa usa preto; selo TAP é resolvido por campId ou pelo nome-base da campanha.
+  const mapActiveBlackOld = `      if (metaAtiva) {
+        const corAtiva = ramoCor(n);
+        d.style.background = corAtiva;
+        d.style.borderColor = corAtiva;
+        d.style.color = '#fff';
+      }`;
+  const mapActiveBlackNew = `      if (metaAtiva) {
+        const corAtiva = '#111315';
+        d.style.background = corAtiva;
+        d.style.borderColor = corAtiva;
+        d.style.color = '#fff';
+      }`;
+  if (html.includes(mapActiveBlackOld)) html = html.replace(mapActiveBlackOld,mapActiveBlackNew);
+
+  const mapActiveShadowOld = ".mp-no.mp-meta-ativa{\\n  font-weight:700;\\n  color:#fff;\\n  box-shadow:0 5px 16px rgba(194,90,74,.22);";
+  const mapActiveShadowNew = ".mp-no.mp-meta-ativa{\\n  font-weight:700;\\n  color:#fff;\\n  box-shadow:0 5px 16px rgba(17,19,21,.18);";
+  if (html.includes(mapActiveShadowOld)) html = html.replace(mapActiveShadowOld,mapActiveShadowNew);
+
+  const mapCampResolveAnchor = "  function lado(n) { return 1 }";
+  const mapCampResolveHelpers = `  function campanhaIdVisual(n) {
+    if (n?.campId) return n.campId;
+    const base = (s) => textoNormal(String(s || '')
+      .replace(/\\s*\\[\\[[0-9]+(?:[.,][0-9]+)?%\\]\\]\\s*$/, '')
+      .split(' — ')[0].trim());
+    const alvo = base(n?.t);
+    if (!alvo) return null;
+    const camps = campanhasLocais();
+    for (const [id,camp] of camps.entries()) {
+      if (!camp || camp.archivedAt || camp.archived_at || camp.is_archived === true) continue;
+      const nome = base(camp.name || camp.nome || '');
+      if (nome && (nome === alvo || nome.includes(alvo) || alvo.includes(nome))) return id;
+    }
+    return null;
+  }
+`;
+  if (html.includes(mapCampResolveAnchor) && !html.includes('function campanhaIdVisual(n)')) {
+    html = html.replace(mapCampResolveAnchor,mapCampResolveHelpers + mapCampResolveAnchor);
+  }
+
+  const mapCampSeloOld = "      const temSelo = !!(n.nota || n.feito || n.campId);";
+  const mapCampSeloNew = "      const temSelo = !!(n.nota || n.feito || campanhaIdVisual(n));";
+  if (html.includes(mapCampSeloOld)) html = html.replace(mapCampSeloOld,mapCampSeloNew);
+
+  const mapCampVisualAnchor = "      const metaAtiva = ehMetaAtiva(n);";
+  if (html.includes(mapCampVisualAnchor) && !html.includes("      const campIdVisual = campanhaIdVisual(n);")) {
+    html = html.replace(mapCampVisualAnchor,mapCampVisualAnchor + "\n      const campIdVisual = campanhaIdVisual(n);");
+  }
+
+  const mapCampBadgeOld = `      if (n.campId) {
+        const b = botao('mp-selo mp-camp', 'TAP', 'Abrir TAP da campanha',
+          () => window.AbrirCampanha?.(n.campId, 'tap'));
+        d.appendChild(b);
+      }`;
+  const mapCampBadgeNew = `      if (campIdVisual) {
+        const b = botao('mp-selo mp-camp', 'TAP', 'Abrir TAP da campanha',
+          () => window.AbrirCampanha?.(campIdVisual, 'tap'));
+        d.appendChild(b);
+      }`;
+  if (html.includes(mapCampBadgeOld)) html = html.replace(mapCampBadgeOld,mapCampBadgeNew);
+
+  const mapCampBadgeStyleAnchor = ".mp-no .mp-selo{";
+  const mapCampBadgeStyle = `.mp-no .mp-camp{
+  background:#111315!important;
+  color:#fff!important;
+  border:1px solid #111315!important;
+  font-weight:750!important;
+  cursor:pointer!important;
+}
+.mp-no .mp-camp:hover{background:#000!important}
+`;
+  if (html.includes(mapCampBadgeStyleAnchor) && !html.includes('.mp-no .mp-camp{')) {
+    html = html.replace(mapCampBadgeStyleAnchor,mapCampBadgeStyle + mapCampBadgeStyleAnchor);
+  }
+
+  console.log('[AllianceOS build] Meta ativa preta e TAP resiliente no mapa');
+
+
 
 
 
