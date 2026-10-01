@@ -699,7 +699,7 @@ async function main() {
   // A câmera escolhida pela pessoa é preservada por marca + mês nesta sessão.
   const cameraStateAnchor = "  let marcaAberta = null;";
   const cameraStateNew = `  let marcaAberta = null;
-  const cameraKey = () => 'ui.alliance.map.camera.' + (marcaAtual() || 'geral') + '.' + mesMapa();
+  const cameraKey = () => 'ui.alliance.map.camera.v2.' + (marcaAtual() || 'geral') + '.' + mesMapa();
   function lerCamera() {
     try {
       const c = JSON.parse(sessionStorage.getItem(cameraKey()) || 'null');
@@ -741,6 +741,21 @@ async function main() {
     montar(hospedeiro);
     transformar();
     organizar({ enquadrar: !cam });
+    if (cam) {
+      setTimeout(() => {
+        const area = cerca?.getBoundingClientRect?.();
+        const nodes = [...(cerca?.querySelectorAll?.('.mp-no') || [])];
+        const visivel = area && nodes.some(el => {
+          const r = el.getBoundingClientRect();
+          return r.right > area.left + 20 && r.left < area.right - 20 &&
+                 r.bottom > area.top + 20 && r.top < area.bottom - 20;
+        });
+        if (!visivel && nodes.length) {
+          jaEnquadrou = false;
+          enquadrarTudo();
+        }
+      }, 40);
+    }
   }`;
   if (html.includes(openOld)) html = html.replace(openOld,openNew);
   else console.warn('[AllianceOS build] mapa: função abrir não encontrada para preservar câmera');
