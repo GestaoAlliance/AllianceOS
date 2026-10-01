@@ -1419,6 +1419,9 @@ async function main() {
         const b = botao('mp-selo mp-camp', 'TAP', 'Abrir TAP da campanha',
           () => window.AbrirCampanha?.(campIdVisual, 'tap', pctInfo.base));
         badgeRow.appendChild(b);
+      }
+      if (ofertaPostIt) {
+        d.appendChild(montarOfertaPostIt(n,campIdVisual));
       }`;
   if (html.includes(badgeRenderOld)) html = html.replace(badgeRenderOld,badgeRenderNew);
   const influencerDetailTagAnchor = "      let badgeRow = null;";
@@ -1464,53 +1467,244 @@ async function main() {
   // e o resumo da promoção aparece como um post-it legível no mapa.
   const offerPostitCssAnchor = ".mp-no.mp-raiz{";
   const offerPostitCss = `.mp-no.mp-oferta-node{
-  background:#fff8cf!important;
-  border-color:#d9b949!important;
-  color:#6d5710!important;
+  background:#fffaf0!important;
+  border-color:#dcbf70!important;
+  color:#6a5315!important;
   font-weight:760!important;
-  box-shadow:0 2px 7px rgba(122,98,20,.08)!important;
+  box-shadow:0 2px 8px rgba(91,70,18,.06)!important;
 }
 .mp-no.mp-oferta-node .mp-txt{color:inherit!important}
 .mp-no.mp-oferta-postit{
   box-sizing:border-box!important;
-  width:338px!important;
-  min-width:338px!important;
-  max-width:338px!important;
+  display:block!important;
+  width:372px!important;
+  min-width:372px!important;
+  max-width:372px!important;
   min-height:0!important;
-  padding:18px 18px 19px!important;
-  align-items:flex-start!important;
-  border:1px solid #ead98a!important;
-  border-radius:5px!important;
-  background:#fff7b8!important;
-  color:#3d3826!important;
-  box-shadow:0 11px 24px rgba(71,60,21,.13)!important;
+  padding:0!important;
+  overflow:hidden!important;
+  align-items:stretch!important;
+  border:1px solid #e6dfcc!important;
+  border-radius:17px!important;
+  background:#fffef9!important;
+  color:#292a2c!important;
+  box-shadow:0 16px 42px rgba(31,35,38,.11)!important;
 }
 .mp-no.mp-oferta-postit::before{
   content:'';
   position:absolute;
-  top:-7px;
-  left:50%;
-  width:62px;
-  height:16px;
-  transform:translateX(-50%) rotate(-1deg);
-  background:rgba(255,255,255,.58);
-  border:1px solid rgba(191,177,114,.28);
-  box-shadow:0 1px 2px rgba(71,60,21,.05);
+  inset:0 0 auto 0;
+  height:4px;
+  background:linear-gradient(90deg,#d9a42f 0%,#efc85f 58%,#f3d980 100%);
+  z-index:2;
 }
-.mp-no.mp-oferta-postit .mp-txt{
-  display:block!important;
-  width:100%!important;
-  max-width:none!important;
-  white-space:pre-line!important;
-  color:#3d3826!important;
-  font-size:10.4px!important;
-  line-height:1.5!important;
-  font-weight:520!important;
-  letter-spacing:-.004em!important;
+.mp-no.mp-oferta-postit::after{
+  content:'';
+  position:absolute;
+  right:-16px;
+  bottom:-16px;
+  width:45px;
+  height:45px;
+  border-radius:50%;
+  background:rgba(221,187,87,.10);
+  pointer-events:none;
+}
+.mp-no.mp-oferta-postit > .mp-txt,
+.mp-no.mp-oferta-postit > .mp-badge-row{
+  display:none!important;
 }
 .mp-no.mp-oferta-postit:hover{
-  border-color:#dfca66!important;
-  box-shadow:0 13px 28px rgba(71,60,21,.16)!important;
+  border-color:#dcd2b8!important;
+  box-shadow:0 19px 48px rgba(31,35,38,.14)!important;
+}
+.mp-offer-visual{
+  position:relative;
+  z-index:3;
+  width:100%;
+  display:block;
+  color:#292a2c;
+}
+.mp-offer-head{
+  min-height:64px;
+  padding:16px 16px 13px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  border-bottom:1px solid #eee9dc;
+  background:linear-gradient(180deg,#fffefb 0%,#fffdf7 100%);
+}
+.mp-offer-head-copy{min-width:0}
+.mp-offer-eyebrow{
+  display:inline-flex;
+  align-items:center;
+  min-height:19px;
+  padding:0 7px;
+  margin-bottom:7px;
+  border:1px solid #ead9a8;
+  border-radius:999px;
+  background:#fff7dc;
+  color:#8b6717;
+  font-size:7.5px;
+  font-weight:800;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.mp-offer-title{
+  display:block;
+  color:#202326;
+  font-size:14px;
+  line-height:1.15;
+  font-weight:790;
+  letter-spacing:-.02em;
+}
+.mp-offer-subtitle{
+  display:block;
+  margin-top:4px;
+  color:#92979c;
+  font-size:8px;
+  font-weight:580;
+}
+.mp-offer-tap{
+  height:26px;
+  min-width:43px;
+  padding:0 10px;
+  border:0;
+  border-radius:999px;
+  background:#151719;
+  color:#fff;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.03em;
+  cursor:pointer;
+  box-shadow:0 2px 6px rgba(17,20,23,.13);
+}
+.mp-offer-tap:hover{background:#000}
+.mp-offer-dates{
+  padding:11px 16px 12px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+  border-bottom:1px solid #f0ece1;
+}
+.mp-offer-date{
+  min-width:0;
+  padding:8px 9px;
+  border:1px solid #ece7da;
+  border-radius:10px;
+  background:#fbfaf6;
+}
+.mp-offer-date-label{
+  display:block;
+  margin-bottom:3px;
+  color:#979b9f;
+  font-size:7px;
+  font-weight:740;
+  letter-spacing:.025em;
+  text-transform:uppercase;
+}
+.mp-offer-date-value{
+  display:block;
+  color:#34373a;
+  font-size:9.5px;
+  line-height:1.18;
+  font-weight:730;
+}
+.mp-offer-body{
+  padding:12px 16px 13px;
+  display:grid;
+  gap:10px;
+}
+.mp-offer-section{
+  padding:10px 11px;
+  border:1px solid #ece8dc;
+  border-radius:11px;
+  background:#fff;
+}
+.mp-offer-section.is-promo{
+  border-color:#ead8a5;
+  background:#fff9e7;
+}
+.mp-offer-section-label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:7px;
+  color:#8d9296;
+  font-size:7.2px;
+  font-weight:800;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.mp-offer-section-label::before{
+  content:'';
+  width:5px;
+  height:5px;
+  flex:0 0 5px;
+  border-radius:50%;
+  background:#c79a31;
+}
+.mp-offer-list{
+  display:grid;
+  gap:5px;
+}
+.mp-offer-line{
+  position:relative;
+  padding-left:11px;
+  color:#34373a;
+  font-size:9.4px;
+  line-height:1.35;
+  font-weight:580;
+}
+.mp-offer-line::before{
+  content:'';
+  position:absolute;
+  left:1px;
+  top:.55em;
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:#d3b35c;
+}
+.mp-offer-section.is-promo .mp-offer-line:first-child{
+  color:#292a2c;
+  font-size:10.4px;
+  font-weight:780;
+}
+.mp-offer-deadline{
+  margin:0 16px 16px;
+  padding:10px 11px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid #f0d0c7;
+  border-radius:11px;
+  background:#fff7f4;
+}
+.mp-offer-deadline-copy{min-width:0}
+.mp-offer-deadline-label{
+  display:block;
+  margin-bottom:3px;
+  color:#b45c48;
+  font-size:7px;
+  font-weight:820;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.mp-offer-deadline-value{
+  display:block;
+  color:#34373a;
+  font-size:9.5px;
+  line-height:1.28;
+  font-weight:700;
+}
+@media(max-width:860px){
+  .mp-no.mp-oferta-postit{
+    width:330px!important;
+    min-width:330px!important;
+    max-width:330px!important;
+  }
 }
 `;
   if (html.includes(offerPostitCssAnchor) && !html.includes('.mp-no.mp-oferta-postit{')) {
@@ -1534,6 +1728,114 @@ async function main() {
   function ehOfertaPostIt(n) {
     const pai = acharNo(n?.pai);
     return !!pai && ehOfertaNode(pai);
+  }
+  function parseOfertaPostIt(txt) {
+    const linhas=String(txt||'').split(/\\r?\\n/).map(x=>x.trim());
+    const primeira=linhas.find(Boolean)||'Oferta';
+    const titulo=primeira.replace(/^OFERTA\\s*[·—-]\\s*/i,'').trim()||'Campanha';
+    const out={titulo,datas:[],promo:[],beneficios:[],deadline:[],deadlineLabel:'Última chance'};
+    let sec='datas',pulouPrimeira=false;
+    for(const linha of linhas){
+      if(!linha)continue;
+      if(!pulouPrimeira && linha===primeira){pulouPrimeira=true;continue}
+      const norm=textoNormal(linha);
+      if(norm==='promocao'){sec='promo';continue}
+      if(norm==='beneficios'){sec='beneficios';continue}
+      if(norm==='ultima chance'){sec='deadline';out.deadlineLabel='Última chance';continue}
+      if(norm==='encerramento'){sec='deadline';out.deadlineLabel='Encerramento';continue}
+      if(sec==='datas'){
+        const i=linha.indexOf(':');
+        out.datas.push(i>0?{label:linha.slice(0,i).trim(),value:linha.slice(i+1).trim()}:{label:'Período',value:linha});
+      }else if(sec==='promo')out.promo.push(linha);
+      else if(sec==='beneficios')out.beneficios.push(linha);
+      else out.deadline.push(linha);
+    }
+    return out;
+  }
+  function montarOfertaPostIt(n,campId) {
+    const info=parseOfertaPostIt(n?.t);
+    const wrap=document.createElement('div');
+    wrap.className='mp-offer-visual';
+
+    const head=document.createElement('div');
+    head.className='mp-offer-head';
+    const copy=document.createElement('div');
+    copy.className='mp-offer-head-copy';
+    const eyebrow=document.createElement('span');
+    eyebrow.className='mp-offer-eyebrow';
+    eyebrow.textContent='Oferta da campanha';
+    const title=document.createElement('strong');
+    title.className='mp-offer-title';
+    title.textContent=info.titulo;
+    const sub=document.createElement('span');
+    sub.className='mp-offer-subtitle';
+    sub.textContent='Resumo comercial e regras da promoção';
+    copy.append(eyebrow,title,sub);
+    head.appendChild(copy);
+    if(campId){
+      head.appendChild(botao('mp-offer-tap','TAP','Abrir TAP da campanha',
+        ()=>window.AbrirCampanha?.(campId,'tap',info.titulo)));
+    }
+    wrap.appendChild(head);
+
+    if(info.datas.length){
+      const dates=document.createElement('div');
+      dates.className='mp-offer-dates';
+      info.datas.forEach(x=>{
+        const item=document.createElement('div');
+        item.className='mp-offer-date';
+        const label=document.createElement('span');
+        label.className='mp-offer-date-label';
+        label.textContent=x.label;
+        const value=document.createElement('strong');
+        value.className='mp-offer-date-value';
+        value.textContent=x.value||'—';
+        item.append(label,value);
+        dates.appendChild(item);
+      });
+      wrap.appendChild(dates);
+    }
+
+    const body=document.createElement('div');
+    body.className='mp-offer-body';
+    const addSec=(label,items,kind)=>{
+      if(!items?.length)return;
+      const sec=document.createElement('section');
+      sec.className='mp-offer-section'+(kind==='promo'?' is-promo':'');
+      const lab=document.createElement('div');
+      lab.className='mp-offer-section-label';
+      lab.textContent=label;
+      const list=document.createElement('div');
+      list.className='mp-offer-list';
+      items.forEach(v=>{
+        const line=document.createElement('div');
+        line.className='mp-offer-line';
+        line.textContent=v;
+        list.appendChild(line);
+      });
+      sec.append(lab,list);
+      body.appendChild(sec);
+    };
+    addSec('Promoção',info.promo,'promo');
+    addSec('Benefícios',info.beneficios,'benefits');
+    if(body.children.length)wrap.appendChild(body);
+
+    if(info.deadline.length){
+      const deadline=document.createElement('div');
+      deadline.className='mp-offer-deadline';
+      const dc=document.createElement('div');
+      dc.className='mp-offer-deadline-copy';
+      const dl=document.createElement('span');
+      dl.className='mp-offer-deadline-label';
+      dl.textContent=info.deadlineLabel;
+      const dv=document.createElement('strong');
+      dv.className='mp-offer-deadline-value';
+      dv.textContent=info.deadline.join(' · ');
+      dc.append(dl,dv);
+      deadline.appendChild(dc);
+      wrap.appendChild(deadline);
+    }
+    return wrap;
   }
 `;
   if (html.includes(offerPostitHelperAnchor) && !html.includes('function ehOfertaPostIt(n)')) {
