@@ -1,4 +1,5 @@
 import { BOTANIKA_BRAND_ID, hashCustomer, markIntegration, sb, sourceCategory } from './_lib/datahub.mjs';
+import { authError, requireAllianceUser } from './_lib/auth.mjs';
 
 const SHOP = process.env.SHOPIFY_BOTANIKA_SHOP || 'p01bpt-x2.myshopify.com';
 const API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07';
@@ -9,9 +10,16 @@ function send(res, status, body) {
   return res.status(status).send(JSON.stringify(body));
 }
 
-function authorized(req) {
+async function authorize(req, res) {
   const secret = process.env.CRON_SECRET || '';
-  return !!secret && req.headers.authorization === `Bearer ${secret}`;
+  if (secret && req.headers.authorization === `Bearer ${secret}`) return true;
+  try {
+    await requireAllianceUser(req);
+    return true;
+  } catch (e) {
+    authError(res, e);
+    return false;
+  }
 }
 
 async function gql(query, variables = {}) {
@@ -441,6 +449,46 @@ async function upsertInventory() {
   return rowsCount;
 }
 
+
+async function hasCurrentMonthOrders() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const start = `${year}-${month}-01T00:00:00-03:00`;
+  const rows = await sb(`/rest/v1/shopify_orders?brand_id=eq.${qstr(BOTANIKA_BRAND_ID)}&criado_em=gte.${qstr(start)}&select=id&limit=1`);
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+async function currentMonthSalesSnapshot() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const start = `${year}-${month}-01T00:00:00-03:00`;
+  const rows = [];
+  for (let offset = 0; offset < 20000; offset += 1000) {
+    const page = await sb(`/rest/v1/shopify_orders?brand_id=eq.${qstr(BOTANIKA_BRAND_ID)}&criado_em=gte.${qstr(start)}&select=total,refunded_amount,financial_status&order=criado_em.asc&limit=1000&offset=${offset}`);
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push(...page);
+    if (page.length < 1000) break;
+  }
+  const valid = rows.filter(o => !['voided', 'cancelled', 'cancelado'].includes(String(o?.financial_status || '').toLowerCase()));
+  const total = valid.reduce((sum, o) => sum + Math.max(0, Number(o?.total || 0) - Number(o?.refunded_amount || 0)), 0);
+  return {
+    month: `${year}-${month}`,
+    source: 'admin_graphql_orders',
+    captured_at: new Date().toISOString(),
+    orders_month: valid.length,
+    total_sales_month: total,
+    net_sales_month: total,
+    average_order_value_month: valid.length ? total / valid.length : 0,
+  };
+}
+
+async function currentIntegrationMeta() {
+  const rows = await sb(`/rest/v1/integration_sources?brand_id=eq.${qstr(BOTANIKA_BRAND_ID)}&source=eq.shopify&select=meta&limit=1`);
+  return rows?.[0]?.meta && typeof rows[0].meta === 'object' ? rows[0].meta : {};
+}
+
 async function sync(days) {
   const orderResult = await upsertOrders(days);
   const inventoryRows = await upsertInventory();
@@ -453,9 +501,15 @@ async function sync(days) {
   }
 
   const at = new Date().toISOString();
+  const [existingMeta, orderSnapshot] = await Promise.all([currentIntegrationMeta(), currentMonthSalesSnapshot()]);
+  const previousSnapshot = existingMeta?.sales_snapshot && existingMeta.sales_snapshot.month === orderSnapshot.month
+    ? existingMeta.sales_snapshot
+    : {};
   await markIntegration('shopify', {
     status: 'ok', last_success_at: at, last_error: null,
     meta: {
+      ...existingMeta,
+      connector_verified: true,
       mode: 'admin_graphql',
       days,
       orders: orderResult.orders,
@@ -468,6 +522,7 @@ async function sync(days) {
       fulfillment_orders: fulfillmentOrders.rows,
       fulfillment_order_items: fulfillmentOrders.items,
       fulfillment_orders_warning: fulfillmentOrders.warning,
+      sales_snapshot: { ...previousSnapshot, ...orderSnapshot },
     },
   });
 
@@ -488,9 +543,14 @@ async function sync(days) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') return send(res, 405, { erro: 'método não permitido' });
-  if (!authorized(req)) return send(res, 401, { erro: 'não autorizado' });
+  if (!(await authorize(req, res))) return;
+  const live = String(req.query?.live || '') === '1';
   const requested = Number(req.query?.days || 60);
-  const days = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 60, 365));
+  let days = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 60, 365));
+  if (live) {
+    const hasMonth = await hasCurrentMonthOrders();
+    days = hasMonth ? 2 : Math.min(40, new Date().getDate() + 2);
+  }
   try {
     return send(res, 200, await sync(days));
   } catch (e) {
