@@ -418,6 +418,7 @@
       '.aa-profile-body{padding:22px;display:grid;gap:18px}.aa-profile-photo-row{display:flex;align-items:center;gap:16px}.aa-profile-photo{width:82px;height:82px;border-radius:50%;background:#eef1f2;display:grid;place-items:center;font-size:22px;font-weight:800;overflow:hidden;flex:0 0 auto}.aa-profile-photo img{width:100%;height:100%;object-fit:cover}.aa-profile-photo-actions{display:grid;gap:7px}.aa-profile-photo-actions input{font-size:10px;max-width:310px}.aa-profile-photo-actions small{font-size:9px;color:#889198;line-height:1.4}.aa-profile-photo-buttons{display:flex;flex-wrap:wrap;gap:7px}',
       '.aa-profile-crop{display:grid;gap:12px;padding:14px;border:1px solid #e2e7ea;border-radius:15px;background:#f7f9fa}.aa-profile-crop[hidden]{display:none!important}.aa-profile-crop-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.aa-profile-crop-head b{font-size:12px}.aa-profile-crop-head span{display:block;margin-top:3px;font-size:9px;color:#7f8990}.aa-crop-stage{width:280px;height:280px;max-width:100%;aspect-ratio:1/1;margin:0 auto;border-radius:50%;overflow:hidden;background:#dfe4e7;box-shadow:0 0 0 1px #d2d9dd,0 12px 30px rgba(31,40,46,.12);cursor:grab;touch-action:none;position:relative}.aa-crop-stage.dragging{cursor:grabbing}.aa-crop-stage canvas{display:block;width:100%;height:100%}.aa-crop-stage:after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 3px rgba(255,255,255,.85),inset 0 0 0 4px rgba(24,31,36,.12);pointer-events:none}.aa-crop-zoom{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;font-size:9px;color:#68727a}.aa-crop-zoom input{width:100%}.aa-crop-actions{display:flex;justify-content:flex-end;gap:8px}',
       '.aa-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.aa-profile-field{display:grid;gap:6px}.aa-profile-field.full{grid-column:1/-1}.aa-profile-field label{font-size:10px;font-weight:750;color:#667078}.aa-profile-field input,.aa-profile-field select{height:41px;border:1px solid #dce1e4;border-radius:9px;padding:0 10px;background:#fff;color:#20262a;outline:none}.aa-profile-field input[readonly]{background:#f7f8f9;color:#7a848b}',
+      '.aa-profile-org{padding:15px;border:1px solid #e1e6e9;border-radius:15px;background:#fafbfb;display:grid;gap:11px}.aa-profile-org-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aa-profile-org-head b{font-size:11px}.aa-profile-org-head span{font-size:8px;color:#8a949b}.aa-profile-org-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.aa-profile-org-item{padding:10px;border:1px solid #e5e9eb;border-radius:11px;background:#fff}.aa-profile-org-item.full{grid-column:1/-1}.aa-profile-org-item small,.aa-profile-org-item strong{display:block}.aa-profile-org-item small{font-size:7.5px;color:#929ba1;text-transform:uppercase;letter-spacing:.07em}.aa-profile-org-item strong{margin-top:4px;font-size:9.5px;color:#323a3f}.aa-profile-seat-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.aa-profile-seat{padding:6px 8px;border-radius:8px;background:#f0f3f4;font-size:8px;color:#59656c}.aa-profile-seat b{color:#242b30;margin-right:4px}.aa-profile-org-empty{font-size:9px;color:#8a949a;line-height:1.5}',
       '.aa-profile-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:4px}.aa-profile-btn{height:40px;border:1px solid #dce1e4;border-radius:9px;background:#fff;padding:0 13px;font-weight:750;font-size:11px}.aa-profile-btn.primary{background:#171b1e;color:#fff;border-color:#171b1e}.aa-profile-btn.danger{color:#a43d43;width:max-content}.aa-profile-btn:disabled{opacity:.5}',
       '@media(max-width:560px){.aa-profile-card{right:8px;top:8px;width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.aa-profile-grid{grid-template-columns:1fr}.aa-profile-field.full{grid-column:auto}.aa-profile-photo-row{align-items:flex-start;flex-direction:column}.aa-crop-stage{width:min(280px,78vw)}}'
     ].join('');
@@ -544,10 +545,18 @@
     const body=$('#allianceProfileBody');if(!body||!state.profile)return;
     const p=state.profile,photo=p.foto_url||'';
     const areaOptions='<option value="">Sem área definida</option>'+state.areas.map(a=>'<option value="'+esc(a.id)+'" '+(String(p.area_id||'')===String(a.id)?'selected':'')+'>'+esc(a.nome)+'</option>').join('');
+    const org=state.orgProfile||{areas:[],subareas:[],seats:[]};
+    const orgAreas=(org.areas||[]).map(x=>x.name).filter(Boolean);
+    const orgSubareas=(org.subareas||[]).map(x=>x.name).filter(Boolean);
+    const orgSeats=Array.isArray(org.seats)?org.seats:[];
+    const orgMarkup='<div class="aa-profile-org"><div class="aa-profile-org-head"><div><b>Sua estrutura organizacional</b><span>Definida pela gestão a partir do organograma da Alliance.</span></div></div>'+
+      (orgSeats.length?'<div class="aa-profile-org-grid"><div class="aa-profile-org-item"><small>Área</small><strong>'+esc(orgAreas.join(' · ')||'Direção executiva')+'</strong></div><div class="aa-profile-org-item"><small>Subárea / setor</small><strong>'+esc(orgSubareas.join(' · ')||'Sem subárea específica')+'</strong></div><div class="aa-profile-org-item full"><small>Cadeiras que você exerce</small><div class="aa-profile-seat-list">'+orgSeats.map(s=>'<span class="aa-profile-seat"><b>'+esc(s.code)+'</b>'+esc(s.title)+'</span>').join('')+'</div></div></div>':'<div class="aa-profile-org-empty">Sua cadeira ainda não foi atribuída pela gestão. Quando for definida, sua área, setor e cadeira aparecerão aqui automaticamente.</div>')+
+    '</div>';
     body.innerHTML=
       '<div class="aa-profile-photo-row"><div class="aa-profile-photo" id="aaProfilePreview">'+avatarInner(p,p.nome)+'</div><div class="aa-profile-photo-actions"><input id="aaProfilePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><small>Escolha a foto e depois ajuste o rosto dentro do círculo.</small><div class="aa-profile-photo-buttons"><button class="aa-profile-btn" id="aaProfileAdjustPhoto" type="button" '+(!photo?'disabled':'')+'>Ajustar enquadramento</button><button class="aa-profile-btn danger" id="aaProfileRemovePhoto" type="button" '+(!photo?'disabled':'')+'>Remover foto</button></div></div></div>'+
       '<div class="aa-profile-crop" id="aaProfileCropWrap" hidden><div class="aa-profile-crop-head"><div><b>Ajuste seu enquadramento</b><span>Arraste a foto até o rosto ficar onde você quer dentro do círculo.</span></div></div><div class="aa-crop-stage"><canvas id="aaProfileCropCanvas" width="280" height="280"></canvas></div><div class="aa-crop-zoom"><span>−</span><input id="aaProfileZoom" type="range" min="1" max="3" step="0.01" value="1" aria-label="Zoom da foto"><span>+</span></div><div class="aa-crop-actions"><button class="aa-profile-btn" type="button" id="aaProfileCropCancel">Cancelar</button><button class="aa-profile-btn primary" type="button" id="aaProfileCropApply">Aplicar enquadramento</button></div></div>'+
-      '<div class="aa-profile-grid"><div class="aa-profile-field full"><label>Nome</label><input id="aaProfileName" value="'+esc(p.nome||'')+'" maxlength="200"></div><div class="aa-profile-field"><label>Cargo</label><input id="aaProfileCargo" value="'+esc(p.cargo||'')+'" maxlength="200" placeholder="Ex.: Gestão de projetos"></div><div class="aa-profile-field"><label>Área</label><select id="aaProfileArea">'+areaOptions+'</select></div><div class="aa-profile-field"><label>E-mail</label><input value="'+esc(p.email||'')+'" readonly></div><div class="aa-profile-field"><label>Papel</label><input value="'+esc(p.papel==='admin'?'Administrador':'Membro')+'" readonly></div></div>'+
+      orgMarkup+
+      '<div class="aa-profile-grid"><div class="aa-profile-field full"><label>Nome</label><input id="aaProfileName" value="'+esc(p.nome||'')+'" maxlength="200"></div><div class="aa-profile-field"><label>Cargo / função livre</label><input id="aaProfileCargo" value="'+esc(p.cargo||'')+'" maxlength="200" placeholder="Ex.: Gestão de projetos"></div><div class="aa-profile-field"><label>Área operacional (tarefas)</label><select id="aaProfileArea">'+areaOptions+'</select></div><div class="aa-profile-field"><label>E-mail</label><input value="'+esc(p.email||'')+'" readonly></div><div class="aa-profile-field"><label>Papel</label><input value="'+esc(p.papel==='admin'?'Administrador':'Membro')+'" readonly></div></div>'+
       '<div class="aa-profile-actions"><button class="aa-profile-btn danger" id="aaProfileLogout" type="button">Sair</button><span style="flex:1"></span><button class="aa-profile-btn" type="button" data-aa-profile-close-inside>Cancelar</button><button class="aa-profile-btn primary" id="aaProfileSave" type="button">Salvar perfil</button></div>';
     profileRemovePhoto=false;profilePhotoBlob=null;profileCrop.image=null;profileCrop.zoom=1;profileCrop.offsetX=0;profileCrop.offsetY=0;
     $('[data-aa-profile-close-inside]',body)?.addEventListener('click',closeProfileModal);
@@ -616,9 +625,20 @@
     finally{btn.disabled=false;btn.textContent='Salvar perfil';}
   }
 
-  function openProfileModal(){
+  async function loadMyOrganizationProfile(){
+    if(!state.user)return null;
+    const fromContext=window.AllianceOSAuth?.context?.()?.organizacao;
+    if(fromContext?.seats){state.orgProfile=fromContext;return fromContext;}
+    const {data,error}=await state.sb.rpc('meu_perfil_organizacional');
+    if(error)throw error;
+    state.orgProfile=data||null;
+    return state.orgProfile;
+  }
+  async function openProfileModal(){
     if(!state.user){openModal();return;}
-    ensureProfileModal();renderProfileForm();$('#allianceProfileModal').classList.add('open');
+    ensureProfileModal();
+    try{await loadMyOrganizationProfile()}catch(err){console.warn('[AllianceOS organization profile]',err);state.orgProfile=null;}
+    renderProfileForm();$('#allianceProfileModal').classList.add('open');
   }
 
     function installNav(){
