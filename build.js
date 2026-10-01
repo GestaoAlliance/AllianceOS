@@ -1460,6 +1460,105 @@ async function main() {
 
   console.log('[AllianceOS build] badges % e TAP isoladas e estáveis');
 
+  // PUNCTUAL_OFFER_POSTIT_V1 — campanhas pontuais ganham filho "Oferta"
+  // e o resumo da promoção aparece como um post-it legível no mapa.
+  const offerPostitCssAnchor = ".mp-no.mp-raiz{";
+  const offerPostitCss = `.mp-no.mp-oferta-node{
+  background:#fff8cf!important;
+  border-color:#d9b949!important;
+  color:#6d5710!important;
+  font-weight:760!important;
+  box-shadow:0 2px 7px rgba(122,98,20,.08)!important;
+}
+.mp-no.mp-oferta-node .mp-txt{color:inherit!important}
+.mp-no.mp-oferta-postit{
+  box-sizing:border-box!important;
+  width:338px!important;
+  min-width:338px!important;
+  max-width:338px!important;
+  min-height:0!important;
+  padding:18px 18px 19px!important;
+  align-items:flex-start!important;
+  border:1px solid #ead98a!important;
+  border-radius:5px!important;
+  background:#fff7b8!important;
+  color:#3d3826!important;
+  box-shadow:0 11px 24px rgba(71,60,21,.13)!important;
+}
+.mp-no.mp-oferta-postit::before{
+  content:'';
+  position:absolute;
+  top:-7px;
+  left:50%;
+  width:62px;
+  height:16px;
+  transform:translateX(-50%) rotate(-1deg);
+  background:rgba(255,255,255,.58);
+  border:1px solid rgba(191,177,114,.28);
+  box-shadow:0 1px 2px rgba(71,60,21,.05);
+}
+.mp-no.mp-oferta-postit .mp-txt{
+  display:block!important;
+  width:100%!important;
+  max-width:none!important;
+  white-space:pre-line!important;
+  color:#3d3826!important;
+  font-size:10.4px!important;
+  line-height:1.5!important;
+  font-weight:520!important;
+  letter-spacing:-.004em!important;
+}
+.mp-no.mp-oferta-postit:hover{
+  border-color:#dfca66!important;
+  box-shadow:0 13px 28px rgba(71,60,21,.16)!important;
+}
+`;
+  if (html.includes(offerPostitCssAnchor) && !html.includes('.mp-no.mp-oferta-postit{')) {
+    html = html.replace(offerPostitCssAnchor,offerPostitCss + offerPostitCssAnchor);
+  }
+
+  const offerPostitHelperAnchor = "  function lado(n) { return 1 }";
+  const offerPostitHelpers = `  function campanhaPontualDoNo(n) {
+    const id = campanhaIdVisual(n);
+    if (!id) return null;
+    const camp = campanhasLocais().get(id);
+    if (!camp) return null;
+    const tipo = textoNormal(camp.type || camp.tipo || '');
+    return tipo !== textoNormal('Perpétuo') ? camp : null;
+  }
+  function ehOfertaNode(n) {
+    if (textoNormal(extrairPctTag(n?.t).base) !== textoNormal('Oferta')) return false;
+    const pai = acharNo(n?.pai);
+    return !!pai && !!campanhaPontualDoNo(pai);
+  }
+  function ehOfertaPostIt(n) {
+    const pai = acharNo(n?.pai);
+    return !!pai && ehOfertaNode(pai);
+  }
+`;
+  if (html.includes(offerPostitHelperAnchor) && !html.includes('function ehOfertaPostIt(n)')) {
+    html = html.replace(offerPostitHelperAnchor,offerPostitHelpers + offerPostitHelperAnchor);
+  }
+
+  const offerPostitRenderAnchor = "      const pctInfo = extrairPctTag(n.t);";
+  if (html.includes(offerPostitRenderAnchor) && !html.includes("      const ofertaPostIt = ehOfertaPostIt(n);")) {
+    html = html.replace(
+      offerPostitRenderAnchor,
+      offerPostitRenderAnchor + "\n      const ofertaNode = ehOfertaNode(n);\n      const ofertaPostIt = ehOfertaPostIt(n);"
+    );
+  }
+
+  const offerPostitPaintAnchor = "      if (n.fundo) d.style.background = n.fundo;";
+  const offerPostitPaintNew = `      if (n.fundo) d.style.background = n.fundo;
+      if (ofertaNode) d.classList.add('mp-oferta-node');
+      if (ofertaPostIt) d.classList.add('mp-oferta-postit');`;
+  if (html.includes(offerPostitPaintAnchor) && !html.includes("d.classList.add('mp-oferta-postit')")) {
+    html = html.replace(offerPostitPaintAnchor,offerPostitPaintNew);
+  }
+
+  console.log('[AllianceOS build] post-it de oferta das campanhas pontuais ativado');
+
+
 
 
 
