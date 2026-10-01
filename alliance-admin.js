@@ -4,7 +4,7 @@
   const CONFIG_URL='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
   const TASKS_KEY='central.tasks.vitor-gutierrez';
   const APP_URL='https://alliance-os-sooty.vercel.app';
-  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null,memberEditingId:null,memberPhotoFile:null,memberRemovePhoto:false};
+  const state={sb:null,user:null,profile:null,organization:null,orgProfile:null,members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null,memberEditingId:null,memberPhotoFile:null,memberRemovePhoto:false};
   window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,loaded:false};
   const BRAND_MODULES=[
     ['home','Início'],
@@ -41,6 +41,20 @@
     };
   };
   const memberBrandIds=(profileId)=>state.brandMemberships.filter(x=>String(x.profile_id)===String(profileId)).map(x=>String(x.brand_id));
+  const organizationSeats=()=>{
+    const org=state.organization||{};
+    const exec=(org.executive_seats||[]).map(s=>({...s,area:'Direção executiva',area_key:null,subarea:null}));
+    const nested=(org.areas||[]).flatMap(a=>(a.seats||[]).map(s=>({...s,area:a.name,area_key:a.key})));
+    return [...exec,...nested];
+  };
+  const activeAssignableSeats=()=>organizationSeats().filter(s=>!s.is_reference);
+  const memberSeatCodes=(profileId)=>activeAssignableSeats().filter(s=>String(s.profile_id||'')===String(profileId||'')).map(s=>String(s.code));
+  const memberOrgSummary=(profileId)=>{
+    const seats=activeAssignableSeats().filter(s=>String(s.profile_id||'')===String(profileId||''));
+    const areas=[...new Set(seats.map(s=>s.area).filter(Boolean))];
+    const subareas=[...new Set(seats.map(s=>s.subarea).filter(Boolean))];
+    return {seats,areas,subareas};
+  };
   const memberHasBrand=(member,brand)=>!!member&&!!brand&&(member.papel==='admin'||memberBrandIds(member.id).includes(String(brand.id)));
 
   function migrateLocalBrandIdentity(brandId,aliases,newName){
@@ -246,7 +260,7 @@
       window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,loaded:true};
       return;
     }
-    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,workspaceR]=await Promise.all([
+    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,workspaceR,organizationR]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro,configuracoes,onboarding_version,onboarding_completed_at').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro,configuracoes,onboarding_version,onboarding_completed_at').order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo,foto_url,cor,descricao,site_url,configuracoes,atualizado_em').eq('ativo',true).order('nome'),
@@ -255,7 +269,8 @@
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),
       state.sb.from('equipe_convites').select('email,nome,cargo,papel,marcas,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
-      state.sb.from('workspace_settings').select('id,foto_url,cor,descricao,configuracoes,atualizado_em').eq('id','all_brands').maybeSingle()
+      state.sb.from('workspace_settings').select('id,foto_url,cor,descricao,configuracoes,atualizado_em').eq('id','all_brands').maybeSingle(),
+      state.sb.rpc('organization_snapshot')
     ]);
     let tasks=[];
     try{tasks=await readTasks();}
@@ -279,6 +294,7 @@
       };
     }
     state.areas=areasR.data||[];
+    state.organization=organizationR.data||null;
     window.AllianceOSSession={...(window.AllianceOSSession||{}),user:state.user,profile:state.profile};
     state.links=linksR.data||[];
     state.invites=invitesR.data||[];
@@ -326,7 +342,7 @@
     }
     const brandMap=new Map(state.brands.map(b=>[String(b.id),b]));
     state.lists=(listsR.data||[]).map(l=>({...l,marca:brandMap.get(String(l.brand_id))?.nome||'',arquivada:!!l.arquivado_em}));
-    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,brandMemberships:state.brandMemberships,allBrandsProfile:state.allBrandsProfile,areas:state.areas,loaded:true};
+    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,brandMemberships:state.brandMemberships,allBrandsProfile:state.allBrandsProfile,areas:state.areas,organization:state.organization,loaded:true};
     window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
     renderDirectoryChrome();
     installNav();
@@ -402,6 +418,7 @@
       '.aa-profile-body{padding:22px;display:grid;gap:18px}.aa-profile-photo-row{display:flex;align-items:center;gap:16px}.aa-profile-photo{width:82px;height:82px;border-radius:50%;background:#eef1f2;display:grid;place-items:center;font-size:22px;font-weight:800;overflow:hidden;flex:0 0 auto}.aa-profile-photo img{width:100%;height:100%;object-fit:cover}.aa-profile-photo-actions{display:grid;gap:7px}.aa-profile-photo-actions input{font-size:10px;max-width:310px}.aa-profile-photo-actions small{font-size:9px;color:#889198;line-height:1.4}.aa-profile-photo-buttons{display:flex;flex-wrap:wrap;gap:7px}',
       '.aa-profile-crop{display:grid;gap:12px;padding:14px;border:1px solid #e2e7ea;border-radius:15px;background:#f7f9fa}.aa-profile-crop[hidden]{display:none!important}.aa-profile-crop-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.aa-profile-crop-head b{font-size:12px}.aa-profile-crop-head span{display:block;margin-top:3px;font-size:9px;color:#7f8990}.aa-crop-stage{width:280px;height:280px;max-width:100%;aspect-ratio:1/1;margin:0 auto;border-radius:50%;overflow:hidden;background:#dfe4e7;box-shadow:0 0 0 1px #d2d9dd,0 12px 30px rgba(31,40,46,.12);cursor:grab;touch-action:none;position:relative}.aa-crop-stage.dragging{cursor:grabbing}.aa-crop-stage canvas{display:block;width:100%;height:100%}.aa-crop-stage:after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 3px rgba(255,255,255,.85),inset 0 0 0 4px rgba(24,31,36,.12);pointer-events:none}.aa-crop-zoom{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;font-size:9px;color:#68727a}.aa-crop-zoom input{width:100%}.aa-crop-actions{display:flex;justify-content:flex-end;gap:8px}',
       '.aa-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.aa-profile-field{display:grid;gap:6px}.aa-profile-field.full{grid-column:1/-1}.aa-profile-field label{font-size:10px;font-weight:750;color:#667078}.aa-profile-field input,.aa-profile-field select{height:41px;border:1px solid #dce1e4;border-radius:9px;padding:0 10px;background:#fff;color:#20262a;outline:none}.aa-profile-field input[readonly]{background:#f7f8f9;color:#7a848b}',
+      '.aa-profile-org{padding:15px;border:1px solid #e1e6e9;border-radius:15px;background:#fafbfb;display:grid;gap:11px}.aa-profile-org-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.aa-profile-org-head b{font-size:11px}.aa-profile-org-head span{font-size:8px;color:#8a949b}.aa-profile-org-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.aa-profile-org-item{padding:10px;border:1px solid #e5e9eb;border-radius:11px;background:#fff}.aa-profile-org-item.full{grid-column:1/-1}.aa-profile-org-item small,.aa-profile-org-item strong{display:block}.aa-profile-org-item small{font-size:7.5px;color:#929ba1;text-transform:uppercase;letter-spacing:.07em}.aa-profile-org-item strong{margin-top:4px;font-size:9.5px;color:#323a3f}.aa-profile-seat-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.aa-profile-seat{padding:6px 8px;border-radius:8px;background:#f0f3f4;font-size:8px;color:#59656c}.aa-profile-seat b{color:#242b30;margin-right:4px}.aa-profile-org-empty{font-size:9px;color:#8a949a;line-height:1.5}',
       '.aa-profile-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:4px}.aa-profile-btn{height:40px;border:1px solid #dce1e4;border-radius:9px;background:#fff;padding:0 13px;font-weight:750;font-size:11px}.aa-profile-btn.primary{background:#171b1e;color:#fff;border-color:#171b1e}.aa-profile-btn.danger{color:#a43d43;width:max-content}.aa-profile-btn:disabled{opacity:.5}',
       '@media(max-width:560px){.aa-profile-card{right:8px;top:8px;width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.aa-profile-grid{grid-template-columns:1fr}.aa-profile-field.full{grid-column:auto}.aa-profile-photo-row{align-items:flex-start;flex-direction:column}.aa-crop-stage{width:min(280px,78vw)}}'
     ].join('');
@@ -528,10 +545,18 @@
     const body=$('#allianceProfileBody');if(!body||!state.profile)return;
     const p=state.profile,photo=p.foto_url||'';
     const areaOptions='<option value="">Sem área definida</option>'+state.areas.map(a=>'<option value="'+esc(a.id)+'" '+(String(p.area_id||'')===String(a.id)?'selected':'')+'>'+esc(a.nome)+'</option>').join('');
+    const org=state.orgProfile||{areas:[],subareas:[],seats:[]};
+    const orgAreas=(org.areas||[]).map(x=>x.name).filter(Boolean);
+    const orgSubareas=(org.subareas||[]).map(x=>x.name).filter(Boolean);
+    const orgSeats=Array.isArray(org.seats)?org.seats:[];
+    const orgMarkup='<div class="aa-profile-org"><div class="aa-profile-org-head"><div><b>Sua estrutura organizacional</b><span>Definida pela gestão a partir do organograma da Alliance.</span></div></div>'+
+      (orgSeats.length?'<div class="aa-profile-org-grid"><div class="aa-profile-org-item"><small>Área</small><strong>'+esc(orgAreas.join(' · ')||'Direção executiva')+'</strong></div><div class="aa-profile-org-item"><small>Subárea / setor</small><strong>'+esc(orgSubareas.join(' · ')||'Sem subárea específica')+'</strong></div><div class="aa-profile-org-item full"><small>Cadeiras que você exerce</small><div class="aa-profile-seat-list">'+orgSeats.map(s=>'<span class="aa-profile-seat"><b>'+esc(s.code)+'</b>'+esc(s.title)+'</span>').join('')+'</div></div></div>':'<div class="aa-profile-org-empty">Sua cadeira ainda não foi atribuída pela gestão. Quando for definida, sua área, setor e cadeira aparecerão aqui automaticamente.</div>')+
+    '</div>';
     body.innerHTML=
       '<div class="aa-profile-photo-row"><div class="aa-profile-photo" id="aaProfilePreview">'+avatarInner(p,p.nome)+'</div><div class="aa-profile-photo-actions"><input id="aaProfilePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><small>Escolha a foto e depois ajuste o rosto dentro do círculo.</small><div class="aa-profile-photo-buttons"><button class="aa-profile-btn" id="aaProfileAdjustPhoto" type="button" '+(!photo?'disabled':'')+'>Ajustar enquadramento</button><button class="aa-profile-btn danger" id="aaProfileRemovePhoto" type="button" '+(!photo?'disabled':'')+'>Remover foto</button></div></div></div>'+
       '<div class="aa-profile-crop" id="aaProfileCropWrap" hidden><div class="aa-profile-crop-head"><div><b>Ajuste seu enquadramento</b><span>Arraste a foto até o rosto ficar onde você quer dentro do círculo.</span></div></div><div class="aa-crop-stage"><canvas id="aaProfileCropCanvas" width="280" height="280"></canvas></div><div class="aa-crop-zoom"><span>−</span><input id="aaProfileZoom" type="range" min="1" max="3" step="0.01" value="1" aria-label="Zoom da foto"><span>+</span></div><div class="aa-crop-actions"><button class="aa-profile-btn" type="button" id="aaProfileCropCancel">Cancelar</button><button class="aa-profile-btn primary" type="button" id="aaProfileCropApply">Aplicar enquadramento</button></div></div>'+
-      '<div class="aa-profile-grid"><div class="aa-profile-field full"><label>Nome</label><input id="aaProfileName" value="'+esc(p.nome||'')+'" maxlength="200"></div><div class="aa-profile-field"><label>Cargo</label><input id="aaProfileCargo" value="'+esc(p.cargo||'')+'" maxlength="200" placeholder="Ex.: Gestão de projetos"></div><div class="aa-profile-field"><label>Área</label><select id="aaProfileArea">'+areaOptions+'</select></div><div class="aa-profile-field"><label>E-mail</label><input value="'+esc(p.email||'')+'" readonly></div><div class="aa-profile-field"><label>Papel</label><input value="'+esc(p.papel==='admin'?'Administrador':'Membro')+'" readonly></div></div>'+
+      orgMarkup+
+      '<div class="aa-profile-grid"><div class="aa-profile-field full"><label>Nome</label><input id="aaProfileName" value="'+esc(p.nome||'')+'" maxlength="200"></div><div class="aa-profile-field"><label>Cargo / função livre</label><input id="aaProfileCargo" value="'+esc(p.cargo||'')+'" maxlength="200" placeholder="Ex.: Gestão de projetos"></div><div class="aa-profile-field"><label>Área operacional (tarefas)</label><select id="aaProfileArea">'+areaOptions+'</select></div><div class="aa-profile-field"><label>E-mail</label><input value="'+esc(p.email||'')+'" readonly></div><div class="aa-profile-field"><label>Papel</label><input value="'+esc(p.papel==='admin'?'Administrador':'Membro')+'" readonly></div></div>'+
       '<div class="aa-profile-actions"><button class="aa-profile-btn danger" id="aaProfileLogout" type="button">Sair</button><span style="flex:1"></span><button class="aa-profile-btn" type="button" data-aa-profile-close-inside>Cancelar</button><button class="aa-profile-btn primary" id="aaProfileSave" type="button">Salvar perfil</button></div>';
     profileRemovePhoto=false;profilePhotoBlob=null;profileCrop.image=null;profileCrop.zoom=1;profileCrop.offsetX=0;profileCrop.offsetY=0;
     $('[data-aa-profile-close-inside]',body)?.addEventListener('click',closeProfileModal);
@@ -600,9 +625,20 @@
     finally{btn.disabled=false;btn.textContent='Salvar perfil';}
   }
 
-  function openProfileModal(){
+  async function loadMyOrganizationProfile(){
+    if(!state.user)return null;
+    const fromContext=window.AllianceOSAuth?.context?.()?.organizacao;
+    if(fromContext?.seats){state.orgProfile=fromContext;return fromContext;}
+    const {data,error}=await state.sb.rpc('meu_perfil_organizacional');
+    if(error)throw error;
+    state.orgProfile=data||null;
+    return state.orgProfile;
+  }
+  async function openProfileModal(){
     if(!state.user){openModal();return;}
-    ensureProfileModal();renderProfileForm();$('#allianceProfileModal').classList.add('open');
+    ensureProfileModal();
+    try{await loadMyOrganizationProfile()}catch(err){console.warn('[AllianceOS organization profile]',err);state.orgProfile=null;}
+    renderProfileForm();$('#allianceProfileModal').classList.add('open');
   }
 
     function installNav(){
@@ -693,7 +729,15 @@
     const cfg=(m?.configuracoes&&typeof m.configuracoes==='object')?m.configuracoes:{};
     const modules=(cfg.modules&&typeof cfg.modules==='object')?cfg.modules:{};
     const memberBrands=new Set(memberBrandIds(m.id));
+    const selectedSeats=new Set(memberSeatCodes(m.id));
     const areaOptions='<option value="">Sem área</option>'+state.areas.map(a=>'<option value="'+esc(a.id)+'" '+(String(m.area_id||'')===String(a.id)?'selected':'')+'>'+esc(a.nome)+'</option>').join('');
+    const seatRows=activeAssignableSeats().map(s=>{
+      const assignedElsewhere=s.profile_id&&String(s.profile_id)!==String(m.id);
+      const checked=selectedSeats.has(String(s.code));
+      const context=[s.area,s.subarea].filter(Boolean).join(' · ');
+      const status=assignedElsewhere?'Ocupada por '+(s.occupant_name||'outra pessoa'):(checked?'Cadeira desta pessoa':'Disponível');
+      return '<label class="aa-user-access-row '+(assignedElsewhere?'disabled':'')+'"><input type="checkbox" data-aa-user-seat="'+esc(s.code)+'" '+(checked?'checked':'')+' '+(assignedElsewhere?'disabled':'')+'><span style="width:38px;height:28px;border-radius:7px;background:#f0f3f4;display:grid;place-items:center;font:750 8px Inter;color:#59656c;flex:0 0 38px">'+esc(s.code)+'</span><span><b>'+esc(s.title)+'</b><small>'+esc(context||'Direção executiva')+' · '+esc(status)+'</small></span></label>';
+    }).join('');
     const brandRows=state.brands.map(b=>'<label class="aa-user-access-row"><input type="checkbox" data-aa-user-brand="'+esc(b.id)+'" '+((m.papel==='admin'||memberBrands.has(String(b.id)))?'checked':'')+'><span class="aa-brand-avatar">'+brandAvatarInner(b,b.nome)+'</span><span><b>'+esc(b.nome)+'</b><small>'+esc(b.descricao||'Workspace da marca')+'</small></span></label>').join('');
     const moduleRows=BRAND_MODULES.map(([key,label])=>'<label class="aa-user-module"><input type="checkbox" data-aa-user-module="'+esc(key)+'" '+((m.papel==='admin'||modules[key]!==false)?'checked':'')+'><span><b>'+esc(label)+'</b><small>'+(m.papel==='admin'?'Admin sempre tem acesso total; vale se virar membro.':'Permitir este módulo para esta conta.')+'</small></span></label>').join('');
     const onboardingDone=Number(m.onboarding_version||0)>=1;
@@ -705,10 +749,12 @@
         '<label><span>Nome completo</span><input id="aaUserName" value="'+esc(m.nome||'')+'" maxlength="120"></label>'+
         '<label><span>E-mail</span><input id="aaUserEmail" type="email" value="'+esc(m.email||'')+'"></label>'+
         '<label><span>Cargo / função</span><input id="aaUserCargo" value="'+esc(m.cargo||'')+'" maxlength="120"></label>'+
-        '<label><span>Área</span><select id="aaUserArea">'+areaOptions+'</select></label>'+
+        '<label><span>Área operacional (tarefas)</span><select id="aaUserArea">'+areaOptions+'</select></label>'+
         '<label><span>Nível de acesso</span><select id="aaUserRole"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Administrador</option></select></label>'+
         '<label class="aa-user-active"><span>Status da conta</span><span class="aa-user-toggle-line"><input id="aaUserActive" type="checkbox" '+(m.ativo?'checked':'')+'><b>Permitir acesso ao AllianceOS</b></span><small>Suspender bloqueia o acesso aos dados via Supabase.</small></label>'+
       '</div>'+
+      '<div class="aa-user-subhead"><div><b>Estrutura organizacional</b><small>Atribua uma ou mais cadeiras. Área e subárea/setor são derivadas automaticamente das cadeiras selecionadas.</small></div><span>'+selectedSeats.size+' cadeira'+(selectedSeats.size===1?'':'s')+'</span></div>'+
+      '<div class="aa-user-access-grid">'+(seatRows||'<div style="padding:12px;color:#8a949b;font-size:10px">Nenhuma cadeira disponível.</div>')+'</div>'+
       '<div class="aa-user-subhead"><div><b>Marcas que esta pessoa acessa</b><small>Aplicado no backend, não apenas escondido na interface.</small></div><span>'+memberBrands.size+' selecionadas</span></div>'+
       '<div class="aa-user-access-grid">'+brandRows+'</div>'+
       '<div class="aa-user-subhead"><div><b>Módulos disponíveis</b><small>Controle o que aparece no menu desta pessoa.</small></div></div>'+
@@ -1052,6 +1098,7 @@
       try{
         const nome=$('#aaUserName')?.value.trim()||'',email=$('#aaUserEmail')?.value.trim().toLowerCase()||'',cargo=$('#aaUserCargo')?.value.trim()||null,area=$('#aaUserArea')?.value||null,papel=$('#aaUserRole')?.value||'membro',ativo=!!$('#aaUserActive')?.checked,reset=!!$('#aaUserResetOnboarding')?.checked;
         const brandIds=Array.from(document.querySelectorAll('[data-aa-user-brand]')).filter(x=>x.checked).map(x=>x.dataset.aaUserBrand);
+        const seatCodes=Array.from(document.querySelectorAll('[data-aa-user-seat]')).filter(x=>x.checked&&!x.disabled).map(x=>x.dataset.aaUserSeat);
         const modules=Object.fromEntries(Array.from(document.querySelectorAll('[data-aa-user-module]')).map(x=>[x.dataset.aaUserModule,!!x.checked]));
         if(!nome)throw new Error('Digite o nome.');
         if(!/^\S+@\S+\.\S+$/.test(email))throw new Error('E-mail inválido.');
@@ -1061,6 +1108,8 @@
         if(norm(email)!==norm(member.email))await invokeUserAdmin({action:'update_email',user_id:id,email});
         const {error}=await state.sb.rpc('admin_salvar_usuario',{p_profile_id:id,p_nome:nome,p_cargo:cargo,p_area_id:area,p_papel:papel,p_ativo:ativo,p_foto_url:fotoUrl,p_brand_ids:brandIds,p_modules:modules,p_reset_onboarding:reset});
         if(error)throw error;
+        const {error:seatError}=await state.sb.rpc('admin_atualizar_cadeiras_usuario',{p_profile_id:id,p_seat_codes:seatCodes});
+        if(seatError)throw seatError;
         state.memberPhotoFile=null;state.memberRemovePhoto=false;
         toast('Conta atualizada e permissões aplicadas.');await refreshAll();state.memberEditingId=id;renderModalBody();
       }catch(err){toast(err?.message||String(err));}
