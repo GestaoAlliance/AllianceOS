@@ -685,17 +685,27 @@ async function main() {
   min-width:0;
 }
 .mp-kpi-avatar{
-  width:27px;
-  height:27px;
-  flex:0 0 27px;
+  width:30px;
+  height:30px;
+  flex:0 0 30px;
   display:grid;
   place-items:center;
+  overflow:hidden;
   border-radius:50%;
   background:#202428;
   color:#fff;
   font-size:8.5px;
   font-weight:800;
   letter-spacing:.02em;
+  box-shadow:inset 0 0 0 1px rgba(17,24,39,.08);
+}
+.mp-kpi-avatar img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  object-position:center;
+  border-radius:inherit;
 }
 .mp-kpi-chair-person b{
   display:block;
@@ -808,6 +818,29 @@ async function main() {
   function iniciaisKpi(nome) {
     return String(nome||'').trim().split(/\\s+/).filter(Boolean).slice(0,2).map(x=>x[0]?.toUpperCase()||'').join('') || '—';
   }
+  function pessoaKpi(board) {
+    const members=(window.AllianceOSDirectory?.members||[]).filter(m=>m?.tipo==='usuario' && m?.ativo!==false);
+    const id=String(board?.profileId||'').trim();
+    if(id){
+      const byId=members.find(m=>String(m.id)===id);
+      if(byId)return byId;
+    }
+    const norm=v=>String(v||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
+    const alvo=norm(board?.person);
+    if(!alvo)return null;
+    const exact=members.find(m=>norm(m.nome)===alvo);
+    if(exact)return exact;
+    const first=alvo.split(/\\s+/)[0];
+    const matches=members.filter(m=>norm(m.nome).split(/\\s+/)[0]===first);
+    return matches.length===1?matches[0]:null;
+  }
+  function avatarKpi(board) {
+    const person=pessoaKpi(board);
+    if(person?.foto_url){
+      return '<img src="'+escKpi(person.foto_url)+'" alt="'+escKpi(person.nome||board?.person||'')+'" loading="lazy">';
+    }
+    return escKpi(iniciaisKpi(person?.nome||board?.person));
+  }
   function labelMesKpi(ref) {
     const [y,m]=String(ref||'').split('-').map(Number);
     if(!y||!m)return '';
@@ -857,7 +890,9 @@ async function main() {
 
       const head=document.createElement('div');
       head.className='mp-kpi-chair-head';
-      head.innerHTML='<div class="mp-kpi-chair-person"><span class="mp-kpi-avatar">'+escKpi(iniciaisKpi(board.person))+'</span><div><b>'+escKpi(board.person||c.owner||'Responsável')+'</b><span>'+escKpi(board.chair||c.name||'Cadeira')+'</span></div></div><button type="button" class="mp-kpi-tap">TAP</button>';
+      const person=pessoaKpi(board);
+      const displayName=board.person||person?.nome||c.owner||'Responsável';
+      head.innerHTML='<div class="mp-kpi-chair-person"><span class="mp-kpi-avatar" title="'+escKpi(person?.nome||displayName)+'">'+avatarKpi(board)+'</span><div><b>'+escKpi(displayName)+'</b><span>'+escKpi(board.chair||c.name||'Cadeira')+'</span></div></div><button type="button" class="mp-kpi-tap">TAP</button>';
       head.querySelector('.mp-kpi-tap').addEventListener('click',e=>{
         e.preventDefault();e.stopPropagation();
         window.AbrirCampanha?.(c.id,'tap',board.chair||c.name);
@@ -907,7 +942,8 @@ async function main() {
   }
 
   const kpiOpenAnchor = "    montar(hospedeiro);";
-  if (html.includes(kpiOpenAnchor) && !html.includes("    setTimeout(renderKpiCadeiras, 120);")) {
+  if (html.includes(kpiOpenAnchor) && !html.includes("    setTimeout(renderKpiCadeiras, 120);
+    setTimeout(renderKpiCadeiras, 900);")) {
     html = html.replace(kpiOpenAnchor,kpiOpenAnchor + "\n    setTimeout(renderKpiCadeiras, 120);");
   }
 
