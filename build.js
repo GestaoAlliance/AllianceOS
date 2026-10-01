@@ -581,6 +581,348 @@ async function main() {
 
   console.log('[AllianceOS build] tags percentuais dos canais ativadas no mapa');
 
+  // KPI_CHAIRS_SIDEBAR_V1 — painel lateral executivo com KPIs por cadeira.
+  // Dados vêm de planningExecutive.kpiBoard das campanhas perpétuas.
+  const kpiBoardCssAnchor = ".mp-no.mp-raiz{";
+  const kpiBoardCss = `.mp-kpi-board{
+  position:absolute;
+  top:72px;
+  right:14px;
+  z-index:62;
+  width:318px;
+  max-height:calc(100% - 142px);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  border:1px solid rgba(24,29,33,.10);
+  border-radius:16px;
+  background:rgba(255,255,255,.95);
+  box-shadow:0 14px 34px rgba(27,31,35,.10);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  color:#202428;
+}
+.mp-kpi-board.is-collapsed{
+  width:46px;
+  max-height:none;
+}
+.mp-kpi-board.is-collapsed .mp-kpi-board-head-copy,
+.mp-kpi-board.is-collapsed .mp-kpi-board-scroll{display:none}
+.mp-kpi-board.is-collapsed .mp-kpi-board-head{
+  padding:9px 7px;
+  justify-content:center;
+  border-bottom:0;
+}
+.mp-kpi-board-head{
+  min-height:58px;
+  padding:11px 12px 10px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border-bottom:1px solid #edf0f2;
+}
+.mp-kpi-board-head-copy{min-width:0}
+.mp-kpi-board-head small{
+  display:block;
+  margin-bottom:3px;
+  color:#8a9298;
+  font-size:8.5px;
+  font-weight:760;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.mp-kpi-board-head strong{
+  display:block;
+  font-size:12.5px;
+  line-height:1.2;
+  font-weight:780;
+  letter-spacing:-.01em;
+}
+.mp-kpi-board-toggle{
+  width:28px;
+  height:28px;
+  flex:0 0 28px;
+  display:grid;
+  place-items:center;
+  border:1px solid #e1e5e8;
+  border-radius:9px;
+  background:#fff;
+  color:#4b535a;
+  cursor:pointer;
+}
+.mp-kpi-board-toggle:hover{background:#f7f8f8}
+.mp-kpi-board-toggle svg{width:13px;height:13px;transition:transform .16s ease}
+.mp-kpi-board.is-collapsed .mp-kpi-board-toggle svg{transform:rotate(180deg)}
+.mp-kpi-board-scroll{
+  overflow:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  padding:7px;
+}
+.mp-kpi-chair{
+  margin-bottom:7px;
+  overflow:hidden;
+  border:1px solid #e6e9eb;
+  border-radius:13px;
+  background:#fff;
+}
+.mp-kpi-chair:last-child{margin-bottom:0}
+.mp-kpi-chair-head{
+  min-height:45px;
+  padding:9px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  background:#fafbfb;
+  border-bottom:1px solid #edf0f2;
+}
+.mp-kpi-chair-person{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.mp-kpi-avatar{
+  width:27px;
+  height:27px;
+  flex:0 0 27px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#202428;
+  color:#fff;
+  font-size:8.5px;
+  font-weight:800;
+  letter-spacing:.02em;
+}
+.mp-kpi-chair-person b{
+  display:block;
+  color:#282d31;
+  font-size:10.5px;
+  line-height:1.1;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.mp-kpi-chair-person span{
+  display:block;
+  margin-top:2px;
+  color:#8a9298;
+  font-size:8.5px;
+  line-height:1.1;
+}
+.mp-kpi-tap{
+  height:22px;
+  padding:0 8px;
+  border:0;
+  border-radius:999px;
+  background:#15181a;
+  color:#fff;
+  font-size:8px;
+  font-weight:800;
+  cursor:pointer;
+}
+.mp-kpi-grid-head,
+.mp-kpi-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 76px 59px;
+  gap:6px;
+  align-items:center;
+}
+.mp-kpi-grid-head{
+  padding:7px 10px 5px;
+  color:#9aa1a6;
+  font-size:7.5px;
+  font-weight:780;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.mp-kpi-grid-head span:nth-child(n+2){text-align:right}
+.mp-kpi-row{
+  min-height:30px;
+  padding:6px 10px;
+  border-top:1px solid #f0f2f3;
+}
+.mp-kpi-row:first-of-type{border-top:0}
+.mp-kpi-label{
+  min-width:0;
+  color:#52595f;
+  font-size:8.8px;
+  line-height:1.18;
+  font-weight:620;
+}
+.mp-kpi-target,
+.mp-kpi-current{
+  text-align:right;
+  color:#252a2e;
+  font-size:8.8px;
+  line-height:1.15;
+  font-weight:760;
+  white-space:nowrap;
+}
+.mp-kpi-current.is-empty{color:#b0b6ba;font-weight:620}
+.mp-kpi-current-note{
+  display:block;
+  margin-top:2px;
+  color:#a0a6ab;
+  font-size:6.8px;
+  font-weight:680;
+  text-transform:uppercase;
+  letter-spacing:.035em;
+}
+.mp-kpi-current-note.is-base{color:#7b63a7}
+.mp-kpi-current-note.is-calibration{color:#a46725}
+@media(max-width:1100px){
+  .mp-kpi-board{width:286px}
+}
+@media(max-width:860px){
+  .mp-kpi-board{
+    top:auto;
+    right:10px;
+    bottom:64px;
+    width:46px;
+    max-height:none;
+  }
+  .mp-kpi-board:not(.is-mobile-open) .mp-kpi-board-head-copy,
+  .mp-kpi-board:not(.is-mobile-open) .mp-kpi-board-scroll{display:none}
+  .mp-kpi-board:not(.is-mobile-open) .mp-kpi-board-head{
+    padding:9px 7px;
+    justify-content:center;
+    border-bottom:0;
+  }
+  .mp-kpi-board.is-mobile-open{
+    width:min(318px,calc(100vw - 32px));
+    max-height:62vh;
+  }
+}`;
+  if (html.includes(kpiBoardCssAnchor) && !html.includes('.mp-kpi-board{')) {
+    html = html.replace(kpiBoardCssAnchor,kpiBoardCss + kpiBoardCssAnchor);
+  }
+
+  const kpiBoardHelperAnchor = "  function lado(n) { return 1 }";
+  const kpiBoardHelpers = `  function escKpi(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function iniciaisKpi(nome) {
+    return String(nome||'').trim().split(/\\s+/).filter(Boolean).slice(0,2).map(x=>x[0]?.toUpperCase()||'').join('') || '—';
+  }
+  function labelMesKpi(ref) {
+    const [y,m]=String(ref||'').split('-').map(Number);
+    if(!y||!m)return '';
+    const nomes=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+    return (nomes[m-1]||'')+' '+y;
+  }
+  function campanhasKpiCadeiras() {
+    const atualMarca=textoNormal(marcaAtual());
+    const ref=mesMapa();
+    const mapa=campanhasLocais();
+    return [...mapa.entries()].map(([id,c])=>({id,...c}))
+      .filter(c=>{
+        const board=c?.planningExecutive?.kpiBoard;
+        const brand=textoNormal(c?.brand||c?.marca||'');
+        const month=String(c?.monthRef||c?.month_ref||'').slice(0,7);
+        return board?.enabled && (!brand||brand===atualMarca) && (!month||month===ref) && !c?.archivedAt && !c?.archived_at;
+      })
+      .sort((a,b)=>(+(a?.planningExecutive?.kpiBoard?.order||999))-(+(b?.planningExecutive?.kpiBoard?.order||999)));
+  }
+  function renderKpiCadeiras() {
+    if(!cerca?.isConnected)return;
+    cerca.querySelector('.mp-kpi-board')?.remove();
+    if(textoNormal(marcaAtual())!==textoNormal('Botanika') || mesMapa()!=='2026-10')return;
+    const campaigns=campanhasKpiCadeiras();
+    if(!campaigns.length)return;
+
+    if(getComputedStyle(cerca).position==='static')cerca.style.position='relative';
+
+    const aside=document.createElement('aside');
+    aside.className='mp-kpi-board';
+    const collapsed=sessionStorage.getItem('ui.alliance.kpi-chairs.collapsed')==='1';
+    if(collapsed)aside.classList.add('is-collapsed');
+
+    const header=document.createElement('header');
+    header.className='mp-kpi-board-head';
+    header.innerHTML='<div class="mp-kpi-board-head-copy"><small>'+escKpi(labelMesKpi(mesMapa()))+'</small><strong>KPIs por cadeira</strong></div><button class="mp-kpi-board-toggle" type="button" aria-label="Abrir ou fechar KPIs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg></button>';
+    aside.appendChild(header);
+
+    const scroll=document.createElement('div');
+    scroll.className='mp-kpi-board-scroll';
+
+    campaigns.forEach(c=>{
+      const board=c.planningExecutive.kpiBoard||{};
+      const rows=Array.isArray(board.rows)?board.rows:[];
+      const card=document.createElement('section');
+      card.className='mp-kpi-chair';
+
+      const head=document.createElement('div');
+      head.className='mp-kpi-chair-head';
+      head.innerHTML='<div class="mp-kpi-chair-person"><span class="mp-kpi-avatar">'+escKpi(iniciaisKpi(board.person))+'</span><div><b>'+escKpi(board.person||c.owner||'Responsável')+'</b><span>'+escKpi(board.chair||c.name||'Cadeira')+'</span></div></div><button type="button" class="mp-kpi-tap">TAP</button>';
+      head.querySelector('.mp-kpi-tap').addEventListener('click',e=>{
+        e.preventDefault();e.stopPropagation();
+        window.AbrirCampanha?.(c.id,'tap',board.chair||c.name);
+      });
+      card.appendChild(head);
+
+      const gridHead=document.createElement('div');
+      gridHead.className='mp-kpi-grid-head';
+      gridHead.innerHTML='<span>KPI</span><span>Meta</span><span>Atual</span>';
+      card.appendChild(gridHead);
+
+      rows.forEach(r=>{
+        const row=document.createElement('div');
+        row.className='mp-kpi-row';
+        const current=(r.current===null||r.current===undefined||String(r.current).trim()==='')?'—':String(r.current);
+        const empty=current==='—';
+        const status=String(r.status||'');
+        const statusCls=status==='base atual'?' is-base':(status==='calibração'?' is-calibration':'');
+        row.innerHTML='<span class="mp-kpi-label">'+escKpi(r.label||'KPI')+'</span><span class="mp-kpi-target">'+escKpi(r.target||'—')+'</span><span class="mp-kpi-current'+(empty?' is-empty':'')+'">'+escKpi(current)+(status&&status!=='sem leitura'?'<small class="mp-kpi-current-note'+statusCls+'">'+escKpi(status)+'</small>':'')+'</span>';
+        card.appendChild(row);
+      });
+
+      scroll.appendChild(card);
+    });
+
+    aside.appendChild(scroll);
+    aside.addEventListener('pointerdown',e=>e.stopPropagation());
+    aside.addEventListener('dblclick',e=>e.stopPropagation());
+    aside.addEventListener('wheel',e=>e.stopPropagation(),{passive:true});
+
+    const toggle=header.querySelector('.mp-kpi-board-toggle');
+    toggle.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      if(matchMedia('(max-width:860px)').matches){
+        aside.classList.toggle('is-mobile-open');
+        return;
+      }
+      aside.classList.toggle('is-collapsed');
+      sessionStorage.setItem('ui.alliance.kpi-chairs.collapsed',aside.classList.contains('is-collapsed')?'1':'0');
+    });
+
+    cerca.appendChild(aside);
+  }
+`;
+  if (html.includes(kpiBoardHelperAnchor) && !html.includes('function renderKpiCadeiras()')) {
+    html = html.replace(kpiBoardHelperAnchor,kpiBoardHelpers + kpiBoardHelperAnchor);
+  }
+
+  const kpiOpenAnchor = "    montar(hospedeiro);";
+  if (html.includes(kpiOpenAnchor) && !html.includes("    setTimeout(renderKpiCadeiras, 120);")) {
+    html = html.replace(kpiOpenAnchor,kpiOpenAnchor + "\n    setTimeout(renderKpiCadeiras, 120);");
+  }
+
+  const kpiStateListenerAnchor = "  window.AllianceOSMapSync =";
+  if (html.includes(kpiStateListenerAnchor) && !html.includes("central.campaigns.vitor-gutierrez') setTimeout(renderKpiCadeiras")) {
+    html = html.replace(kpiStateListenerAnchor,`  addEventListener('allianceos:state-updated', e => {
+    const k=String(e?.detail?.key||'');
+    if(k==='central.campaigns.vitor-gutierrez') setTimeout(renderKpiCadeiras,80);
+  });
+` + kpiStateListenerAnchor);
+  }
+
+  console.log('[AllianceOS build] painel lateral de KPIs por cadeira ativado');
+
+
   // CHANNEL_DETAIL_TAGS_V2 — usa tags discretas nos detalhes de todos os canais.
   // Investimento recebe pílula preenchida; os demais tipos ficam em outline.
   const channelDetailCssAnchor = ".mp-no.mp-raiz{";
