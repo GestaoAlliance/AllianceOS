@@ -323,12 +323,57 @@
     }
   }
 
+
+  function normalizeMonthlyTemplatePercentages(map,month){
+    if(!Array.isArray(map?.nos))return false;
+    const nodes=new Map(map.nos.map(n=>[String(n.id),n]));
+    const moneyInTitle=text=>{
+      const match=String(text||'').match(/—\s*R\$\s*([\d.\s]+(?:,\d{1,2})?)/);
+      if(!match)return null;
+      const n=Number(match[1].replace(/\s/g,'').replace(/\./g,'').replace(',','.'));
+      return Number.isFinite(n)?n:null;
+    };
+    let changed=false;
+    for(const n of map.nos){
+      const original=String(n.t||'');
+      const value=moneyInTitle(original);
+      if(value===null||/^Meta\s+[123]\s*—/i.test(original)||/^Investimento de mídia\b/i.test(original))continue;
+      let p=nodes.get(String(n.pai)),origin=null,investment=null,distribution=null,meta=null;
+      for(let depth=0;p&&depth<12;depth++,p=nodes.get(String(p.pai))){
+        const title=String(p.t||'');
+        if(!origin&&/^Origem do faturamento/i.test(title))origin=p;
+        if(!investment&&/^Investimento de mídia/i.test(title))investment=p;
+        if(!distribution&&/^Distribuição por (canal|campanha)/i.test(title))distribution=p;
+        if(!meta&&/^Meta\s+[123]\s*—/i.test(title))meta=p;
+      }
+      let total=null;
+      if(investment&&investment.id!==n.id)total=moneyInTitle(investment.t);
+      else if(origin){
+        const campaign=nodes.get(String(origin.pai));
+        total=moneyInTitle(campaign?.t);
+      }else if(distribution&&meta){
+        const level=Number(String(meta.t).match(/^Meta\s+([123])/i)?.[1]||0);
+        total=Number(month?.['meta'+level]||0);
+      }
+      if(!(total>0))continue;
+      const marker=original.match(/\s*\[\[[0-9]+(?:[.,][0-9]+)?%\]\]\s*(?:\|\s*(.*))?\s*$/);
+      const title=(marker?original.slice(0,marker.index)+(marker[1]?' | '+marker[1]:''):original).trim();
+      const next=title+templatePct(value,total);
+      if(original!==next){n.t=next;changed=true}
+    }
+    return changed;
+  }
   async function saveCanonicalMapNow(map,brandName,requestedRef=planningMonthRef()){
     if(!map||!Array.isArray(map.nos)||!map.nos.length)return;
     const ref=validMonthRef(requestedRef)?String(requestedRef):planningMonthRef();
     const ctx=await canonicalMapContext(brandName,{createMonth:true,monthRef:ref});
     if(!ctx?.month)return;
     const s=ctx.s,now=new Date().toISOString();
+    if(Number(map.templateVersion||ctx.map?.estado?.templateVersion||0)===1){
+      if(normalizeMonthlyTemplatePercentages(map,ctx.month)){
+        try{localStorage.setItem(mapLocalKey(ctx.brand.nome,ref),JSON.stringify(map))}catch{}
+      }
+    }
     let row=ctx.map;
     const generatedName='Planejamento ['+MONTH_NAMES[(ctx.month.mes||1)-1]+'-'+String(ctx.brand.nome||'').toUpperCase()+']';
     const wantedName=String(map.nome||row?.nome||generatedName).trim().slice(0,200)||generatedName;
