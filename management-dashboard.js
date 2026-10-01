@@ -11,6 +11,7 @@ let lastSignature='';
 let liveChannel=null;
 let liveBrandId='';
 let liveTimer=null;
+const nativeShopifyRefreshAt=new Map();
 
 const esc=v=>String(v??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -100,6 +101,35 @@ async function ensureRealtime(brand){
     if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('[AllianceOS Gestão] Realtime indisponível; mantendo atualização por polling.');
   });
   liveChannel=channel;
+}
+
+async function refreshNativeShopify(brand,remote){
+  if(norm(brand)!=='botanika')return;
+  const client=window.AllianceOSAuth?.client;
+  if(!client)return;
+  const now=Date.now();
+  const last=Number(nativeShopifyRefreshAt.get('botanika')||0);
+  const remoteAt=new Date(remote?.shopify?.last_sync_at||0).getTime();
+  const freshest=Math.max(last,Number.isFinite(remoteAt)?remoteAt:0);
+  if(now-freshest<120000)return;
+  nativeShopifyRefreshAt.set('botanika',now);
+  try{
+    const {data}=await client.auth.getSession();
+    const token=data?.session?.access_token;
+    if(!token)return;
+    const response=await fetch('/api/shopify-botanika-sync?live=1',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+token},
+      cache:'no-store'
+    });
+    if(!response.ok){
+      console.warn('[AllianceOS Gestão] sync Shopify Botanika falhou',response.status);
+      return;
+    }
+    scheduleLiveRender();
+  }catch(e){
+    console.warn('[AllianceOS Gestão] sync Shopify Botanika indisponível',e);
+  }
 }
 
 async function loadRemote(brand){
@@ -431,6 +461,7 @@ async function render(){
   if(seq!==refreshSeq)return;
   renderShell({brand,tasks,campaigns,deliveries,remote});
   lastSignature=localSignature(brand);
+  void refreshNativeShopify(brand,remote);
 }
 
 function nav(key){
