@@ -863,7 +863,7 @@ async function main() {
   function renderKpiCadeiras() {
     if(!cerca?.isConnected)return;
     cerca.querySelector('.mp-kpi-board')?.remove();
-    if(textoNormal(marcaAtual())!==textoNormal('Botanika') || mesMapa()!=='2026-10')return;
+    if(!String(marcaAtual()||'').trim() || !/^20\\d{2}-(0[1-9]|1[0-2])$/.test(String(mesMapa()||'')))return;
     const campaigns=campanhasKpiCadeiras();
     if(!campaigns.length)return;
 
@@ -884,7 +884,18 @@ async function main() {
 
     campaigns.forEach(c=>{
       const board=c.planningExecutive.kpiBoard||{};
-      const rows=Array.isArray(board.rows)?board.rows:[];
+      const rows=Array.isArray(board.rows)?board.rows.slice():[];
+      const investment=Number(c?.planningExecutive?.investment ?? c?.budget ?? 0);
+      const hasInvestment=rows.some(r=>/invest|orçamento|orcamento|mídia|midia/i.test(String(r?.key||'')+' '+String(r?.label||'')));
+      if(!hasInvestment){
+        rows.splice(1,0,{
+          key:'investment',
+          label:'Investimento previsto',
+          target:investment>0?investment.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}):'R$ 0',
+          current:null,
+          status:investment>0?'planejado':'sem verba direta'
+        });
+      }
       const card=document.createElement('section');
       card.className='mp-kpi-chair';
 
@@ -1008,9 +1019,8 @@ async function main() {
     if (titulo !== textoNormal('Detalhes + KPIs') && titulo !== textoNormal('Detalhes + controle')) return false;
     const canal = acharNo(detalhe.pai);
     if (!canal) return false;
-    const s = textoNormal(String(canal.t || ''));
-    return ['trafego','influenciadores','organico','crm / lifecycle','tiktok shop','atendimento','reserva / outras origens']
-      .some(prefix => s.startsWith(textoNormal(prefix)));
+    const grupo = acharNo(canal.pai);
+    return !!grupo && textoNormal(String(grupo.t || '')).startsWith(textoNormal('Distribuição por canal'));
   }
   function tagDetalheCanal(txt) {
     const s = textoNormal(String(txt || ''));
