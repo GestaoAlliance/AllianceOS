@@ -193,10 +193,10 @@ const currentPlanningMetrics=()=>{
 };
 const monthlyMeta=(m,level,fallback=0)=>{
   if(!m)return Number(fallback||0);
-  const direct=Number(m['meta'+level]||0);
-  if(direct>0)return direct;
   const overall=Number(m['overall'+level]||0);
   if(overall>0)return overall;
+  const direct=Number(m['meta'+level]||0);
+  if(direct>0)return direct;
   const arr=Array.isArray(m.metas)?Number(m.metas[level-1]||0):0;
   if(arr>0)return arr;
   if(Number(m.active||0)===level&&Number(m.goal||0)>0)return Number(m.goal||0);
