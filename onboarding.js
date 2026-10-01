@@ -95,6 +95,10 @@
       const profile=data?.perfil||{};
       const areas=Array.isArray(data?.areas)?data.areas:[];
       const brands=Array.isArray(data?.marcas)?data.marcas:[];
+      const organization=data?.organizacao||{};
+      const orgAreas=Array.isArray(organization?.areas)?organization.areas:[];
+      const orgSubareas=Array.isArray(organization?.subareas)?organization.subareas:[];
+      const orgSeats=Array.isArray(organization?.seats)?organization.seats:[];
       const userKey='allianceos.onboarding.step.'+(profile.id||session?.user?.id||'user');
       let stored=0;
       try{stored=Number(sessionStorage.getItem(userKey)||0)||0}catch{}
@@ -126,6 +130,8 @@
       function welcome(){
         const area=areas.find(a=>String(a.id)===state.areaId);
         const selected=brands.filter(b=>state.brandIds.has(String(b.id)));
+        const orgAreaLabel=orgAreas.map(a=>a.name).filter(Boolean).join(' · ');
+        const orgSeatLabel=orgSeats.map(s=>s.code+' · '+s.title).join(' | ');
         const displayName=state.name||session?.user?.email?.split('@')[0]||'você';
         const firstName=String(displayName).trim().split(/\s+/)[0]||'você';
         const avatar=profile.foto_url?'<img src="'+esc(profile.foto_url)+'" alt="">':esc(initials(displayName));
@@ -142,7 +148,9 @@
           '<div class="ob-context-card">'+
             '<div class="ob-context-item"><span>Função</span><strong>'+esc(state.cargo||'Definir agora')+'</strong></div>'+
             '<div class="ob-context-divider"></div>'+
-            '<div class="ob-context-item"><span>Área</span><strong>'+esc(area?.nome||'Definir agora')+'</strong></div>'+
+            '<div class="ob-context-item"><span>Área organizacional</span><strong>'+esc(orgAreaLabel||area?.nome||'A definir pela gestão')+'</strong></div>'+
+            '<div class="ob-context-divider"></div>'+
+            '<div class="ob-context-item"><span>Cadeira</span><strong>'+esc(orgSeatLabel||'A definir pela gestão')+'</strong></div>'+
             '<div class="ob-context-divider"></div>'+
             '<div class="ob-context-item brands"><span>Marcas</span><strong>'+selected.length+' selecionada'+(selected.length===1?'':'s')+'</strong><i>'+brandPreview+'</i></div>'+
           '</div>'+
@@ -160,6 +168,11 @@
 
       function profileStep(){
         const areaCards=areas.map(a=>'<button type="button" class="ob-area '+(String(a.id)===state.areaId?'selected':'')+'" data-ob-area="'+esc(a.id)+'"><span>'+areaIcon(a.nome)+'</span><b>'+esc(a.nome)+'</b></button>').join('');
+        const orgAreaLabel=orgAreas.map(a=>a.name).filter(Boolean).join(' · ');
+        const orgSubareaLabel=orgSubareas.map(a=>a.name).filter(Boolean).join(' · ');
+        const orgSeatCards=orgSeats.map(s=>'<span style="display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:9px;background:#f1f4f5;color:#4e5960;font-size:9px"><b>'+esc(s.code)+'</b>'+esc(s.title)+'</span>').join('');
+        const organizationCard='<div class="ob-subtitle"><b>Sua estrutura organizacional</b><span>Definida pela gestão. Você visualiza aqui, mas não altera sua própria cadeira.</span></div>'+
+          '<div class="ob-context-card" style="margin-top:10px;flex-wrap:wrap"><div class="ob-context-item"><span>Área</span><strong>'+esc(orgAreaLabel||'A definir pela gestão')+'</strong></div><div class="ob-context-divider"></div><div class="ob-context-item"><span>Subárea / setor</span><strong>'+esc(orgSubareaLabel||'Sem subárea específica')+'</strong></div><div class="ob-context-divider"></div><div class="ob-context-item" style="min-width:220px;flex:2"><span>Cadeiras</span><i style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+(orgSeatCards||'<span style="font-style:normal;color:#89939a;font-size:9px">Ainda não atribuída</span>')+'</i></div></div>';
         return '<section class="ob-step">'+
           '<div class="ob-kicker">SEU PERFIL</div>'+
           '<h1>Como você entra na operação?</h1>'+
@@ -171,7 +184,8 @@
               '<label><span>Cargo / função</span><input id="obCargo" maxlength="120" value="'+esc(state.cargo)+'" placeholder="Ex.: Designer, Gestor, Social Media"></label>'+
             '</div>'+
           '</div>'+
-          '<div class="ob-subtitle"><b>Sua área de atuação</b><span>Escolha a área que mais representa sua função principal.</span></div>'+
+          organizationCard+
+          '<div class="ob-subtitle"><b>Área operacional para tarefas</b><span>Escolha a área usada nos filtros e na distribuição das tarefas. Ela é separada da estrutura organizacional acima.</span></div>'+
           '<div class="ob-areas">'+areaCards+'</div>'+
           message()+
         '</section>';
