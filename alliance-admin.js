@@ -4,7 +4,7 @@
   const CONFIG_URL='https://lpnyrzsdiyzjnhovpduk.supabase.co/functions/v1/public-config';
   const TASKS_KEY='central.tasks.vitor-gutierrez';
   const APP_URL='https://alliance-os-sooty.vercel.app';
-  const state={sb:null,user:null,profile:null,members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null,memberEditingId:null,memberPhotoFile:null,memberRemovePhoto:false};
+  const state={sb:null,user:null,profile:null,organization:null,orgProfile:null,members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,areas:[],links:[],invites:[],tasks:[],notifications:[],brandEditingId:null,brandPhotoFile:null,memberEditingId:null,memberPhotoFile:null,memberRemovePhoto:false};
   window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,loaded:false};
   const BRAND_MODULES=[
     ['home','Início'],
@@ -41,6 +41,20 @@
     };
   };
   const memberBrandIds=(profileId)=>state.brandMemberships.filter(x=>String(x.profile_id)===String(profileId)).map(x=>String(x.brand_id));
+  const organizationSeats=()=>{
+    const org=state.organization||{};
+    const exec=(org.executive_seats||[]).map(s=>({...s,area:'Direção executiva',area_key:null,subarea:null}));
+    const nested=(org.areas||[]).flatMap(a=>(a.seats||[]).map(s=>({...s,area:a.name,area_key:a.key})));
+    return [...exec,...nested];
+  };
+  const activeAssignableSeats=()=>organizationSeats().filter(s=>!s.is_reference);
+  const memberSeatCodes=(profileId)=>activeAssignableSeats().filter(s=>String(s.profile_id||'')===String(profileId||'')).map(s=>String(s.code));
+  const memberOrgSummary=(profileId)=>{
+    const seats=activeAssignableSeats().filter(s=>String(s.profile_id||'')===String(profileId||''));
+    const areas=[...new Set(seats.map(s=>s.area).filter(Boolean))];
+    const subareas=[...new Set(seats.map(s=>s.subarea).filter(Boolean))];
+    return {seats,areas,subareas};
+  };
   const memberHasBrand=(member,brand)=>!!member&&!!brand&&(member.papel==='admin'||memberBrandIds(member.id).includes(String(brand.id)));
 
   function migrateLocalBrandIdentity(brandId,aliases,newName){
@@ -246,7 +260,7 @@
       window.AllianceOSDirectory={members:[],lists:[],brands:[],brandMemberships:[],allBrandsProfile:null,loaded:true};
       return;
     }
-    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,workspaceR]=await Promise.all([
+    const [profileR,profilesR,brandsR,membershipR,areasR,listsR,linksR,invitesR,workspaceR,organizationR]=await Promise.all([
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro,configuracoes,onboarding_version,onboarding_completed_at').eq('id',state.user.id).maybeSingle(),
       state.sb.from('profiles').select('id,nome,email,foto_url,papel,cargo,area_id,ativo,tipo_membro,configuracoes,onboarding_version,onboarding_completed_at').order('nome'),
       state.sb.from('brands').select('id,nome,slug,ativo,foto_url,cor,descricao,site_url,configuracoes,atualizado_em').eq('ativo',true).order('nome'),
@@ -255,7 +269,8 @@
       state.sb.from('task_lists').select('id,nome,brand_id,campanha_id,arquivado_em').order('nome'),
       state.sb.from('legacy_member_links').select('legacy_name,profile_id,migrado_em,tarefas_migradas'),
       state.sb.from('equipe_convites').select('email,nome,cargo,papel,marcas,enviado_em,ultimo_envio_em,envio_status,envio_erro,tentativas_envio,aceito_em').order('nome'),
-      state.sb.from('workspace_settings').select('id,foto_url,cor,descricao,configuracoes,atualizado_em').eq('id','all_brands').maybeSingle()
+      state.sb.from('workspace_settings').select('id,foto_url,cor,descricao,configuracoes,atualizado_em').eq('id','all_brands').maybeSingle(),
+      state.sb.rpc('organization_snapshot')
     ]);
     let tasks=[];
     try{tasks=await readTasks();}
@@ -279,6 +294,7 @@
       };
     }
     state.areas=areasR.data||[];
+    state.organization=organizationR.data||null;
     window.AllianceOSSession={...(window.AllianceOSSession||{}),user:state.user,profile:state.profile};
     state.links=linksR.data||[];
     state.invites=invitesR.data||[];
@@ -326,7 +342,7 @@
     }
     const brandMap=new Map(state.brands.map(b=>[String(b.id),b]));
     state.lists=(listsR.data||[]).map(l=>({...l,marca:brandMap.get(String(l.brand_id))?.nome||'',arquivada:!!l.arquivado_em}));
-    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,brandMemberships:state.brandMemberships,allBrandsProfile:state.allBrandsProfile,areas:state.areas,loaded:true};
+    window.AllianceOSDirectory={members:state.members,lists:state.lists,brands:state.brands,brandMemberships:state.brandMemberships,allBrandsProfile:state.allBrandsProfile,areas:state.areas,organization:state.organization,loaded:true};
     window.dispatchEvent(new CustomEvent('allianceos:directory',{detail:window.AllianceOSDirectory}));
     renderDirectoryChrome();
     installNav();
