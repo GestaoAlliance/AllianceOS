@@ -942,9 +942,8 @@ async function main() {
   }
 
   const kpiOpenAnchor = "    montar(hospedeiro);";
-  if (html.includes(kpiOpenAnchor) && !html.includes("    setTimeout(renderKpiCadeiras, 120);
-    setTimeout(renderKpiCadeiras, 900);")) {
-    html = html.replace(kpiOpenAnchor,kpiOpenAnchor + "\n    setTimeout(renderKpiCadeiras, 120);");
+  if (html.includes(kpiOpenAnchor) && !html.includes("setTimeout(renderKpiCadeiras, 900)")) {
+    html = html.replace(kpiOpenAnchor,kpiOpenAnchor + "\n    setTimeout(renderKpiCadeiras, 120);\n    setTimeout(renderKpiCadeiras, 900);");
   }
 
   const kpiStateListenerAnchor = "  window.AllianceOSMapSync =";
