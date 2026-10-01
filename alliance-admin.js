@@ -729,7 +729,15 @@
     const cfg=(m?.configuracoes&&typeof m.configuracoes==='object')?m.configuracoes:{};
     const modules=(cfg.modules&&typeof cfg.modules==='object')?cfg.modules:{};
     const memberBrands=new Set(memberBrandIds(m.id));
+    const selectedSeats=new Set(memberSeatCodes(m.id));
     const areaOptions='<option value="">Sem área</option>'+state.areas.map(a=>'<option value="'+esc(a.id)+'" '+(String(m.area_id||'')===String(a.id)?'selected':'')+'>'+esc(a.nome)+'</option>').join('');
+    const seatRows=activeAssignableSeats().map(s=>{
+      const assignedElsewhere=s.profile_id&&String(s.profile_id)!==String(m.id);
+      const checked=selectedSeats.has(String(s.code));
+      const context=[s.area,s.subarea].filter(Boolean).join(' · ');
+      const status=assignedElsewhere?'Ocupada por '+(s.occupant_name||'outra pessoa'):(checked?'Cadeira desta pessoa':'Disponível');
+      return '<label class="aa-user-access-row '+(assignedElsewhere?'disabled':'')+'"><input type="checkbox" data-aa-user-seat="'+esc(s.code)+'" '+(checked?'checked':'')+' '+(assignedElsewhere?'disabled':'')+'><span style="width:38px;height:28px;border-radius:7px;background:#f0f3f4;display:grid;place-items:center;font:750 8px Inter;color:#59656c;flex:0 0 38px">'+esc(s.code)+'</span><span><b>'+esc(s.title)+'</b><small>'+esc(context||'Direção executiva')+' · '+esc(status)+'</small></span></label>';
+    }).join('');
     const brandRows=state.brands.map(b=>'<label class="aa-user-access-row"><input type="checkbox" data-aa-user-brand="'+esc(b.id)+'" '+((m.papel==='admin'||memberBrands.has(String(b.id)))?'checked':'')+'><span class="aa-brand-avatar">'+brandAvatarInner(b,b.nome)+'</span><span><b>'+esc(b.nome)+'</b><small>'+esc(b.descricao||'Workspace da marca')+'</small></span></label>').join('');
     const moduleRows=BRAND_MODULES.map(([key,label])=>'<label class="aa-user-module"><input type="checkbox" data-aa-user-module="'+esc(key)+'" '+((m.papel==='admin'||modules[key]!==false)?'checked':'')+'><span><b>'+esc(label)+'</b><small>'+(m.papel==='admin'?'Admin sempre tem acesso total; vale se virar membro.':'Permitir este módulo para esta conta.')+'</small></span></label>').join('');
     const onboardingDone=Number(m.onboarding_version||0)>=1;
@@ -741,10 +749,12 @@
         '<label><span>Nome completo</span><input id="aaUserName" value="'+esc(m.nome||'')+'" maxlength="120"></label>'+
         '<label><span>E-mail</span><input id="aaUserEmail" type="email" value="'+esc(m.email||'')+'"></label>'+
         '<label><span>Cargo / função</span><input id="aaUserCargo" value="'+esc(m.cargo||'')+'" maxlength="120"></label>'+
-        '<label><span>Área</span><select id="aaUserArea">'+areaOptions+'</select></label>'+
+        '<label><span>Área operacional (tarefas)</span><select id="aaUserArea">'+areaOptions+'</select></label>'+
         '<label><span>Nível de acesso</span><select id="aaUserRole"><option value="membro" '+(m.papel==='membro'?'selected':'')+'>Membro</option><option value="admin" '+(m.papel==='admin'?'selected':'')+'>Administrador</option></select></label>'+
         '<label class="aa-user-active"><span>Status da conta</span><span class="aa-user-toggle-line"><input id="aaUserActive" type="checkbox" '+(m.ativo?'checked':'')+'><b>Permitir acesso ao AllianceOS</b></span><small>Suspender bloqueia o acesso aos dados via Supabase.</small></label>'+
       '</div>'+
+      '<div class="aa-user-subhead"><div><b>Estrutura organizacional</b><small>Atribua uma ou mais cadeiras. Área e subárea/setor são derivadas automaticamente das cadeiras selecionadas.</small></div><span>'+selectedSeats.size+' cadeira'+(selectedSeats.size===1?'':'s')+'</span></div>'+
+      '<div class="aa-user-access-grid">'+(seatRows||'<div style="padding:12px;color:#8a949b;font-size:10px">Nenhuma cadeira disponível.</div>')+'</div>'+
       '<div class="aa-user-subhead"><div><b>Marcas que esta pessoa acessa</b><small>Aplicado no backend, não apenas escondido na interface.</small></div><span>'+memberBrands.size+' selecionadas</span></div>'+
       '<div class="aa-user-access-grid">'+brandRows+'</div>'+
       '<div class="aa-user-subhead"><div><b>Módulos disponíveis</b><small>Controle o que aparece no menu desta pessoa.</small></div></div>'+
@@ -1088,6 +1098,7 @@
       try{
         const nome=$('#aaUserName')?.value.trim()||'',email=$('#aaUserEmail')?.value.trim().toLowerCase()||'',cargo=$('#aaUserCargo')?.value.trim()||null,area=$('#aaUserArea')?.value||null,papel=$('#aaUserRole')?.value||'membro',ativo=!!$('#aaUserActive')?.checked,reset=!!$('#aaUserResetOnboarding')?.checked;
         const brandIds=Array.from(document.querySelectorAll('[data-aa-user-brand]')).filter(x=>x.checked).map(x=>x.dataset.aaUserBrand);
+        const seatCodes=Array.from(document.querySelectorAll('[data-aa-user-seat]')).filter(x=>x.checked&&!x.disabled).map(x=>x.dataset.aaUserSeat);
         const modules=Object.fromEntries(Array.from(document.querySelectorAll('[data-aa-user-module]')).map(x=>[x.dataset.aaUserModule,!!x.checked]));
         if(!nome)throw new Error('Digite o nome.');
         if(!/^\S+@\S+\.\S+$/.test(email))throw new Error('E-mail inválido.');
@@ -1097,6 +1108,8 @@
         if(norm(email)!==norm(member.email))await invokeUserAdmin({action:'update_email',user_id:id,email});
         const {error}=await state.sb.rpc('admin_salvar_usuario',{p_profile_id:id,p_nome:nome,p_cargo:cargo,p_area_id:area,p_papel:papel,p_ativo:ativo,p_foto_url:fotoUrl,p_brand_ids:brandIds,p_modules:modules,p_reset_onboarding:reset});
         if(error)throw error;
+        const {error:seatError}=await state.sb.rpc('admin_atualizar_cadeiras_usuario',{p_profile_id:id,p_seat_codes:seatCodes});
+        if(seatError)throw seatError;
         state.memberPhotoFile=null;state.memberRemovePhoto=false;
         toast('Conta atualizada e permissões aplicadas.');await refreshAll();state.memberEditingId=id;renderModalBody();
       }catch(err){toast(err?.message||String(err));}
