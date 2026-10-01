@@ -8,6 +8,9 @@ const DELIVERY_KEY='central.deliveries.workspace.v1';
 const DAY=86400000;
 let refreshSeq=0;
 let lastSignature='';
+let liveChannel=null;
+let liveBrandId='';
+let liveTimer=null;
 
 const esc=v=>String(v??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -65,6 +68,39 @@ const avatarHtml=(name,photo)=>{
   const initial=String(name||'?').trim().slice(0,1).toUpperCase();
   return photo?'<img class="mg-avatar" src="'+esc(photo)+'" alt="">':'<span class="mg-avatar mg-avatar-fallback">'+esc(initial)+'</span>';
 };
+const localSignature=brand=>[
+  brand,monthRef(),
+  localStorage.getItem(TASK_KEY)?.length||0,
+  localStorage.getItem(CAMPAIGN_KEY)?.length||0,
+  localStorage.getItem(DELIVERY_KEY)?.length||0
+].join('|');
+function scheduleLiveRender(){
+  clearTimeout(liveTimer);
+  liveTimer=setTimeout(()=>{
+    if(isManagement()&&document.getElementById('homeView')&&!document.hidden)render();
+  },120);
+}
+async function ensureRealtime(brand){
+  const client=window.AllianceOSAuth?.client;
+  const bo=brandObject(brand);
+  if(!client||!bo?.id)return;
+  if(liveChannel&&liveBrandId===String(bo.id))return;
+  if(liveChannel){
+    try{await client.removeChannel(liveChannel)}catch{}
+    liveChannel=null;
+  }
+  liveBrandId=String(bo.id);
+  const channel=client.channel('alliance-management-home-'+liveBrandId);
+  for(const table of ['planning_months','campaign_results','integration_sources','shopify_orders']){
+    channel.on('postgres_changes',{
+      event:'*',schema:'public',table,filter:'brand_id=eq.'+liveBrandId
+    },scheduleLiveRender);
+  }
+  channel.subscribe(status=>{
+    if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('[AllianceOS Gestão] Realtime indisponível; mantendo atualização por polling.');
+  });
+  liveChannel=channel;
+}
 
 async function loadRemote(brand){
   const client=window.AllianceOSAuth?.client;
@@ -77,7 +113,10 @@ async function loadRemote(brand){
   const resultQ=client.from('campaign_results').select('campaign_id,brand_id,data,faturamento,investimento,canal,fonte_receita').eq('brand_id',bo.id).gte('data',start).lte('data',end).is('arquivado_em',null);
   const profileQ=client.from('profiles').select('id,nome,foto_url,cargo,area_id,ativo').eq('ativo',true);
   const shopifyRpcQ=client.rpc('get_management_shopify_snapshot',{p_brand_id:bo.id});
-  const [m,r,p,s]=await Promise.all([monthQ,resultQ,profileQ,shopifyRpcQ]);
+  const ordersQ=client.from('shopify_orders')
+    .select('shopify_order_id,total,refunded_amount,financial_status,criado_em')
+    .eq('brand_id',bo.id).gte('criado_em',start).lte('criado_em',end);
+  const [m,r,p,s,o]=await Promise.all([monthQ,resultQ,profileQ,shopifyRpcQ,ordersQ]);
   const rpcShopify=!s.error&&s.data?{
     status:s.data.status||null,
     last_sync_at:s.data.last_sync_at||null,
@@ -93,7 +132,7 @@ async function loadRemote(brand){
     results:r.error?[]:(r.data||[]),
     profiles:p.error?[]:(p.data||[]),
     shopify:rpcShopify,
-    shopifyOrders:[]
+    shopifyOrders:o?.error?[]:(o?.data||[])
   };
 }
 
@@ -104,12 +143,8 @@ function activeGoal(month,campaigns,realizedValue){
       .map(level=>({level,value:Number(month['meta'+level]||0)}))
       .filter(x=>Number.isFinite(x.value)&&x.value>0);
     if(metas.length){
-      let target=metas[0];
-      for(let i=0;i<metas.length-1;i++){
-        if(realized>=metas[i].value)target=metas[i+1];
-        else break;
-      }
-      if(realized>=metas[metas.length-1].value)target=metas[metas.length-1];
+      const configured=Math.max(1,Math.min(3,Number(month.meta_ativa||1)));
+      const target=metas.find(x=>x.level===configured)||metas[0];
       const previous=metas.filter(x=>x.level<target.level&&realized>=x.value).slice(-1)[0]||null;
       return {
         value:target.value,
@@ -161,6 +196,7 @@ function shopifyCommerce(remote){
   const integration=remote?.shopify||null;
   const snap=integration?.meta?.sales_snapshot||null;
   const snapCurrent=snap&&String(snap.month||'')===monthRef();
+  const stale=!!snap&&!snapCurrent;
   if(snapCurrent&&Number.isFinite(Number(snap.total_sales_month))){
     return {
       connected:integration?.meta?.connector_verified!==false,
@@ -172,7 +208,8 @@ function shopifyCommerce(remote){
       sessions:Number(snap.sessions_month||0),
       conversion:Number(snap.conversion_rate_month||0),
       capturedAt:snap.captured_at||integration.last_success_at||integration.last_sync_at||null,
-      mode:String(snap.source||'shopify')
+      mode:String(snap.source||'shopify'),
+      stale:false
     };
   }
   const rows=Array.isArray(remote?.shopifyOrders)?remote.shopifyOrders:[];
@@ -186,14 +223,14 @@ function shopifyCommerce(remote){
       connected:true,source:'Shopify',value,net:value,orders:rows.length,
       aov:rows.length?value/rows.length:0,sessions:0,conversion:0,
       capturedAt:integration?.last_success_at||integration?.last_sync_at||null,
-      mode:'shopify_orders'
+      mode:'shopify_orders',stale:false
     };
   }
   return {
     connected:!!integration?.meta?.connector_verified,
     source:'Shopify',value:null,net:null,orders:0,aov:0,sessions:0,conversion:0,
     capturedAt:integration?.last_success_at||integration?.last_sync_at||null,
-    mode:null
+    mode:null,stale
   };
 }
 function syncLabel(at){
@@ -327,10 +364,14 @@ function renderShell({brand,tasks,campaigns,deliveries,remote}){
         goalCard(goal,real)+
         progressMetricCard(
           'Realizado',
-          hasResults?money(real):(commerce.connected?'Sem vendas no mês':'Shopify não conectada'),
+          hasResults?money(real):(commerce.connected?(commerce.stale?'Aguardando sincronização':'Sem vendas no mês'):'Shopify não conectada'),
           hasShopify
-            ? commerce.orders+' pedidos · ticket '+money(commerce.aov)+' · avanço da '+goal.label
-            : (remote.results.length?'Resultado do AllianceOS · avanço da '+goal.label:'Conecte a Shopify desta marca'),
+            ? commerce.orders+' pedidos · ticket '+money(commerce.aov)+' · '+(syncLabel(commerce.capturedAt)||'sincronizado agora')+' · avanço da '+goal.label
+            : (remote.results.length
+              ? 'Resultado do AllianceOS · avanço da '+goal.label
+              : commerce.connected
+                ? (commerce.stale?'Último snapshot é de outro mês · aguardando dados de '+monthLabel():'Shopify conectada · sem vendas registradas no mês')
+                : 'Conecte a Shopify desta marca'),
           goalValue>0&&hasResults?(real/goalValue*100):null
         )+
         progressMetricCard(
@@ -380,6 +421,7 @@ async function render(){
     home.innerHTML='<div class="mg-dashboard"><div class="mg-select-brand"><strong>Selecione uma marca</strong><span>A Home gerencial funciona dentro do contexto de cada marca.</span></div></div>';
     return;
   }
+  ensureRealtime(brand);
   const seq=++refreshSeq;
   const tasks=read(TASK_KEY).filter(t=>!t?.archivedAt&&matchesBrand(t,brand));
   const campaigns=read(CAMPAIGN_KEY).filter(c=>!c?.archivedAt&&norm(c?.brand)===norm(brand));
@@ -388,7 +430,7 @@ async function render(){
   try{remote=await loadRemote(brand)}catch(e){console.warn('[AllianceOS Gestão] dados remotos indisponíveis',e)}
   if(seq!==refreshSeq)return;
   renderShell({brand,tasks,campaigns,deliveries,remote});
-  lastSignature=[brand,monthRef(),tasks.length,campaigns.length,deliveries.length,remote.results.length,remote.shopify?.last_sync_at||''].join('|');
+  lastSignature=localSignature(brand);
 }
 
 function nav(key){
@@ -408,7 +450,7 @@ addEventListener('focus',()=>{if(document.getElementById('homeView'))render()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&document.getElementById('homeView'))render()});
 setInterval(()=>{
   if(!isManagement()||!document.getElementById('homeView'))return;
-  const brand=currentBrand(),sig=[brand,monthRef(),localStorage.getItem(TASK_KEY)?.length||0,localStorage.getItem(CAMPAIGN_KEY)?.length||0,localStorage.getItem(DELIVERY_KEY)?.length||0].join('|');
+  const brand=currentBrand(),sig=localSignature(brand);
   if(sig!==lastSignature)setTimeout(render,0);
 },4000);
 setInterval(()=>{if(isManagement()&&document.getElementById('homeView')&&!document.hidden)render()},60000);
