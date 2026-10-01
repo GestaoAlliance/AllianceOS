@@ -122,9 +122,9 @@
       const overall1=Number(ctx.month.meta1||0);
       const overall2=Number(ctx.month.meta2||0);
       const overall3=Number(ctx.month.meta3||0);
-      const meta1=perChannel1||overall1;
-      const meta2=perChannel2||overall2;
-      const meta3=perChannel3||overall3;
+      const meta1=overall1||perChannel1;
+      const meta2=overall2||perChannel2;
+      const meta3=overall3||perChannel3;
       const metas=[meta1,meta2,meta3];
       const goal=metas[active-1]||0;
       const budget=(rows||[]).reduce((sum,row)=>sum+Number(row.investimento_previsto||0),0);
@@ -132,7 +132,7 @@
         ref,brand:ctx.brand.nome,goal,budget,active,
         meta1,meta2,meta3,metas,
         overall:goal,overall1,overall2,overall3,
-        perChannel:goal,perChannel1,perChannel2,perChannel3,
+        perChannel:[perChannel1,perChannel2,perChannel3][active-1],perChannel1,perChannel2,perChannel3,
         hasPlan:true,channelCount:(rows||[]).length
       });
     }catch(e){
@@ -309,6 +309,8 @@
       map.itens=Array.isArray(visual.itens)?visual.itens:map.itens;
       map.proxItem=Number(visual.proxItem||map.proxItem||1);
       map.prox=Math.max(Number(visual.prox||0),map.prox||2);
+      map.templateVersion=Number(visual.templateVersion||0);
+      map.templateBindings=visual.templateBindings&&typeof visual.templateBindings==='object'?visual.templateBindings:null;
       localStorage.setItem(mapLocalKey(ctx.brand.nome,ref),JSON.stringify(map));
       window.MapaMental?.recarregar?.();
       if(state&&!silent)state.textContent='Mapa sincronizado · '+ref;
@@ -330,7 +332,8 @@
     let row=ctx.map;
     const generatedName='Planejamento ['+MONTH_NAMES[(ctx.month.mes||1)-1]+'-'+String(ctx.brand.nome||'').toUpperCase()+']';
     const wantedName=String(map.nome||row?.nome||generatedName).trim().slice(0,200)||generatedName;
-    const estado={itens:Array.isArray(map.itens)?map.itens:[],prox:Number(map.prox||2),proxItem:Number(map.proxItem||1)};
+    const previousVisual=row?.estado&&typeof row.estado==='object'?row.estado:{};
+    const estado={itens:Array.isArray(map.itens)?map.itens:[],prox:Number(map.prox||2),proxItem:Number(map.proxItem||1),templateVersion:Number(map.templateVersion||previousVisual.templateVersion||0),templateBindings:map.templateBindings||previousVisual.templateBindings||null};
     if(!row){
       const ins=await s.from('planning_maps').insert({
         brand_id:ctx.brand.id,month_id:ctx.month.id,nome:wantedName,
@@ -766,6 +769,14 @@
             ticket_medio_previsto:Number(layer.querySelector('.alliance-goals-general [name="ticket_medio_previsto"]')?.value||0),
             atualizado_em:now,origem:'interface'
           };
+          const planned=[...layer.querySelectorAll('[data-channel-row]')];
+          for(const level of [1,2,3]){
+            const total=planned.reduce((sum,row)=>sum+Number(row.querySelector('[name="meta'+level+'"]')?.value||0),0);
+            const expected=Number(payload['meta'+level]||0);
+            if(total>0&&Math.abs(total-expected)>.01){
+              throw new Error('Meta '+level+': a soma dos canais ('+brl(total)+') precisa ser igual à meta geral ('+brl(expected)+'). Complete ou ajuste os canais antes de salvar.');
+            }
+          }
           const upd=await ctx.s.from('planning_months').update(payload).eq('id',ctx.month.id).select('*').single();
           if(upd.error)throw upd.error;
           const rows=[...layer.querySelectorAll('[data-channel-row]')].map(row=>({
