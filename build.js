@@ -520,10 +520,10 @@ async function main() {
   const pctHelperAnchor = "  function lado(n) { return 1 }";
   const pctHelpers = `  function extrairPctTag(txt) {
     const bruto = String(txt || '');
-    const m = bruto.match(/\\s*\\[\\[([0-9]+(?:[.,][0-9]+)?)%\\]\\]\\s*$/);
+    const m = bruto.match(/\\s*\\[\\[([0-9]+(?:[.,][0-9]+)?)%\\s*(?:da\\s+Meta\\s+[123])?\\]\\]\\s*(?:\\|\\s*(.*))?\\s*$/i);
     if (!m) return { base: bruto, label: '', raw: '' };
     return {
-      base: bruto.slice(0, m.index).trim(),
+      base: (bruto.slice(0, m.index) + (m[2] ? ' | ' + m[2] : '')).trim(),
       label: m[1] + '%',
       raw: ' [[' + m[1] + '%]]'
     };
@@ -540,7 +540,9 @@ async function main() {
     if (s.startsWith('investimento')) return '#2f8f74';
     if (s.startsWith('tiktok')) return '#111827';
     if (s.startsWith('atendimento')) return '#0891b2';
-    if (s.startsWith('reserva')) return '#64748b';
+    if (s.startsWith('reserva') || s.startsWith('direto')) return '#64748b';
+    if (s.startsWith('especial kids')) return '#0f766e';
+    if (s.startsWith('semana da desparasitacao')) return '#b45309';
     if (s.startsWith('perpetuo')) return '#c2412d';
     if (s.startsWith('campanhas pontuais')) return '#dc5a43';
     if (s.startsWith('dia d')) return '#e05f49';
@@ -2484,10 +2486,10 @@ async function main() {
     const active=Math.max(1,Math.min(3,Number(metrics?.active||1)));
     const meta=(level,fallback=0)=>{
       if(!metrics)return Number(fallback||0);
-      const direct=Number(metrics['meta'+level]||0);
-      if(direct>0)return direct;
       const overall=Number(metrics['overall'+level]||0);
       if(overall>0)return overall;
+      const direct=Number(metrics['meta'+level]||0);
+      if(direct>0)return direct;
       const arr=Array.isArray(metrics.metas)?Number(metrics.metas[level-1]||0):0;
       if(arr>0)return arr;
       if(active===level&&Number(metrics.goal||0)>0)return Number(metrics.goal||0);

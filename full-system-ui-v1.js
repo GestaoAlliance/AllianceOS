@@ -122,9 +122,9 @@
       const overall1=Number(ctx.month.meta1||0);
       const overall2=Number(ctx.month.meta2||0);
       const overall3=Number(ctx.month.meta3||0);
-      const meta1=perChannel1||overall1;
-      const meta2=perChannel2||overall2;
-      const meta3=perChannel3||overall3;
+      const meta1=overall1||perChannel1;
+      const meta2=overall2||perChannel2;
+      const meta3=overall3||perChannel3;
       const metas=[meta1,meta2,meta3];
       const goal=metas[active-1]||0;
       const budget=(rows||[]).reduce((sum,row)=>sum+Number(row.investimento_previsto||0),0);
@@ -132,7 +132,7 @@
         ref,brand:ctx.brand.nome,goal,budget,active,
         meta1,meta2,meta3,metas,
         overall:goal,overall1,overall2,overall3,
-        perChannel:goal,perChannel1,perChannel2,perChannel3,
+        perChannel:[perChannel1,perChannel2,perChannel3][active-1],perChannel1,perChannel2,perChannel3,
         hasPlan:true,channelCount:(rows||[]).length
       });
     }catch(e){
@@ -309,6 +309,8 @@
       map.itens=Array.isArray(visual.itens)?visual.itens:map.itens;
       map.proxItem=Number(visual.proxItem||map.proxItem||1);
       map.prox=Math.max(Number(visual.prox||0),map.prox||2);
+      map.templateVersion=Number(visual.templateVersion||0);
+      map.templateBindings=visual.templateBindings&&typeof visual.templateBindings==='object'?visual.templateBindings:null;
       localStorage.setItem(mapLocalKey(ctx.brand.nome,ref),JSON.stringify(map));
       window.MapaMental?.recarregar?.();
       if(state&&!silent)state.textContent='Mapa sincronizado · '+ref;
@@ -321,16 +323,62 @@
     }
   }
 
+
+  function normalizeMonthlyTemplatePercentages(map,month){
+    if(!Array.isArray(map?.nos))return false;
+    const nodes=new Map(map.nos.map(n=>[String(n.id),n]));
+    const moneyInTitle=text=>{
+      const match=String(text||'').match(/—\s*R\$\s*([\d.\s]+(?:,\d{1,2})?)/);
+      if(!match)return null;
+      const n=Number(match[1].replace(/\s/g,'').replace(/\./g,'').replace(',','.'));
+      return Number.isFinite(n)?n:null;
+    };
+    let changed=false;
+    for(const n of map.nos){
+      const original=String(n.t||'');
+      const value=moneyInTitle(original);
+      if(value===null||/^Meta\s+[123]\s*—/i.test(original)||/^Investimento de mídia\b/i.test(original))continue;
+      let p=nodes.get(String(n.pai)),origin=null,investment=null,distribution=null,meta=null;
+      for(let depth=0;p&&depth<12;depth++,p=nodes.get(String(p.pai))){
+        const title=String(p.t||'');
+        if(!origin&&/^Origem do faturamento/i.test(title))origin=p;
+        if(!investment&&/^Investimento de mídia/i.test(title))investment=p;
+        if(!distribution&&/^Distribuição por (canal|campanha)/i.test(title))distribution=p;
+        if(!meta&&/^Meta\s+[123]\s*—/i.test(title))meta=p;
+      }
+      let total=null;
+      if(investment&&investment.id!==n.id)total=moneyInTitle(investment.t);
+      else if(origin){
+        const campaign=nodes.get(String(origin.pai));
+        total=moneyInTitle(campaign?.t);
+      }else if(distribution&&meta){
+        const level=Number(String(meta.t).match(/^Meta\s+([123])/i)?.[1]||0);
+        total=Number(month?.['meta'+level]||0);
+      }
+      if(!(total>0))continue;
+      const marker=original.match(/\s*\[\[[0-9]+(?:[.,][0-9]+)?%\]\]\s*(?:\|\s*(.*))?\s*$/);
+      const title=(marker?original.slice(0,marker.index)+(marker[1]?' | '+marker[1]:''):original).trim();
+      const next=title+templatePct(value,total);
+      if(original!==next){n.t=next;changed=true}
+    }
+    return changed;
+  }
   async function saveCanonicalMapNow(map,brandName,requestedRef=planningMonthRef()){
     if(!map||!Array.isArray(map.nos)||!map.nos.length)return;
     const ref=validMonthRef(requestedRef)?String(requestedRef):planningMonthRef();
     const ctx=await canonicalMapContext(brandName,{createMonth:true,monthRef:ref});
     if(!ctx?.month)return;
     const s=ctx.s,now=new Date().toISOString();
+    if(Number(map.templateVersion||ctx.map?.estado?.templateVersion||0)===1){
+      if(normalizeMonthlyTemplatePercentages(map,ctx.month)){
+        try{localStorage.setItem(mapLocalKey(ctx.brand.nome,ref),JSON.stringify(map))}catch{}
+      }
+    }
     let row=ctx.map;
     const generatedName='Planejamento ['+MONTH_NAMES[(ctx.month.mes||1)-1]+'-'+String(ctx.brand.nome||'').toUpperCase()+']';
     const wantedName=String(map.nome||row?.nome||generatedName).trim().slice(0,200)||generatedName;
-    const estado={itens:Array.isArray(map.itens)?map.itens:[],prox:Number(map.prox||2),proxItem:Number(map.proxItem||1)};
+    const previousVisual=row?.estado&&typeof row.estado==='object'?row.estado:{};
+    const estado={itens:Array.isArray(map.itens)?map.itens:[],prox:Number(map.prox||2),proxItem:Number(map.proxItem||1),templateVersion:Number(map.templateVersion||previousVisual.templateVersion||0),templateBindings:map.templateBindings||previousVisual.templateBindings||null};
     if(!row){
       const ins=await s.from('planning_maps').insert({
         brand_id:ctx.brand.id,month_id:ctx.month.id,nome:wantedName,
@@ -421,6 +469,118 @@
       nome:'Planejamento ['+MONTH_NAMES[m-1]+'-'+String(brand||'').toUpperCase()+']',
       nos:[{id:1,pai:null,t:'Planejamento',cor:0,x:4500,y:3000}]
     };
+  }
+
+  // Monthly planning scaffold: same hierarchy and percent-pill grammar for all brands.
+  // Financial values and campaign offers always start blank for a new month.
+  const TEMPLATE_CHANNELS=[
+    ['performance-trafego','Performance / Tráfego',2],
+    ['influenciadores','Influenciadores',3],
+    ['organico','Orgânico',5],
+    ['crm-lifecycle','CRM / Lifecycle',4],
+    ['tiktok-shop','TikTok Shop',1],
+    ['atendimento','Atendimento',1],
+    ['reserva-outras-origens','Reserva / outras origens',0]
+  ];
+  const templatePct=(amount,goal)=>{
+    if(!(goal>0))return '';
+    const n=Math.round(Number(amount||0)/goal*1000)/10;
+    return ' [['+String(n).replace('.',',').replace(/,0$/,'')+'%]]';
+  };
+  const templateTitle=(name,value,goal,known=true)=>{
+    return !known||!(goal>0)?name+' — a definir':name+' — '+brl(value||0)+templatePct(value,goal);
+  };
+  const templateMeta=(level,amount)=>'Meta '+level+' — '+(amount>0?brl(amount):'a definir');
+  const templateChannels=(rows,catalog)=>{
+    const names=new Map((catalog||[]).map(ch=>[ch.slug,ch.nome]));
+    const result=TEMPLATE_CHANNELS.map(([slug,name,cor])=>({slug,name:names.get(slug)||name,cor}));
+    for(const g of rows||[]){
+      if(result.some(ch=>ch.slug===g.channel_slug))continue;
+      if([g.meta1,g.meta2,g.meta3,g.investimento_previsto].some(v=>Number(v||0)>0))
+        result.push({slug:g.channel_slug,name:names.get(g.channel_slug)||g.channel_slug,cor:0});
+    }
+    return result;
+  };
+  function monthlyPlanningTemplate(brand,ref,month,rows=[],catalog=[]){
+    const [,mm]=ref.split('-').map(Number),goals=new Map(rows.map(g=>[g.channel_slug,g]));
+    const channels=templateChannels(rows,catalog),nos=[],bindings={metas:{},channels:[],branches:{}};
+    let next=1;
+    const add=(pai,t,cor=0,fech=true)=>{
+      const id=next++,parent=nos.find(n=>n.id===pai);
+      const depth=parent?Math.max(0,Math.round((parent.x-4500)/260))+1:0;
+      nos.push({id,pai,t,cor,x:4500+depth*260,y:3000+nos.length*18,fech});
+      return id;
+    };
+    const root=add(null,String(brand).toUpperCase()+' — '+planningMonthLabel(ref),0,false);
+    const goalsBranch=add(root,'1. METAS DO MÊS',6,false);
+    for(const level of [1,2,3,4]){
+      const amount=level===4?0:Number(month?.['meta'+level]||0);
+      const meta=add(goalsBranch,level===4?'Meta Sonho — a definir':templateMeta(level,amount),1,level!==1);
+      if(level<4)bindings.metas[level]=String(meta);
+      const byChannel=add(meta,'Distribuição por canal',6,true);
+      const byCampaign=add(meta,'Distribuição por campanha',6,true);
+      bindings.branches[level]={channels:String(byChannel),campaigns:String(byCampaign)};
+      for(const ch of channels){
+        const row=goals.get(ch.slug),value=level===4?0:Number(row?.['meta'+level]||0);
+        const title=level===4?ch.name+' — a definir':templateTitle(ch.name,value,amount,!!row);
+        const channel=add(byChannel,title,ch.cor,true);
+        const details=add(channel,'Detalhes + KPIs',ch.cor,true);
+        const finance=add(details,'Meta financeira: '+(level===4||!row?'a definir':brl(value)),0,true);
+        const investment=add(details,'Investimento previsto: '+(!row||level===4?'a definir':brl(row.investimento_previsto||0)),0,true);
+        add(details,'KPIs: a definir conforme a estratégia do canal',0,true);
+        add(details,'Responsável: a definir',0,true);
+        if(level<4)bindings.channels.push({level,slug:ch.slug,name:ch.name,node:String(channel),finance:String(finance),investment:String(investment)});
+      }
+      const perp=add(byCampaign,'Perpétuo — a definir',6,true);
+      const investment=add(perp,'Investimento de mídia — a definir',0,true);
+      add(investment,'Meta Ads — a definir',0,true);
+      add(investment,'Google — a definir',0,true);
+      add(investment,'Lives — a definir',0,true);
+      add(investment,'ROAS KPI — a definir',0,true);
+      const punctual=add(byCampaign,'Campanhas pontuais — a definir',6,true);
+      const placeholder=add(punctual,'Campanha pontual — a definir',6,true);
+      const origin=add(placeholder,'Origem do faturamento [[100%]]',6,true);
+      for(const ch of channels)add(origin,ch.name+' — a definir',ch.cor,true);
+      const offer=add(placeholder,'Oferta',3,true);
+      add(offer,'Condições, bônus, investimento e datas — a definir',0,true);
+    }
+    return {v:2,layout:'direita',prox:next,proxItem:1,itens:[],
+      nome:'Planejamento ['+MONTH_NAMES[mm-1]+'-'+String(brand).toUpperCase()+']',
+      templateVersion:1,templateBindings:bindings,nos};
+  }
+  async function synchronizeMonthlyTemplate(ctx,goals,month){
+    const state=ctx?.map?.estado;
+    if(Number(state?.templateVersion||0)!==1||!state?.templateBindings)return;
+    const bindings=state.templateBindings,rows=new Map(goals.map(g=>[g.channel_slug,g]));
+    const {data:existing,error}=await ctx.s.from('planning_map_nodes').select('*')
+      .eq('map_id',ctx.map.id).is('arquivado_em',null);
+    if(error)throw error;
+    const nodes=new Map((existing||[]).map(n=>[String(n.node_key),n])),updates=new Map();
+    const put=(key,title,prefix)=>{
+      const old=nodes.get(String(key));
+      if(!old||!String(old.texto||'').startsWith(prefix)||String(old.texto).includes('|')||String(old.texto).includes('\n'))return;
+      if(old.texto===title)return;
+      updates.set(String(key),{map_id:old.map_id,node_key:old.node_key,parent_key:old.parent_key,
+        texto:title,x:old.x,y:old.y,cor:old.cor,aberto:old.aberto,campaign_id:old.campaign_id,
+        origem:'interface',arquivado_em:null,atualizado_em:new Date().toISOString()});
+    };
+    for(const level of [1,2,3]){
+      const total=Number(month['meta'+level]||0);
+      put(bindings.metas[level],templateMeta(level,total),'Meta '+level+' —');
+      for(const ch of bindings.channels){
+        if(ch.level!==level)continue;
+        const row=rows.get(ch.slug),goal=Number(row?.['meta'+level]||0);
+        put(ch.node,templateTitle(ch.name,goal,total,!!row),ch.name+' —');
+        put(ch.finance,'Meta financeira: '+(row?brl(goal):'a definir'),'Meta financeira:');
+        put(ch.investment,'Investimento previsto: '+(row?brl(row.investimento_previsto||0):'a definir'),'Investimento previsto:');
+      }
+    }
+    if(!updates.size)return;
+    const save=await ctx.s.from('planning_map_nodes').upsert([...updates.values()],{onConflict:'map_id,node_key'});
+    if(save.error)throw save.error;
+    const touch=await ctx.s.from('planning_maps').update({atualizado_em:new Date().toISOString(),origem:'interface'}).eq('id',ctx.map.id);
+    if(touch.error)throw touch.error;
+    await hydrateCanonicalMap({silent:true,monthRef:month.ref});
   }
   function ensureLocalMonthMapIsolation(brand,ref){
     if(!brand||!validMonthRef(ref))return false;
@@ -631,7 +791,14 @@
         window.showToast?.('Já existe um planejamento em '+planningMonthLabel(ref)+'. Ele foi aberto sem alterar o mapa anterior.');
         return true;
       }
-      const map=blankPlanningMap(brand,ref);
+      const [{data:financialRows,error:goalsError},{data:catalog,error:catalogError}]=await Promise.all([
+        ctx.s.from('planning_month_channel_goals').select('channel_slug,meta1,meta2,meta3,investimento_previsto')
+          .eq('month_id',ctx.month.id).is('arquivado_em',null),
+        ctx.s.from('alliance_channels').select('slug,nome').eq('ativo',true)
+      ]);
+      if(goalsError)throw goalsError;
+      if(catalogError)throw catalogError;
+      const map=monthlyPlanningTemplate(brand,ref,ctx.month,financialRows||[],catalog||[]);
       localStorage.setItem(mapLocalKey(brand,ref),JSON.stringify(map));
       await saveCanonicalMapNow(map,brand,ref);
       window.MapaMental?.recarregar?.();
@@ -766,6 +933,14 @@
             ticket_medio_previsto:Number(layer.querySelector('.alliance-goals-general [name="ticket_medio_previsto"]')?.value||0),
             atualizado_em:now,origem:'interface'
           };
+          const planned=[...layer.querySelectorAll('[data-channel-row]')];
+          for(const level of [1,2,3]){
+            const total=planned.reduce((sum,row)=>sum+Number(row.querySelector('[name="meta'+level+'"]')?.value||0),0);
+            const expected=Number(payload['meta'+level]||0);
+            if(total>0&&Math.abs(total-expected)>.01){
+              throw new Error('Meta '+level+': a soma dos canais ('+brl(total)+') precisa ser igual à meta geral ('+brl(expected)+'). Complete ou ajuste os canais antes de salvar.');
+            }
+          }
           const upd=await ctx.s.from('planning_months').update(payload).eq('id',ctx.month.id).select('*').single();
           if(upd.error)throw upd.error;
           const rows=[...layer.querySelectorAll('[data-channel-row]')].map(row=>({
@@ -780,6 +955,10 @@
             const up=await ctx.s.from('planning_month_channel_goals').upsert(rows,{onConflict:'month_id,channel_slug'});
             if(up.error)throw up.error;
           }
+          try{
+            const current=await canonicalMapContext(brand,{monthRef:ref});
+            if(current?.map)await synchronizeMonthlyTemplate(current,rows,{...payload,ref});
+          }catch(syncErr){console.warn('[AllianceOS template mensal] sincronização pendente',syncErr)}
           closePlanningGoalsDialog();
           await refreshPlanningMonthMetrics(ref);
           refreshConsistency();
